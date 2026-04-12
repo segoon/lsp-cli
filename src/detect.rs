@@ -183,6 +183,40 @@ mod tests {
     }
 
     #[test]
+    fn detects_objective_c_files() {
+        let dir = TestDir::new();
+        dir.write_file("src/main.m");
+
+        let detection = detect_workspace(dir.path(), &[filetype("objc", &["m"], &[])])
+            .expect("scan should succeed");
+
+        assert_eq!(detection.filetypes, BTreeSet::from(["objc".to_string()]));
+    }
+
+    #[test]
+    fn detects_objective_cpp_files() {
+        let dir = TestDir::new();
+        dir.write_file("src/main.mm");
+
+        let detection = detect_workspace(dir.path(), &[filetype("objcpp", &["mm"], &[])])
+            .expect("scan should succeed");
+
+        assert_eq!(detection.filetypes, BTreeSet::from(["objcpp".to_string()]));
+    }
+
+    #[test]
+    fn detects_cuda_files() {
+        let dir = TestDir::new();
+        dir.write_file("src/kernel.cu");
+        dir.write_file("include/kernel.cuh");
+
+        let detection = detect_workspace(dir.path(), &[filetype("cuda", &["cu", "cuh"], &[])])
+            .expect("scan should succeed");
+
+        assert_eq!(detection.filetypes, BTreeSet::from(["cuda".to_string()]));
+    }
+
+    #[test]
     fn scans_nested_directories() {
         let dir = TestDir::new();
         dir.write_file("deeply/nested/project/source.cxx");

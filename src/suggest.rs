@@ -105,7 +105,13 @@ mod tests {
 
     fn clangd() -> LspConfig {
         LspConfig {
-            filetypes: vec!["c".to_string(), "cpp".to_string()],
+            filetypes: vec![
+                "c".to_string(),
+                "cpp".to_string(),
+                "objc".to_string(),
+                "objcpp".to_string(),
+                "cuda".to_string(),
+            ],
             root_markers: vec!["compile_commands.json".to_string(), ".git".to_string()],
             name: "clangd".to_string(),
             cmdline: "clangd --background-index $WORKSPACE".to_string(),
@@ -209,6 +215,51 @@ mod tests {
             suggestions[0].languages,
             vec!["c".to_string(), "cpp".to_string()]
         );
+    }
+
+    #[test]
+    fn suggests_clangd_for_objective_c() {
+        let suggestions = suggestions_for(
+            &[clangd()],
+            &DetectionResult {
+                filetypes: BTreeSet::from(["objc".to_string()]),
+                filenames: BTreeSet::new(),
+            },
+            Path::new("."),
+        )
+        .expect("suggestions should succeed");
+
+        assert_eq!(suggestions[0].languages, vec!["objc".to_string()]);
+    }
+
+    #[test]
+    fn suggests_clangd_for_objective_cpp() {
+        let suggestions = suggestions_for(
+            &[clangd()],
+            &DetectionResult {
+                filetypes: BTreeSet::from(["objcpp".to_string()]),
+                filenames: BTreeSet::new(),
+            },
+            Path::new("."),
+        )
+        .expect("suggestions should succeed");
+
+        assert_eq!(suggestions[0].languages, vec!["objcpp".to_string()]);
+    }
+
+    #[test]
+    fn suggests_clangd_for_cuda() {
+        let suggestions = suggestions_for(
+            &[clangd()],
+            &DetectionResult {
+                filetypes: BTreeSet::from(["cuda".to_string()]),
+                filenames: BTreeSet::new(),
+            },
+            Path::new("."),
+        )
+        .expect("suggestions should succeed");
+
+        assert_eq!(suggestions[0].languages, vec!["cuda".to_string()]);
     }
 
     #[test]

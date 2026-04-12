@@ -1,0 +1,7 @@
+filetypes:
+  - "php"
+root_markers:
+  - "psalm.xml"
+  - "psalm.xml.dist"
+name: "psalm"
+cmdline: "psalm --language-server"

@@ -1,0 +1,8 @@
+filetypes:
+  - "vhd"
+  - "vhdl"
+root_markers:
+  - "vhdl_ls.toml"
+  - ".vhdl_ls.toml"
+name: "vhdl_ls"
+cmdline: "vhdl_ls"

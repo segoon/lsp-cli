@@ -1,0 +1,5 @@
+filetypes:
+  - "cs"
+root_markers: []
+name: "dotnet"
+cmdline: "dotnet '<my_folder>/Microsoft.CodeAnalysis.LanguageServer.dll' --logLevel Information --extensionLogDirectory roslyn_ls/logs --stdio"

@@ -1,0 +1,7 @@
+filetypes:
+  - "muttrc"
+  - "neomuttrc"
+root_markers:
+  - ".git"
+name: "mutt-language-server"
+cmdline: "mutt-language-server"

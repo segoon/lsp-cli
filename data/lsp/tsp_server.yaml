@@ -1,0 +1,7 @@
+filetypes:
+  - "typespec"
+root_markers:
+  - "tspconfig.yaml"
+  - ".git"
+name: "tsp-server"
+cmdline: "tsp-server --stdio"

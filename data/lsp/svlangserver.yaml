@@ -1,0 +1,8 @@
+filetypes:
+  - "verilog"
+  - "systemverilog"
+root_markers:
+  - ".svlangserver"
+  - ".git"
+name: "svlangserver"
+cmdline: "svlangserver"

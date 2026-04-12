@@ -1,0 +1,7 @@
+filetypes:
+  - "tablegen"
+root_markers:
+  - "tablegen_compile_commands.yml"
+  - ".git"
+name: "tblgen-lsp-server"
+cmdline: "tblgen-lsp-server"

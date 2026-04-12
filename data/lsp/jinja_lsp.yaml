@@ -1,0 +1,6 @@
+filetypes:
+  - "jinja"
+root_markers:
+  - ".git"
+name: "jinja-lsp"
+cmdline: "jinja-lsp"

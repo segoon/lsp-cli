@@ -1,0 +1,8 @@
+filetypes:
+  - "rust"
+root_markers:
+  - "Cargo.toml"
+  - "rust-project.json"
+  - ".git"
+name: "rust-analyzer"
+cmdline: "rust-analyzer"

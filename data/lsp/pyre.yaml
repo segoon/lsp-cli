@@ -1,0 +1,6 @@
+filetypes:
+  - "python"
+root_markers:
+  - ".pyre_configuration"
+name: "pyre"
+cmdline: "pyre persistent"

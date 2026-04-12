@@ -1,0 +1,7 @@
+filetypes:
+  - "ncl"
+  - "nickel"
+root_markers:
+  - ".git"
+name: "nls"
+cmdline: "nls"

@@ -1,0 +1,8 @@
+filetypes:
+  - "python"
+root_markers:
+  - "pyproject.toml"
+  - "ruff.toml"
+  - ".git"
+name: "ruff-lsp"
+cmdline: "ruff-lsp"

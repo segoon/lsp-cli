@@ -1,0 +1,9 @@
+filetypes:
+  - "javascript"
+  - "javascriptreact"
+  - "typescript"
+  - "typescriptreact"
+root_markers:
+  - "package.json"
+name: "cssmodules-language-server"
+cmdline: "cssmodules-language-server"

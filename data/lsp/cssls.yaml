@@ -1,0 +1,9 @@
+filetypes:
+  - "css"
+  - "scss"
+  - "less"
+root_markers:
+  - "package.json"
+  - ".git"
+name: "vscode-css-language-server"
+cmdline: "vscode-css-language-server --stdio"

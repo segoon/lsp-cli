@@ -1,0 +1,7 @@
+filetypes:
+  - "qml"
+  - "qmljs"
+root_markers:
+  - ".git"
+name: "qmlls"
+cmdline: "qmlls"

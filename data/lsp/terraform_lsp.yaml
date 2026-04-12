@@ -1,0 +1,8 @@
+filetypes:
+  - "terraform"
+  - "hcl"
+root_markers:
+  - ".terraform"
+  - ".git"
+name: "terraform-lsp"
+cmdline: "terraform-lsp"

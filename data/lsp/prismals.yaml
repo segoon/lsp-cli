@@ -1,0 +1,7 @@
+filetypes:
+  - "prisma"
+root_markers:
+  - ".git"
+  - "package.json"
+name: "prisma-language-server"
+cmdline: "prisma-language-server --stdio"

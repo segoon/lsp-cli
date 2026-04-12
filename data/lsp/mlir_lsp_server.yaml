@@ -1,0 +1,6 @@
+filetypes:
+  - "mlir"
+root_markers:
+  - ".git"
+name: "mlir-lsp-server"
+cmdline: "mlir-lsp-server"

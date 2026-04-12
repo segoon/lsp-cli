@@ -1,0 +1,7 @@
+filetypes:
+  - "cue"
+root_markers:
+  - "cue.mod"
+  - ".git"
+name: "cue"
+cmdline: "cue lsp"

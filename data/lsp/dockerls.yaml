@@ -1,0 +1,6 @@
+filetypes:
+  - "dockerfile"
+root_markers:
+  - "Dockerfile"
+name: "docker-langserver"
+cmdline: "docker-langserver --stdio"

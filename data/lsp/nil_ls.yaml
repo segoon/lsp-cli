@@ -1,0 +1,7 @@
+filetypes:
+  - "nix"
+root_markers:
+  - "flake.nix"
+  - ".git"
+name: "nil"
+cmdline: "nil"

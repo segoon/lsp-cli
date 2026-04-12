@@ -1,0 +1,7 @@
+filetypes:
+  - "helm"
+  - "yaml.helm-values"
+root_markers:
+  - "Chart.yaml"
+name: "helm_ls"
+cmdline: "helm_ls serve"

@@ -1,0 +1,8 @@
+filetypes:
+  - "ruby"
+root_markers:
+  - ".streerc"
+  - "Gemfile"
+  - ".git"
+name: "stree"
+cmdline: "stree lsp"

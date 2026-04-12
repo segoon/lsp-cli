@@ -1,0 +1,6 @@
+filetypes:
+  - "fsd"
+root_markers:
+  - ".git"
+name: "facility-language-server"
+cmdline: "facility-language-server"

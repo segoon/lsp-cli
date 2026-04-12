@@ -1,0 +1,6 @@
+filetypes:
+  - "perl"
+root_markers:
+  - ".git"
+name: "perl"
+cmdline: "perl -MPerl::LanguageServer -e Perl::LanguageServer::run -- '--port 13603' '--nostdio 0'"

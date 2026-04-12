@@ -1,0 +1,6 @@
+filetypes:
+  - "nu"
+root_markers:
+  - ".git"
+name: "nu"
+cmdline: "nu --lsp"

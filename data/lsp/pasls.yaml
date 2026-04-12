@@ -1,0 +1,8 @@
+filetypes:
+  - "pascal"
+root_markers:
+  - "*.lpi"
+  - "*.lpk"
+  - ".git"
+name: "pasls"
+cmdline: "pasls"

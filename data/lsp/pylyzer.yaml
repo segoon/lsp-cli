@@ -1,0 +1,11 @@
+filetypes:
+  - "python"
+root_markers:
+  - "setup.py"
+  - "tox.ini"
+  - "requirements.txt"
+  - "Pipfile"
+  - "pyproject.toml"
+  - ".git"
+name: "pylyzer"
+cmdline: "pylyzer --server"

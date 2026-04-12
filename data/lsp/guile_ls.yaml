@@ -1,0 +1,7 @@
+filetypes:
+  - "scheme.guile"
+root_markers:
+  - "guix.scm"
+  - ".git"
+name: "guile-lsp-server"
+cmdline: "guile-lsp-server"

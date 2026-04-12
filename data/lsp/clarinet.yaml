@@ -1,0 +1,7 @@
+filetypes:
+  - "clar"
+  - "clarity"
+root_markers:
+  - "Clarinet.toml"
+name: "clarinet"
+cmdline: "clarinet lsp"

@@ -1,0 +1,6 @@
+filetypes:
+  - "koka"
+root_markers:
+  - ".git"
+name: "koka"
+cmdline: "koka --language-server --lsstdio"

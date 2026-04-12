@@ -1,0 +1,7 @@
+filetypes:
+  - "vhdl"
+root_markers:
+  - "hdl-prj.json"
+  - ".git"
+name: "ghdl-ls"
+cmdline: "ghdl-ls"

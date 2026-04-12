@@ -1,0 +1,8 @@
+filetypes:
+  - "terraform"
+root_markers:
+  - ".terraform"
+  - ".git"
+  - ".tflint.hcl"
+name: "tflint"
+cmdline: "tflint --langserver"

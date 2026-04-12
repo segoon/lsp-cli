@@ -1,0 +1,6 @@
+filetypes:
+  - "fstar"
+root_markers:
+  - ".git"
+name: "fstar.exe"
+cmdline: "fstar.exe --lsp"

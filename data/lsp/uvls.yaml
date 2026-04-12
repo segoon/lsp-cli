@@ -1,0 +1,6 @@
+filetypes:
+  - "uvl"
+root_markers:
+  - ".git"
+name: "uvls"
+cmdline: "uvls"

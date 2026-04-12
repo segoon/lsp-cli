@@ -1,0 +1,7 @@
+filetypes:
+  - "sql"
+  - "mysql"
+root_markers:
+  - ".sqllsrc.json"
+name: "sql-language-server"
+cmdline: "sql-language-server up --method stdio"

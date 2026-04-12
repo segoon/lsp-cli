@@ -1,0 +1,6 @@
+filetypes:
+  - "vim"
+root_markers:
+  - ".git"
+name: "vim-language-server"
+cmdline: "vim-language-server --stdio"

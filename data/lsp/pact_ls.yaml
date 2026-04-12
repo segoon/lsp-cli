@@ -1,0 +1,6 @@
+filetypes:
+  - "pact"
+root_markers:
+  - ".git"
+name: "pact-lsp"
+cmdline: "pact-lsp"

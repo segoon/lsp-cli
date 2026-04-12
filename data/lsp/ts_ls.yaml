@@ -1,0 +1,16 @@
+filetypes:
+  - "javascript"
+  - "javascriptreact"
+  - "typescript"
+  - "typescriptreact"
+root_markers:
+  - "package-lock.json"
+  - "yarn.lock"
+  - "pnpm-lock.yaml"
+  - "bun.lockb"
+  - "bun.lock"
+  - "deno.json"
+  - "deno.jsonc"
+  - "deno.lock"
+name: "typescript-language-server"
+cmdline: "typescript-language-server --stdio"

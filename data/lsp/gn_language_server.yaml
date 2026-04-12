@@ -1,0 +1,7 @@
+filetypes:
+  - "gn"
+root_markers:
+  - ".gn"
+  - ".git"
+name: "gn-language-server"
+cmdline: "gn-language-server --stdio"

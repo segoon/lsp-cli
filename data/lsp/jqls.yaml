@@ -1,0 +1,6 @@
+filetypes:
+  - "jq"
+root_markers:
+  - ".git"
+name: "jq-lsp"
+cmdline: "jq-lsp"

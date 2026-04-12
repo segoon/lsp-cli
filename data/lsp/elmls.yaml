@@ -1,0 +1,5 @@
+filetypes:
+  - "elm"
+root_markers: []
+name: "elm-language-server"
+cmdline: "elm-language-server"

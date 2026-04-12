@@ -1,0 +1,6 @@
+filetypes:
+  - "wgsl"
+root_markers:
+  - ".git"
+name: "wgsl-analyzer"
+cmdline: "wgsl-analyzer"

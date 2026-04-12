@@ -1,0 +1,6 @@
+filetypes:
+  - "ziggy_schema"
+root_markers:
+  - ".git"
+name: "ziggy"
+cmdline: "ziggy lsp --schema"

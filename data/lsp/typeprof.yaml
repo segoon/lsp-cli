@@ -1,0 +1,8 @@
+filetypes:
+  - "ruby"
+  - "eruby"
+root_markers:
+  - "Gemfile"
+  - ".git"
+name: "typeprof"
+cmdline: "typeprof --lsp --stdio"

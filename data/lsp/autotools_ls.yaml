@@ -1,0 +1,7 @@
+filetypes:
+  - "config"
+  - "automake"
+  - "make"
+root_markers: []
+name: "autotools-language-server"
+cmdline: "autotools-language-server"

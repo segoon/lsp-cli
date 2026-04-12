@@ -1,0 +1,15 @@
+filetypes:
+  - "lua"
+root_markers:
+  - ".emmyrc.json"
+  - ".luarc.json"
+  - ".luarc.jsonc"
+  - ".luacheckrc"
+  - ".stylua.toml"
+  - "stylua.toml"
+  - "selene.toml"
+  - "selene.yml"
+  - "nvim-0.11.3"
+  - ".git"
+name: "lua-language-server"
+cmdline: "lua-language-server"

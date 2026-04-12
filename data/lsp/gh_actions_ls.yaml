@@ -1,0 +1,5 @@
+filetypes:
+  - "yaml"
+root_markers: []
+name: "gh-actions-language-server"
+cmdline: "gh-actions-language-server --stdio"

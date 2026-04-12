@@ -1,0 +1,6 @@
+filetypes:
+  - "sls"
+root_markers:
+  - ".git"
+name: "salt_lsp_server"
+cmdline: "salt_lsp_server"

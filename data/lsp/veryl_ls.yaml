@@ -1,0 +1,6 @@
+filetypes:
+  - "veryl"
+root_markers:
+  - ".git"
+name: "veryl-ls"
+cmdline: "veryl-ls"

@@ -1,0 +1,7 @@
+filetypes:
+  - "rust"
+root_markers:
+  - ".bacon-locations"
+  - "Cargo.toml"
+name: "bacon-ls"
+cmdline: "bacon-ls"

@@ -1,0 +1,10 @@
+filetypes:
+  - "graphql"
+  - "typescriptreact"
+  - "javascriptreact"
+root_markers:
+  - ".graphqlrc*"
+  - ".graphql.config.*"
+  - "graphql.config.*"
+name: "graphql-lsp"
+cmdline: "graphql-lsp server -m stream"

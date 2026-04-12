@@ -1,0 +1,7 @@
+filetypes:
+  - "lua"
+root_markers:
+  - ".stylua.toml"
+  - "stylua.toml"
+name: "stylua-3p-language-server"
+cmdline: "stylua-3p-language-server"

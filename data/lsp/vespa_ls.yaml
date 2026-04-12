@@ -1,0 +1,8 @@
+filetypes:
+  - "sd"
+  - "profile"
+  - "yql"
+root_markers:
+  - ".git"
+name: "java"
+cmdline: "java -jar /path/to/vespa-language-server.jar"

@@ -1,0 +1,7 @@
+filetypes:
+  - "yar"
+  - "yara"
+root_markers:
+  - ".git"
+name: "yls"
+cmdline: "yls -vv"

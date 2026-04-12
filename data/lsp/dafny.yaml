@@ -1,0 +1,7 @@
+filetypes:
+  - "dfy"
+  - "dafny"
+root_markers:
+  - ".git"
+name: "dotnet"
+cmdline: "dotnet '<Path to your language server>'"

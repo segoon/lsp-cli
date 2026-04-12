@@ -1,4 +1,4 @@
 extensions:
-  - c
-  - h
+  - "c"
+  - "h"
 patterns: []

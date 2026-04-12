@@ -1,0 +1,6 @@
+filetypes:
+  - "rust"
+root_markers:
+  - "Cargo.toml"
+name: "rustup"
+cmdline: "rustup run nightly rls"

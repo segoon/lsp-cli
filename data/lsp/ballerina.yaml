@@ -1,0 +1,6 @@
+filetypes:
+  - "ballerina"
+root_markers:
+  - "Ballerina.toml"
+name: "bal"
+cmdline: "bal start-language-server"

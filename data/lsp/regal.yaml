@@ -1,0 +1,6 @@
+filetypes:
+  - "rego"
+root_markers:
+  - ".git"
+name: "regal"
+cmdline: "regal language-server"

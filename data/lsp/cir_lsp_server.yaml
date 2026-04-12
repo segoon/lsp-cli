@@ -1,0 +1,6 @@
+filetypes:
+  - "cir"
+root_markers:
+  - ".git"
+name: "cir-lsp-server"
+cmdline: "cir-lsp-server"

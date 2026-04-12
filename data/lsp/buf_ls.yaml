@@ -1,0 +1,8 @@
+filetypes:
+  - "proto"
+  - "buf-config"
+root_markers:
+  - "buf.yaml"
+  - ".git"
+name: "buf"
+cmdline: "buf lsp serve --log-format=text"

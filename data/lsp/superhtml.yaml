@@ -1,0 +1,6 @@
+filetypes:
+  - "superhtml"
+root_markers:
+  - ".git"
+name: "superhtml"
+cmdline: "superhtml lsp"

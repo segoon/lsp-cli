@@ -1,0 +1,6 @@
+filetypes:
+  - "ungrammar"
+root_markers:
+  - ".git"
+name: "ungrammar-languageserver"
+cmdline: "ungrammar-languageserver --stdio"

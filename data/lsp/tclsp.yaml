@@ -1,0 +1,12 @@
+filetypes:
+  - "tcl"
+  - "sdc"
+  - "xdc"
+  - "upf"
+root_markers:
+  - "tclint.toml"
+  - ".tclint"
+  - "pyproject.toml"
+  - ".git"
+name: "tclsp"
+cmdline: "tclsp"

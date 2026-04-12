@@ -1,0 +1,6 @@
+filetypes:
+  - "unison"
+root_markers:
+  - "*.u"
+name: "nc"
+cmdline: "nc localhost UNISON_LSP_PORT 5757"

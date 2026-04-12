@@ -1,0 +1,11 @@
+filetypes:
+  - "html"
+  - "ruby"
+  - "eruby"
+  - "blade"
+  - "php"
+root_markers:
+  - "Gemfile"
+  - ".git"
+name: "turbo-language-server"
+cmdline: "turbo-language-server --stdio"

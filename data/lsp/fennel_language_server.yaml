@@ -1,0 +1,6 @@
+filetypes:
+  - "fennel"
+root_markers:
+  - ".git"
+name: "fennel-language-server"
+cmdline: "fennel-language-server"

@@ -1,0 +1,7 @@
+filetypes:
+  - "beancount"
+  - "bean"
+root_markers:
+  - ".git"
+name: "beancount-language-server"
+cmdline: "beancount-language-server --stdio"

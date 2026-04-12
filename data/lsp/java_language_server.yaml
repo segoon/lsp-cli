@@ -1,0 +1,9 @@
+filetypes:
+  - "java"
+root_markers:
+  - "build.gradle"
+  - "build.gradle.kts"
+  - "pom.xml"
+  - ".git"
+name: "java-language-server"
+cmdline: "java-language-server"

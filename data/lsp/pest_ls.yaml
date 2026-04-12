@@ -1,0 +1,6 @@
+filetypes:
+  - "pest"
+root_markers:
+  - ".git"
+name: "pest-language-server"
+cmdline: "pest-language-server"

@@ -1,0 +1,6 @@
+filetypes:
+  - "prolog"
+root_markers:
+  - "pack.pl"
+name: "swipl"
+cmdline: "swipl -g 'use_module(library(lsp_server)).' -g lsp_server:main -t halt -- stdio"

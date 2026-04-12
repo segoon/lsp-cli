@@ -1,0 +1,7 @@
+filetypes:
+  - "yaml.gitlab"
+root_markers:
+  - ".git"
+  - ".gitlab*"
+name: "gitlab-ci-ls"
+cmdline: "gitlab-ci-ls"

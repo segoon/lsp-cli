@@ -1,0 +1,6 @@
+filetypes:
+  - "sml"
+root_markers:
+  - "millet.toml"
+name: "millet"
+cmdline: "millet"

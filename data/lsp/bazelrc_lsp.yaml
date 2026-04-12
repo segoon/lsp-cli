@@ -1,0 +1,8 @@
+filetypes:
+  - "bazelrc"
+root_markers:
+  - "WORKSPACE"
+  - "WORKSPACE.bazel"
+  - "MODULE.bazel"
+name: "bazelrc-lsp"
+cmdline: "bazelrc-lsp lsp"

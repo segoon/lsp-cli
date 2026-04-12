@@ -1,0 +1,7 @@
+filetypes:
+  - "yaml.ansible"
+root_markers:
+  - "ansible.cfg"
+  - ".ansible-lint"
+name: "ansible-language-server"
+cmdline: "ansible-language-server --stdio"

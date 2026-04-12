@@ -1,0 +1,6 @@
+filetypes:
+  - "markdown"
+root_markers:
+  - ".git"
+name: "rumdl"
+cmdline: "rumdl server"

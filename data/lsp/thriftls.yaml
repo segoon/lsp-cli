@@ -1,0 +1,6 @@
+filetypes:
+  - "thrift"
+root_markers:
+  - ".thrift"
+name: "thriftls"
+cmdline: "thriftls"

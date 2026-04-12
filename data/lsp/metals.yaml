@@ -1,0 +1,10 @@
+filetypes:
+  - "scala"
+root_markers:
+  - "build.sbt"
+  - "build.sc"
+  - "build.gradle"
+  - "build.gradle.kts"
+  - "pom.xml"
+name: "metals"
+cmdline: "metals"

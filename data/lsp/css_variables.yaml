@@ -1,0 +1,12 @@
+filetypes:
+  - "css"
+  - "scss"
+  - "less"
+root_markers:
+  - "package-lock.json"
+  - "yarn.lock"
+  - "pnpm-lock.yaml"
+  - "bun.lockb"
+  - "bun.lock"
+name: "css-variables-language-server"
+cmdline: "css-variables-language-server --stdio"

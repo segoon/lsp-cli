@@ -1,0 +1,7 @@
+filetypes:
+  - "crystal"
+root_markers:
+  - "shard.yml"
+  - ".git"
+name: "scry"
+cmdline: "scry"

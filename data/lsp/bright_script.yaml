@@ -1,0 +1,8 @@
+filetypes:
+  - "brs"
+root_markers:
+  - "makefile"
+  - "Makefile"
+  - ".git"
+name: "bsc"
+cmdline: "bsc --lsp --stdio"

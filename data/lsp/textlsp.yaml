@@ -1,0 +1,8 @@
+filetypes:
+  - "text"
+  - "tex"
+  - "org"
+root_markers:
+  - ".git"
+name: "textlsp"
+cmdline: "textlsp"

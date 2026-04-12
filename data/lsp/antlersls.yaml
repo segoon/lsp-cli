@@ -1,0 +1,7 @@
+filetypes:
+  - "html"
+  - "antlers"
+root_markers:
+  - "composer.json"
+name: "antlersls"
+cmdline: "antlersls --stdio"

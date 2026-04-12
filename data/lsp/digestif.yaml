@@ -1,0 +1,8 @@
+filetypes:
+  - "tex"
+  - "plaintex"
+  - "context"
+root_markers:
+  - ".git"
+name: "digestif"
+cmdline: "digestif"

@@ -1,0 +1,10 @@
+filetypes:
+  - "xml"
+  - "xsd"
+  - "xsl"
+  - "xslt"
+  - "svg"
+root_markers:
+  - ".git"
+name: "lemminx"
+cmdline: "lemminx"

@@ -1,0 +1,7 @@
+filetypes:
+  - "systemverilog"
+  - "verilog"
+root_markers:
+  - ".git"
+name: "veridian"
+cmdline: "veridian"

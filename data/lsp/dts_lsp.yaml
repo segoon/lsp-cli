@@ -1,0 +1,8 @@
+filetypes:
+  - "dts"
+  - "dtsi"
+  - "overlay"
+root_markers:
+  - ".git"
+name: "dts-lsp"
+cmdline: "dts-lsp"

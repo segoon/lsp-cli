@@ -1,0 +1,7 @@
+filetypes:
+  - "yaml"
+root_markers:
+  - "configuration.yaml"
+  - "configuration.yml"
+name: "vscode-home-assistant"
+cmdline: "vscode-home-assistant --stdio"

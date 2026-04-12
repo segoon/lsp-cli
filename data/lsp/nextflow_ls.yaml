@@ -1,0 +1,7 @@
+filetypes:
+  - "nextflow"
+root_markers:
+  - "nextflow.config"
+  - ".git"
+name: "nextflow-language-server"
+cmdline: "nextflow-language-server"

@@ -1,13 +1,16 @@
 filetypes:
-  - c
-  - cpp
+  - "c"
+  - "cpp"
+  - "objc"
+  - "objcpp"
+  - "cuda"
 root_markers:
-  - .clangd
-  - .clang-tidy
-  - .clang-format
-  - compile_commands.json
-  - compile_flags.txt
-  - configure.ac
-  - .git
-name: clangd
-cmdline: clangd --background-index $WORKSPACE
+  - ".clangd"
+  - ".clang-tidy"
+  - ".clang-format"
+  - "compile_commands.json"
+  - "compile_flags.txt"
+  - "configure.ac"
+  - ".git"
+name: "clangd"
+cmdline: "clangd --background-index $WORKSPACE"

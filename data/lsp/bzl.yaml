@@ -1,0 +1,7 @@
+filetypes:
+  - "bzl"
+root_markers:
+  - "WORKSPACE"
+  - "WORKSPACE.bazel"
+name: "bzl"
+cmdline: "bzl lsp serve"

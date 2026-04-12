@@ -1,0 +1,6 @@
+filetypes:
+  - "liquid"
+root_markers:
+  - ".theme-check.yml"
+name: "theme-check-liquid-server"
+cmdline: "theme-check-liquid-server"

@@ -1,0 +1,6 @@
+filetypes:
+  - "dhall"
+root_markers:
+  - ".git"
+name: "dhall-lsp-server"
+cmdline: "dhall-lsp-server"

@@ -1,0 +1,6 @@
+filetypes:
+  - "dot"
+root_markers:
+  - ".git"
+name: "dot-language-server"
+cmdline: "dot-language-server --stdio"

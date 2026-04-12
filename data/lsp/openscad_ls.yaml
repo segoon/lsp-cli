@@ -1,0 +1,6 @@
+filetypes:
+  - "openscad"
+root_markers:
+  - ".git"
+name: "openscad-language-server"
+cmdline: "openscad-language-server"

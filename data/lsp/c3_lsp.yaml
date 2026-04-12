@@ -1,0 +1,9 @@
+filetypes:
+  - "c3"
+  - "c3i"
+root_markers:
+  - "project.json"
+  - "manifest.json"
+  - ".git"
+name: "c3lsp"
+cmdline: "c3lsp"

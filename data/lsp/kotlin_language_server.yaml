@@ -1,0 +1,5 @@
+filetypes:
+  - "kotlin"
+root_markers: []
+name: "kotlin-language-server"
+cmdline: "kotlin-language-server"

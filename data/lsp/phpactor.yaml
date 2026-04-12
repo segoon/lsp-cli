@@ -1,0 +1,9 @@
+filetypes:
+  - "php"
+root_markers:
+  - ".git"
+  - "composer.json"
+  - ".phpactor.json"
+  - ".phpactor.yml"
+name: "phpactor"
+cmdline: "phpactor language-server"

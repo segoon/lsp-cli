@@ -1,0 +1,10 @@
+filetypes:
+  - "typescript"
+  - "html"
+  - "typescriptreact"
+  - "htmlangular"
+root_markers:
+  - "angular.json"
+  - "nx.json"
+name: "ngserver"
+cmdline: "ngserver --stdio --tsProbeLocations --ngProbeLocations"

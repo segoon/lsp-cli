@@ -1,0 +1,8 @@
+filetypes:
+  - "toml"
+root_markers:
+  - "tombi.toml"
+  - "pyproject.toml"
+  - ".git"
+name: "tombi"
+cmdline: "tombi lsp"

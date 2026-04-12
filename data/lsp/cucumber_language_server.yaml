@@ -1,0 +1,6 @@
+filetypes:
+  - "cucumber"
+root_markers:
+  - ".git"
+name: "cucumber-language-server"
+cmdline: "cucumber-language-server --stdio"

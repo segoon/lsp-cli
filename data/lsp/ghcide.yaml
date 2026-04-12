@@ -1,0 +1,11 @@
+filetypes:
+  - "haskell"
+  - "lhaskell"
+root_markers:
+  - "stack.yaml"
+  - "hie-bios"
+  - "BUILD.bazel"
+  - "cabal.config"
+  - "package.yaml"
+name: "ghcide"
+cmdline: "ghcide --lsp"

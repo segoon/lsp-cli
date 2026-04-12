@@ -1,0 +1,6 @@
+filetypes:
+  - "solidity"
+root_markers:
+  - ".git"
+name: "solang"
+cmdline: "solang language-server --target evm"

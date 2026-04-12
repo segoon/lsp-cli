@@ -1,0 +1,6 @@
+filetypes:
+  - "hoon"
+root_markers:
+  - ".git"
+name: "hoon-language-server"
+cmdline: "hoon-language-server"

@@ -1,0 +1,6 @@
+filetypes:
+  - "mojo"
+root_markers:
+  - ".git"
+name: "mojo-lsp-server"
+cmdline: "mojo-lsp-server"

@@ -1,0 +1,7 @@
+filetypes:
+  - "bicep"
+  - "bicep-params"
+root_markers:
+  - ".git"
+name: "dotnet"
+cmdline: "dotnet"

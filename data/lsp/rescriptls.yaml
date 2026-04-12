@@ -1,0 +1,8 @@
+filetypes:
+  - "rescript"
+root_markers:
+  - "bsconfig.json"
+  - "rescript.json"
+  - ".git"
+name: "rescript-language-server"
+cmdline: "rescript-language-server --stdio"

@@ -1,0 +1,8 @@
+filetypes:
+  - "star"
+  - "bzl"
+  - "BUILD.bazel"
+root_markers:
+  - ".git"
+name: "starlark"
+cmdline: "starlark --lsp"

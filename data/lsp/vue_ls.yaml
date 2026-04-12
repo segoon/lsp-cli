@@ -1,0 +1,6 @@
+filetypes:
+  - "vue"
+root_markers:
+  - "package.json"
+name: "vue-language-server"
+cmdline: "vue-language-server --stdio"

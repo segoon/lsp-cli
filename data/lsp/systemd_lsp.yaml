@@ -1,0 +1,5 @@
+filetypes:
+  - "systemd"
+root_markers: []
+name: "systemd-lsp"
+cmdline: "systemd-lsp"

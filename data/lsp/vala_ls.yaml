@@ -1,0 +1,7 @@
+filetypes:
+  - "vala"
+  - "genie"
+root_markers:
+  - ".git"
+name: "vala-language-server"
+cmdline: "vala-language-server"

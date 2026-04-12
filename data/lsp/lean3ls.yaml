@@ -1,0 +1,8 @@
+filetypes:
+  - "lean3"
+root_markers:
+  - "leanpkg.toml"
+  - "leanpkg.path"
+  - ".git"
+name: "lean-language-server"
+cmdline: "lean-language-server --stdio -- -M 4096 -T 100000"

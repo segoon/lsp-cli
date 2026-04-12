@@ -1,0 +1,6 @@
+filetypes:
+  - "yaml"
+root_markers:
+  - ".git"
+name: "hydra-lsp"
+cmdline: "hydra-lsp"

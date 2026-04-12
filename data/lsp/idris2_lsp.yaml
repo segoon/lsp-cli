@@ -1,0 +1,5 @@
+filetypes:
+  - "idris2"
+root_markers: []
+name: "idris2-lsp"
+cmdline: "idris2-lsp"

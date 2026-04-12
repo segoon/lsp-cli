@@ -1,0 +1,7 @@
+filetypes:
+  - "json"
+  - "jsonc"
+root_markers:
+  - ".git"
+name: "vscode-json-language-server"
+cmdline: "vscode-json-language-server --stdio"

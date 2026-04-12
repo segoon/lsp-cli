@@ -1,0 +1,6 @@
+filetypes:
+  - "brioche"
+root_markers:
+  - "project.bri"
+name: "brioche"
+cmdline: "brioche lsp"

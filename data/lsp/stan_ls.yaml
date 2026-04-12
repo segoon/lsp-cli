@@ -1,0 +1,6 @@
+filetypes:
+  - "stan"
+root_markers:
+  - ".git"
+name: "stan-language-server"
+cmdline: "stan-language-server --stdio"

@@ -1,0 +1,6 @@
+filetypes:
+  - "cobol"
+root_markers:
+  - ".git"
+name: "cobol-language-support"
+cmdline: "cobol-language-support"

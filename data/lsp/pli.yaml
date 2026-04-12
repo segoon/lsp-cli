@@ -1,0 +1,6 @@
+filetypes:
+  - "pli"
+root_markers:
+  - ".pliplugin"
+name: "pli_language_server"
+cmdline: "pli_language_server"

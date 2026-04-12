@@ -1,0 +1,8 @@
+filetypes:
+  - "python"
+  - "cpp"
+  - "lua"
+root_markers:
+  - ".git"
+name: "efm-langserver"
+cmdline: "efm-langserver"

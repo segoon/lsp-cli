@@ -1,0 +1,7 @@
+filetypes:
+  - "coq"
+root_markers:
+  - "_CoqProject"
+  - ".git"
+name: "coq-lsp"
+cmdline: "coq-lsp"

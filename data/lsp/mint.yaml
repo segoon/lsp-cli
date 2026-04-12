@@ -1,0 +1,7 @@
+filetypes:
+  - "mint"
+root_markers:
+  - "mint.json"
+  - ".git"
+name: "mint"
+cmdline: "mint ls"

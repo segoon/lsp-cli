@@ -1,0 +1,7 @@
+filetypes:
+  - "help"
+root_markers:
+  - "doc"
+  - ".git"
+name: "vimdoc-language-server"
+cmdline: "vimdoc-language-server"

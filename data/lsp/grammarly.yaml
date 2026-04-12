@@ -1,0 +1,6 @@
+filetypes:
+  - "markdown"
+root_markers:
+  - ".git"
+name: "grammarly-languageserver"
+cmdline: "grammarly-languageserver --stdio"

@@ -1,0 +1,9 @@
+filetypes:
+  - "javascript"
+  - "typescript"
+root_markers:
+  - "package.json"
+  - "jsconfig.json"
+  - ".git"
+name: "quick-lint-js"
+cmdline: "quick-lint-js --lsp-server"

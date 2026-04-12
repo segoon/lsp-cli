@@ -1,0 +1,8 @@
+filetypes:
+  - "terraform"
+  - "terraform-vars"
+root_markers:
+  - ".terraform"
+  - ".git"
+name: "terraform-ls"
+cmdline: "terraform-ls serve"

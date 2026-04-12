@@ -1,0 +1,11 @@
+filetypes:
+  - "svelte"
+root_markers:
+  - "package-lock.json"
+  - "yarn.lock"
+  - "pnpm-lock.yaml"
+  - "bun.lockb"
+  - "bun.lock"
+  - "deno.lock"
+name: "svelteserver"
+cmdline: "svelteserver --stdio"

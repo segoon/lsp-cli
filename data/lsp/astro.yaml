@@ -1,0 +1,9 @@
+filetypes:
+  - "astro"
+root_markers:
+  - "package.json"
+  - "tsconfig.json"
+  - "jsconfig.json"
+  - ".git"
+name: "astro-ls"
+cmdline: "astro-ls --stdio"

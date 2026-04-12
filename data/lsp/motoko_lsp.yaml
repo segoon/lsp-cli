@@ -1,0 +1,7 @@
+filetypes:
+  - "motoko"
+root_markers:
+  - "dfx.json"
+  - ".git"
+name: "motoko-lsp"
+cmdline: "motoko-lsp --stdio"

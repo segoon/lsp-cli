@@ -1,0 +1,7 @@
+filetypes:
+  - "proto"
+root_markers:
+  - ".pbls.toml"
+  - ".git"
+name: "pbls"
+cmdline: "pbls"

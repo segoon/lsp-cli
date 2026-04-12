@@ -1,0 +1,12 @@
+filetypes:
+  - "glsl"
+  - "vert"
+  - "tesc"
+  - "tese"
+  - "frag"
+  - "geom"
+  - "comp"
+root_markers:
+  - ".git"
+name: "glslls"
+cmdline: "glslls --stdin"

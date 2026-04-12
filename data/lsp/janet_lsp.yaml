@@ -1,0 +1,7 @@
+filetypes:
+  - "janet"
+root_markers:
+  - "project.janet"
+  - ".git"
+name: "janet-lsp"
+cmdline: "janet-lsp --stdio"

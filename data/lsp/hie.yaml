@@ -1,0 +1,8 @@
+filetypes:
+  - "haskell"
+root_markers:
+  - "stack.yaml"
+  - "package.yaml"
+  - ".git"
+name: "hie-wrapper"
+cmdline: "hie-wrapper --lsp"

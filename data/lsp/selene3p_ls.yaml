@@ -1,0 +1,6 @@
+filetypes:
+  - "lua"
+root_markers:
+  - "selene.toml"
+name: "selene-3p-language-server"
+cmdline: "selene-3p-language-server"

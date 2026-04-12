@@ -1,0 +1,7 @@
+filetypes:
+  - "aiken"
+root_markers:
+  - "aiken.toml"
+  - ".git"
+name: "aiken"
+cmdline: "aiken lsp"

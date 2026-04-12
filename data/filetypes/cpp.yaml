@@ -1,8 +1,8 @@
 extensions:
-  - cc
-  - cpp
-  - cxx
-  - hh
-  - hpp
-  - hxx
+  - "cc"
+  - "cpp"
+  - "cxx"
+  - "hh"
+  - "hpp"
+  - "hxx"
 patterns: []

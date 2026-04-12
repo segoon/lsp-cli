@@ -1,0 +1,10 @@
+filetypes:
+  - "robot"
+root_markers:
+  - "robotidy.toml"
+  - "pyproject.toml"
+  - "conda.yaml"
+  - "robot.yaml"
+  - ".git"
+name: "robotframework_ls"
+cmdline: "robotframework_ls"

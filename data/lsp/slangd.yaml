@@ -1,0 +1,9 @@
+filetypes:
+  - "hlsl"
+  - "shaderslang"
+root_markers:
+  - "slangdconfig.json"
+  - ".clang-format"
+  - ".git"
+name: "slangd"
+cmdline: "slangd"

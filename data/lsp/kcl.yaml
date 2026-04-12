@@ -1,0 +1,6 @@
+filetypes:
+  - "kcl"
+root_markers:
+  - ".git"
+name: "kcl-language-server"
+cmdline: "kcl-language-server"

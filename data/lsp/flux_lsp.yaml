@@ -1,0 +1,6 @@
+filetypes:
+  - "flux"
+root_markers:
+  - ".git"
+name: "flux-lsp"
+cmdline: "flux-lsp"

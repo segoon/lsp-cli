@@ -1,0 +1,7 @@
+filetypes:
+  - "sql"
+root_markers:
+  - ".sqruff"
+  - ".git"
+name: "sqruff"
+cmdline: "sqruff lsp"

@@ -1,0 +1,5 @@
+filetypes:
+  - "matlab"
+root_markers: []
+name: "matlab-language-server"
+cmdline: "matlab-language-server --stdio"

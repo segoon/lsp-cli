@@ -1,0 +1,7 @@
+filetypes:
+  - "yaml.openapi"
+  - "json.openapi"
+root_markers:
+  - ".git"
+name: "vacuum"
+cmdline: "vacuum language-server"

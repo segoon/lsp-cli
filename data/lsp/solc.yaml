@@ -1,0 +1,7 @@
+filetypes:
+  - "solidity"
+root_markers:
+  - "hardhat.config.*"
+  - ".git"
+name: "solc"
+cmdline: "solc --lsp"

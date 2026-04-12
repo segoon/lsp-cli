@@ -1,0 +1,8 @@
+filetypes:
+  - "cairo"
+root_markers:
+  - "Scarb.toml"
+  - "cairo_project.toml"
+  - ".git"
+name: "scarb"
+cmdline: "scarb cairo-language-server /C --node-ipc"

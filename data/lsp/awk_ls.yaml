@@ -1,0 +1,5 @@
+filetypes:
+  - "awk"
+root_markers: []
+name: "awk-language-server"
+cmdline: "awk-language-server"

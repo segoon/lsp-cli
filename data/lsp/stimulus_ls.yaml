@@ -1,0 +1,11 @@
+filetypes:
+  - "html"
+  - "ruby"
+  - "eruby"
+  - "blade"
+  - "php"
+root_markers:
+  - "Gemfile"
+  - ".git"
+name: "stimulus-language-server"
+cmdline: "stimulus-language-server --stdio"

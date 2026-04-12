@@ -1,0 +1,11 @@
+filetypes:
+  - "javascript"
+  - "javascriptreact"
+  - "typescript"
+  - "typescriptreact"
+root_markers:
+  - "deno.lock"
+  - "deno.json"
+  - "deno.jsonc"
+name: "deno"
+cmdline: "deno lsp"

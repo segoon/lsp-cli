@@ -1,0 +1,6 @@
+filetypes:
+  - "mcfunction"
+root_markers:
+  - "pack.mcmeta"
+name: "spyglassmc-language-server"
+cmdline: "spyglassmc-language-server --stdio"

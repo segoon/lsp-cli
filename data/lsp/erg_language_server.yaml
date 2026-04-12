@@ -1,0 +1,7 @@
+filetypes:
+  - "erg"
+root_markers:
+  - "package.er"
+  - ".git"
+name: "erg"
+cmdline: "erg --language-server"

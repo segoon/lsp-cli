@@ -1,0 +1,6 @@
+filetypes:
+  - "ecsact"
+root_markers:
+  - ".git"
+name: "ecsact_lsp_server"
+cmdline: "ecsact_lsp_server --stdio"

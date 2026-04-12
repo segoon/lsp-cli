@@ -1,0 +1,6 @@
+filetypes:
+  - "tiltfile"
+root_markers:
+  - ".git"
+name: "tilt"
+cmdline: "tilt lsp start"

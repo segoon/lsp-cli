@@ -1,0 +1,6 @@
+filetypes:
+  - "ss"
+root_markers:
+  - "package.json"
+name: "snakeskin-cli"
+cmdline: "snakeskin-cli lsp --stdio"

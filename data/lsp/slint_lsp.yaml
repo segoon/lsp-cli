@@ -1,0 +1,6 @@
+filetypes:
+  - "slint"
+root_markers:
+  - ".git"
+name: "slint-lsp"
+cmdline: "slint-lsp"

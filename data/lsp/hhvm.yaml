@@ -1,0 +1,7 @@
+filetypes:
+  - "php"
+  - "hack"
+root_markers:
+  - ".hhconfig"
+name: "hh_client"
+cmdline: "hh_client lsp"

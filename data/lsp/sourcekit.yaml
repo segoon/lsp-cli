@@ -1,0 +1,16 @@
+filetypes:
+  - "swift"
+  - "objc"
+  - "objcpp"
+  - "c"
+  - "cpp"
+root_markers:
+  - "buildServer.json"
+  - ".bsp"
+  - "*.xcodeproj"
+  - "*.xcworkspace"
+  - "compile_commands.json"
+  - "Package.swift"
+  - ".git"
+name: "sourcekit-lsp"
+cmdline: "sourcekit-lsp"

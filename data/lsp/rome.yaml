@@ -1,0 +1,12 @@
+filetypes:
+  - "javascript"
+  - "javascriptreact"
+  - "json"
+  - "typescript"
+  - "typescriptreact"
+root_markers:
+  - "package.json"
+  - "node_modules"
+  - ".git"
+name: "rome"
+cmdline: "rome lsp-proxy"

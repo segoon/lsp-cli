@@ -1,0 +1,6 @@
+filetypes:
+  - "llw"
+root_markers:
+  - ".git"
+name: "lelwel-ls"
+cmdline: "lelwel-ls"

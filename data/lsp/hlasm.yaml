@@ -1,0 +1,6 @@
+filetypes:
+  - "hlasm"
+root_markers:
+  - ".hlasmplugin"
+name: "hlasm_language_server"
+cmdline: "hlasm_language_server"

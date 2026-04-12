@@ -1,0 +1,6 @@
+filetypes:
+  - "mdx"
+root_markers:
+  - "package.json"
+name: "mdx-language-server"
+cmdline: "mdx-language-server --stdio"

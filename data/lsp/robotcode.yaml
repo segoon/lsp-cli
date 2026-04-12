@@ -1,0 +1,10 @@
+filetypes:
+  - "robot"
+  - "resource"
+root_markers:
+  - "robot.toml"
+  - "pyproject.toml"
+  - "Pipfile"
+  - ".git"
+name: "robotcode"
+cmdline: "robotcode language-server"

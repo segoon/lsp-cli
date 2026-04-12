@@ -1,0 +1,8 @@
+filetypes:
+  - "ruby"
+  - "eruby"
+root_markers:
+  - "Steepfile"
+  - ".git"
+name: "steep"
+cmdline: "steep langserver"

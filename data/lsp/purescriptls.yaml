@@ -1,0 +1,11 @@
+filetypes:
+  - "purescript"
+root_markers:
+  - "bower.json"
+  - "flake.nix"
+  - "psc-package.json"
+  - "shell.nix"
+  - "spago.dhall"
+  - "spago.yaml"
+name: "purescript-language-server"
+cmdline: "purescript-language-server --stdio"

@@ -1,0 +1,6 @@
+filetypes:
+  - "http"
+root_markers:
+  - ".git"
+name: "kulala-ls"
+cmdline: "kulala-ls --stdio"

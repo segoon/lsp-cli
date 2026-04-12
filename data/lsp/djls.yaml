@@ -1,0 +1,10 @@
+filetypes:
+  - "htmldjango"
+  - "html"
+  - "python"
+root_markers:
+  - "manage.py"
+  - "pyproject.toml"
+  - ".git"
+name: "djls"
+cmdline: "djls serve"

@@ -1,0 +1,7 @@
+filetypes:
+  - "foam"
+  - "OpenFOAM"
+root_markers:
+  - ".git"
+name: "foam-ls"
+cmdline: "foam-ls --stdio"

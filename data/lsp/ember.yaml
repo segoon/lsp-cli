@@ -1,0 +1,11 @@
+filetypes:
+  - "handlebars"
+  - "typescript"
+  - "javascript"
+  - "typescript.glimmer"
+  - "javascript.glimmer"
+root_markers:
+  - "ember-cli-build.js"
+  - ".git"
+name: "ember-language-server"
+cmdline: "ember-language-server --stdio"

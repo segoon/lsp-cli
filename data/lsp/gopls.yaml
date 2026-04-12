@@ -1,0 +1,8 @@
+filetypes:
+  - "go"
+  - "gomod"
+  - "gowork"
+  - "gotmpl"
+root_markers: []
+name: "go"
+cmdline: "go env"

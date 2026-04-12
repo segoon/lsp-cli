@@ -1,0 +1,8 @@
+filetypes:
+  - "r"
+root_markers:
+  - "air.toml"
+  - ".air.toml"
+  - ".git"
+name: "air"
+cmdline: "air language-server"

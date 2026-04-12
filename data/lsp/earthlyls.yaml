@@ -1,0 +1,6 @@
+filetypes:
+  - "earthfile"
+root_markers:
+  - "Earthfile"
+name: "earthlyls"
+cmdline: "earthlyls"

@@ -1,0 +1,8 @@
+filetypes:
+  - "erlang"
+root_markers:
+  - "rebar.config"
+  - "erlang.mk"
+  - ".git"
+name: "elp"
+cmdline: "elp server"

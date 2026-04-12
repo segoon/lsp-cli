@@ -1,0 +1,8 @@
+filetypes:
+  - "nelua"
+root_markers:
+  - "Makefile"
+  - ".git"
+  - "*.nelua"
+name: "nelua"
+cmdline: "nelua -L /path/to/nelua-lsp/ --script /path/to/nelua-lsp/nelua-lsp.lua"

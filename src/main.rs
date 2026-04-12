@@ -9,7 +9,7 @@ use std::process;
 
 use config::{default_config_root, load_config_store};
 use detect::detect_workspace;
-use suggest::{suggestions_for, SuggestedLanguage};
+use suggest::{SuggestedLanguage, suggestions_for};
 
 struct Args {
     path: PathBuf,

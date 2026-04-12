@@ -80,7 +80,7 @@ fn path_error(path: &Path, error: io::Error) -> io::Error {
 
 #[cfg(test)]
 mod tests {
-    use super::{detect_workspace, DetectionResult};
+    use super::{DetectionResult, detect_workspace};
     use crate::config::FiletypeConfig;
     use regex::Regex;
     use std::collections::BTreeSet;

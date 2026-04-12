@@ -1,0 +1,7 @@
+filetypes:
+  - lua
+filepatterns:
+  - .luarc.json
+  - .luarc.jsonc
+name: lua-language-server
+cmdline: lua-language-server

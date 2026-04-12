@@ -46,8 +46,41 @@ struct LspFile {
 }
 
 pub fn default_config_root() -> Result<PathBuf, String> {
-    let home = env::var_os("HOME").ok_or_else(|| "HOME is not set".to_string())?;
-    Ok(PathBuf::from(home).join(".local/share/lsp-cli"))
+    let lsp_data = env::var_os("LSP_DATA").map(PathBuf::from);
+    let home = env::var_os("HOME").map(PathBuf::from);
+    let repo_data = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data");
+
+    choose_config_root(lsp_data.as_deref(), home.as_deref(), &repo_data)
+}
+
+fn choose_config_root(
+    lsp_data: Option<&Path>,
+    home: Option<&Path>,
+    repo_data: &Path,
+) -> Result<PathBuf, String> {
+    if let Some(path) = lsp_data {
+        return Ok(path.to_path_buf());
+    }
+
+    if let Some(home) = home {
+        let home_root = home.join(".local/share/lsp-cli");
+        if has_config_dirs(&home_root) {
+            return Ok(home_root);
+        }
+    }
+
+    if has_config_dirs(repo_data) {
+        return Ok(repo_data.to_path_buf());
+    }
+
+    Err(
+        "could not resolve config root from LSP_DATA, ~/.local/share/lsp-cli, or repo data/"
+            .to_string(),
+    )
+}
+
+fn has_config_dirs(root: &Path) -> bool {
+    root.join("filetypes").is_dir() && root.join("lsp").is_dir()
 }
 
 pub fn load_config_store(root: &Path) -> Result<ConfigStore, String> {
@@ -164,7 +197,7 @@ fn validate_lsp_filetypes(filetypes: &[FiletypeConfig], lsps: &[LspConfig]) -> R
 
 #[cfg(test)]
 mod tests {
-    use super::{default_config_root, load_config_store};
+    use super::{choose_config_root, default_config_root, load_config_store};
     use std::fs;
     use std::path::{Path, PathBuf};
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -200,6 +233,17 @@ mod tests {
 
             fs::write(path, contents).expect("file should be written");
         }
+
+        fn writes_config_dirs(&self) {
+            self.write_file(
+                "filetypes/placeholder.yaml",
+                "extensions: []\npatterns: []\n",
+            );
+            self.write_file(
+                "lsp/placeholder.yaml",
+                "filetypes: []\nfilepatterns: []\nname: placeholder\ncmdline: placeholder\n",
+            );
+        }
     }
 
     impl Drop for TestDir {
@@ -209,14 +253,80 @@ mod tests {
     }
 
     #[test]
-    fn resolves_default_config_root_from_home() {
-        let expected = PathBuf::from(std::env::var("HOME").expect("home should be set"))
-            .join(".local/share/lsp-cli");
+    fn resolves_config_root_from_lsp_data_env() {
+        let lsp_data = TestDir::new();
+        let home = TestDir::new();
+        let repo = TestDir::new();
+        lsp_data.write_file("filetypes/a.yaml", "extensions: []\npatterns: []\n");
+        lsp_data.write_file(
+            "lsp/a.yaml",
+            "filetypes: []\nfilepatterns: []\nname: a\ncmdline: a\n",
+        );
+        home.write_file(
+            ".local/share/lsp-cli/filetypes/b.yaml",
+            "extensions: []\npatterns: []\n",
+        );
+        home.write_file(
+            ".local/share/lsp-cli/lsp/b.yaml",
+            "filetypes: []\nfilepatterns: []\nname: b\ncmdline: b\n",
+        );
+        repo.writes_config_dirs();
 
         assert_eq!(
-            default_config_root().expect("root should resolve"),
-            expected
+            choose_config_root(Some(lsp_data.path()), Some(home.path()), repo.path())
+                .expect("root should resolve"),
+            lsp_data.path()
         );
+    }
+
+    #[test]
+    fn falls_back_to_home_local_share() {
+        let home = TestDir::new();
+        let repo = TestDir::new();
+        home.write_file(
+            ".local/share/lsp-cli/filetypes/c.yaml",
+            "extensions: []\npatterns: []\n",
+        );
+        home.write_file(
+            ".local/share/lsp-cli/lsp/clangd.yaml",
+            "filetypes: []\nfilepatterns: []\nname: clangd\ncmdline: clangd\n",
+        );
+        repo.writes_config_dirs();
+
+        assert_eq!(
+            choose_config_root(None, Some(home.path()), repo.path()).expect("root should resolve"),
+            home.path().join(".local/share/lsp-cli")
+        );
+    }
+
+    #[test]
+    fn falls_back_to_repo_data_when_home_default_missing() {
+        let home = TestDir::new();
+        let repo = TestDir::new();
+        repo.writes_config_dirs();
+
+        assert_eq!(
+            choose_config_root(None, Some(home.path()), repo.path()).expect("root should resolve"),
+            repo.path()
+        );
+    }
+
+    #[test]
+    fn errors_when_no_root_can_be_resolved() {
+        let home = TestDir::new();
+        let repo = TestDir::new();
+
+        let error = choose_config_root(None, Some(home.path()), repo.path())
+            .expect_err("root resolution should fail");
+
+        assert!(error.contains("could not resolve config root"));
+    }
+
+    #[test]
+    fn default_config_root_resolves_in_real_environment() {
+        let root = default_config_root().expect("root should resolve");
+
+        assert!(root.ends_with(".local/share/lsp-cli") || root.ends_with("data"));
     }
 
     #[test]

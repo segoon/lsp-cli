@@ -1,0 +1,7 @@
+filetypes:
+  - c
+  - cpp
+filepatterns:
+  - compile_commands.json
+name: clangd
+cmdline: clangd --background-index $WORKSPACE

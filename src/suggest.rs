@@ -53,7 +53,7 @@ fn build_suggestion(lsp: &LspConfig, workspace: &Path) -> Result<SuggestedLangua
 
 #[cfg(test)]
 mod tests {
-    use super::{suggestions_for, SuggestedLanguage};
+    use super::{SuggestedLanguage, suggestions_for};
     use crate::config::LspConfig;
     use crate::detect::DetectionResult;
     use std::collections::BTreeSet;

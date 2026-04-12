@@ -1,0 +1,7 @@
+filetypes:
+  - rust
+filepatterns:
+  - Cargo.toml
+  - rust-project.json
+name: rust-analyzer
+cmdline: rust-analyzer

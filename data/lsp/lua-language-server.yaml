@@ -3,5 +3,15 @@ filetypes:
 filepatterns:
   - .luarc.json
   - .luarc.jsonc
+root_markers:
+  - .emmyrc.json
+  - .luarc.json
+  - .luarc.jsonc
+  - .luacheckrc
+  - .stylua.toml
+  - stylua.toml
+  - selene.toml
+  - selene.yml
+  - .git
 name: lua-language-server
 cmdline: lua-language-server

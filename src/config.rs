@@ -23,6 +23,7 @@ pub struct FiletypeConfig {
 pub struct LspConfig {
     pub filetypes: Vec<String>,
     pub filepatterns: Vec<String>,
+    pub root_markers: Vec<String>,
     pub name: String,
     pub cmdline: String,
 }
@@ -41,6 +42,8 @@ struct LspFile {
     filetypes: Vec<String>,
     #[serde(default)]
     filepatterns: Vec<String>,
+    #[serde(default)]
+    root_markers: Vec<String>,
     name: String,
     cmdline: String,
 }
@@ -143,6 +146,7 @@ fn load_lsps(dir: &Path) -> Result<Vec<LspConfig>, String> {
             Ok(LspConfig {
                 filetypes: file.filetypes,
                 filepatterns: file.filepatterns,
+                root_markers: file.root_markers,
                 name: file.name,
                 cmdline: file.cmdline,
             })
@@ -241,7 +245,7 @@ mod tests {
             );
             self.write_file(
                 "lsp/placeholder.yaml",
-                "filetypes: []\nfilepatterns: []\nname: placeholder\ncmdline: placeholder\n",
+                "filetypes: []\nfilepatterns: []\nroot_markers: []\nname: placeholder\ncmdline: placeholder\n",
             );
         }
     }
@@ -260,7 +264,7 @@ mod tests {
         lsp_data.write_file("filetypes/a.yaml", "extensions: []\npatterns: []\n");
         lsp_data.write_file(
             "lsp/a.yaml",
-            "filetypes: []\nfilepatterns: []\nname: a\ncmdline: a\n",
+            "filetypes: []\nfilepatterns: []\nroot_markers: []\nname: a\ncmdline: a\n",
         );
         home.write_file(
             ".local/share/lsp-cli/filetypes/b.yaml",
@@ -268,7 +272,7 @@ mod tests {
         );
         home.write_file(
             ".local/share/lsp-cli/lsp/b.yaml",
-            "filetypes: []\nfilepatterns: []\nname: b\ncmdline: b\n",
+            "filetypes: []\nfilepatterns: []\nroot_markers: []\nname: b\ncmdline: b\n",
         );
         repo.writes_config_dirs();
 
@@ -289,7 +293,7 @@ mod tests {
         );
         home.write_file(
             ".local/share/lsp-cli/lsp/clangd.yaml",
-            "filetypes: []\nfilepatterns: []\nname: clangd\ncmdline: clangd\n",
+            "filetypes: []\nfilepatterns: []\nroot_markers: []\nname: clangd\ncmdline: clangd\n",
         );
         repo.writes_config_dirs();
 
@@ -345,6 +349,8 @@ mod tests {
                 "  - cpp\n",
                 "filepatterns:\n",
                 "  - compile_commands.json\n",
+                "root_markers:\n",
+                "  - compile_commands.json\n",
                 "name: clangd\n",
                 "cmdline: clangd --background-index $WORKSPACE\n"
             ),
@@ -380,7 +386,7 @@ mod tests {
         dir.write_file("filetypes/c.yaml", "extensions: [c\n");
         dir.write_file(
             "lsp/clangd.yaml",
-            "filetypes: [c]\nfilepatterns: []\nname: clangd\ncmdline: clangd\n",
+            "filetypes: [c]\nfilepatterns: []\nroot_markers: []\nname: clangd\ncmdline: clangd\n",
         );
 
         let error = load_config_store(dir.path()).expect_err("config load should fail");
@@ -394,7 +400,7 @@ mod tests {
         dir.write_file("filetypes/c.yaml", "extensions: [c]\npatterns: []\n");
         dir.write_file(
             "lsp/clangd.yaml",
-            "filetypes: [cpp]\nfilepatterns: []\nname: clangd\ncmdline: clangd\n",
+            "filetypes: [cpp]\nfilepatterns: []\nroot_markers: []\nname: clangd\ncmdline: clangd\n",
         );
 
         let error = load_config_store(dir.path()).expect_err("config load should fail");
@@ -408,7 +414,7 @@ mod tests {
         dir.write_file("filetypes/c.yaml", "extensions: [c]\npatterns: ['(']\n");
         dir.write_file(
             "lsp/clangd.yaml",
-            "filetypes: [c]\nfilepatterns: []\nname: clangd\ncmdline: clangd\n",
+            "filetypes: [c]\nfilepatterns: []\nroot_markers: []\nname: clangd\ncmdline: clangd\n",
         );
 
         let error = load_config_store(dir.path()).expect_err("config load should fail");

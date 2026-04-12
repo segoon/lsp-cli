@@ -3,5 +3,13 @@ filetypes:
   - cpp
 filepatterns:
   - compile_commands.json
+root_markers:
+  - .clangd
+  - .clang-tidy
+  - .clang-format
+  - compile_commands.json
+  - compile_flags.txt
+  - configure.ac
+  - .git
 name: clangd
 cmdline: clangd --background-index $WORKSPACE

@@ -157,16 +157,16 @@ mod tests {
     #[test]
     fn detects_filetypes_by_extension() {
         let dir = TestDir::new();
-        dir.write_file("src/main.cpp");
+        dir.write_file("src/main.foo");
 
-        let detection = detect_workspace(dir.path(), &[filetype("cpp", &["cpp"], &[])])
+        let detection = detect_workspace(dir.path(), &[filetype("alpha", &["foo"], &[])])
             .expect("scan should succeed");
 
         assert_eq!(
             detection,
             DetectionResult {
-                filetypes: BTreeSet::from(["cpp".to_string()]),
-                filenames: BTreeSet::from(["main.cpp".to_string()]),
+                filetypes: BTreeSet::from(["alpha".to_string()]),
+                filenames: BTreeSet::from(["main.foo".to_string()]),
             }
         );
     }
@@ -174,57 +174,38 @@ mod tests {
     #[test]
     fn detects_filetypes_by_pattern() {
         let dir = TestDir::new();
-        dir.write_file("src/SConstruct");
+        dir.write_file("src/tooling.config");
 
-        let detection = detect_workspace(dir.path(), &[filetype("cpp", &[], &[r"^SConstruct$"])])
-            .expect("scan should succeed");
+        let detection = detect_workspace(
+            dir.path(),
+            &[filetype("alpha", &[], &[r"^tooling\.config$"])],
+        )
+        .expect("scan should succeed");
 
-        assert_eq!(detection.filetypes, BTreeSet::from(["cpp".to_string()]));
+        assert_eq!(detection.filetypes, BTreeSet::from(["alpha".to_string()]));
     }
 
     #[test]
-    fn detects_objective_c_files() {
+    fn detects_multiple_extensions_for_one_filetype() {
         let dir = TestDir::new();
-        dir.write_file("src/main.m");
+        dir.write_file("src/main.bar");
+        dir.write_file("include/main.baz");
 
-        let detection = detect_workspace(dir.path(), &[filetype("objc", &["m"], &[])])
+        let detection = detect_workspace(dir.path(), &[filetype("beta", &["bar", "baz"], &[])])
             .expect("scan should succeed");
 
-        assert_eq!(detection.filetypes, BTreeSet::from(["objc".to_string()]));
-    }
-
-    #[test]
-    fn detects_objective_cpp_files() {
-        let dir = TestDir::new();
-        dir.write_file("src/main.mm");
-
-        let detection = detect_workspace(dir.path(), &[filetype("objcpp", &["mm"], &[])])
-            .expect("scan should succeed");
-
-        assert_eq!(detection.filetypes, BTreeSet::from(["objcpp".to_string()]));
-    }
-
-    #[test]
-    fn detects_cuda_files() {
-        let dir = TestDir::new();
-        dir.write_file("src/kernel.cu");
-        dir.write_file("include/kernel.cuh");
-
-        let detection = detect_workspace(dir.path(), &[filetype("cuda", &["cu", "cuh"], &[])])
-            .expect("scan should succeed");
-
-        assert_eq!(detection.filetypes, BTreeSet::from(["cuda".to_string()]));
+        assert_eq!(detection.filetypes, BTreeSet::from(["beta".to_string()]));
     }
 
     #[test]
     fn scans_nested_directories() {
         let dir = TestDir::new();
-        dir.write_file("deeply/nested/project/source.cxx");
+        dir.write_file("deeply/nested/project/source.foo");
 
-        let detection = detect_workspace(dir.path(), &[filetype("cpp", &["cxx"], &[])])
+        let detection = detect_workspace(dir.path(), &[filetype("alpha", &["foo"], &[])])
             .expect("scan should succeed");
 
-        assert_eq!(detection.filetypes, BTreeSet::from(["cpp".to_string()]));
+        assert_eq!(detection.filetypes, BTreeSet::from(["alpha".to_string()]));
     }
 
     #[test]
@@ -232,7 +213,7 @@ mod tests {
         let dir = TestDir::new();
         dir.write_file("README.md");
 
-        let detection = detect_workspace(dir.path(), &[filetype("cpp", &["cpp"], &[])])
+        let detection = detect_workspace(dir.path(), &[filetype("alpha", &["foo"], &[])])
             .expect("scan should succeed");
 
         assert!(detection.filetypes.is_empty());
@@ -243,24 +224,24 @@ mod tests {
     fn skips_broken_symlinks() {
         let dir = TestDir::new();
         dir.symlink("missing-target", "broken-link");
-        dir.write_file("src/main.cpp");
+        dir.write_file("src/main.foo");
 
-        let detection = detect_workspace(dir.path(), &[filetype("cpp", &["cpp"], &[])])
+        let detection = detect_workspace(dir.path(), &[filetype("alpha", &["foo"], &[])])
             .expect("scan should succeed");
 
-        assert_eq!(detection.filetypes, BTreeSet::from(["cpp".to_string()]));
+        assert_eq!(detection.filetypes, BTreeSet::from(["alpha".to_string()]));
     }
 
     #[cfg(unix)]
     #[test]
     fn skips_symlinked_directories() {
         let dir = TestDir::new();
-        dir.write_file("real-src/main.cpp");
+        dir.write_file("real-src/main.foo");
         dir.symlink("real-src", "linked-src");
 
         let detection = detect_workspace(
             &dir.path().join("linked-src"),
-            &[filetype("cpp", &["cpp"], &[])],
+            &[filetype("alpha", &["foo"], &[])],
         )
         .expect("scan should succeed");
 
@@ -271,12 +252,12 @@ mod tests {
     #[test]
     fn skips_symlinked_files() {
         let dir = TestDir::new();
-        dir.write_file("real.cpp");
-        dir.symlink("real.cpp", "linked.cpp");
+        dir.write_file("real.foo");
+        dir.symlink("real.foo", "linked.foo");
 
         let detection = detect_workspace(
-            &dir.path().join("linked.cpp"),
-            &[filetype("cpp", &["cpp"], &[])],
+            &dir.path().join("linked.foo"),
+            &[filetype("alpha", &["foo"], &[])],
         )
         .expect("scan should succeed");
 

@@ -103,18 +103,12 @@ mod tests {
     use std::collections::BTreeSet;
     use std::path::{Path, PathBuf};
 
-    fn clangd() -> LspConfig {
+    fn example_lsp() -> LspConfig {
         LspConfig {
-            filetypes: vec![
-                "c".to_string(),
-                "cpp".to_string(),
-                "objc".to_string(),
-                "objcpp".to_string(),
-                "cuda".to_string(),
-            ],
-            root_markers: vec!["compile_commands.json".to_string(), ".git".to_string()],
-            name: "clangd".to_string(),
-            cmdline: "clangd --background-index $WORKSPACE".to_string(),
+            filetypes: vec!["alpha".to_string(), "beta".to_string()],
+            root_markers: vec![".workspace-root".to_string(), ".git".to_string()],
+            name: "example-lsp".to_string(),
+            cmdline: "example-lsp --stdio $WORKSPACE".to_string(),
         }
     }
 
@@ -161,9 +155,9 @@ mod tests {
     #[test]
     fn suggests_lsp_from_detected_filetype() {
         let suggestions = suggestions_for(
-            &[clangd()],
+            &[example_lsp()],
             &DetectionResult {
-                filetypes: BTreeSet::from(["cpp".to_string()]),
+                filetypes: BTreeSet::from(["beta".to_string()]),
                 filenames: BTreeSet::new(),
             },
             Path::new("."),
@@ -173,11 +167,11 @@ mod tests {
         assert_eq!(
             suggestions,
             vec![SuggestedLanguage {
-                languages: vec!["cpp".to_string()],
-                server: "clangd".to_string(),
+                languages: vec!["beta".to_string()],
+                server: "example-lsp".to_string(),
                 command: vec![
-                    "clangd".to_string(),
-                    "--background-index".to_string(),
+                    "example-lsp".to_string(),
+                    "--stdio".to_string(),
                     ".".to_string()
                 ],
             }]
@@ -187,10 +181,10 @@ mod tests {
     #[test]
     fn does_not_suggest_lsp_from_root_marker_alone() {
         let suggestions = suggestions_for(
-            &[clangd()],
+            &[example_lsp()],
             &DetectionResult {
                 filetypes: BTreeSet::new(),
-                filenames: BTreeSet::from(["compile_commands.json".to_string()]),
+                filenames: BTreeSet::from([".workspace-root".to_string()]),
             },
             Path::new("workspace"),
         )
@@ -202,9 +196,9 @@ mod tests {
     #[test]
     fn includes_all_matching_languages() {
         let suggestions = suggestions_for(
-            &[clangd()],
+            &[example_lsp()],
             &DetectionResult {
-                filetypes: BTreeSet::from(["c".to_string(), "cpp".to_string()]),
+                filetypes: BTreeSet::from(["alpha".to_string(), "beta".to_string()]),
                 filenames: BTreeSet::new(),
             },
             Path::new("."),
@@ -213,62 +207,17 @@ mod tests {
 
         assert_eq!(
             suggestions[0].languages,
-            vec!["c".to_string(), "cpp".to_string()]
+            vec!["alpha".to_string(), "beta".to_string()]
         );
-    }
-
-    #[test]
-    fn suggests_clangd_for_objective_c() {
-        let suggestions = suggestions_for(
-            &[clangd()],
-            &DetectionResult {
-                filetypes: BTreeSet::from(["objc".to_string()]),
-                filenames: BTreeSet::new(),
-            },
-            Path::new("."),
-        )
-        .expect("suggestions should succeed");
-
-        assert_eq!(suggestions[0].languages, vec!["objc".to_string()]);
-    }
-
-    #[test]
-    fn suggests_clangd_for_objective_cpp() {
-        let suggestions = suggestions_for(
-            &[clangd()],
-            &DetectionResult {
-                filetypes: BTreeSet::from(["objcpp".to_string()]),
-                filenames: BTreeSet::new(),
-            },
-            Path::new("."),
-        )
-        .expect("suggestions should succeed");
-
-        assert_eq!(suggestions[0].languages, vec!["objcpp".to_string()]);
-    }
-
-    #[test]
-    fn suggests_clangd_for_cuda() {
-        let suggestions = suggestions_for(
-            &[clangd()],
-            &DetectionResult {
-                filetypes: BTreeSet::from(["cuda".to_string()]),
-                filenames: BTreeSet::new(),
-            },
-            Path::new("."),
-        )
-        .expect("suggestions should succeed");
-
-        assert_eq!(suggestions[0].languages, vec!["cuda".to_string()]);
     }
 
     #[test]
     fn returns_no_suggestions_when_nothing_matches() {
         let suggestions = suggestions_for(
-            &[clangd()],
+            &[example_lsp()],
             &DetectionResult {
-                filetypes: BTreeSet::from(["rust".to_string()]),
-                filenames: BTreeSet::from(["Cargo.toml".to_string()]),
+                filetypes: BTreeSet::from(["gamma".to_string()]),
+                filenames: BTreeSet::from(["workspace.lock".to_string()]),
             },
             Path::new("."),
         )
@@ -280,9 +229,9 @@ mod tests {
     #[test]
     fn substitutes_workspace_without_splitting_spaces() {
         let suggestions = suggestions_for(
-            &[clangd()],
+            &[example_lsp()],
             &DetectionResult {
-                filetypes: BTreeSet::from(["c".to_string()]),
+                filetypes: BTreeSet::from(["alpha".to_string()]),
                 filenames: BTreeSet::new(),
             },
             Path::new("/tmp/with spaces"),
@@ -292,8 +241,8 @@ mod tests {
         assert_eq!(
             suggestions[0].command,
             vec![
-                "clangd".to_string(),
-                "--background-index".to_string(),
+                "example-lsp".to_string(),
+                "--stdio".to_string(),
                 "/tmp/with spaces".to_string()
             ]
         );
@@ -302,17 +251,14 @@ mod tests {
     #[test]
     fn resolves_workspace_from_root_marker() {
         let dir = TestDir::new();
-        dir.write_file("compile_commands.json");
-        let nested = dir.write_file("src/main.cpp");
+        dir.write_file(".workspace-root");
+        let nested = dir.write_file("src/main.foo");
 
         let suggestions = suggestions_for(
-            &[clangd()],
+            &[example_lsp()],
             &DetectionResult {
-                filetypes: BTreeSet::from(["cpp".to_string()]),
-                filenames: BTreeSet::from([
-                    "compile_commands.json".to_string(),
-                    "main.cpp".to_string(),
-                ]),
+                filetypes: BTreeSet::from(["beta".to_string()]),
+                filenames: BTreeSet::from([".workspace-root".to_string(), "main.foo".to_string()]),
             },
             &nested,
         )
@@ -321,8 +267,8 @@ mod tests {
         assert_eq!(
             suggestions[0].command,
             vec![
-                "clangd".to_string(),
-                "--background-index".to_string(),
+                "example-lsp".to_string(),
+                "--stdio".to_string(),
                 dir.path().display().to_string()
             ]
         );
@@ -331,13 +277,13 @@ mod tests {
     #[test]
     fn falls_back_to_input_directory_when_no_marker_exists() {
         let dir = TestDir::new();
-        let nested = dir.write_file("src/main.cpp");
+        let nested = dir.write_file("src/main.foo");
 
         let suggestions = suggestions_for(
-            &[clangd()],
+            &[example_lsp()],
             &DetectionResult {
-                filetypes: BTreeSet::from(["cpp".to_string()]),
-                filenames: BTreeSet::from(["main.cpp".to_string()]),
+                filetypes: BTreeSet::from(["beta".to_string()]),
+                filenames: BTreeSet::from(["main.foo".to_string()]),
             },
             &nested,
         )
@@ -346,8 +292,8 @@ mod tests {
         assert_eq!(
             suggestions[0].command,
             vec![
-                "clangd".to_string(),
-                "--background-index".to_string(),
+                "example-lsp".to_string(),
+                "--stdio".to_string(),
                 dir.path().join("src").display().to_string()
             ]
         );

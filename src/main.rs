@@ -200,11 +200,11 @@ mod tests {
     use std::collections::BTreeSet;
     use std::path::PathBuf;
 
-    fn clangd_suggestion() -> SuggestedLanguage {
+    fn example_suggestion() -> SuggestedLanguage {
         SuggestedLanguage {
-            languages: vec!["c".to_string(), "cpp".to_string()],
-            server: "clangd".to_string(),
-            command: vec!["clangd".to_string(), "--background-index".to_string()],
+            languages: vec!["alpha".to_string(), "beta".to_string()],
+            server: "example-lsp".to_string(),
+            command: vec!["example-lsp".to_string(), "--stdio".to_string()],
         }
     }
 
@@ -247,19 +247,19 @@ mod tests {
 
     #[test]
     fn renders_text_output() {
-        let detected = BTreeSet::from(["c".to_string(), "cpp".to_string()]);
+        let detected = BTreeSet::from(["alpha".to_string(), "beta".to_string()]);
 
         assert_eq!(
-            render_text(&detected, &[clangd_suggestion()]),
-            "Detected: c, cpp\nSuggested command: clangd --background-index"
+            render_text(&detected, &[example_suggestion()]),
+            "Detected: alpha, beta\nSuggested command: example-lsp --stdio"
         );
     }
 
     #[test]
     fn renders_text_output_without_detected_filetypes() {
         assert_eq!(
-            render_text(&BTreeSet::new(), &[clangd_suggestion()]),
-            "Detected: none\nSuggested command: clangd --background-index"
+            render_text(&BTreeSet::new(), &[example_suggestion()]),
+            "Detected: none\nSuggested command: example-lsp --stdio"
         );
     }
 
@@ -275,33 +275,30 @@ mod tests {
 
     #[test]
     fn renders_quiet_output() {
-        assert_eq!(
-            render_quiet(&[clangd_suggestion()]),
-            "clangd --background-index"
-        );
+        assert_eq!(render_quiet(&[example_suggestion()]), "example-lsp --stdio");
     }
 
     #[test]
     fn renders_multiple_quiet_outputs() {
-        let lua = SuggestedLanguage {
-            languages: vec!["lua".to_string()],
-            server: "lua-language-server".to_string(),
-            command: vec!["lua-language-server".to_string()],
+        let secondary = SuggestedLanguage {
+            languages: vec!["gamma".to_string()],
+            server: "secondary-lsp".to_string(),
+            command: vec!["secondary-lsp".to_string()],
         };
 
         assert_eq!(
-            render_quiet(&[clangd_suggestion(), lua]),
-            "clangd --background-index\nlua-language-server"
+            render_quiet(&[example_suggestion(), secondary]),
+            "example-lsp --stdio\nsecondary-lsp"
         );
     }
 
     #[test]
     fn renders_json_output() {
         assert_eq!(
-            render_json(&[clangd_suggestion()]),
+            render_json(&[example_suggestion()]),
             concat!(
                 "{\"servers\":[",
-                "{\"languages\":[\"c\",\"cpp\"],\"server\":\"clangd\",\"command\":[\"clangd\",\"--background-index\"]}",
+                "{\"languages\":[\"alpha\",\"beta\"],\"server\":\"example-lsp\",\"command\":[\"example-lsp\",\"--stdio\"]}",
                 "]}"
             )
         );

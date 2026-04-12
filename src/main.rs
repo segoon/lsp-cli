@@ -143,9 +143,15 @@ fn render_text(detected_filetypes: &BTreeSet<String>, suggestions: &[SuggestedLa
 }
 
 fn render_json(suggestions: &[SuggestedLanguage]) -> String {
-    let languages = suggestions
+    let servers = suggestions
         .iter()
         .map(|suggestion| {
+            let languages = suggestion
+                .languages
+                .iter()
+                .map(|part| format!("\"{}\"", escape_json(part)))
+                .collect::<Vec<_>>()
+                .join(",");
             let command = suggestion
                 .command
                 .iter()
@@ -154,8 +160,8 @@ fn render_json(suggestions: &[SuggestedLanguage]) -> String {
                 .join(",");
 
             format!(
-                "{{\"name\":\"{}\",\"server\":\"{}\",\"command\":[{}]}}",
-                escape_json(&suggestion.name),
+                "{{\"languages\":[{}],\"server\":\"{}\",\"command\":[{}]}}",
+                languages,
                 escape_json(&suggestion.server),
                 command
             )
@@ -163,7 +169,7 @@ fn render_json(suggestions: &[SuggestedLanguage]) -> String {
         .collect::<Vec<_>>()
         .join(",");
 
-    format!("{{\"languages\":[{languages}]}}")
+    format!("{{\"servers\":[{servers}]}}")
 }
 
 fn escape_json(input: &str) -> String {
@@ -196,7 +202,7 @@ mod tests {
 
     fn clangd_suggestion() -> SuggestedLanguage {
         SuggestedLanguage {
-            name: "clangd".to_string(),
+            languages: vec!["c".to_string(), "cpp".to_string()],
             server: "clangd".to_string(),
             command: vec!["clangd".to_string(), "--background-index".to_string()],
         }
@@ -259,7 +265,7 @@ mod tests {
 
     #[test]
     fn renders_empty_json_output() {
-        assert_eq!(render_json(&[]), "{\"languages\":[]}");
+        assert_eq!(render_json(&[]), "{\"servers\":[]}");
     }
 
     #[test]
@@ -278,7 +284,7 @@ mod tests {
     #[test]
     fn renders_multiple_quiet_outputs() {
         let lua = SuggestedLanguage {
-            name: "lua-language-server".to_string(),
+            languages: vec!["lua".to_string()],
             server: "lua-language-server".to_string(),
             command: vec!["lua-language-server".to_string()],
         };
@@ -294,8 +300,8 @@ mod tests {
         assert_eq!(
             render_json(&[clangd_suggestion()]),
             concat!(
-                "{\"languages\":[",
-                "{\"name\":\"clangd\",\"server\":\"clangd\",\"command\":[\"clangd\",\"--background-index\"]}",
+                "{\"servers\":[",
+                "{\"languages\":[\"c\",\"cpp\"],\"server\":\"clangd\",\"command\":[\"clangd\",\"--background-index\"]}",
                 "]}"
             )
         );

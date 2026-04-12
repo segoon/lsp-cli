@@ -17,7 +17,7 @@ pub fn suggestions_for(
 ) -> Result<Vec<SuggestedLanguage>, String> {
     lsps.iter()
         .filter(|lsp| matches_lsp(lsp, detection))
-        .map(|lsp| build_suggestion(lsp, workspace))
+        .map(|lsp| build_suggestion(lsp, detection, workspace))
         .collect()
 }
 
@@ -31,7 +31,11 @@ fn matches_lsp(lsp: &LspConfig, detection: &DetectionResult) -> bool {
             .any(|pattern| detection.filenames.contains(pattern))
 }
 
-fn build_suggestion(lsp: &LspConfig, workspace: &Path) -> Result<SuggestedLanguage, String> {
+fn build_suggestion(
+    lsp: &LspConfig,
+    detection: &DetectionResult,
+    workspace: &Path,
+) -> Result<SuggestedLanguage, String> {
     let workspace = resolve_workspace_root(lsp, workspace)
         .map_err(|error| format!("failed to resolve workspace for {}: {error}", lsp.name))?;
     let workspace = workspace.to_string_lossy();
@@ -97,7 +101,7 @@ fn has_any_root_marker(directory: &Path, root_markers: &[String]) -> std::io::Re
 
 #[cfg(test)]
 mod tests {
-    use super::{suggestions_for, SuggestedLanguage};
+    use super::{SuggestedLanguage, suggestions_for};
     use crate::config::LspConfig;
     use crate::detect::DetectionResult;
     use std::collections::BTreeSet;
@@ -168,7 +172,7 @@ mod tests {
         assert_eq!(
             suggestions,
             vec![SuggestedLanguage {
-                name: "clangd".to_string(),
+                languages: vec!["cpp".to_string()],
                 server: "clangd".to_string(),
                 command: vec![
                     "clangd".to_string(),
@@ -192,7 +196,26 @@ mod tests {
         .expect("suggestions should succeed");
 
         assert_eq!(suggestions.len(), 1);
+        assert!(suggestions[0].languages.is_empty());
         assert_eq!(suggestions[0].command[2], "workspace");
+    }
+
+    #[test]
+    fn includes_all_matching_languages() {
+        let suggestions = suggestions_for(
+            &[clangd()],
+            &DetectionResult {
+                filetypes: BTreeSet::from(["c".to_string(), "cpp".to_string()]),
+                filenames: BTreeSet::new(),
+            },
+            Path::new("."),
+        )
+        .expect("suggestions should succeed");
+
+        assert_eq!(
+            suggestions[0].languages,
+            vec!["c".to_string(), "cpp".to_string()]
+        );
     }
 
     #[test]

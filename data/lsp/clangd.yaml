@@ -1,8 +1,6 @@
 filetypes:
   - c
   - cpp
-filepatterns:
-  - compile_commands.json
 root_markers:
   - .clangd
   - .clang-tidy

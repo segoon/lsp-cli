@@ -1,8 +1,5 @@
 filetypes:
   - lua
-filepatterns:
-  - .luarc.json
-  - .luarc.jsonc
 root_markers:
   - .emmyrc.json
   - .luarc.json

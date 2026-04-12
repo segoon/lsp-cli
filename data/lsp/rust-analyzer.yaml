@@ -1,8 +1,5 @@
 filetypes:
   - rust
-filepatterns:
-  - Cargo.toml
-  - rust-project.json
 root_markers:
   - Cargo.toml
   - rust-project.json

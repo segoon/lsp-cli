@@ -25,10 +25,6 @@ fn matches_lsp(lsp: &LspConfig, detection: &DetectionResult) -> bool {
     lsp.filetypes
         .iter()
         .any(|filetype| detection.filetypes.contains(filetype))
-        || lsp
-            .filepatterns
-            .iter()
-            .any(|pattern| detection.filenames.contains(pattern))
 }
 
 fn build_suggestion(
@@ -110,7 +106,6 @@ mod tests {
     fn clangd() -> LspConfig {
         LspConfig {
             filetypes: vec!["c".to_string(), "cpp".to_string()],
-            filepatterns: vec!["compile_commands.json".to_string()],
             root_markers: vec!["compile_commands.json".to_string(), ".git".to_string()],
             name: "clangd".to_string(),
             cmdline: "clangd --background-index $WORKSPACE".to_string(),
@@ -184,7 +179,7 @@ mod tests {
     }
 
     #[test]
-    fn suggests_lsp_from_filepattern() {
+    fn does_not_suggest_lsp_from_root_marker_alone() {
         let suggestions = suggestions_for(
             &[clangd()],
             &DetectionResult {
@@ -195,9 +190,7 @@ mod tests {
         )
         .expect("suggestions should succeed");
 
-        assert_eq!(suggestions.len(), 1);
-        assert!(suggestions[0].languages.is_empty());
-        assert_eq!(suggestions[0].command[2], "workspace");
+        assert!(suggestions.is_empty());
     }
 
     #[test]

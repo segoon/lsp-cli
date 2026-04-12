@@ -1,3 +1,6 @@
+This is a work-in-progress. Expect some glitches.
+
+
 # LSP-cli
 
 LSP-cli is a simple tool allowing one to work with LSP servers from the terminal.

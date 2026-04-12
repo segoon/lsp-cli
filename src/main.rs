@@ -36,7 +36,10 @@ fn main() {
     let config = match load_config_store(&config_root) {
         Ok(config) => config,
         Err(error) => {
-            eprintln!("failed to load config from {}: {error}", config_root.display());
+            eprintln!(
+                "failed to load config from {}: {error}",
+                config_root.display()
+            );
             process::exit(1);
         }
     };
@@ -105,7 +108,11 @@ fn render_text(detected_filetypes: &BTreeSet<String>, suggestions: &[SuggestedLa
     let detected = if detected_filetypes.is_empty() {
         "none".to_string()
     } else {
-        detected_filetypes.iter().cloned().collect::<Vec<_>>().join(", ")
+        detected_filetypes
+            .iter()
+            .cloned()
+            .collect::<Vec<_>>()
+            .join(", ")
     };
 
     suggestions
@@ -200,7 +207,10 @@ mod tests {
 
     #[test]
     fn renders_empty_text_output() {
-        assert_eq!(render_text(&BTreeSet::new(), &[]), "No supported languages detected");
+        assert_eq!(
+            render_text(&BTreeSet::new(), &[]),
+            "No supported languages detected"
+        );
     }
 
     #[test]

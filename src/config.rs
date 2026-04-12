@@ -6,17 +6,20 @@ use std::path::{Path, PathBuf};
 use regex::Regex;
 use serde::Deserialize;
 
+#[derive(Debug)]
 pub struct ConfigStore {
     pub filetypes: Vec<FiletypeConfig>,
     pub lsps: Vec<LspConfig>,
 }
 
+#[derive(Debug)]
 pub struct FiletypeConfig {
     pub id: String,
     pub extensions: Vec<String>,
     pub patterns: Vec<Regex>,
 }
 
+#[derive(Debug)]
 pub struct LspConfig {
     pub filetypes: Vec<String>,
     pub filepatterns: Vec<String>,

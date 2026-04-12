@@ -9,11 +9,12 @@ use std::process;
 
 use config::{default_config_root, load_config_store};
 use detect::detect_workspace;
-use suggest::{SuggestedLanguage, suggestions_for};
+use suggest::{suggestions_for, SuggestedLanguage};
 
 struct Args {
     path: PathBuf,
     json: bool,
+    quiet: bool,
 }
 
 fn main() {
@@ -62,6 +63,8 @@ fn main() {
 
     let output = if args.json {
         render_json(&suggestions)
+    } else if args.quiet {
+        render_quiet(&suggestions)
     } else {
         render_text(&detection.filetypes, &suggestions)
     };
@@ -75,18 +78,20 @@ where
 {
     let mut path = None;
     let mut json = false;
+    let mut quiet = false;
 
     for arg in args {
         match arg.as_str() {
             "--json" => json = true,
+            "-q" => quiet = true,
             flag if flag.starts_with('-') => {
                 return Err(format!(
-                    "unknown flag: {flag}\nusage: lsp-cli [PATH] [--json]"
+                    "unknown flag: {flag}\nusage: lsp-cli [PATH] [--json] [-q]"
                 ));
             }
             _ => {
                 if path.is_some() {
-                    return Err("usage: lsp-cli [PATH] [--json]".to_string());
+                    return Err("usage: lsp-cli [PATH] [--json] [-q]".to_string());
                 }
 
                 path = Some(PathBuf::from(arg));
@@ -97,7 +102,16 @@ where
     Ok(Args {
         path: path.unwrap_or_else(|| PathBuf::from(".")),
         json,
+        quiet,
     })
+}
+
+fn render_quiet(suggestions: &[SuggestedLanguage]) -> String {
+    suggestions
+        .iter()
+        .map(|suggestion| suggestion.command.join(" "))
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 fn render_text(detected_filetypes: &BTreeSet<String>, suggestions: &[SuggestedLanguage]) -> String {
@@ -175,7 +189,7 @@ fn escape_json(input: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_args, render_json, render_text};
+    use super::{parse_args, render_json, render_quiet, render_text};
     use crate::suggest::SuggestedLanguage;
     use std::collections::BTreeSet;
     use std::path::PathBuf;
@@ -194,6 +208,7 @@ mod tests {
 
         assert_eq!(args.path, PathBuf::from("."));
         assert!(!args.json);
+        assert!(!args.quiet);
     }
 
     #[test]
@@ -203,6 +218,17 @@ mod tests {
 
         assert_eq!(args.path, PathBuf::from("src"));
         assert!(args.json);
+        assert!(!args.quiet);
+    }
+
+    #[test]
+    fn parses_quiet_flag_and_path() {
+        let args =
+            parse_args(vec!["src".to_string(), "-q".to_string()]).expect("args should parse");
+
+        assert_eq!(args.path, PathBuf::from("src"));
+        assert!(!args.json);
+        assert!(args.quiet);
     }
 
     #[test]
@@ -234,6 +260,33 @@ mod tests {
     #[test]
     fn renders_empty_json_output() {
         assert_eq!(render_json(&[]), "{\"languages\":[]}");
+    }
+
+    #[test]
+    fn renders_empty_quiet_output() {
+        assert_eq!(render_quiet(&[]), "");
+    }
+
+    #[test]
+    fn renders_quiet_output() {
+        assert_eq!(
+            render_quiet(&[clangd_suggestion()]),
+            "clangd --background-index"
+        );
+    }
+
+    #[test]
+    fn renders_multiple_quiet_outputs() {
+        let lua = SuggestedLanguage {
+            name: "lua-language-server".to_string(),
+            server: "lua-language-server".to_string(),
+            command: vec!["lua-language-server".to_string()],
+        };
+
+        assert_eq!(
+            render_quiet(&[clangd_suggestion(), lua]),
+            "clangd --background-index\nlua-language-server"
+        );
     }
 
     #[test]

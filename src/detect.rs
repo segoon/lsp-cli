@@ -57,7 +57,7 @@ fn detect_file(path: &Path, filetypes: &[FiletypeConfig], detection: &mut Detect
     let extension = path
         .extension()
         .and_then(|value| value.to_str())
-        .map(|value| value.to_ascii_lowercase());
+        .map(str::to_ascii_lowercase);
 
     for filetype in filetypes {
         let extension_match = extension

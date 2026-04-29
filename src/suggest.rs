@@ -64,9 +64,7 @@ fn matching_languages(lsp: &LspConfig, detection: &DetectionResult) -> Vec<Strin
 fn resolve_workspace_root(lsp: &LspConfig, workspace: &Path) -> std::io::Result<PathBuf> {
     let start = match std::fs::metadata(workspace) {
         Ok(metadata) if metadata.is_file() => workspace
-            .parent()
-            .map(Path::to_path_buf)
-            .unwrap_or_else(|| workspace.to_path_buf()),
+            .parent().map_or_else(|| workspace.to_path_buf(), Path::to_path_buf),
         Ok(_) => workspace.to_path_buf(),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => workspace.to_path_buf(),
         Err(error) => return Err(error),

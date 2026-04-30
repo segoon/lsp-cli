@@ -1,22 +1,32 @@
 #![warn(clippy::pedantic)]
 
+mod cli;
 mod config;
 mod detect;
+mod lsp;
 mod suggest;
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 use std::env;
-use std::path::PathBuf;
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::process;
 
-use config::{default_config_root, load_config_store};
-use detect::detect_workspace;
+use cli::{Command as CliCommand, DetectArgs, GrepArgs, parse_args};
+use config::{ConfigStore, default_config_root, load_config_store};
+use detect::{DetectionResult, detect_workspace};
+use lsp::LspClient;
+use serde::Deserialize;
+use serde_json::{Value, json};
 use suggest::{SuggestedLanguage, suggestions_for};
+use url::Url;
 
-struct Args {
+#[derive(Debug, Eq, PartialEq)]
+struct GrepMatch {
     path: PathBuf,
-    json: bool,
-    quiet: bool,
+    line: u32,
+    col: u32,
+    line_content: String,
 }
 
 fn main() {
@@ -47,68 +57,89 @@ fn main() {
         }
     };
 
-    let detection = match detect_workspace(&args.path, &config.filetypes) {
-        Ok(detection) => detection,
+    let output = match args {
+        CliCommand::Detect(args) => run_detect(&args, &config),
+        CliCommand::Grep(args) => run_grep(&args, &config),
+    };
+
+    match output {
+        Ok(output) => println!("{output}"),
         Err(error) => {
-            eprintln!("failed to scan {}: {error}", args.path.display());
+            eprintln!("{error}");
             process::exit(1);
-        }
-    };
-
-    let suggestions = match suggestions_for(&config.lsps, &detection, &args.path) {
-        Ok(suggestions) => suggestions,
-        Err(error) => {
-            eprintln!("failed to build suggestions: {error}");
-            process::exit(1);
-        }
-    };
-
-    let output = if args.json {
-        render_json(&suggestions)
-    } else if args.quiet {
-        render_quiet(&suggestions)
-    } else {
-        render_text(&detection.filetypes, &suggestions)
-    };
-
-    println!("{output}");
-}
-
-fn parse_args<I>(args: I) -> Result<Args, String>
-where
-    I: IntoIterator<Item = String>,
-{
-    let mut path = None;
-    let mut json = false;
-    let mut quiet = false;
-
-    for arg in args {
-        match arg.as_str() {
-            "--json" => json = true,
-            "-q" => quiet = true,
-            flag if flag.starts_with('-') => {
-                return Err(format!(
-                    "unknown flag: {flag}\nusage: lsp-cli [PATH] [--json] [-q]"
-                ));
-            }
-            _ => {
-                if path.is_some() {
-                    return Err("usage: lsp-cli [PATH] [--json] [-q]".to_string());
-                }
-
-                path = Some(PathBuf::from(arg));
-            }
         }
     }
+}
 
-    Ok(Args {
-        path: path.unwrap_or_else(|| PathBuf::from(".")),
-        json,
-        quiet,
+fn run_detect(args: &DetectArgs, config: &ConfigStore) -> Result<String, String> {
+    let (detection, suggestions) = analyze_path(&args.path, config)?;
+
+    Ok(if args.json {
+        render_detect_json(&suggestions)
+    } else if args.quiet {
+        render_detect_quiet(&suggestions)
+    } else {
+        render_detect_text(&detection.filetypes, &suggestions)
     })
 }
 
-fn render_quiet(suggestions: &[SuggestedLanguage]) -> String {
+fn run_grep(args: &GrepArgs, config: &ConfigStore) -> Result<String, String> {
+    let (detection, suggestions) = analyze_path(&args.directory, config)?;
+    let server = select_server(&detection, &suggestions)?;
+    let root_uri = path_to_file_uri(&server.workspace_root)?;
+    let workspace_name = lsp::workspace_name(&server.workspace_root);
+
+    let mut client = LspClient::new(&server.command)
+        .map_err(|error| format!("failed to start {}: {error}", server.server))?;
+    client
+        .initialize(&root_uri, &workspace_name)
+        .map_err(|error| format!("failed to initialize {}: {error}", server.server))?;
+
+    let response = client
+        .workspace_symbol(&args.pattern)
+        .map_err(|error| format!("failed to query {}: {error}", server.server));
+    let shutdown = client.shutdown();
+    let response = response?;
+    shutdown.map_err(|error| format!("failed to stop {} cleanly: {error}", server.server))?;
+
+    let matches = grep_matches_from_response(&response)?;
+
+    Ok(if args.json {
+        render_grep_json(args, &detection.filetypes, server, &matches)
+    } else {
+        render_grep_text(&matches)
+    })
+}
+
+fn analyze_path(
+    path: &Path,
+    config: &ConfigStore,
+) -> Result<(DetectionResult, Vec<SuggestedLanguage>), String> {
+    let detection = detect_workspace(path, &config.filetypes)
+        .map_err(|error| format!("failed to scan {}: {error}", path.display()))?;
+    let suggestions = suggestions_for(&config.lsps, &detection, path)
+        .map_err(|error| format!("failed to build suggestions: {error}"))?;
+
+    Ok((detection, suggestions))
+}
+
+fn select_server<'a>(
+    detection: &DetectionResult,
+    suggestions: &'a [SuggestedLanguage],
+) -> Result<&'a SuggestedLanguage, String> {
+    suggestions.first().ok_or_else(|| {
+        if detection.filetypes.is_empty() {
+            "No supported languages detected".to_string()
+        } else {
+            format!(
+                "No LSP server matches detected filetypes: {}",
+                detection.filetypes.iter().cloned().collect::<Vec<_>>().join(", ")
+            )
+        }
+    })
+}
+
+fn render_detect_quiet(suggestions: &[SuggestedLanguage]) -> String {
     suggestions
         .iter()
         .map(|suggestion| suggestion.command.join(" "))
@@ -116,7 +147,7 @@ fn render_quiet(suggestions: &[SuggestedLanguage]) -> String {
         .join("\n")
 }
 
-fn render_text(detected_filetypes: &BTreeSet<String>, suggestions: &[SuggestedLanguage]) -> String {
+fn render_detect_text(detected_filetypes: &BTreeSet<String>, suggestions: &[SuggestedLanguage]) -> String {
     if suggestions.is_empty() {
         return "No supported languages detected".to_string();
     }
@@ -144,165 +175,355 @@ fn render_text(detected_filetypes: &BTreeSet<String>, suggestions: &[SuggestedLa
         .join("\n\n")
 }
 
-fn render_json(suggestions: &[SuggestedLanguage]) -> String {
-    let servers = suggestions
-        .iter()
-        .map(|suggestion| {
-            let languages = suggestion
-                .languages
-                .iter()
-                .map(|part| format!("\"{}\"", escape_json(part)))
-                .collect::<Vec<_>>()
-                .join(",");
-            let command = suggestion
-                .command
-                .iter()
-                .map(|part| format!("\"{}\"", escape_json(part)))
-                .collect::<Vec<_>>()
-                .join(",");
+fn render_detect_json(suggestions: &[SuggestedLanguage]) -> String {
+    json!({
+        "servers": suggestions
+            .iter()
+            .map(|suggestion| {
+                json!({
+                    "languages": suggestion.languages,
+                    "server": suggestion.server,
+                    "command": suggestion.command,
+                })
+            })
+            .collect::<Vec<_>>(),
+    })
+    .to_string()
+}
 
+fn render_grep_text(matches: &[GrepMatch]) -> String {
+    matches
+        .iter()
+        .map(|matched| {
             format!(
-                "{{\"languages\":[{}],\"server\":\"{}\",\"command\":[{}]}}",
-                languages,
-                escape_json(&suggestion.server),
-                command
+                "{}:{}:{}:{}",
+                matched.path.display(),
+                matched.line,
+                matched.col,
+                matched.line_content
             )
         })
         .collect::<Vec<_>>()
-        .join(",");
-
-    format!("{{\"servers\":[{servers}]}}")
+        .join("\n")
 }
 
-fn escape_json(input: &str) -> String {
-    let mut escaped = String::new();
+fn render_grep_json(
+    args: &GrepArgs,
+    detected_filetypes: &BTreeSet<String>,
+    server: &SuggestedLanguage,
+    matches: &[GrepMatch],
+) -> String {
+    json!({
+        "pattern": args.pattern,
+        "directory": args.directory,
+        "detected": detected_filetypes,
+        "server": {
+            "name": server.server,
+            "languages": server.languages,
+            "command": server.command,
+            "workspace_root": server.workspace_root,
+        },
+        "matches": matches
+            .iter()
+            .map(|matched| {
+                json!({
+                    "path": matched.path,
+                    "line": matched.line,
+                    "col": matched.col,
+                    "line_content": matched.line_content,
+                })
+            })
+            .collect::<Vec<_>>(),
+    })
+    .to_string()
+}
 
-    for ch in input.chars() {
-        match ch {
-            '"' => escaped.push_str("\\\""),
-            '\\' => escaped.push_str("\\\\"),
-            '\n' => escaped.push_str("\\n"),
-            '\r' => escaped.push_str("\\r"),
-            '\t' => escaped.push_str("\\t"),
-            ch if ch.is_control() => {
-                use std::fmt::Write;
-                let _ = write!(escaped, "\\u{:04x}", ch as u32);
-            }
-            ch => escaped.push(ch),
-        }
+fn grep_matches_from_response(response: &Value) -> Result<Vec<GrepMatch>, String> {
+    if response.is_null() {
+        return Ok(Vec::new());
     }
 
-    escaped
+    let symbols: Vec<WorkspaceSymbolItem> = serde_json::from_value(response.clone())
+        .map_err(|error| format!("failed to decode workspace/symbol response: {error}"))?;
+    let mut source_cache = SourceCache::default();
+
+    symbols
+        .into_iter()
+        .filter_map(|symbol| symbol.into_grep_match(&mut source_cache))
+        .collect()
+}
+
+fn path_to_file_uri(path: &Path) -> Result<String, String> {
+    let absolute = fs::canonicalize(path)
+        .map_err(|error| format!("failed to resolve {}: {error}", path.display()))?;
+
+    let url = if absolute.is_dir() {
+        Url::from_directory_path(&absolute)
+    } else {
+        Url::from_file_path(&absolute)
+    }
+    .map_err(|()| format!("failed to build file URI for {}", absolute.display()))?;
+
+    Ok(url.to_string())
+}
+
+#[derive(Debug, Default)]
+struct SourceCache {
+    lines: HashMap<PathBuf, Vec<String>>,
+}
+
+impl SourceCache {
+    fn line_content(&mut self, path: &Path, line_index: usize) -> String {
+        let entry = self.lines.entry(path.to_path_buf()).or_insert_with(|| {
+            fs::read_to_string(path)
+                .map(|contents| contents.lines().map(ToString::to_string).collect())
+                .unwrap_or_default()
+        });
+
+        entry
+            .get(line_index)
+            .cloned()
+            .unwrap_or_else(|| "<line unavailable>".to_string())
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum WorkspaceSymbolItem {
+    SymbolInformation(SymbolInformationItem),
+    WorkspaceSymbol(WorkspaceSymbol),
+}
+
+impl WorkspaceSymbolItem {
+    fn into_grep_match(self, source_cache: &mut SourceCache) -> Option<Result<GrepMatch, String>> {
+        match self {
+            Self::SymbolInformation(symbol) => {
+                Some(symbol.location.into_grep_match(source_cache))
+            }
+            Self::WorkspaceSymbol(symbol) => symbol.location.into_grep_match(source_cache),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct SymbolInformationItem {
+    location: Location,
+}
+
+#[derive(Debug, Deserialize)]
+struct WorkspaceSymbol {
+    location: WorkspaceSymbolLocation,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum WorkspaceSymbolLocation {
+    Full(Location),
+    UriOnly {
+        #[serde(rename = "uri")]
+        _uri: Value,
+    },
+}
+
+impl WorkspaceSymbolLocation {
+    fn into_grep_match(self, source_cache: &mut SourceCache) -> Option<Result<GrepMatch, String>> {
+        match self {
+            Self::Full(location) => Some(location.into_grep_match(source_cache)),
+            Self::UriOnly { .. } => None,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct Location {
+    uri: String,
+    range: Range,
+}
+
+impl Location {
+    fn into_grep_match(self, source_cache: &mut SourceCache) -> Result<GrepMatch, String> {
+        let path = file_uri_to_path(&self.uri)?;
+        let line = self.range.start.line + 1;
+        let col = self.range.start.character + 1;
+        let line_index = usize::try_from(self.range.start.line)
+            .map_err(|_| format!("line index overflow for {}", path.display()))?;
+        let line_content = source_cache.line_content(&path, line_index);
+
+        Ok(GrepMatch {
+            path,
+            line,
+            col,
+            line_content,
+        })
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct Range {
+    start: Position,
+}
+
+#[derive(Debug, Deserialize)]
+struct Position {
+    line: u32,
+    character: u32,
+}
+
+fn file_uri_to_path(uri: &str) -> Result<PathBuf, String> {
+    let url = Url::parse(uri).map_err(|error| format!("invalid location URI {uri:?}: {error}"))?;
+
+    url.to_file_path()
+        .map_err(|()| format!("workspace/symbol returned non-file URI {uri:?}"))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_args, render_json, render_quiet, render_text};
+    use super::{
+        GrepMatch, SourceCache, grep_matches_from_response, render_detect_json,
+        render_detect_quiet, render_detect_text, render_grep_text,
+    };
     use crate::suggest::SuggestedLanguage;
+    use serde_json::json;
     use std::collections::BTreeSet;
+    use std::fs;
     use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+    use url::Url;
 
     fn example_suggestion() -> SuggestedLanguage {
         SuggestedLanguage {
             languages: vec!["alpha".to_string(), "beta".to_string()],
             server: "example-lsp".to_string(),
             command: vec!["example-lsp".to_string(), "--stdio".to_string()],
+            workspace_root: PathBuf::from("."),
+        }
+    }
+
+    struct TestDir {
+        path: PathBuf,
+    }
+
+    impl TestDir {
+        fn new() -> Self {
+            let unique = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("time should move forward")
+                .as_nanos();
+            let path = std::env::temp_dir().join(format!(
+                "lsp-cli-main-test-{}-{}",
+                std::process::id(),
+                unique
+            ));
+            fs::create_dir_all(&path).expect("temp dir should be created");
+
+            Self { path }
+        }
+
+        fn write_file(&self, relative: &str, contents: &str) -> PathBuf {
+            let path = self.path.join(relative);
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent).expect("parent dirs should be created");
+            }
+
+            fs::write(&path, contents).expect("file should be written");
+            path
+        }
+    }
+
+    impl Drop for TestDir {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.path);
         }
     }
 
     #[test]
-    fn parses_default_arguments() {
-        let args = parse_args(Vec::<String>::new()).expect("args should parse");
-
-        assert_eq!(args.path, PathBuf::from("."));
-        assert!(!args.json);
-        assert!(!args.quiet);
-    }
-
-    #[test]
-    fn parses_json_flag_and_path() {
-        let args =
-            parse_args(vec!["src".to_string(), "--json".to_string()]).expect("args should parse");
-
-        assert_eq!(args.path, PathBuf::from("src"));
-        assert!(args.json);
-        assert!(!args.quiet);
-    }
-
-    #[test]
-    fn parses_quiet_flag_and_path() {
-        let args =
-            parse_args(vec!["src".to_string(), "-q".to_string()]).expect("args should parse");
-
-        assert_eq!(args.path, PathBuf::from("src"));
-        assert!(!args.json);
-        assert!(args.quiet);
-    }
-
-    #[test]
-    fn renders_empty_text_output() {
+    fn renders_empty_detect_text_output() {
         assert_eq!(
-            render_text(&BTreeSet::new(), &[]),
+            render_detect_text(&BTreeSet::new(), &[]),
             "No supported languages detected"
         );
     }
 
     #[test]
-    fn renders_text_output() {
+    fn renders_detect_text_output() {
         let detected = BTreeSet::from(["alpha".to_string(), "beta".to_string()]);
 
         assert_eq!(
-            render_text(&detected, &[example_suggestion()]),
+            render_detect_text(&detected, &[example_suggestion()]),
             "Detected: alpha, beta\nSuggested command: example-lsp --stdio"
         );
     }
 
     #[test]
-    fn renders_text_output_without_detected_filetypes() {
+    fn renders_detect_quiet_output() {
+        assert_eq!(render_detect_quiet(&[example_suggestion()]), "example-lsp --stdio");
+    }
+
+    #[test]
+    fn renders_detect_json_output() {
         assert_eq!(
-            render_text(&BTreeSet::new(), &[example_suggestion()]),
-            "Detected: none\nSuggested command: example-lsp --stdio"
-        );
-    }
-
-    #[test]
-    fn renders_empty_json_output() {
-        assert_eq!(render_json(&[]), "{\"servers\":[]}");
-    }
-
-    #[test]
-    fn renders_empty_quiet_output() {
-        assert_eq!(render_quiet(&[]), "");
-    }
-
-    #[test]
-    fn renders_quiet_output() {
-        assert_eq!(render_quiet(&[example_suggestion()]), "example-lsp --stdio");
-    }
-
-    #[test]
-    fn renders_multiple_quiet_outputs() {
-        let secondary = SuggestedLanguage {
-            languages: vec!["gamma".to_string()],
-            server: "secondary-lsp".to_string(),
-            command: vec!["secondary-lsp".to_string()],
-        };
-
-        assert_eq!(
-            render_quiet(&[example_suggestion(), secondary]),
-            "example-lsp --stdio\nsecondary-lsp"
-        );
-    }
-
-    #[test]
-    fn renders_json_output() {
-        assert_eq!(
-            render_json(&[example_suggestion()]),
+            render_detect_json(&[example_suggestion()]),
             concat!(
                 "{\"servers\":[",
-                "{\"languages\":[\"alpha\",\"beta\"],\"server\":\"example-lsp\",\"command\":[\"example-lsp\",\"--stdio\"]}",
+                "{\"command\":[\"example-lsp\",\"--stdio\"],\"languages\":[\"alpha\",\"beta\"],\"server\":\"example-lsp\"}",
                 "]}"
             )
+        );
+    }
+
+    #[test]
+    fn renders_grep_text_output() {
+        assert_eq!(
+            render_grep_text(&[GrepMatch {
+                path: PathBuf::from("src/main.rs"),
+                line: 3,
+                col: 14,
+                line_content: "fn main() {".to_string(),
+            }]),
+            "src/main.rs:3:14:fn main() {"
+        );
+    }
+
+    #[test]
+    fn returns_placeholder_for_missing_line() {
+        let dir = TestDir::new();
+        let file = dir.write_file("main.rs", "fn main() {}\n");
+        let mut cache = SourceCache::default();
+
+        assert_eq!(cache.line_content(&file, 99), "<line unavailable>");
+    }
+
+    #[test]
+    fn parses_workspace_symbol_locations() {
+        let dir = TestDir::new();
+        let file = dir.write_file("src/lib.rs", "first line\nsecond line\n");
+        let uri = Url::from_file_path(&file)
+            .expect("file path should become URI")
+            .to_string();
+
+        let matches = grep_matches_from_response(&json!([
+            {
+                "name": "symbol",
+                "kind": 12,
+                "location": {
+                    "uri": uri,
+                    "range": {
+                        "start": { "line": 1, "character": 2 },
+                        "end": { "line": 1, "character": 8 }
+                    }
+                }
+            }
+        ]))
+        .expect("response should parse");
+
+        assert_eq!(
+            matches,
+            vec![GrepMatch {
+                path: file,
+                line: 2,
+                col: 3,
+                line_content: "second line".to_string(),
+            }]
         );
     }
 }

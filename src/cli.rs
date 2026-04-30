@@ -1,0 +1,159 @@
+use std::path::PathBuf;
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum Command {
+    Detect(DetectArgs),
+    Grep(GrepArgs),
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct DetectArgs {
+    pub path: PathBuf,
+    pub json: bool,
+    pub quiet: bool,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct GrepArgs {
+    pub pattern: String,
+    pub directory: PathBuf,
+    pub json: bool,
+}
+
+pub fn parse_args<I>(args: I) -> Result<Command, String>
+where
+    I: IntoIterator<Item = String>,
+{
+    let mut args = args.into_iter();
+    let Some(command) = args.next() else {
+        return Err(usage().to_string());
+    };
+
+    match command.as_str() {
+        "detect" => parse_detect(args),
+        "grep" => parse_grep(args),
+        flag if flag.starts_with('-') => Err(format!("unknown flag: {flag}\n{}", usage())),
+        _ => Err(format!("unknown subcommand: {command}\n{}", usage())),
+    }
+}
+
+pub fn usage() -> &'static str {
+    "usage: lsp-cli detect [PATH] [--json] [-q]\n       lsp-cli grep PATTERN DIRECTORY [--json]"
+}
+
+fn parse_detect<I>(args: I) -> Result<Command, String>
+where
+    I: IntoIterator<Item = String>,
+{
+    let mut path = None;
+    let mut json = false;
+    let mut quiet = false;
+
+    for arg in args {
+        match arg.as_str() {
+            "--json" => json = true,
+            "-q" => quiet = true,
+            flag if flag.starts_with('-') => {
+                return Err(format!("unknown flag: {flag}\n{}", usage()));
+            }
+            _ => {
+                if path.replace(PathBuf::from(arg)).is_some() {
+                    return Err(usage().to_string());
+                }
+            }
+        }
+    }
+
+    Ok(Command::Detect(DetectArgs {
+        path: path.unwrap_or_else(|| PathBuf::from(".")),
+        json,
+        quiet,
+    }))
+}
+
+fn parse_grep<I>(args: I) -> Result<Command, String>
+where
+    I: IntoIterator<Item = String>,
+{
+    let mut positionals = Vec::new();
+    let mut json = false;
+
+    for arg in args {
+        match arg.as_str() {
+            "--json" => json = true,
+            flag if flag.starts_with('-') => {
+                return Err(format!("unknown flag: {flag}\n{}", usage()));
+            }
+            _ => positionals.push(arg),
+        }
+    }
+
+    if positionals.len() != 2 {
+        return Err(usage().to_string());
+    }
+
+    Ok(Command::Grep(GrepArgs {
+        pattern: positionals.remove(0),
+        directory: PathBuf::from(positionals.remove(0)),
+        json,
+    }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Command, DetectArgs, GrepArgs, parse_args, usage};
+    use std::path::PathBuf;
+
+    #[test]
+    fn parses_detect_defaults() {
+        assert_eq!(
+            parse_args(vec!["detect".to_string()]).expect("detect should parse"),
+            Command::Detect(DetectArgs {
+                path: PathBuf::from("."),
+                json: false,
+                quiet: false,
+            })
+        );
+    }
+
+    #[test]
+    fn parses_detect_flags_and_path() {
+        assert_eq!(
+            parse_args(vec![
+                "detect".to_string(),
+                "src".to_string(),
+                "--json".to_string(),
+                "-q".to_string(),
+            ])
+            .expect("detect should parse"),
+            Command::Detect(DetectArgs {
+                path: PathBuf::from("src"),
+                json: true,
+                quiet: true,
+            })
+        );
+    }
+
+    #[test]
+    fn parses_grep_arguments() {
+        assert_eq!(
+            parse_args(vec![
+                "grep".to_string(),
+                "needle".to_string(),
+                "workspace".to_string(),
+                "--json".to_string(),
+            ])
+            .expect("grep should parse"),
+            Command::Grep(GrepArgs {
+                pattern: "needle".to_string(),
+                directory: PathBuf::from("workspace"),
+                json: true,
+            })
+        );
+    }
+
+    #[test]
+    fn rejects_missing_subcommand() {
+        assert_eq!(parse_args(Vec::<String>::new()), Err(usage().to_string()));
+    }
+}

@@ -8,6 +8,7 @@ pub struct SuggestedLanguage {
     pub languages: Vec<String>,
     pub server: String,
     pub command: Vec<String>,
+    pub workspace_root: PathBuf,
 }
 
 pub fn suggestions_for(
@@ -32,9 +33,9 @@ fn build_suggestion(
     detection: &DetectionResult,
     workspace: &Path,
 ) -> Result<SuggestedLanguage, String> {
-    let workspace = resolve_workspace_root(lsp, workspace)
+    let workspace_root = resolve_workspace_root(lsp, workspace)
         .map_err(|error| format!("failed to resolve workspace for {}: {error}", lsp.name))?;
-    let workspace = workspace.to_string_lossy();
+    let workspace = workspace_root.to_string_lossy();
     let template = shlex::split(&lsp.cmdline)
         .ok_or_else(|| format!("invalid cmdline for {}: {}", lsp.name, lsp.cmdline))?;
     let command = template
@@ -50,6 +51,7 @@ fn build_suggestion(
         languages: matching_languages(lsp, detection),
         server: lsp.name.clone(),
         command,
+        workspace_root,
     })
 }
 
@@ -64,14 +66,15 @@ fn matching_languages(lsp: &LspConfig, detection: &DetectionResult) -> Vec<Strin
 fn resolve_workspace_root(lsp: &LspConfig, workspace: &Path) -> std::io::Result<PathBuf> {
     let start = match std::fs::metadata(workspace) {
         Ok(metadata) if metadata.is_file() => workspace
-            .parent().map_or_else(|| workspace.to_path_buf(), Path::to_path_buf),
+            .parent()
+            .map_or_else(|| workspace.to_path_buf(), Path::to_path_buf),
         Ok(_) => workspace.to_path_buf(),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => workspace.to_path_buf(),
         Err(error) => return Err(error),
     };
 
     for directory in start.ancestors() {
-        if has_any_root_marker(directory, &lsp.root_markers)? {
+        if has_any_root_marker(directory, &lsp.root_markers) {
             return Ok(directory.to_path_buf());
         }
     }
@@ -79,18 +82,18 @@ fn resolve_workspace_root(lsp: &LspConfig, workspace: &Path) -> std::io::Result<
     Ok(start)
 }
 
-fn has_any_root_marker(directory: &Path, root_markers: &[String]) -> std::io::Result<bool> {
+fn has_any_root_marker(directory: &Path, root_markers: &[String]) -> bool {
     if root_markers.is_empty() {
-        return Ok(false);
+        return false;
     }
 
     if !directory.is_dir() {
-        return Ok(false);
+        return false;
     }
 
-    Ok(root_markers
+    root_markers
         .iter()
-        .any(|marker| directory.join(marker).exists()))
+        .any(|marker| directory.join(marker).exists())
 }
 
 #[cfg(test)]
@@ -172,6 +175,7 @@ mod tests {
                     "--stdio".to_string(),
                     ".".to_string()
                 ],
+                workspace_root: PathBuf::from("."),
             }]
         );
     }
@@ -270,6 +274,7 @@ mod tests {
                 dir.path().display().to_string()
             ]
         );
+        assert_eq!(suggestions[0].workspace_root, dir.path().to_path_buf());
     }
 
     #[test]
@@ -295,5 +300,6 @@ mod tests {
                 dir.path().join("src").display().to_string()
             ]
         );
+        assert_eq!(suggestions[0].workspace_root, dir.path().join("src"));
     }
 }

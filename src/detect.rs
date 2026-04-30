@@ -22,7 +22,7 @@ fn scan_path(
     filetypes: &[FiletypeConfig],
     detection: &mut DetectionResult,
 ) -> io::Result<()> {
-    let metadata = fs::symlink_metadata(path).map_err(|error| path_error(path, error))?;
+    let metadata = fs::symlink_metadata(path).map_err(|error| path_error(path, &error))?;
     let file_type = metadata.file_type();
 
     if file_type.is_symlink() {
@@ -35,10 +35,10 @@ fn scan_path(
     }
 
     if file_type.is_dir() {
-        let entries = fs::read_dir(path).map_err(|error| path_error(path, error))?;
+        let entries = fs::read_dir(path).map_err(|error| path_error(path, &error))?;
 
         for entry in entries {
-            let entry = entry.map_err(|error| path_error(path, error))?;
+            let entry = entry.map_err(|error| path_error(path, &error))?;
             scan_path(&entry.path(), filetypes, detection)?;
         }
     }
@@ -74,7 +74,9 @@ fn detect_file(path: &Path, filetypes: &[FiletypeConfig], detection: &mut Detect
     }
 }
 
-fn path_error(path: &Path, error: io::Error) -> io::Error {
+
+
+fn path_error(path: &Path, error: &io::Error) -> io::Error {
     io::Error::new(error.kind(), format!("{}: {error}", path.display()))
 }
 

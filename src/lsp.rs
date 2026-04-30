@@ -17,6 +17,7 @@ pub struct LspClient {
     messages: Receiver<IncomingMessage>,
     next_request_id: u64,
     shutdown_sent: bool,
+    debug: bool,
 }
 
 enum IncomingMessage {
@@ -37,7 +38,7 @@ pub struct ServerCapabilities {
 }
 
 impl LspClient {
-    pub fn new(command: &[String]) -> Result<Self, String> {
+    pub fn new(command: &[String], debug: bool) -> Result<Self, String> {
         let Some(program) = command.first() else {
             return Err("cannot start LSP server from empty command".to_string());
         };
@@ -58,7 +59,11 @@ impl LspClient {
             .stdout
             .take()
             .ok_or_else(|| format!("failed to open stdout for {program}"))?;
-        let messages = spawn_reader(stdout);
+        let messages = spawn_reader(stdout, debug);
+
+        if debug {
+            eprintln!("LSP server: {} (pid {})", command.join(" "), child.id());
+        }
 
         Ok(Self {
             child,
@@ -66,6 +71,7 @@ impl LspClient {
             messages,
             next_request_id: 1,
             shutdown_sent: false,
+            debug,
         })
     }
 
@@ -122,15 +128,14 @@ impl LspClient {
         let id = self.next_request_id;
         self.next_request_id += 1;
 
-        write_message(
-            &mut self.stdin,
-            &json!({
-                "jsonrpc": "2.0",
-                "id": id,
-                "method": method,
-                "params": params,
-            }),
-        )?;
+        let message = json!({
+            "jsonrpc": "2.0",
+            "id": id,
+            "method": method,
+            "params": params,
+        });
+        log_debug_message(self.debug, "-> ", &message);
+        write_message(&mut self.stdin, &message)?;
 
         loop {
             match self.messages.recv_timeout(RESPONSE_TIMEOUT) {
@@ -168,14 +173,13 @@ impl LspClient {
     }
 
     fn send_notification(&mut self, method: &str, params: &Value) -> Result<(), String> {
-        write_message(
-            &mut self.stdin,
-            &json!({
-                "jsonrpc": "2.0",
-                "method": method,
-                "params": params,
-            }),
-        )
+        let message = json!({
+            "jsonrpc": "2.0",
+            "method": method,
+            "params": params,
+        });
+        log_debug_message(self.debug, "-> ", &message);
+        write_message(&mut self.stdin, &message)
     }
 
     fn handle_server_request(&mut self, request_id: &Value, message: &Value) -> Result<(), String> {
@@ -211,6 +215,7 @@ impl LspClient {
             }),
         };
 
+        log_debug_message(self.debug, "-> ", &response);
         write_message(&mut self.stdin, &response)
     }
 }
@@ -236,18 +241,19 @@ impl Drop for LspClient {
     }
 }
 
-fn spawn_reader(stdout: ChildStdout) -> Receiver<IncomingMessage> {
+fn spawn_reader(stdout: ChildStdout, debug: bool) -> Receiver<IncomingMessage> {
     let (sender, receiver) = mpsc::channel();
-    thread::spawn(move || reader_loop(stdout, &sender));
+    thread::spawn(move || reader_loop(stdout, &sender, debug));
     receiver
 }
 
-fn reader_loop(stdout: ChildStdout, sender: &Sender<IncomingMessage>) {
+fn reader_loop(stdout: ChildStdout, sender: &Sender<IncomingMessage>, debug: bool) {
     let mut reader = BufReader::new(stdout);
 
     loop {
         match read_message(&mut reader) {
             Ok(Some(message)) => {
+                log_debug_message(debug, "<- ", &message);
                 if sender.send(IncomingMessage::Message(message)).is_err() {
                     return;
                 }
@@ -328,6 +334,17 @@ where
         .map_err(|error| format!("failed to write JSON-RPC message: {error}"))
 }
 
+fn log_debug_message(debug: bool, prefix: &str, message: &Value) {
+    if debug {
+        eprintln!("{prefix}{}", serialize_debug_message(message));
+    }
+}
+
+fn serialize_debug_message(message: &Value) -> String {
+    serde_json::to_string(message)
+        .unwrap_or_else(|_| "<failed to serialize debug message>".to_string())
+}
+
 fn response_id(message: &Value) -> Option<u64> {
     message
         .get("id")
@@ -363,7 +380,7 @@ pub fn workspace_name(path: &std::path::Path) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{format_spawn_error, read_message, write_message};
+    use super::{format_spawn_error, read_message, serialize_debug_message, write_message};
     use serde_json::json;
     use std::io::BufReader;
 
@@ -387,6 +404,14 @@ mod tests {
         assert_eq!(
             format_spawn_error("ast-grep", &error),
             "LSP server executable `ast-grep` is not installed or not in $PATH"
+        );
+    }
+
+    #[test]
+    fn serializes_debug_messages_as_json() {
+        assert_eq!(
+            serialize_debug_message(&json!({"jsonrpc": "2.0", "id": 1})),
+            "{\"id\":1,\"jsonrpc\":\"2.0\"}"
         );
     }
 }

@@ -11,6 +11,7 @@ pub struct DetectArgs {
     pub path: PathBuf,
     pub json: bool,
     pub quiet: bool,
+    pub debug: bool,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -19,6 +20,7 @@ pub struct GrepArgs {
     pub directory: PathBuf,
     pub lsp: Option<String>,
     pub json: bool,
+    pub debug: bool,
 }
 
 pub fn parse_args<I>(args: I) -> Result<Command, String>
@@ -39,7 +41,7 @@ where
 }
 
 pub fn usage() -> &'static str {
-    "usage: lsp-cli detect [PATH] [--json] [-q]\n       lsp-cli grep PATTERN DIRECTORY [--json] [--lsp SERVER]"
+    "usage: lsp-cli detect [PATH] [--json] [-q] [--debug]\n       lsp-cli grep PATTERN DIRECTORY [--json] [--lsp SERVER] [--debug]"
 }
 
 fn parse_detect<I>(args: I) -> Result<Command, String>
@@ -49,11 +51,13 @@ where
     let mut path = None;
     let mut json = false;
     let mut quiet = false;
+    let mut debug = false;
 
     for arg in args {
         match arg.as_str() {
             "--json" => json = true,
             "-q" => quiet = true,
+            "--debug" => debug = true,
             flag if flag.starts_with('-') => {
                 return Err(format!("unknown flag: {flag}\n{}", usage()));
             }
@@ -69,6 +73,7 @@ where
         path: path.unwrap_or_else(|| PathBuf::from(".")),
         json,
         quiet,
+        debug,
     }))
 }
 
@@ -79,11 +84,13 @@ where
     let mut positionals = Vec::new();
     let mut json = false;
     let mut lsp = None;
+    let mut debug = false;
     let mut args = args.into_iter();
 
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--json" => json = true,
+            "--debug" => debug = true,
             "--lsp" => {
                 let server = args.next().ok_or_else(|| {
                     format!("missing value for --lsp\n{}", usage())
@@ -106,6 +113,7 @@ where
         directory: PathBuf::from(positionals.remove(0)),
         lsp,
         json,
+        debug,
     }))
 }
 
@@ -122,6 +130,7 @@ mod tests {
                 path: PathBuf::from("."),
                 json: false,
                 quiet: false,
+                debug: false,
             })
         );
     }
@@ -140,6 +149,7 @@ mod tests {
                 path: PathBuf::from("src"),
                 json: true,
                 quiet: true,
+                debug: false,
             })
         );
     }
@@ -154,6 +164,7 @@ mod tests {
                 "--json".to_string(),
                 "--lsp".to_string(),
                 "clangd".to_string(),
+                "--debug".to_string(),
             ])
             .expect("grep should parse"),
             Command::Grep(GrepArgs {
@@ -161,6 +172,7 @@ mod tests {
                 directory: PathBuf::from("workspace"),
                 lsp: Some("clangd".to_string()),
                 json: true,
+                debug: true,
             })
         );
     }

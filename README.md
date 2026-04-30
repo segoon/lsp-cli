@@ -50,9 +50,11 @@ lsp-cli detect path/to/project/main.py --json
 lsp-cli grep MySymbol path/to/project
 lsp-cli grep MySymbol path/to/project --lsp clangd
 lsp-cli grep --json MySymbol path/to/project
+lsp-cli grep --debug MySymbol path/to/project
 ```
 
 `grep` uses the LSP `workspace/symbol` request. Pattern syntax and matching behavior are server-dependent.
+`--debug` logs the selected LSP server command line, pid, and raw LSP traffic to stderr.
 
 
 # Thanks

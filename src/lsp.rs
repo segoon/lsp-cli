@@ -2,14 +2,11 @@ use std::io::{BufRead, BufReader, Read, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::thread;
-use std::time::Duration;
-
 use lsp_types::notification::{Exit, Initialized, Notification};
 use lsp_types::request::{Initialize, Request, Shutdown, WorkspaceSymbolRequest};
 use serde::Deserialize;
 use serde_json::{Value, json};
-
-const RESPONSE_TIMEOUT: Duration = Duration::from_secs(10);
+use std::time::Duration;
 
 pub struct LspClient {
     child: Child,
@@ -18,6 +15,7 @@ pub struct LspClient {
     next_request_id: u64,
     shutdown_sent: bool,
     debug: bool,
+    timeout: Duration,
 }
 
 enum IncomingMessage {
@@ -38,7 +36,7 @@ pub struct ServerCapabilities {
 }
 
 impl LspClient {
-    pub fn new(command: &[String], debug: bool) -> Result<Self, String> {
+    pub fn new(command: &[String], debug: bool, timeout: Duration) -> Result<Self, String> {
         let Some(program) = command.first() else {
             return Err("cannot start LSP server from empty command".to_string());
         };
@@ -72,6 +70,7 @@ impl LspClient {
             next_request_id: 1,
             shutdown_sent: false,
             debug,
+            timeout,
         })
     }
 
@@ -138,7 +137,7 @@ impl LspClient {
         write_message(&mut self.stdin, &message)?;
 
         loop {
-            match self.messages.recv_timeout(RESPONSE_TIMEOUT) {
+            match self.messages.recv_timeout(self.timeout) {
                 Ok(IncomingMessage::Message(message)) => {
                     if let Some(response_id) = response_id(&message) {
                         if response_id == id {

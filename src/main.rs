@@ -93,7 +93,7 @@ fn run_grep(args: &GrepArgs, config: &ConfigStore) -> Result<String, String> {
     let root_uri = path_to_file_uri(&server.workspace_root)?;
     let workspace_name = lsp::workspace_name(&server.workspace_root);
 
-    let mut client = LspClient::new(&server.command, args.debug)?;
+    let mut client = LspClient::new(&server.command, args.debug, args.timeout)?;
     client
         .initialize(&root_uri, &workspace_name)
         .map_err(|error| format!("failed to initialize {}: {error}", server.server))?;

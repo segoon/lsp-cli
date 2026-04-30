@@ -51,10 +51,13 @@ lsp-cli grep MySymbol path/to/project
 lsp-cli grep MySymbol path/to/project --lsp clangd
 lsp-cli grep --json MySymbol path/to/project
 lsp-cli grep --debug MySymbol path/to/project
+lsp-cli grep --timeout 1.5 MySymbol path/to/project
+lsp-cli grep --timeout 100ms MySymbol path/to/project
 ```
 
 `grep` uses the LSP `workspace/symbol` request. Pattern syntax and matching behavior are server-dependent.
 `--debug` logs the selected LSP server command line, pid, and raw LSP traffic to stderr.
+`--timeout` controls the per-request LSP timeout. Plain numbers are seconds, and values ending in `ms` are milliseconds.
 
 
 # Thanks
@@ -98,3 +101,7 @@ lifecycle:
 - status
 - addr - show active LSP server
 - serve - synch start LSP server, stop it on exit (TODO: what to do with multiple LSP servers?)
+
+indexation:
+- $/progress
+- textDocument/clangd.fileStatus + loop over all files

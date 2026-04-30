@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::time::Duration;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Command {
@@ -21,6 +22,7 @@ pub struct GrepArgs {
     pub lsp: Option<String>,
     pub json: bool,
     pub debug: bool,
+    pub timeout: Duration,
 }
 
 pub fn parse_args<I>(args: I) -> Result<Command, String>
@@ -41,8 +43,10 @@ where
 }
 
 pub fn usage() -> &'static str {
-    "usage: lsp-cli detect [PATH] [--json] [-q] [--debug]\n       lsp-cli grep PATTERN DIRECTORY [--json] [--lsp SERVER] [--debug]"
+    "usage: lsp-cli detect [PATH] [--json] [-q] [--debug]\n       lsp-cli grep PATTERN DIRECTORY [--json] [--lsp SERVER] [--debug] [--timeout T]"
 }
+
+const DEFAULT_TIMEOUT: Duration = Duration::from_secs(10);
 
 fn parse_detect<I>(args: I) -> Result<Command, String>
 where
@@ -85,6 +89,7 @@ where
     let mut json = false;
     let mut lsp = None;
     let mut debug = false;
+    let mut timeout = DEFAULT_TIMEOUT;
     let mut args = args.into_iter();
 
     while let Some(arg) = args.next() {
@@ -96,6 +101,12 @@ where
                     format!("missing value for --lsp\n{}", usage())
                 })?;
                 lsp = Some(server);
+            }
+            "--timeout" => {
+                let value = args.next().ok_or_else(|| {
+                    format!("missing value for --timeout\n{}", usage())
+                })?;
+                timeout = parse_timeout(&value)?;
             }
             flag if flag.starts_with('-') => {
                 return Err(format!("unknown flag: {flag}\n{}", usage()));
@@ -114,13 +125,35 @@ where
         lsp,
         json,
         debug,
+        timeout,
     }))
+}
+
+fn parse_timeout(value: &str) -> Result<Duration, String> {
+    if let Some(milliseconds) = value.strip_suffix("ms") {
+        let milliseconds = milliseconds.parse::<u64>().map_err(|_| {
+            format!("invalid timeout {value:?}: expected integer milliseconds or seconds")
+        })?;
+        return Ok(Duration::from_millis(milliseconds));
+    }
+
+    let seconds = value.parse::<f64>().map_err(|_| {
+        format!("invalid timeout {value:?}: expected integer milliseconds or seconds")
+    })?;
+    if !seconds.is_finite() || seconds < 0.0 {
+        return Err(format!(
+            "invalid timeout {value:?}: expected non-negative milliseconds or seconds"
+        ));
+    }
+
+    Ok(Duration::from_secs_f64(seconds))
 }
 
 #[cfg(test)]
 mod tests {
     use super::{Command, DetectArgs, GrepArgs, parse_args, usage};
     use std::path::PathBuf;
+    use std::time::Duration;
 
     #[test]
     fn parses_detect_defaults() {
@@ -173,6 +206,48 @@ mod tests {
                 lsp: Some("clangd".to_string()),
                 json: true,
                 debug: true,
+                timeout: Duration::from_secs(10),
+            })
+        );
+    }
+
+    #[test]
+    fn parses_grep_timeout_in_seconds_and_milliseconds() {
+        assert_eq!(
+            parse_args(vec![
+                "grep".to_string(),
+                "needle".to_string(),
+                "workspace".to_string(),
+                "--timeout".to_string(),
+                "1.5".to_string(),
+            ])
+            .expect("grep should parse"),
+            Command::Grep(GrepArgs {
+                pattern: "needle".to_string(),
+                directory: PathBuf::from("workspace"),
+                lsp: None,
+                json: false,
+                debug: false,
+                timeout: Duration::from_millis(1500),
+            })
+        );
+
+        assert_eq!(
+            parse_args(vec![
+                "grep".to_string(),
+                "needle".to_string(),
+                "workspace".to_string(),
+                "--timeout".to_string(),
+                "100ms".to_string(),
+            ])
+            .expect("grep should parse"),
+            Command::Grep(GrepArgs {
+                pattern: "needle".to_string(),
+                directory: PathBuf::from("workspace"),
+                lsp: None,
+                json: false,
+                debug: false,
+                timeout: Duration::from_millis(100),
             })
         );
     }
@@ -182,6 +257,28 @@ mod tests {
         assert_eq!(
             parse_args(vec!["grep".to_string(), "needle".to_string(), "workspace".to_string(), "--lsp".to_string()]),
             Err(format!("missing value for --lsp\n{}", usage()))
+        );
+    }
+
+    #[test]
+    fn rejects_missing_timeout_value() {
+        assert_eq!(
+            parse_args(vec!["grep".to_string(), "needle".to_string(), "workspace".to_string(), "--timeout".to_string()]),
+            Err(format!("missing value for --timeout\n{}", usage()))
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_timeout_value() {
+        assert_eq!(
+            parse_args(vec![
+                "grep".to_string(),
+                "needle".to_string(),
+                "workspace".to_string(),
+                "--timeout".to_string(),
+                "nope".to_string(),
+            ]),
+            Err("invalid timeout \"nope\": expected integer milliseconds or seconds".to_string())
         );
     }
 

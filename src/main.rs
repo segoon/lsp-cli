@@ -63,7 +63,11 @@ fn main() {
     };
 
     match output {
-        Ok(output) => println!("{output}"),
+        Ok(output) => {
+            if !output.is_empty() {
+                println!("{output}");
+            }
+        }
         Err(error) => {
             eprintln!("{error}");
             process::exit(1);
@@ -85,12 +89,11 @@ fn run_detect(args: &DetectArgs, config: &ConfigStore) -> Result<String, String>
 
 fn run_grep(args: &GrepArgs, config: &ConfigStore) -> Result<String, String> {
     let (detection, suggestions) = analyze_path(&args.directory, config)?;
-    let server = select_server(&detection, &suggestions)?;
+    let server = select_server(&detection, &suggestions, args.lsp.as_deref())?;
     let root_uri = path_to_file_uri(&server.workspace_root)?;
     let workspace_name = lsp::workspace_name(&server.workspace_root);
 
-    let mut client = LspClient::new(&server.command)
-        .map_err(|error| format!("failed to start {}: {error}", server.server))?;
+    let mut client = LspClient::new(&server.command)?;
     client
         .initialize(&root_uri, &workspace_name)
         .map_err(|error| format!("failed to initialize {}: {error}", server.server))?;
@@ -126,7 +129,25 @@ fn analyze_path(
 fn select_server<'a>(
     detection: &DetectionResult,
     suggestions: &'a [SuggestedLanguage],
+    selected_server: Option<&str>,
 ) -> Result<&'a SuggestedLanguage, String> {
+    if let Some(server) = selected_server {
+        return suggestions.iter().find(|suggestion| suggestion.server == server).ok_or_else(|| {
+            let available = suggestions
+                .iter()
+                .map(|suggestion| suggestion.server.as_str())
+                .collect::<Vec<_>>();
+            if available.is_empty() {
+                format!("Requested LSP server {server:?} is not available because no matching servers were detected")
+            } else {
+                format!(
+                    "Requested LSP server {server:?} is not in the detected server list: {}",
+                    available.join(", ")
+                )
+            }
+        });
+    }
+
     suggestions.first().ok_or_else(|| {
         if detection.filetypes.is_empty() {
             "No supported languages detected".to_string()
@@ -380,8 +401,9 @@ fn file_uri_to_path(uri: &str) -> Result<PathBuf, String> {
 mod tests {
     use super::{
         GrepMatch, SourceCache, grep_matches_from_response, render_detect_json,
-        render_detect_quiet, render_detect_text, render_grep_text,
+        render_detect_quiet, render_detect_text, render_grep_text, select_server,
     };
+    use crate::detect::DetectionResult;
     use crate::suggest::SuggestedLanguage;
     use serde_json::json;
     use std::collections::BTreeSet;
@@ -485,6 +507,11 @@ mod tests {
     }
 
     #[test]
+    fn renders_empty_grep_text_output() {
+        assert_eq!(render_grep_text(&[]), "");
+    }
+
+    #[test]
     fn returns_placeholder_for_missing_line() {
         let dir = TestDir::new();
         let file = dir.write_file("main.rs", "fn main() {}\n");
@@ -524,6 +551,48 @@ mod tests {
                 col: 3,
                 line_content: "second line".to_string(),
             }]
+        );
+    }
+
+    #[test]
+    fn selects_requested_server_for_grep() {
+        let primary = example_suggestion();
+        let secondary = SuggestedLanguage {
+            languages: vec!["beta".to_string()],
+            server: "secondary-lsp".to_string(),
+            command: vec!["secondary-lsp".to_string()],
+            workspace_root: PathBuf::from("."),
+        };
+        let suggestions = [primary, secondary.clone()];
+
+        let selected = select_server(
+            &DetectionResult {
+                filetypes: BTreeSet::from(["beta".to_string()]),
+                filenames: BTreeSet::new(),
+            },
+            &suggestions,
+            Some("secondary-lsp"),
+        )
+        .expect("requested server should be selected");
+
+        assert_eq!(selected.server, secondary.server);
+    }
+
+    #[test]
+    fn errors_when_requested_server_is_not_detected() {
+        let error = select_server(
+            &DetectionResult {
+                filetypes: BTreeSet::from(["beta".to_string()]),
+                filenames: BTreeSet::new(),
+            },
+            &[example_suggestion()],
+            Some("missing-lsp"),
+        )
+        .expect_err("missing server should error");
+
+        assert_eq!(
+            error,
+            "Requested LSP server \"missing-lsp\" is not in the detected server list: example-lsp"
         );
     }
 }

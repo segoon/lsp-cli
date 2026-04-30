@@ -17,6 +17,7 @@ pub struct DetectArgs {
 pub struct GrepArgs {
     pub pattern: String,
     pub directory: PathBuf,
+    pub lsp: Option<String>,
     pub json: bool,
 }
 
@@ -38,7 +39,7 @@ where
 }
 
 pub fn usage() -> &'static str {
-    "usage: lsp-cli detect [PATH] [--json] [-q]\n       lsp-cli grep PATTERN DIRECTORY [--json]"
+    "usage: lsp-cli detect [PATH] [--json] [-q]\n       lsp-cli grep PATTERN DIRECTORY [--json] [--lsp SERVER]"
 }
 
 fn parse_detect<I>(args: I) -> Result<Command, String>
@@ -77,10 +78,18 @@ where
 {
     let mut positionals = Vec::new();
     let mut json = false;
+    let mut lsp = None;
+    let mut args = args.into_iter();
 
-    for arg in args {
+    while let Some(arg) = args.next() {
         match arg.as_str() {
             "--json" => json = true,
+            "--lsp" => {
+                let server = args.next().ok_or_else(|| {
+                    format!("missing value for --lsp\n{}", usage())
+                })?;
+                lsp = Some(server);
+            }
             flag if flag.starts_with('-') => {
                 return Err(format!("unknown flag: {flag}\n{}", usage()));
             }
@@ -95,6 +104,7 @@ where
     Ok(Command::Grep(GrepArgs {
         pattern: positionals.remove(0),
         directory: PathBuf::from(positionals.remove(0)),
+        lsp,
         json,
     }))
 }
@@ -142,13 +152,24 @@ mod tests {
                 "needle".to_string(),
                 "workspace".to_string(),
                 "--json".to_string(),
+                "--lsp".to_string(),
+                "clangd".to_string(),
             ])
             .expect("grep should parse"),
             Command::Grep(GrepArgs {
                 pattern: "needle".to_string(),
                 directory: PathBuf::from("workspace"),
+                lsp: Some("clangd".to_string()),
                 json: true,
             })
+        );
+    }
+
+    #[test]
+    fn rejects_missing_lsp_value() {
+        assert_eq!(
+            parse_args(vec!["grep".to_string(), "needle".to_string(), "workspace".to_string(), "--lsp".to_string()]),
+            Err(format!("missing value for --lsp\n{}", usage()))
         );
     }
 

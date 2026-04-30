@@ -48,16 +48,16 @@ impl LspClient {
             .stdout(Stdio::piped())
             .stderr(Stdio::inherit())
             .spawn()
-            .map_err(|error| format!("failed to start {}: {error}", command.join(" ")))?;
+            .map_err(|error| format_spawn_error(program, &error))?;
 
         let stdin = child
             .stdin
             .take()
-            .ok_or_else(|| format!("failed to open stdin for {}", program))?;
+            .ok_or_else(|| format!("failed to open stdin for {program}"))?;
         let stdout = child
             .stdout
             .take()
-            .ok_or_else(|| format!("failed to open stdout for {}", program))?;
+            .ok_or_else(|| format!("failed to open stdout for {program}"))?;
         let messages = spawn_reader(stdout);
 
         Ok(Self {
@@ -87,7 +87,7 @@ impl LspClient {
                 "name": workspace_name,
             }],
         });
-        let response = self.send_request(Initialize::METHOD, params)?;
+        let response = self.send_request(Initialize::METHOD, &params)?;
         let response: InitializeResponse = serde_json::from_value(response)
             .map_err(|error| format!("failed to decode initialize response: {error}"))?;
 
@@ -95,11 +95,11 @@ impl LspClient {
             return Err("selected LSP server does not support workspace/symbol".to_string());
         }
 
-        self.send_notification(Initialized::METHOD, json!({}))
+        self.send_notification(Initialized::METHOD, &json!({}))
     }
 
     pub fn workspace_symbol(&mut self, pattern: &str) -> Result<Value, String> {
-        self.send_request(WorkspaceSymbolRequest::METHOD, json!({ "query": pattern }))
+        self.send_request(WorkspaceSymbolRequest::METHOD, &json!({ "query": pattern }))
     }
 
     pub fn shutdown(&mut self) -> Result<(), String> {
@@ -107,8 +107,8 @@ impl LspClient {
             return Ok(());
         }
 
-        let _ = self.send_request(Shutdown::METHOD, Value::Null)?;
-        self.send_notification(Exit::METHOD, Value::Null)?;
+        let _ = self.send_request(Shutdown::METHOD, &Value::Null)?;
+        self.send_notification(Exit::METHOD, &Value::Null)?;
         self.shutdown_sent = true;
 
         self.child
@@ -118,7 +118,7 @@ impl LspClient {
         Ok(())
     }
 
-    fn send_request(&mut self, method: &str, params: Value) -> Result<Value, String> {
+    fn send_request(&mut self, method: &str, params: &Value) -> Result<Value, String> {
         let id = self.next_request_id;
         self.next_request_id += 1;
 
@@ -148,7 +148,7 @@ impl LspClient {
                     }
 
                     if let Some(request_id) = request_id(&message) {
-                        self.handle_server_request(request_id, &message)?;
+                        self.handle_server_request(&request_id, &message)?;
                     }
                 }
                 Ok(IncomingMessage::EndOfStream) => {
@@ -167,7 +167,7 @@ impl LspClient {
         }
     }
 
-    fn send_notification(&mut self, method: &str, params: Value) -> Result<(), String> {
+    fn send_notification(&mut self, method: &str, params: &Value) -> Result<(), String> {
         write_message(
             &mut self.stdin,
             &json!({
@@ -178,7 +178,7 @@ impl LspClient {
         )
     }
 
-    fn handle_server_request(&mut self, request_id: Value, message: &Value) -> Result<(), String> {
+    fn handle_server_request(&mut self, request_id: &Value, message: &Value) -> Result<(), String> {
         let method = message
             .get("method")
             .and_then(Value::as_str)
@@ -189,12 +189,7 @@ impl LspClient {
                 "id": request_id,
                 "result": Value::Null,
             }),
-            "workspace/configuration" => json!({
-                "jsonrpc": "2.0",
-                "id": request_id,
-                "result": [],
-            }),
-            "workspace/workspaceFolders" => json!({
+            "workspace/configuration" | "workspace/workspaceFolders" => json!({
                 "jsonrpc": "2.0",
                 "id": request_id,
                 "result": [],
@@ -220,6 +215,18 @@ impl LspClient {
     }
 }
 
+fn format_spawn_error(program: &str, error: &std::io::Error) -> String {
+    match error.kind() {
+        std::io::ErrorKind::NotFound if !program.contains(std::path::MAIN_SEPARATOR) => {
+            format!("LSP server executable `{program}` is not installed or not in $PATH")
+        }
+        std::io::ErrorKind::NotFound => {
+            format!("configured LSP server executable `{program}` was not found")
+        }
+        _ => format!("failed to start LSP server `{program}`: {error}"),
+    }
+}
+
 impl Drop for LspClient {
     fn drop(&mut self) {
         if !self.shutdown_sent {
@@ -231,11 +238,11 @@ impl Drop for LspClient {
 
 fn spawn_reader(stdout: ChildStdout) -> Receiver<IncomingMessage> {
     let (sender, receiver) = mpsc::channel();
-    thread::spawn(move || reader_loop(stdout, sender));
+    thread::spawn(move || reader_loop(stdout, &sender));
     receiver
 }
 
-fn reader_loop(stdout: ChildStdout, sender: Sender<IncomingMessage>) {
+fn reader_loop(stdout: ChildStdout, sender: &Sender<IncomingMessage>) {
     let mut reader = BufReader::new(stdout);
 
     loop {
@@ -356,7 +363,7 @@ pub fn workspace_name(path: &std::path::Path) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{read_message, write_message};
+    use super::{format_spawn_error, read_message, write_message};
     use serde_json::json;
     use std::io::BufReader;
 
@@ -370,6 +377,16 @@ mod tests {
         assert_eq!(
             read_message(&mut reader).expect("message should read"),
             Some(message)
+        );
+    }
+
+    #[test]
+    fn formats_missing_binary_error() {
+        let error = std::io::Error::new(std::io::ErrorKind::NotFound, "missing");
+
+        assert_eq!(
+            format_spawn_error("ast-grep", &error),
+            "LSP server executable `ast-grep` is not installed or not in $PATH"
         );
     }
 }

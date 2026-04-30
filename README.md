@@ -48,6 +48,7 @@ lsp-cli detect path/to/project/main.py --json
 
 # Query workspace symbols through the first detected LSP server
 lsp-cli grep MySymbol path/to/project
+lsp-cli grep MySymbol path/to/project --lsp clangd
 lsp-cli grep --json MySymbol path/to/project
 ```
 

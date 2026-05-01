@@ -555,6 +555,7 @@ fn resolve_program(
     )?))
 }
 
+#[cfg(test)]
 fn resolve_program_path(
     package: &MasonPackage,
     program: &str,
@@ -599,7 +600,7 @@ fn finalize_install(
 }
 
 fn ensure_resolved_program(
-    state: &RuntimeState,
+    _state: &RuntimeState,
     package: &MasonPackage,
     program: &str,
     resolved_program: &ResolvedProgram,
@@ -1066,8 +1067,9 @@ impl TemplateContext<'_> {
 #[cfg(test)]
 mod tests {
     use super::{
-        SourceId, is_command_runnable, join_relative_path, parse_archive_file_spec,
-        parse_source_id, resolve_program_path, rewrite_program,
+        SourceId, WrapperRuntime, is_command_runnable, join_relative_path, materialize_share,
+        parse_archive_file_spec, parse_source_id, resolve_program, resolve_program_path,
+        rewrite_program, write_wrapper_script,
     };
     use crate::mason_registry::{
         MasonAsset, MasonDownload, MasonNeovim, MasonPackage, MasonSource, OneOrMany,
@@ -1126,6 +1128,7 @@ mod tests {
                 "pyright-langserver".to_string(),
                 "npm:pyright-langserver".to_string(),
             )]),
+            share: BTreeMap::new(),
             neovim: MasonNeovim {
                 lspconfig: Some("pyright".to_string()),
             },
@@ -1150,6 +1153,7 @@ mod tests {
                 "rust-analyzer".to_string(),
                 "{{source.asset.bin}}".to_string(),
             )]),
+            share: BTreeMap::new(),
             neovim: MasonNeovim {
                 lspconfig: Some("rust_analyzer".to_string()),
             },
@@ -1178,8 +1182,41 @@ mod tests {
                 "bzl".to_string(),
                 "{{source.download.bin}}".to_string(),
             )]),
+            share: BTreeMap::new(),
             neovim: MasonNeovim {
                 lspconfig: Some("bzl".to_string()),
+            },
+        }
+    }
+
+    fn jdtls_package() -> MasonPackage {
+        MasonPackage {
+            name: "jdtls".to_string(),
+            categories: vec!["LSP".to_string()],
+            source: MasonSource {
+                id: "pkg:generic/eclipse/eclipse.jdt.ls@v1.0.0".to_string(),
+                extra_packages: Vec::new(),
+                asset: None,
+                download: Some(OneOrMany::Many(vec![MasonDownload {
+                    target: Some(OneOrMany::One("linux".to_string())),
+                    files: BTreeMap::from([(
+                        "jdtls.tar.gz".to_string(),
+                        "https://example.invalid/jdtls.tar.gz".to_string(),
+                    )]),
+                    bin: None,
+                    config: Some("config_linux/".to_string()),
+                }])),
+            },
+            bin: BTreeMap::from([("jdtls".to_string(), "python:bin/jdtls".to_string())]),
+            share: BTreeMap::from([
+                ("jdtls/plugins/".to_string(), "plugins/".to_string()),
+                (
+                    "jdtls/config/".to_string(),
+                    "{{source.download.config}}".to_string(),
+                ),
+            ]),
+            neovim: MasonNeovim {
+                lspconfig: Some("jdtls".to_string()),
             },
         }
     }
@@ -1312,28 +1349,81 @@ mod tests {
     }
 
     #[test]
-    fn rejects_wrapper_program_paths_not_supported_yet() {
+    fn resolves_python_wrapper_program_path() {
         let dir = TestDir::new();
         let state = RuntimeState::new(dir.path().join("state"));
-        let package = MasonPackage {
-            name: "jdtls".to_string(),
-            categories: vec!["LSP".to_string()],
-            source: MasonSource {
-                id: "pkg:generic/eclipse/eclipse.jdt.ls@v1.0.0".to_string(),
-                extra_packages: Vec::new(),
-                asset: None,
-                download: None,
-            },
-            bin: BTreeMap::from([("jdtls".to_string(), "python:bin/jdtls".to_string())]),
-            neovim: MasonNeovim {
-                lspconfig: Some("jdtls".to_string()),
-            },
+        let package = jdtls_package();
+
+        assert_eq!(
+            resolve_program_path(&package, "jdtls", &state, &TemplateContext::empty())
+                .expect("wrapper path should resolve"),
+            state.bin_dir().join("jdtls")
+        );
+        let resolved = resolve_program(&package, "jdtls", &state, &TemplateContext::empty())
+            .expect("wrapper program should resolve");
+
+        match resolved {
+            super::ResolvedProgram::Wrapper(wrapper) => {
+                assert_eq!(wrapper.launcher_path, state.bin_dir().join("jdtls"));
+                assert_eq!(wrapper.target_path, state.package_dir("jdtls").join("bin").join("jdtls"));
+                assert_eq!(wrapper.runtime, WrapperRuntime::Python);
+            }
+            super::ResolvedProgram::Direct(_) => panic!("expected wrapper program"),
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn writes_wrapper_script_for_python_runtime() {
+        let dir = TestDir::new();
+        let launcher = dir.path().join("jdtls");
+        let target = dir.path().join("package/bin/jdtls");
+        fs::create_dir_all(target.parent().expect("parent should exist"))
+            .expect("parent dirs should be created");
+        fs::write(&target, b"print('ok')\n").expect("target should be written");
+
+        write_wrapper_script(&launcher, WrapperRuntime::Python, &target)
+            .expect("wrapper should be written");
+        super::ensure_executable(&launcher).expect("wrapper should be executable");
+
+        let contents = fs::read_to_string(&launcher).expect("wrapper should be readable");
+        assert!(contents.contains("exec python3"));
+        assert!(contents.contains(&target.display().to_string()));
+        assert!(super::is_command_runnable_path(&launcher));
+    }
+
+    #[test]
+    fn materializes_share_mappings() {
+        let dir = TestDir::new();
+        let state = RuntimeState::new(dir.path().join("state"));
+        state.ensure_dirs().expect("state dirs should be created");
+        let package = jdtls_package();
+        let package_dir = state.package_dir("jdtls");
+        fs::create_dir_all(package_dir.join("plugins")).expect("plugins dir should be created");
+        fs::create_dir_all(package_dir.join("config_linux"))
+            .expect("config dir should be created");
+        fs::write(package_dir.join("plugins").join("launcher.jar"), b"jar")
+            .expect("plugin should be written");
+        fs::write(package_dir.join("config_linux").join("config.ini"), b"cfg")
+            .expect("config should be written");
+
+        let context = TemplateContext {
+            version: "v1.0.0",
+            source_asset_bin: None,
+            source_asset_file: None,
+            source_download_bin: None,
+            source_download_config: Some("config_linux/"),
         };
+        materialize_share(&state, &package, &context).expect("share should materialize");
 
-        let error = resolve_program_path(&package, "jdtls", &state, &TemplateContext::empty())
-            .expect_err("unsupported wrapper should error");
-
-        assert!(error.contains("unsupported `python` wrapper"));
+        assert!(state
+            .share_dir()
+            .join("jdtls/plugins/launcher.jar")
+            .is_file());
+        assert!(state
+            .share_dir()
+            .join("jdtls/config/config.ini")
+            .is_file());
     }
 
     #[test]

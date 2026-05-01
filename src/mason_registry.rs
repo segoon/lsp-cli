@@ -384,6 +384,7 @@ mod tests {
                     "pyright-langserver".to_string(),
                     "npm:pyright-langserver".to_string(),
                 )]),
+                share: BTreeMap::new(),
                 neovim: super::MasonNeovim {
                     lspconfig: Some("pyright".to_string()),
                 },
@@ -398,6 +399,7 @@ mod tests {
                     download: None,
                 },
                 bin: BTreeMap::new(),
+                share: BTreeMap::new(),
                 neovim: super::MasonNeovim::default(),
             },
         ]);

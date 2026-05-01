@@ -5,6 +5,9 @@ mod commands;
 mod config;
 mod detect;
 mod lsp;
+mod mason_registry;
+mod mason_resolve;
+mod runtime_state;
 mod suggest;
 
 use std::env;

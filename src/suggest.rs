@@ -5,6 +5,7 @@ use crate::detect::DetectionResult;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SuggestedLanguage {
+    pub config_id: String,
     pub languages: Vec<String>,
     pub server: String,
     pub command: Vec<String>,
@@ -49,6 +50,7 @@ fn build_suggestion(
     }
 
     Ok(SuggestedLanguage {
+        config_id: lsp.id.clone(),
         languages: matching_languages(lsp, detection),
         server: lsp.name.clone(),
         command,
@@ -108,6 +110,7 @@ mod tests {
 
     fn example_lsp() -> LspConfig {
         LspConfig {
+            id: "example_lsp".to_string(),
             filetypes: vec!["alpha".to_string(), "beta".to_string()],
             root_markers: vec![".workspace-root".to_string(), ".git".to_string()],
             name: "example-lsp".to_string(),
@@ -171,6 +174,7 @@ mod tests {
         assert_eq!(
             suggestions,
             vec![SuggestedLanguage {
+                config_id: "example_lsp".to_string(),
                 languages: vec!["beta".to_string()],
                 server: "example-lsp".to_string(),
                 command: vec![

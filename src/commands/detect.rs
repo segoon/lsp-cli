@@ -1,12 +1,14 @@
 use crate::cli::DetectArgs;
 use crate::commands::common::analyze_path;
 use crate::config::ConfigStore;
+use crate::mason_resolve::resolve_detect_suggestions;
 use crate::suggest::SuggestedLanguage;
 use serde_json::json;
 use std::collections::BTreeSet;
 
 pub(super) fn run(args: &DetectArgs, config: &ConfigStore) -> Result<String, String> {
     let (detection, suggestions) = analyze_path(&args.path, config)?;
+    let suggestions = resolve_detect_suggestions(&suggestions, args.download)?;
 
     Ok(if args.json {
         render_json(&suggestions)
@@ -81,6 +83,7 @@ mod tests {
 
     fn example_suggestion() -> SuggestedLanguage {
         SuggestedLanguage {
+            config_id: "example_lsp".to_string(),
             languages: vec!["alpha".to_string(), "beta".to_string()],
             server: "example-lsp".to_string(),
             command: vec!["example-lsp".to_string(), "--stdio".to_string()],

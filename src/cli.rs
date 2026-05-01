@@ -30,9 +30,12 @@ pub enum Command {
 }
 
 #[derive(Debug, Args, Eq, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct DetectArgs {
     #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
     pub path: PathBuf,
+    #[arg(long)]
+    pub download: bool,
     #[arg(long)]
     pub json: bool,
     #[arg(short = 'q')]
@@ -181,6 +184,7 @@ mod tests {
             parse_args(vec!["detect".to_string()]).expect("detect should parse"),
             Command::Detect(DetectArgs {
                 path: PathBuf::from("."),
+                download: false,
                 json: false,
                 quiet: false,
                 debug: false,
@@ -194,12 +198,14 @@ mod tests {
             parse_args(vec![
                 "detect".to_string(),
                 "src".to_string(),
+                "--download".to_string(),
                 "--json".to_string(),
                 "-q".to_string(),
             ])
             .expect("detect should parse"),
             Command::Detect(DetectArgs {
                 path: PathBuf::from("src"),
+                download: true,
                 json: true,
                 quiet: true,
                 debug: false,

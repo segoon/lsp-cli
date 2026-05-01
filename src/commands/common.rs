@@ -90,6 +90,7 @@ mod tests {
 
     fn example_suggestion() -> SuggestedLanguage {
         SuggestedLanguage {
+            config_id: "example_lsp".to_string(),
             languages: vec!["alpha".to_string(), "beta".to_string()],
             server: "example-lsp".to_string(),
             command: vec!["example-lsp".to_string(), "--stdio".to_string()],
@@ -102,6 +103,7 @@ mod tests {
     fn selects_requested_server_for_grep() {
         let primary = example_suggestion();
         let secondary = SuggestedLanguage {
+            config_id: "secondary_lsp".to_string(),
             languages: vec!["beta".to_string()],
             server: "secondary-lsp".to_string(),
             command: vec!["secondary-lsp".to_string()],

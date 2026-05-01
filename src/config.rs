@@ -21,6 +21,7 @@ pub struct FiletypeConfig {
 
 #[derive(Debug)]
 pub struct LspConfig {
+    pub id: String,
     pub filetypes: Vec<String>,
     pub root_markers: Vec<String>,
     pub name: String,
@@ -142,8 +143,14 @@ fn load_lsps(dir: &Path) -> Result<Vec<LspConfig>, String> {
                 .map_err(|error| format!("{}: {error}", path.display()))?;
             let file: LspFile = serde_yaml::from_str(&contents)
                 .map_err(|error| format!("{}: {error}", path.display()))?;
+            let id = path
+                .file_stem()
+                .and_then(|value| value.to_str())
+                .ok_or_else(|| format!("invalid lsp filename: {}", path.display()))?
+                .to_string();
 
             Ok(LspConfig {
+                id,
                 filetypes: file.filetypes,
                 root_markers: file.root_markers,
                 name: file.name,
@@ -360,6 +367,7 @@ mod tests {
         assert_eq!(config.filetypes.len(), 2);
         assert_eq!(config.lsps.len(), 1);
         assert!(config.filetypes.iter().any(|filetype| filetype.id == "c"));
+        assert_eq!(config.lsps[0].id, "clangd");
         assert_eq!(config.lsps[0].name, "clangd");
         assert!(config.lsps[0].wait_for_index);
     }

@@ -1,4 +1,4 @@
-use crate::cli::{ListSymbolsArgs, WorkspaceQueryArgs};
+use crate::cli::{ListSymbolsArgs, LspWorkspaceQueryArgs, WorkspaceQueryArgs};
 use crate::commands::common::{PreparedWorkspace, connect_lsp_client, prepare_workspace};
 use crate::config::ConfigStore;
 use crate::detect::matching_files;
@@ -44,16 +44,17 @@ pub(super) struct FileListQueryResult {
 }
 
 pub(super) fn run_workspace_symbol_query(
-    args: &WorkspaceQueryArgs,
+    args: &LspWorkspaceQueryArgs,
     query: &str,
     config: &ConfigStore,
 ) -> Result<WorkspaceSymbolQueryResult, String> {
     let (workspace, matches) = with_initialized_client(
-        &args.directory,
-        args.lsp.as_deref(),
-        args.wait_for_index,
-        args.debug,
-        args.timeout,
+        &args.query.directory,
+        args.query.lsp.as_deref(),
+        args.detach,
+        args.query.wait_for_index,
+        args.query.debug,
+        args.query.timeout,
         config,
         |workspace, initialize, client| {
             ensure_workspace_symbol_support(initialize)?;
@@ -72,25 +73,28 @@ pub(super) fn run_workspace_symbol_query(
 }
 
 pub(super) fn run_document_symbol_query(
-    args: &WorkspaceQueryArgs,
+    args: &LspWorkspaceQueryArgs,
     config: &ConfigStore,
 ) -> Result<WorkspaceSymbolQueryResult, String> {
     let (workspace, matches) = with_initialized_client(
-        &args.directory,
-        args.lsp.as_deref(),
-        args.wait_for_index,
-        args.debug,
-        args.timeout,
+        &args.query.directory,
+        args.query.lsp.as_deref(),
+        args.detach,
+        args.query.wait_for_index,
+        args.query.debug,
+        args.query.timeout,
         config,
         |workspace, initialize, client| {
             ensure_document_symbol_support(initialize)?;
 
             let files = matching_files(
-                &args.directory,
+                &args.query.directory,
                 &config.filetypes,
                 &server_filetypes(&workspace.server),
             )
-            .map_err(|error| format!("failed to scan {}: {error}", args.directory.display()))?;
+            .map_err(|error| {
+                format!("failed to scan {}: {error}", args.query.directory.display())
+            })?;
             let mut source_cache = SourceCache::default();
             let mut matches = Vec::new();
 
@@ -141,6 +145,7 @@ pub(super) fn run_file_symbol_query(
     let (workspace, matches) = with_initialized_client(
         &args.file,
         args.lsp.as_deref(),
+        args.detach,
         args.wait_for_index,
         args.debug,
         args.timeout,
@@ -224,7 +229,7 @@ pub(super) fn run_list_files_query(
 }
 
 pub(super) fn run_references_query(
-    args: &WorkspaceQueryArgs,
+    args: &LspWorkspaceQueryArgs,
     name: &str,
     config: &ConfigStore,
 ) -> Result<WorkspaceSymbolQueryResult, String> {
@@ -232,7 +237,7 @@ pub(super) fn run_references_query(
 }
 
 pub(super) fn run_definition_query(
-    args: &WorkspaceQueryArgs,
+    args: &LspWorkspaceQueryArgs,
     name: &str,
     config: &ConfigStore,
 ) -> Result<WorkspaceSymbolQueryResult, String> {
@@ -240,7 +245,7 @@ pub(super) fn run_definition_query(
 }
 
 pub(super) fn run_declaration_query(
-    args: &WorkspaceQueryArgs,
+    args: &LspWorkspaceQueryArgs,
     name: &str,
     config: &ConfigStore,
 ) -> Result<WorkspaceSymbolQueryResult, String> {
@@ -248,7 +253,7 @@ pub(super) fn run_declaration_query(
 }
 
 pub(super) fn run_callers_query(
-    args: &WorkspaceQueryArgs,
+    args: &LspWorkspaceQueryArgs,
     name: &str,
     config: &ConfigStore,
 ) -> Result<WorkspaceSymbolQueryResult, String> {
@@ -256,16 +261,18 @@ pub(super) fn run_callers_query(
 }
 
 pub(super) fn run_callees_query(
-    args: &WorkspaceQueryArgs,
+    args: &LspWorkspaceQueryArgs,
     name: &str,
     config: &ConfigStore,
 ) -> Result<WorkspaceSymbolQueryResult, String> {
     run_call_hierarchy_query(args, name, CallHierarchyDirection::Outgoing, config)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn with_initialized_client<T, F>(
     path: &Path,
     selected_server: Option<&str>,
+    detach: bool,
     wait_for_index_requested: bool,
     debug: bool,
     timeout: Duration,
@@ -282,7 +289,7 @@ where
     let workspace = prepare_workspace(path, selected_server, config)?;
     let wait_for_index = wait_for_index_requested || workspace.server.wait_for_index;
 
-    let mut client = connect_lsp_client(&workspace, debug, timeout)?;
+    let mut client = connect_lsp_client(&workspace, detach, debug, timeout)?;
     let initialize = client
         .initialize(
             &workspace.root_uri,
@@ -315,17 +322,18 @@ where
 }
 
 fn run_named_location_query(
-    args: &WorkspaceQueryArgs,
+    args: &LspWorkspaceQueryArgs,
     name: &str,
     kind: LocationQueryKind,
     config: &ConfigStore,
 ) -> Result<WorkspaceSymbolQueryResult, String> {
     let (workspace, matches) = with_initialized_client(
-        &args.directory,
-        args.lsp.as_deref(),
-        args.wait_for_index,
-        args.debug,
-        args.timeout,
+        &args.query.directory,
+        args.query.lsp.as_deref(),
+        args.detach,
+        args.query.wait_for_index,
+        args.query.debug,
+        args.query.timeout,
         config,
         |workspace, initialize, client| {
             ensure_workspace_symbol_support(initialize)?;
@@ -344,7 +352,7 @@ fn run_named_location_query(
                 client,
                 config,
                 NamedAnchorRequest {
-                    directory: &args.directory,
+                    directory: &args.query.directory,
                     name,
                     function_only: false,
                 },
@@ -389,17 +397,18 @@ fn run_named_location_query(
 }
 
 fn run_call_hierarchy_query(
-    args: &WorkspaceQueryArgs,
+    args: &LspWorkspaceQueryArgs,
     name: &str,
     direction: CallHierarchyDirection,
     config: &ConfigStore,
 ) -> Result<WorkspaceSymbolQueryResult, String> {
     let (workspace, matches) = with_initialized_client(
-        &args.directory,
-        args.lsp.as_deref(),
-        args.wait_for_index,
-        args.debug,
-        args.timeout,
+        &args.query.directory,
+        args.query.lsp.as_deref(),
+        args.detach,
+        args.query.wait_for_index,
+        args.query.debug,
+        args.query.timeout,
         config,
         |workspace, initialize, client| {
             ensure_workspace_symbol_support(initialize)?;
@@ -418,7 +427,7 @@ fn run_call_hierarchy_query(
                 client,
                 config,
                 NamedAnchorRequest {
-                    directory: &args.directory,
+                    directory: &args.query.directory,
                     name,
                     function_only: true,
                 },

@@ -71,6 +71,23 @@ pub(super) fn launch_background(
     args: &DaemonArgs,
     target: &DaemonTarget,
 ) -> Result<String, String> {
+    launch_background_for_connection(
+        &args.path,
+        &target.server_name,
+        &target.socket_path,
+        args.debug,
+        args.idle_timeout,
+    )?;
+    Ok(target.socket_path.display().to_string())
+}
+
+pub(super) fn launch_background_for_connection(
+    path: &Path,
+    server_name: &str,
+    socket_path: &Path,
+    debug: bool,
+    idle_timeout: std::time::Duration,
+) -> Result<(), String> {
     let executable = std::env::current_exe()
         .map_err(|error| format!("failed to resolve lsp-cli executable: {error}"))?;
     let devnull =
@@ -78,21 +95,19 @@ pub(super) fn launch_background(
     let mut command = Command::new(executable);
     command
         .arg("daemon")
-        .arg(&args.path)
+        .arg(path)
         .env(BACKGROUND_ENV, "1")
         .stdin(Stdio::from(devnull))
         .stdout(Stdio::piped())
         .stderr(Stdio::null());
 
-    if let Some(server) = &args.lsp {
-        command.arg("--lsp").arg(server);
-    }
-    if args.debug {
+    command.arg("--lsp").arg(server_name);
+    if debug {
         command.arg("--debug");
     }
     command
         .arg("--idle-timeout")
-        .arg(args.idle_timeout.as_secs_f64().to_string());
+        .arg(idle_timeout.as_secs_f64().to_string());
 
     let mut child = command
         .spawn()
@@ -117,13 +132,13 @@ pub(super) fn launch_background(
             if payload.is_empty() {
                 return Err("daemon started without reporting a socket path".to_string());
             }
-            if payload != target.socket_path.display().to_string() {
+            if payload != socket_path.display().to_string() {
                 return Err(format!(
                     "daemon reported unexpected socket path {payload:?}, expected {}",
-                    target.socket_path.display()
+                    socket_path.display()
                 ));
             }
-            Ok(payload)
+            Ok(())
         }
         "ERROR" => Err(payload.trim_end().to_string()),
         other => Err(format!("unexpected daemon startup status {other:?}")),

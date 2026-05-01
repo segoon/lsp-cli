@@ -144,6 +144,7 @@ LSP-backed commands such as `grep`, `list-symbols`, `references`, and `build-ind
 I'd like to say "thank you" to the following opensource projects:
 - [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig) was used to fill LSP servers database
 - [mason](https://github.com/mason-org/mason.nvim) inspired me to implement LSP server autodownload
+- [mason-registry](https://github.com/mason-org/mason-registry/) is used as an LSP server registry
 
 
 # TODO
@@ -157,4 +158,3 @@ commands:
 options:
 - -s|--signature - show the full signature
 - -b|--body - show the full function body
-- -l|--limit - output limit in lines

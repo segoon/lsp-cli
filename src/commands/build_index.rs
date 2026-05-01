@@ -5,7 +5,7 @@ use crate::config::ConfigStore;
 pub(super) fn run(args: &BuildIndexArgs, config: &ConfigStore) -> Result<String, String> {
     let workspace = prepare_workspace(&args.directory, args.lsp.as_deref(), config)?;
 
-    let mut client = connect_lsp_client(&workspace, args.debug, args.timeout)?;
+    let mut client = connect_lsp_client(&workspace, args.detach, args.debug, args.timeout)?;
     client
         .initialize(&workspace.root_uri, &workspace.workspace_name, true)
         .map_err(|error| format!("failed to initialize {}: {error}", workspace.server.server))?;

@@ -1,3 +1,4 @@
+use crate::commands::daemon::launch_for_workspace;
 use crate::config::ConfigStore;
 use crate::detect::{DetectionResult, detect_workspace};
 use crate::lsp::path_to_file_uri;
@@ -17,6 +18,7 @@ pub(super) struct PreparedWorkspace {
     pub root_uri: String,
     pub workspace_name: String,
     pub daemon_socket_path: Option<PathBuf>,
+    pub daemon_socket_error: Option<String>,
 }
 
 pub(super) fn analyze_path(
@@ -46,14 +48,18 @@ pub(super) fn prepare_workspace(
     })?;
     let root_uri = path_to_file_uri(&server.workspace_root)?;
     let workspace_name = crate::lsp::workspace_name(&server.workspace_root);
-    let daemon_socket_path = default_daemon_root().ok().map(|daemon_root| {
-        daemon_socket_path(
-            &daemon_root,
-            &server.workspace_root,
-            &server.server,
-            &server.command,
-        )
-    });
+    let (daemon_socket_path, daemon_socket_error) = match default_daemon_root() {
+        Ok(daemon_root) => (
+            Some(daemon_socket_path(
+                &daemon_root,
+                &server.workspace_root,
+                &server.server,
+                &server.command,
+            )),
+            None,
+        ),
+        Err(error) => (None, Some(error)),
+    };
 
     Ok(PreparedWorkspace {
         detection,
@@ -61,15 +67,17 @@ pub(super) fn prepare_workspace(
         root_uri,
         workspace_name,
         daemon_socket_path,
+        daemon_socket_error,
     })
 }
 
 pub(super) fn connect_lsp_client(
     workspace: &PreparedWorkspace,
+    detach: bool,
     debug: bool,
     timeout: Duration,
 ) -> Result<LspClient, String> {
-    if let Some(socket_path) = &workspace.daemon_socket_path
+    if let Some(socket_path) = workspace.daemon_socket_path.as_ref()
         && socket_path.exists()
     {
         match LspClient::connect_unix(socket_path, debug, timeout) {
@@ -86,21 +94,44 @@ pub(super) fn connect_lsp_client(
                     }
                 }
 
-                return LspClient::new(
-                    &workspace.server.command,
-                    &workspace.server.workspace_root,
-                    debug,
-                    timeout,
-                )
-                .map_err(|spawn_error| {
-                    format!(
-                        "failed to use daemon socket {}: {connect_error}; failed to start {}: {spawn_error}",
-                        socket_path.display(),
-                        workspace.server.server
+                if !detach {
+                    return LspClient::new(
+                        &workspace.server.command,
+                        &workspace.server.workspace_root,
+                        debug,
+                        timeout,
                     )
-                });
+                    .map_err(|spawn_error| {
+                        format!(
+                            "failed to use daemon socket {}: {connect_error}; failed to start {}: {spawn_error}",
+                            socket_path.display(),
+                            workspace.server.server
+                        )
+                    });
+                }
             }
         }
+    }
+
+    if detach {
+        let socket_path = workspace.daemon_socket_path.as_ref().ok_or_else(|| {
+            let reason = workspace.daemon_socket_error.as_deref().unwrap_or(
+                "daemon socket path could not be prepared for this workspace",
+            );
+            format!("cannot use --detach because {reason}")
+        })?;
+        launch_for_workspace(
+            &workspace.server.workspace_root,
+            &workspace.server.server,
+            socket_path,
+            debug,
+        )?;
+        return LspClient::connect_unix(socket_path, debug, timeout).map_err(|error| {
+            format!(
+                "failed to connect to detached daemon for {}: {error}",
+                workspace.server.server
+            )
+        });
     }
 
     LspClient::new(
@@ -162,13 +193,16 @@ pub(super) fn resolve_server(
 
 #[cfg(test)]
 mod tests {
-    use super::{PreparedWorkspace, connect_lsp_client, resolve_server, select_server};
+    use super::{
+        PreparedWorkspace, connect_lsp_client, prepare_workspace, resolve_server, select_server,
+    };
+    use crate::config::load_config_store;
     use crate::detect::DetectionResult;
     use crate::lsp::transport::{read_message, write_message};
     use crate::suggest::SuggestedLanguage;
     use crate::test_support::{
-        TestDir, env_var, make_executable, pyright_package, runtime_state_in_home, with_env_vars,
-        write_registry,
+        TestDir, env_var, make_executable, pyright_package, runtime_state_in_home,
+        with_env_vars, without_env_vars, write_registry,
     };
     use std::collections::BTreeSet;
     use std::fs;
@@ -362,7 +396,9 @@ mod tests {
                         .expect("root uri should build"),
                     workspace_name: crate::lsp::workspace_name(&workspace_root),
                     daemon_socket_path: Some(socket_path.clone()),
+                    daemon_socket_error: None,
                 },
+                false,
                 false,
                 Duration::from_secs(1),
             )
@@ -422,7 +458,9 @@ mod tests {
                         .expect("root uri should build"),
                     workspace_name: crate::lsp::workspace_name(&workspace_root),
                     daemon_socket_path: Some(socket_path.clone()),
+                    daemon_socket_error: None,
                 },
+                false,
                 false,
                 Duration::from_secs(1),
             )
@@ -430,5 +468,37 @@ mod tests {
         });
 
         assert!(!socket_path.exists(), "dead socket should be removed");
+    }
+
+    #[test]
+    fn preserves_daemon_root_error_for_strict_detach_mode() {
+        let dir = TestDir::new("common-daemon-root-error");
+        let workspace_root = dir.path().join("workspace");
+        fs::create_dir_all(workspace_root.join("src")).expect("workspace should exist");
+        fs::write(workspace_root.join("Cargo.toml"), b"[package]\nname = \"demo\"\nversion = \"0.1.0\"\nedition = \"2021\"\n")
+            .expect("cargo manifest should be written");
+        fs::write(workspace_root.join("src/main.rs"), b"fn main() {}\n")
+            .expect("rust source should be written");
+
+        let config = load_config_store(&std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data"))
+            .expect("repo config should load");
+        let workspace = without_env_vars(&["XDG_RUNTIME_DIR"], || {
+            prepare_workspace(&workspace_root, None, &config).expect("workspace should still prepare")
+        });
+
+        assert!(workspace.daemon_socket_path.is_none());
+        assert_eq!(
+            workspace.daemon_socket_error.as_deref(),
+            Some("could not resolve daemon socket root because $XDG_RUNTIME_DIR is not set")
+        );
+        let error = match connect_lsp_client(&workspace, true, false, Duration::from_secs(1)) {
+            Ok(_) => panic!("strict detach should fail"),
+            Err(error) => error,
+        };
+
+        assert_eq!(
+            error,
+            "cannot use --detach because could not resolve daemon socket root because $XDG_RUNTIME_DIR is not set"
+        );
     }
 }

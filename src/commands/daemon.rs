@@ -5,6 +5,7 @@ use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::os::unix::net::{UnixListener, UnixStream};
+use std::path::Path;
 use std::path::PathBuf;
 use std::process::{Child, ChildStdin};
 use std::sync::mpsc::{Receiver, TryRecvError};
@@ -28,6 +29,7 @@ use protocol::{
 const BACKGROUND_ENV: &str = "LSP_CLI_DAEMON_BACKGROUND";
 const POLL_INTERVAL: Duration = Duration::from_millis(25);
 const BUSY_CLIENT_TIMEOUT: Duration = Duration::from_millis(250);
+const DETACHED_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
 const UPSTREAM_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);
 const SERVER_NOT_INITIALIZED: i64 = -32002;
 const INVALID_REQUEST: i64 = -32600;
@@ -41,6 +43,21 @@ pub(super) fn run(args: &DaemonArgs, config: &ConfigStore) -> Result<String, Str
     }
 
     launch_background(args, &target)
+}
+
+pub(super) fn launch_for_workspace(
+    workspace_root: &Path,
+    server_name: &str,
+    socket_path: &Path,
+    debug: bool,
+) -> Result<(), String> {
+    process::launch_background_for_connection(
+        workspace_root,
+        server_name,
+        socket_path,
+        debug,
+        DETACHED_IDLE_TIMEOUT,
+    )
 }
 
 struct DaemonTarget {

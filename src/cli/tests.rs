@@ -1,10 +1,53 @@
 use super::{
     BuildIndexArgs, Command, CompletionArgs, DaemonArgs, DetectArgs, GrepArgs, ListFilesArgs,
-    ListFunctionsArgs, ListSymbolsArgs, RunArgs, SymbolQueryArgs, WorkspaceQueryArgs, parse_args,
+    ListFunctionsArgs, ListSymbolsArgs, LspWorkspaceQueryArgs, RunArgs, SymbolQueryArgs,
+    WorkspaceQueryArgs, parse_args,
 };
 use clap_complete::Shell;
 use std::path::PathBuf;
 use std::time::Duration;
+
+fn workspace_query(directory: &str) -> WorkspaceQueryArgs {
+    WorkspaceQueryArgs {
+        directory: PathBuf::from(directory),
+        lsp: None,
+        wait_for_index: false,
+        json: false,
+        debug: false,
+        timeout: Duration::from_secs(10),
+        limit: 100,
+    }
+}
+
+fn lsp_workspace_query(directory: &str) -> LspWorkspaceQueryArgs {
+    LspWorkspaceQueryArgs {
+        query: workspace_query(directory),
+        detach: false,
+    }
+}
+
+fn list_symbols_args(file: &str) -> ListSymbolsArgs {
+    ListSymbolsArgs {
+        file: PathBuf::from(file),
+        lsp: None,
+        detach: false,
+        wait_for_index: false,
+        json: false,
+        debug: false,
+        timeout: Duration::from_secs(10),
+        limit: 100,
+    }
+}
+
+fn build_index_args(directory: &str) -> BuildIndexArgs {
+    BuildIndexArgs {
+        directory: PathBuf::from(directory),
+        lsp: None,
+        detach: false,
+        debug: false,
+        timeout: Duration::from_secs(10),
+    }
+}
 
 #[test]
 fn parses_detect_defaults() {
@@ -43,6 +86,11 @@ fn parses_detect_flags_and_path() {
 
 #[test]
 fn parses_grep_arguments() {
+    let mut query = lsp_workspace_query("workspace");
+    query.query.lsp = Some("clangd".to_string());
+    query.query.json = true;
+    query.query.debug = true;
+
     assert_eq!(
         parse_args(vec![
             "grep".to_string(),
@@ -56,21 +104,16 @@ fn parses_grep_arguments() {
         .expect("grep should parse"),
         Command::Grep(GrepArgs {
             pattern: "needle".to_string(),
-            query: WorkspaceQueryArgs {
-                directory: PathBuf::from("workspace"),
-                lsp: Some("clangd".to_string()),
-                wait_for_index: false,
-                json: true,
-                debug: true,
-                timeout: Duration::from_secs(10),
-                limit: 100,
-            },
+            query,
         })
     );
 }
 
 #[test]
 fn parses_grep_timeout_in_seconds_and_milliseconds() {
+    let mut seconds_query = lsp_workspace_query("workspace");
+    seconds_query.query.timeout = Duration::from_millis(1500);
+
     assert_eq!(
         parse_args(vec![
             "grep".to_string(),
@@ -82,17 +125,12 @@ fn parses_grep_timeout_in_seconds_and_milliseconds() {
         .expect("grep should parse"),
         Command::Grep(GrepArgs {
             pattern: "needle".to_string(),
-            query: WorkspaceQueryArgs {
-                directory: PathBuf::from("workspace"),
-                lsp: None,
-                wait_for_index: false,
-                json: false,
-                debug: false,
-                timeout: Duration::from_millis(1500),
-                limit: 100,
-            },
+            query: seconds_query,
         })
     );
+
+    let mut millis_query = lsp_workspace_query("workspace");
+    millis_query.query.timeout = Duration::from_millis(100);
 
     assert_eq!(
         parse_args(vec![
@@ -105,15 +143,27 @@ fn parses_grep_timeout_in_seconds_and_milliseconds() {
         .expect("grep should parse"),
         Command::Grep(GrepArgs {
             pattern: "needle".to_string(),
-            query: WorkspaceQueryArgs {
-                directory: PathBuf::from("workspace"),
-                lsp: None,
-                wait_for_index: false,
-                json: false,
-                debug: false,
-                timeout: Duration::from_millis(100),
-                limit: 100,
-            },
+            query: millis_query,
+        })
+    );
+}
+
+#[test]
+fn parses_grep_detach() {
+    let mut query = lsp_workspace_query("workspace");
+    query.detach = true;
+
+    assert_eq!(
+        parse_args(vec![
+            "grep".to_string(),
+            "needle".to_string(),
+            "workspace".to_string(),
+            "--detach".to_string(),
+        ])
+        .expect("grep should parse"),
+        Command::Grep(GrepArgs {
+            pattern: "needle".to_string(),
+            query,
         })
     );
 }
@@ -141,6 +191,11 @@ fn rejects_missing_subcommand() {
 
 #[test]
 fn parses_build_index_arguments() {
+    let mut expected = build_index_args("workspace");
+    expected.lsp = Some("rust-analyzer".to_string());
+    expected.debug = true;
+    expected.timeout = Duration::from_millis(500);
+
     assert_eq!(
         parse_args(vec![
             "build-index".to_string(),
@@ -152,12 +207,23 @@ fn parses_build_index_arguments() {
             "500ms".to_string(),
         ])
         .expect("build-index should parse"),
-        Command::BuildIndex(BuildIndexArgs {
-            directory: PathBuf::from("workspace"),
-            lsp: Some("rust-analyzer".to_string()),
-            debug: true,
-            timeout: Duration::from_millis(500),
-        })
+        Command::BuildIndex(expected)
+    );
+}
+
+#[test]
+fn parses_build_index_detach() {
+    let mut expected = build_index_args("workspace");
+    expected.detach = true;
+
+    assert_eq!(
+        parse_args(vec![
+            "build-index".to_string(),
+            "workspace".to_string(),
+            "--detach".to_string(),
+        ])
+        .expect("build-index should parse"),
+        Command::BuildIndex(expected)
     );
 }
 
@@ -182,6 +248,9 @@ fn parses_completion_without_shell() {
 
 #[test]
 fn parses_grep_wait_for_index() {
+    let mut query = lsp_workspace_query("workspace");
+    query.query.wait_for_index = true;
+
     assert_eq!(
         parse_args(vec![
             "grep".to_string(),
@@ -192,21 +261,19 @@ fn parses_grep_wait_for_index() {
         .expect("grep should parse"),
         Command::Grep(GrepArgs {
             pattern: "needle".to_string(),
-            query: WorkspaceQueryArgs {
-                directory: PathBuf::from("workspace"),
-                lsp: None,
-                wait_for_index: true,
-                json: false,
-                debug: false,
-                timeout: Duration::from_secs(10),
-                limit: 100,
-            },
+            query,
         })
     );
 }
 
 #[test]
 fn parses_list_symbols_arguments() {
+    let mut expected = list_symbols_args("workspace");
+    expected.lsp = Some("rust-analyzer".to_string());
+    expected.json = true;
+    expected.debug = true;
+    expected.timeout = Duration::from_millis(250);
+
     assert_eq!(
         parse_args(vec![
             "list-symbols".to_string(),
@@ -219,20 +286,15 @@ fn parses_list_symbols_arguments() {
             "250ms".to_string(),
         ])
         .expect("list-symbols should parse"),
-        Command::ListSymbols(ListSymbolsArgs {
-            file: PathBuf::from("workspace"),
-            lsp: Some("rust-analyzer".to_string()),
-            wait_for_index: false,
-            json: true,
-            debug: true,
-            timeout: Duration::from_millis(250),
-            limit: 100,
-        })
+        Command::ListSymbols(expected)
     );
 }
 
 #[test]
 fn parses_list_symbols_wait_for_index() {
+    let mut expected = list_symbols_args("workspace");
+    expected.wait_for_index = true;
+
     assert_eq!(
         parse_args(vec![
             "list-symbols".to_string(),
@@ -240,20 +302,34 @@ fn parses_list_symbols_wait_for_index() {
             "--wait-for-index".to_string(),
         ])
         .expect("list-symbols should parse"),
-        Command::ListSymbols(ListSymbolsArgs {
-            file: PathBuf::from("workspace"),
-            lsp: None,
-            wait_for_index: true,
-            json: false,
-            debug: false,
-            timeout: Duration::from_secs(10),
-            limit: 100,
-        })
+        Command::ListSymbols(expected)
+    );
+}
+
+#[test]
+fn parses_list_symbols_detach() {
+    let mut expected = list_symbols_args("workspace");
+    expected.detach = true;
+
+    assert_eq!(
+        parse_args(vec![
+            "list-symbols".to_string(),
+            "workspace".to_string(),
+            "--detach".to_string(),
+        ])
+        .expect("list-symbols should parse"),
+        Command::ListSymbols(expected)
     );
 }
 
 #[test]
 fn parses_list_functions_arguments() {
+    let mut query = lsp_workspace_query("workspace");
+    query.query.lsp = Some("rust-analyzer".to_string());
+    query.query.json = true;
+    query.query.debug = true;
+    query.query.timeout = Duration::from_millis(250);
+
     assert_eq!(
         parse_args(vec![
             "list-functions".to_string(),
@@ -266,22 +342,15 @@ fn parses_list_functions_arguments() {
             "250ms".to_string(),
         ])
         .expect("list-functions should parse"),
-        Command::ListFunctions(ListFunctionsArgs {
-            query: WorkspaceQueryArgs {
-                directory: PathBuf::from("workspace"),
-                lsp: Some("rust-analyzer".to_string()),
-                wait_for_index: false,
-                json: true,
-                debug: true,
-                timeout: Duration::from_millis(250),
-                limit: 100,
-            },
-        })
+        Command::ListFunctions(ListFunctionsArgs { query })
     );
 }
 
 #[test]
 fn parses_list_functions_wait_for_index() {
+    let mut query = lsp_workspace_query("workspace");
+    query.query.wait_for_index = true;
+
     assert_eq!(
         parse_args(vec![
             "list-functions".to_string(),
@@ -289,22 +358,17 @@ fn parses_list_functions_wait_for_index() {
             "--wait-for-index".to_string(),
         ])
         .expect("list-functions should parse"),
-        Command::ListFunctions(ListFunctionsArgs {
-            query: WorkspaceQueryArgs {
-                directory: PathBuf::from("workspace"),
-                lsp: None,
-                wait_for_index: true,
-                json: false,
-                debug: false,
-                timeout: Duration::from_secs(10),
-                limit: 100,
-            },
-        })
+        Command::ListFunctions(ListFunctionsArgs { query })
     );
 }
 
 #[test]
 fn parses_list_files_arguments() {
+    let mut query = workspace_query("workspace");
+    query.lsp = Some("rust-analyzer".to_string());
+    query.json = true;
+    query.limit = 25;
+
     assert_eq!(
         parse_args(vec![
             "list-files".to_string(),
@@ -316,22 +380,27 @@ fn parses_list_files_arguments() {
             "25".to_string(),
         ])
         .expect("list-files should parse"),
-        Command::ListFiles(ListFilesArgs {
-            query: WorkspaceQueryArgs {
-                directory: PathBuf::from("workspace"),
-                lsp: Some("rust-analyzer".to_string()),
-                wait_for_index: false,
-                json: true,
-                debug: false,
-                timeout: Duration::from_secs(10),
-                limit: 25,
-            },
-        })
+        Command::ListFiles(ListFilesArgs { query })
     );
 }
 
 #[test]
+fn rejects_list_files_detach() {
+    let error = parse_args(vec![
+        "list-files".to_string(),
+        "workspace".to_string(),
+        "--detach".to_string(),
+    ])
+    .expect_err("list-files should reject detach");
+
+    assert!(error.contains("unexpected argument '--detach'"));
+}
+
+#[test]
 fn parses_references_alias_arguments() {
+    let mut query = lsp_workspace_query("workspace");
+    query.query.limit = 50;
+
     assert_eq!(
         parse_args(vec![
             "ref".to_string(),
@@ -343,15 +412,7 @@ fn parses_references_alias_arguments() {
         .expect("ref should parse"),
         Command::References(SymbolQueryArgs {
             name: "main".to_string(),
-            query: WorkspaceQueryArgs {
-                directory: PathBuf::from("workspace"),
-                lsp: None,
-                wait_for_index: false,
-                json: false,
-                debug: false,
-                timeout: Duration::from_secs(10),
-                limit: 50,
-            },
+            query,
         })
     );
 }
@@ -367,15 +428,7 @@ fn parses_callers_arguments() {
         .expect("callers should parse"),
         Command::Callers(SymbolQueryArgs {
             name: "main".to_string(),
-            query: WorkspaceQueryArgs {
-                directory: PathBuf::from("workspace"),
-                lsp: None,
-                wait_for_index: false,
-                json: false,
-                debug: false,
-                timeout: Duration::from_secs(10),
-                limit: 100,
-            },
+            query: lsp_workspace_query("workspace"),
         })
     );
 }
@@ -391,15 +444,7 @@ fn parses_callees_arguments() {
         .expect("callees should parse"),
         Command::Callees(SymbolQueryArgs {
             name: "main".to_string(),
-            query: WorkspaceQueryArgs {
-                directory: PathBuf::from("workspace"),
-                lsp: None,
-                wait_for_index: false,
-                json: false,
-                debug: false,
-                timeout: Duration::from_secs(10),
-                limit: 100,
-            },
+            query: lsp_workspace_query("workspace"),
         })
     );
 }
@@ -415,15 +460,7 @@ fn parses_definition_arguments() {
         .expect("definition should parse"),
         Command::Definition(SymbolQueryArgs {
             name: "main".to_string(),
-            query: WorkspaceQueryArgs {
-                directory: PathBuf::from("workspace"),
-                lsp: None,
-                wait_for_index: false,
-                json: false,
-                debug: false,
-                timeout: Duration::from_secs(10),
-                limit: 100,
-            },
+            query: lsp_workspace_query("workspace"),
         })
     );
 }
@@ -439,15 +476,7 @@ fn parses_declaration_arguments() {
         .expect("declaration should parse"),
         Command::Declaration(SymbolQueryArgs {
             name: "main".to_string(),
-            query: WorkspaceQueryArgs {
-                directory: PathBuf::from("workspace"),
-                lsp: None,
-                wait_for_index: false,
-                json: false,
-                debug: false,
-                timeout: Duration::from_secs(10),
-                limit: 100,
-            },
+            query: lsp_workspace_query("workspace"),
         })
     );
 }

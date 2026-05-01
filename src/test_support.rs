@@ -55,14 +55,28 @@ struct EnvGuard {
 
 impl EnvGuard {
     fn new(vars: &[(&str, OsString)]) -> Self {
+        Self::with_removed(vars, &[])
+    }
+
+    fn with_removed(vars: &[(&str, OsString)], removed: &[&str]) -> Self {
         let saved = vars
             .iter()
             .map(|(name, _)| ((*name).to_string(), std::env::var_os(name)))
+            .chain(
+                removed
+                    .iter()
+                    .map(|name| ((*name).to_string(), std::env::var_os(name))),
+            )
             .collect::<Vec<_>>();
 
         for (name, value) in vars {
             // Tests serialize env changes with a global mutex because process env is shared.
             unsafe { std::env::set_var(name, value) };
+        }
+
+        for name in removed {
+            // Tests serialize env changes with a global mutex because process env is shared.
+            unsafe { std::env::remove_var(name) };
         }
 
         Self { saved }
@@ -98,6 +112,12 @@ pub(crate) fn env_var(name: &'static str, value: impl AsRef<OsStr>) -> (&'static
 pub(crate) fn with_env_vars<T>(vars: &[(&str, OsString)], run: impl FnOnce() -> T) -> T {
     let _lock = env_lock().lock().expect("env lock should be available");
     let _guard = EnvGuard::new(vars);
+    run()
+}
+
+pub(crate) fn without_env_vars<T>(vars: &[&str], run: impl FnOnce() -> T) -> T {
+    let _lock = env_lock().lock().expect("env lock should be available");
+    let _guard = EnvGuard::with_removed(&[], vars);
     run()
 }
 

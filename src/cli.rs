@@ -64,18 +64,29 @@ pub struct WorkspaceQueryArgs {
 }
 
 #[derive(Debug, Args, Eq, PartialEq)]
-pub struct GrepArgs {
-    pub pattern: String,
+pub struct LspWorkspaceQueryArgs {
     #[command(flatten)]
     pub query: WorkspaceQueryArgs,
+    #[arg(long)]
+    pub detach: bool,
 }
 
 #[derive(Debug, Args, Eq, PartialEq)]
+pub struct GrepArgs {
+    pub pattern: String,
+    #[command(flatten)]
+    pub query: LspWorkspaceQueryArgs,
+}
+
+#[derive(Debug, Args, Eq, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct ListSymbolsArgs {
     #[arg(value_hint = ValueHint::FilePath)]
     pub file: PathBuf,
     #[arg(long)]
     pub lsp: Option<String>,
+    #[arg(long)]
+    pub detach: bool,
     #[arg(long)]
     pub wait_for_index: bool,
     #[arg(long)]
@@ -97,14 +108,14 @@ pub struct ListFilesArgs {
 #[derive(Debug, Args, Eq, PartialEq)]
 pub struct ListFunctionsArgs {
     #[command(flatten)]
-    pub query: WorkspaceQueryArgs,
+    pub query: LspWorkspaceQueryArgs,
 }
 
 #[derive(Debug, Args, Eq, PartialEq)]
 pub struct SymbolQueryArgs {
     pub name: String,
     #[command(flatten)]
-    pub query: WorkspaceQueryArgs,
+    pub query: LspWorkspaceQueryArgs,
 }
 
 #[derive(Debug, Args, Eq, PartialEq)]
@@ -113,6 +124,8 @@ pub struct BuildIndexArgs {
     pub directory: PathBuf,
     #[arg(long)]
     pub lsp: Option<String>,
+    #[arg(long)]
+    pub detach: bool,
     #[arg(long)]
     pub debug: bool,
     #[arg(long, value_name = "T", default_value = "10", value_parser = parse_timeout)]

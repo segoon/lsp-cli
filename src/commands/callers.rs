@@ -5,17 +5,18 @@ use crate::commands::symbol_query::{
 use crate::config::ConfigStore;
 
 pub(super) fn run(args: &SymbolQueryArgs, config: &ConfigStore) -> Result<String, String> {
+    let query = &args.query.query;
     let result = run_callers_query(&args.query, &args.name, config)?;
     let matches = truncate_items(
         result.matches,
-        args.query.limit,
-        if args.query.json { "items" } else { "lines" },
+        query.limit,
+        if query.json { "items" } else { "lines" },
     );
 
-    Ok(if args.query.json {
+    Ok(if query.json {
         render_workspace_symbol_json(
             &args.name,
-            &args.query.directory,
+            &query.directory,
             &result.detected_filetypes,
             &result.server,
             &matches,

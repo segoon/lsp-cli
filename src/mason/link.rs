@@ -476,6 +476,7 @@ mod tests {
                 extra_packages: Vec::new(),
                 asset: None,
                 download: None,
+                version_overrides: Vec::new(),
             },
             bin: BTreeMap::from([(
                 "pyright-langserver".to_string(),
@@ -501,6 +502,7 @@ mod tests {
                     bin: Some("rust-analyzer-x86_64-unknown-linux-gnu".to_string()),
                 }])),
                 download: None,
+                version_overrides: Vec::new(),
             },
             bin: BTreeMap::from([(
                 "rust-analyzer".to_string(),
@@ -530,6 +532,7 @@ mod tests {
                     bin: Some("bzl".to_string()),
                     config: None,
                 }])),
+                version_overrides: Vec::new(),
             },
             bin: BTreeMap::from([(
                 "bzl".to_string(),
@@ -559,6 +562,7 @@ mod tests {
                     bin: None,
                     config: Some("config_linux/".to_string()),
                 }])),
+                version_overrides: Vec::new(),
             },
             bin: BTreeMap::from([("jdtls".to_string(), "python:bin/jdtls".to_string())]),
             share: BTreeMap::from([

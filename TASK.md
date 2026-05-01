@@ -23,6 +23,85 @@ Reference source:
 - Build the installer logic to be reusable, but expose it through `detect --download` first.
 
 
+## Current Status
+
+Already implemented:
+- `detect --download` CLI parsing
+- `detect` integration with Mason-aware executable resolution
+- current resolution priority:
+  - use executable from `$PATH` when available
+  - otherwise use already managed local install when available
+  - otherwise install when `--download` is passed
+- writable runtime state root at `~/.local/share/lsp-cli`
+- runtime directories:
+  - `registry/`
+  - `packages/`
+  - `bin/`
+  - `share/`
+  - `receipts/`
+- Mason registry refresh from GitHub latest release metadata
+- download and unpack of `registry.json.zip`
+- digest verification when GitHub release metadata provides one
+- 30-day freshness checks for cached registry data
+- stale-cache fallback with warning when refresh fails
+- parsing of Mason `registry.json`
+- filtering to Mason packages in `LSP` category
+- primary mapping from `data/lsp/<stem>.yaml` to Mason `neovim.lspconfig`
+- conservative explicit mapping overrides for selected historical names
+- exact fallback lookup by Mason package name
+- exact fallback lookup by uniquely-exposed Mason binary name
+- source-id parsing for phase 1 backends:
+  - `github`
+  - `npm`
+  - `pypi`
+  - `cargo`
+  - `golang`
+  - `generic`
+- platform target matching
+- template interpolation subset for common Mason expressions
+- source-level `version_overrides` support for current Mason `semver:<=...` rules
+- install backends for:
+  - `github`
+  - `npm`
+  - `pypi`
+  - `cargo`
+  - `golang`
+  - `generic`
+- wrapper/direct executable support for:
+  - direct executable paths
+  - `npm:`
+  - `pypi:`
+  - `cargo:`
+  - `golang:`
+  - `exec:`
+  - `python:`
+  - `dotnet:`
+  - `java-jar:`
+  - `node:`
+- `share` materialization support
+- install receipts
+- managed executable resolution reuse in `run`
+- unit tests for CLI parsing, runtime state, registry parsing, source parsing, platform matching, template rendering, link/wrapper resolution, and detect resolution
+
+Partially implemented:
+- runtime state is separated logically from config loading, but both still default under `~/.local/share/lsp-cli`
+- mapping strategy currently implements only the primary `lspconfig` mapping
+- mapping overrides and fallback matching are intentionally conservative and exact-only
+- `share` entries are materialized by copying files/directories, not linking
+- receipts are written but not yet used for lookup or validation
+- current wrapper/install flow is primarily Unix-oriented
+
+Still to implement:
+- `opt`-style link handling if needed by real packages
+- reuse of managed executable resolution in later query/index commands if useful
+- broader end-to-end tests for registry refresh and install flows
+- manual verification in `playground/`
+
+Important consequence:
+- the original first vertical slice is effectively done already
+- remaining work is now mostly coverage, compatibility, and reuse rather than initial architecture
+
+
 ## Recommended Runtime Layout
 
 Reason:
@@ -150,6 +229,12 @@ Reason:
 Risk:
 - some `lsp-cli` configs will not map directly to Mason packages and must fail clearly until an override is added
 
+Current status:
+- primary mapping is implemented
+- explicit overrides are implemented for a small conservative alias set
+- exact package-name and unique binary-name fallback is implemented
+- broad fuzzy matching is intentionally not implemented
+
 
 ## Minimal Mason Logic Worth Re-implementing
 
@@ -180,6 +265,20 @@ Decision:
 Consequence:
 - phase 1 stays smaller and more testable
 - unsupported cases must return explicit user-facing errors
+
+Current status:
+- implemented:
+  - parse `registry.json`
+  - filter LSP packages
+  - index by `neovim.lspconfig`
+  - index by package name and unique binary name for conservative fallback
+  - parse supported source-id kinds needed for phase 1
+  - choose platform target
+  - apply current `semver:<=...` `version_overrides`
+  - interpolate the initial common template subset
+  - expand `bin` and `share`
+- not implemented yet:
+  - `opt` handling
 
 
 ## Proposed Rust Module Split
@@ -241,15 +340,24 @@ Examples of good errors:
 - `cannot install lua-language-server on this platform`
 - `no Mason install recipe is available for detected server <name>`
 
+Current status:
+- `detect --download` is implemented
+- `detect` already resolves to:
+  - `$PATH` executable first
+  - then managed local install
+  - then installation when `--download` is enabled
+- equivalent managed resolution is now wired into `run`
 
-## Suggested Implementation Order
 
+## Remaining Implementation Order
+
+Already done:
 1. Add `--download` to CLI and detect command output path.
 2. Add writable runtime state root resolution.
 3. Add cached registry metadata format and freshness checks.
 4. Implement download + unpack of `registry.json.zip`.
 5. Parse and index LSP entries from `registry.json`.
-6. Implement `lsp-cli` config -> Mason package mapping.
+6. Implement primary `lsp-cli` config -> Mason package mapping.
 7. Implement platform matching and minimal template interpolation.
 8. Implement install backends for:
    - `github`
@@ -260,9 +368,13 @@ Examples of good errors:
    - `generic` download
 9. Implement wrapper/share logic.
 10. Integrate executable resolution into `detect --download`.
-11. Add unit tests.
-12. Verify manually in `playground/`.
-13. Run:
+
+Recommended next order:
+1. Decide whether to expand the explicit override table beyond the current conservative aliases.
+2. Decide whether broader fallback matching is worth the risk, or if exact-only fallback should remain the limit.
+3. Add broader tests for registry refresh/install flows where practical.
+4. Verify manually in `playground/`.
+5. Run:
    - `cargo test -q`
    - `cargo clippy`
 
@@ -280,6 +392,24 @@ Unit tests should cover:
 - install plan resolution for representative packages
 - wrapper path generation
 - stale-cache fallback behavior
+
+Current status:
+- already covered in unit tests:
+  - CLI parsing for `detect --download`
+  - registry metadata freshness logic
+  - registry parsing and LSP filtering
+  - primary `lspconfig` mapping
+  - conservative mapping overrides and exact fallback lookup
+  - purl/source-id parsing for supported backends
+  - platform target selection
+  - current `version_overrides` handling
+  - template interpolation subset
+  - wrapper path generation and cached wrapper resolution
+  - managed resolution reuse in `run`
+- still missing or weak:
+  - registry refresh/download behavior against realistic HTTP responses
+  - end-to-end install-plan coverage for representative real packages
+  - manual `playground/` verification
 
 Manual checks in `playground/` should cover at least:
 - `playground/python`
@@ -303,6 +433,17 @@ Why this is a good first slice:
 - simple package manager backend
 - common server
 - validates end-to-end architecture before harder cases like `jdtls`
+
+Status:
+- this milestone is effectively achieved already from the architecture point of view
+- the next milestone should focus on real-package coverage and broader verification
+
+Suggested next milestone:
+- expand/manual-verify a few representative Mason-managed servers end-to-end
+- prove at least:
+  - `pyright`
+  - `typescript-language-server`
+  - `rust-analyzer`
 
 
 ## Main Difficult / Risky Parts
@@ -367,13 +508,13 @@ Recommended mitigation:
 
 ## Start Here In Next Session
 
-1. Inspect current `detect` CLI and rendering flow.
-2. Add `--download` to `DetectArgs` and parser tests.
-3. Introduce writable runtime-state root resolution.
-4. Implement registry cache metadata type and filesystem layout.
-5. Implement latest-release fetch + `registry.json.zip` download + unpack.
-6. Parse LSP entries and print/debug one resolved mapping for a known server such as `pyright`.
-7. Continue with the first vertical slice: `pyright` via `npm`.
+1. Decide whether selected additional aliases should be added to the explicit override table.
+2. Decide whether exact-only fallback should stay the boundary, or if a slightly broader fallback is needed.
+3. Add broader regression tests for registry refresh/install behavior.
+4. Manually verify in `playground/` starting with:
+   - `playground/python`
+   - `playground/typescript`
+   - `playground/rust`
 
 
 ## Non-goals For The First Pass

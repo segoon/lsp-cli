@@ -73,7 +73,7 @@ fn resolve_suggestion_from_path_or_cache(
     let (Some(state), Some(registry)) = (state, registry) else {
         return Ok(None);
     };
-    let Some(package) = registry.package_for_lspconfig(&suggestion.config_id) else {
+    let Some(package) = registry.package_for_detected(&suggestion.config_id, &suggestion.server, program) else {
         return Ok(None);
     };
 
@@ -105,7 +105,7 @@ fn install_suggestion(
         .ok_or_else(|| "cannot install LSP servers automatically because $HOME is not set".to_string())?;
     let registry = registry.get_or_insert(MasonRegistry::load(state)?);
     let package = registry
-        .package_for_lspconfig(&suggestion.config_id)
+        .package_for_detected(&suggestion.config_id, &suggestion.server, program)
         .ok_or_else(|| {
             format!(
                 "no Mason install recipe is available for detected server {}",
@@ -181,6 +181,7 @@ mod tests {
                 extra_packages: Vec::new(),
                 asset: None,
                 download: None,
+                version_overrides: Vec::new(),
             },
             bin: BTreeMap::from([(
                 "pyright-langserver".to_string(),
@@ -212,6 +213,7 @@ mod tests {
                         config: Some("config_linux/".to_string()),
                     },
                 ])),
+                version_overrides: Vec::new(),
             },
             bin: BTreeMap::from([("jdtls".to_string(), "python:bin/jdtls".to_string())]),
             share: BTreeMap::new(),

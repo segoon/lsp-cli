@@ -17,7 +17,9 @@ const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VE
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MasonRegistry {
-    packages_by_lspconfig: BTreeMap<String, MasonPackage>,
+    lspconfigs: BTreeMap<String, MasonPackage>,
+    package_names: BTreeMap<String, MasonPackage>,
+    binaries: BTreeMap<String, String>,
 }
 
 impl MasonRegistry {
@@ -46,7 +48,37 @@ impl MasonRegistry {
     }
 
     pub fn package_for_lspconfig(&self, lspconfig: &str) -> Option<&MasonPackage> {
-        self.packages_by_lspconfig.get(lspconfig)
+        self.lspconfigs.get(lspconfig)
+    }
+
+    pub fn package_for_detected(
+        &self,
+        config_id: &str,
+        server: &str,
+        program: &str,
+    ) -> Option<&MasonPackage> {
+        self.package_for_lspconfig(config_id)
+            .or_else(|| mapping_override(config_id).and_then(|target| self.package_for_override(target)))
+            .or_else(|| self.package_for_name(config_id))
+            .or_else(|| self.package_for_name(server))
+            .or_else(|| self.package_for_bin(program))
+    }
+
+    fn package_for_name(&self, package_name: &str) -> Option<&MasonPackage> {
+        self.package_names.get(package_name)
+    }
+
+    fn package_for_bin(&self, program: &str) -> Option<&MasonPackage> {
+        self.binaries
+            .get(program)
+            .and_then(|package_name| self.package_for_name(package_name))
+    }
+
+    fn package_for_override(&self, target: MappingOverride) -> Option<&MasonPackage> {
+        match target {
+            MappingOverride::Lspconfig(lspconfig) => self.package_for_lspconfig(lspconfig),
+            MappingOverride::Package(package_name) => self.package_for_name(package_name),
+        }
     }
 
     fn from_registry_json_path(path: &Path) -> Result<Self, String> {
@@ -56,7 +88,8 @@ impl MasonRegistry {
             .map_err(|error| format!("failed to parse {}: {error}", path.display()))?;
         let mut packages = Vec::new();
         for value in package_values.into_iter().filter(is_lsp_package_value) {
-            if let Ok(package) = serde_json::from_value::<MasonPackage>(value) {
+            if let Ok(mut package) = serde_json::from_value::<MasonPackage>(value) {
+                let _ = package.apply_source_version_overrides();
                 packages.push(package);
             }
         }
@@ -72,22 +105,64 @@ impl MasonRegistry {
     }
 
     fn from_packages(packages: Vec<MasonPackage>) -> Self {
-        let mut packages_by_lspconfig = BTreeMap::new();
+        let mut lspconfigs = BTreeMap::new();
+        let mut package_names = BTreeMap::new();
+        let mut binaries = BTreeMap::new();
+        let mut ambiguous_bins = std::collections::BTreeSet::new();
 
-        for package in packages {
+        for mut package in packages {
             if !package.is_lsp() {
                 continue;
             }
 
+            let _ = package.apply_source_version_overrides();
+
+            let package_name = package.name.clone();
+
+            for binary in package.bin.keys() {
+                if let Some(existing) = binaries.get(binary) {
+                    if existing != &package_name {
+                        ambiguous_bins.insert(binary.clone());
+                    }
+                } else {
+                    binaries.insert(binary.clone(), package_name.clone());
+                }
+            }
+
+            package_names.insert(package_name, package.clone());
+
             let Some(lspconfig) = package.neovim.lspconfig.clone() else {
                 continue;
             };
-            packages_by_lspconfig.insert(lspconfig, package);
+            lspconfigs.insert(lspconfig, package);
+        }
+
+        for binary in ambiguous_bins {
+            binaries.remove(&binary);
         }
 
         Self {
-            packages_by_lspconfig,
+            lspconfigs,
+            package_names,
+            binaries,
         }
+    }
+}
+
+#[derive(Clone, Copy)]
+enum MappingOverride {
+    Lspconfig(&'static str),
+    Package(&'static str),
+}
+
+fn mapping_override(config_id: &str) -> Option<MappingOverride> {
+    match config_id {
+        // Conservative historical aliases that are still common in user config.
+        "sumneko_lua" => Some(MappingOverride::Lspconfig("lua_ls")),
+        "tsserver" => Some(MappingOverride::Lspconfig("ts_ls")),
+        "typescript_language_server" => Some(MappingOverride::Package("typescript-language-server")),
+        "volar" => Some(MappingOverride::Lspconfig("vue_ls")),
+        _ => None,
     }
 }
 
@@ -120,6 +195,10 @@ impl MasonPackage {
     fn is_lsp(&self) -> bool {
         self.categories.iter().any(|category| category == "LSP")
     }
+
+    fn apply_source_version_overrides(&mut self) -> Result<(), String> {
+        self.source.apply_version_overrides()
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
@@ -131,6 +210,8 @@ pub struct MasonSource {
     pub asset: Option<OneOrMany<MasonAsset>>,
     #[serde(default)]
     pub download: Option<OneOrMany<MasonDownload>>,
+    #[serde(default)]
+    pub version_overrides: Vec<MasonVersionOverride>,
 }
 
 impl MasonSource {
@@ -143,6 +224,50 @@ impl MasonSource {
     pub fn downloads(&self) -> &[MasonDownload] {
         self.download.as_ref().map_or(&[], OneOrMany::as_slice)
     }
+
+    fn apply_version_overrides(&mut self) -> Result<(), String> {
+        let version = source_id_version(&self.id)?;
+        let override_ = self
+            .version_overrides
+            .iter()
+            .filter(|override_| version_matches_constraint(version, &override_.constraint))
+            .min_by(|left, right| {
+                compare_versions(
+                    constraint_upper_bound(&left.constraint),
+                    constraint_upper_bound(&right.constraint),
+                )
+            })
+            .cloned();
+
+        let Some(override_) = override_ else {
+            return Ok(());
+        };
+
+        self.id = override_.id;
+        if let Some(extra_packages) = override_.extra_packages {
+            self.extra_packages = extra_packages;
+        }
+        if let Some(asset) = override_.asset {
+            self.asset = Some(asset);
+        }
+        if let Some(download) = override_.download {
+            self.download = Some(download);
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
+pub struct MasonVersionOverride {
+    pub constraint: String,
+    pub id: String,
+    #[serde(default)]
+    pub extra_packages: Option<Vec<String>>,
+    #[serde(default)]
+    pub asset: Option<OneOrMany<MasonAsset>>,
+    #[serde(default)]
+    pub download: Option<OneOrMany<MasonDownload>>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
@@ -183,6 +308,128 @@ pub struct MasonDownload {
 #[derive(Clone, Debug, Default, Eq, PartialEq, Deserialize, Serialize)]
 pub struct MasonNeovim {
     pub lspconfig: Option<String>,
+}
+
+fn source_id_version(source_id: &str) -> Result<&str, String> {
+    source_id
+        .strip_prefix("pkg:")
+        .and_then(|value| value.rsplit_once('@').map(|(_, version)| version))
+        .ok_or_else(|| format!("unsupported Mason package source {source_id}"))
+}
+
+fn version_matches_constraint(version: &str, constraint: &str) -> bool {
+    let Some(upper_bound) = constraint_upper_bound(constraint) else {
+        return false;
+    };
+
+    compare_versions(Some(version), Some(upper_bound)).is_le()
+}
+
+fn constraint_upper_bound(constraint: &str) -> Option<&str> {
+    constraint
+        .strip_prefix("semver:")
+        .and_then(|value| value.strip_prefix("<="))
+}
+
+fn compare_versions(left: Option<&str>, right: Option<&str>) -> std::cmp::Ordering {
+    match (left, right) {
+        (Some(left), Some(right)) => compare_version_strings(left, right),
+        (Some(_), None) => std::cmp::Ordering::Greater,
+        (None, Some(_)) => std::cmp::Ordering::Less,
+        (None, None) => std::cmp::Ordering::Equal,
+    }
+}
+
+fn compare_version_strings(left: &str, right: &str) -> std::cmp::Ordering {
+    let left = tokenize_version(left);
+    let right = tokenize_version(right);
+    let max_len = left.len().max(right.len());
+
+    for index in 0..max_len {
+        let ordering = compare_version_part(left.get(index), right.get(index));
+        if ordering != std::cmp::Ordering::Equal {
+            return ordering;
+        }
+    }
+
+    std::cmp::Ordering::Equal
+}
+
+fn tokenize_version(version: &str) -> Vec<VersionPart> {
+    let trimmed = version.trim_start_matches('v');
+    let mut parts = Vec::new();
+    let mut current = String::new();
+    let mut current_is_digit = None;
+
+    for ch in trimmed.chars() {
+        if !ch.is_ascii_alphanumeric() {
+            push_version_part(&mut parts, &mut current, &mut current_is_digit);
+            continue;
+        }
+
+        let is_digit = ch.is_ascii_digit();
+        if current_is_digit.is_some_and(|value| value != is_digit) {
+            push_version_part(&mut parts, &mut current, &mut current_is_digit);
+        }
+        current_is_digit = Some(is_digit);
+        current.push(ch);
+    }
+
+    push_version_part(&mut parts, &mut current, &mut current_is_digit);
+    parts
+}
+
+fn push_version_part(
+    parts: &mut Vec<VersionPart>,
+    current: &mut String,
+    current_is_digit: &mut Option<bool>,
+) {
+    if current.is_empty() {
+        *current_is_digit = None;
+        return;
+    }
+
+    if current_is_digit.unwrap_or(false) {
+        parts.push(VersionPart::Number(current.parse::<u64>().unwrap_or(u64::MAX)));
+    } else {
+        parts.push(VersionPart::Text(current.to_ascii_lowercase()));
+    }
+
+    current.clear();
+    *current_is_digit = None;
+}
+
+#[derive(Debug)]
+enum VersionPart {
+    Number(u64),
+    Text(String),
+}
+
+fn compare_version_part(
+    left: Option<&VersionPart>,
+    right: Option<&VersionPart>,
+) -> std::cmp::Ordering {
+    match (left, right) {
+        (Some(VersionPart::Number(left)), Some(VersionPart::Number(right))) => left.cmp(right),
+        (Some(VersionPart::Text(left)), Some(VersionPart::Text(right))) => left.cmp(right),
+        (Some(VersionPart::Number(left)), Some(VersionPart::Text(_))) => {
+            if *left == 0 {
+                std::cmp::Ordering::Less
+            } else {
+                std::cmp::Ordering::Greater
+            }
+        }
+        (Some(VersionPart::Text(_)), Some(VersionPart::Number(right))) => {
+            if *right == 0 {
+                std::cmp::Ordering::Greater
+            } else {
+                std::cmp::Ordering::Less
+            }
+        }
+        (Some(part), None) => compare_version_part(Some(part), Some(&VersionPart::Number(0))),
+        (None, Some(part)) => compare_version_part(Some(&VersionPart::Number(0)), Some(part)),
+        (None, None) => std::cmp::Ordering::Equal,
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -373,7 +620,10 @@ fn unix_timestamp_now() -> Result<u64, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{MasonPackage, MasonRegistry, RegistryMetadata};
+    use super::{
+        MasonAsset, MasonNeovim, MasonPackage, MasonRegistry, MasonSource,
+        MasonVersionOverride, OneOrMany, RegistryMetadata,
+    };
     use crate::runtime_state::RuntimeState;
     use std::collections::BTreeMap;
     use std::fs;
@@ -416,33 +666,35 @@ mod tests {
             MasonPackage {
                 name: "pyright".to_string(),
                 categories: vec!["LSP".to_string()],
-                source: super::MasonSource {
+                source: MasonSource {
                     id: "pkg:npm/pyright@1.0.0".to_string(),
                     extra_packages: Vec::new(),
                     asset: None,
                     download: None,
+                    version_overrides: Vec::new(),
                 },
                 bin: BTreeMap::from([(
                     "pyright-langserver".to_string(),
                     "npm:pyright-langserver".to_string(),
                 )]),
                 share: BTreeMap::new(),
-                neovim: super::MasonNeovim {
+                neovim: MasonNeovim {
                     lspconfig: Some("pyright".to_string()),
                 },
             },
             MasonPackage {
                 name: "stylua".to_string(),
                 categories: vec!["Formatter".to_string()],
-                source: super::MasonSource {
+                source: MasonSource {
                     id: "pkg:github/john/stylua@1.0.0".to_string(),
                     extra_packages: Vec::new(),
                     asset: None,
                     download: None,
+                    version_overrides: Vec::new(),
                 },
                 bin: BTreeMap::new(),
                 share: BTreeMap::new(),
-                neovim: super::MasonNeovim::default(),
+                neovim: MasonNeovim::default(),
             },
         ]);
 
@@ -454,6 +706,142 @@ mod tests {
             "pyright"
         );
         assert!(registry.package_for_lspconfig("stylua").is_none());
+    }
+
+    fn package(name: &str, lspconfig: Option<&str>, bin_name: &str) -> MasonPackage {
+        MasonPackage {
+            name: name.to_string(),
+            categories: vec!["LSP".to_string()],
+            source: MasonSource {
+                id: format!("pkg:npm/{name}@1.0.0"),
+                extra_packages: Vec::new(),
+                asset: None,
+                download: None,
+                version_overrides: Vec::new(),
+            },
+            bin: BTreeMap::from([(bin_name.to_string(), format!("npm:{bin_name}"))]),
+            share: BTreeMap::new(),
+            neovim: MasonNeovim {
+                lspconfig: lspconfig.map(str::to_string),
+            },
+        }
+    }
+
+    #[test]
+    fn falls_back_to_package_name_and_binary_name() {
+        let registry = MasonRegistry::from_packages(vec![
+            package("aiken", Some("aiken_lsp"), "aiken"),
+            package("ada-language-server", Some("ada_language_server"), "ada_language_server"),
+        ]);
+
+        assert_eq!(
+            registry
+                .package_for_detected("aiken", "aiken", "aiken")
+                .expect("package-name fallback should resolve")
+                .name,
+            "aiken"
+        );
+        assert_eq!(
+            registry
+                .package_for_detected("ada_ls", "ada_language_server", "ada_language_server")
+                .expect("binary-name fallback should resolve")
+                .name,
+            "ada-language-server"
+        );
+    }
+
+    #[test]
+    fn applies_most_specific_matching_version_override() {
+        let registry = MasonRegistry::from_packages(vec![MasonPackage {
+            name: "angular-language-server".to_string(),
+            categories: vec!["LSP".to_string()],
+            source: MasonSource {
+                id: "pkg:npm/@angular/language-server@17.3.2".to_string(),
+                extra_packages: vec!["typescript@latest".to_string()],
+                asset: None,
+                download: None,
+                version_overrides: vec![
+                    MasonVersionOverride {
+                        constraint: "semver:<=19.2.4".to_string(),
+                        id: "pkg:npm/@angular/language-server@19.2.4".to_string(),
+                        extra_packages: Some(vec!["typescript@5.8.3".to_string()]),
+                        asset: None,
+                        download: None,
+                    },
+                    MasonVersionOverride {
+                        constraint: "semver:<=17.3.2".to_string(),
+                        id: "pkg:npm/@angular/language-server@17.3.2".to_string(),
+                        extra_packages: Some(vec!["typescript@5.3.2".to_string()]),
+                        asset: None,
+                        download: None,
+                    },
+                ],
+            },
+            bin: BTreeMap::from([(
+                "ngserver".to_string(),
+                "npm:ngserver".to_string(),
+            )]),
+            share: BTreeMap::new(),
+            neovim: MasonNeovim {
+                lspconfig: Some("angularls".to_string()),
+            },
+        }]);
+
+        let package = registry
+            .package_for_lspconfig("angularls")
+            .expect("angular package should be indexed");
+
+        assert_eq!(
+            package.source.id,
+            "pkg:npm/@angular/language-server@17.3.2"
+        );
+        assert_eq!(package.source.extra_packages, vec!["typescript@5.3.2"]);
+    }
+
+    #[test]
+    fn applies_version_override_asset_payload() {
+        let registry = MasonRegistry::from_packages(vec![MasonPackage {
+            name: "rubyfmt".to_string(),
+            categories: vec!["LSP".to_string()],
+            source: MasonSource {
+                id: "pkg:github/fables-tales/rubyfmt@v0.8.1".to_string(),
+                extra_packages: Vec::new(),
+                asset: Some(OneOrMany::One(MasonAsset {
+                    target: Some(OneOrMany::One("linux_x64_gnu".to_string())),
+                    file: OneOrMany::One("rubyfmt-latest.tar.gz".to_string()),
+                    bin: Some("rubyfmt".to_string()),
+                })),
+                download: None,
+                version_overrides: vec![MasonVersionOverride {
+                    constraint: "semver:<=v0.8.1".to_string(),
+                    id: "pkg:github/fables-tales/rubyfmt@v0.8.1".to_string(),
+                    extra_packages: None,
+                    asset: Some(OneOrMany::One(MasonAsset {
+                        target: Some(OneOrMany::One("linux_x64_gnu".to_string())),
+                        file: OneOrMany::One("rubyfmt-v0.8.1-Linux.tar.gz".to_string()),
+                        bin: Some("tmp/releases/{{version}}-Linux/rubyfmt".to_string()),
+                    })),
+                    download: None,
+                }],
+            },
+            bin: BTreeMap::from([(
+                "rubyfmt".to_string(),
+                "{{source.asset.bin}}".to_string(),
+            )]),
+            share: BTreeMap::new(),
+            neovim: MasonNeovim {
+                lspconfig: Some("rubyfmt".to_string()),
+            },
+        }]);
+
+        let package = registry
+            .package_for_lspconfig("rubyfmt")
+            .expect("rubyfmt package should be indexed");
+
+        assert_eq!(
+            package.source.assets()[0].file.as_slice()[0],
+            "rubyfmt-v0.8.1-Linux.tar.gz"
+        );
     }
 
     #[test]

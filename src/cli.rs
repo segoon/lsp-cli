@@ -14,6 +14,7 @@ struct Cli {
 pub enum Command {
     Detect(DetectArgs),
     Grep(GrepArgs),
+    ListSymbols(ListSymbolsArgs),
     BuildIndex(BuildIndexArgs),
     Run(RunArgs),
 }
@@ -33,6 +34,20 @@ pub struct DetectArgs {
 #[derive(Debug, Args, Eq, PartialEq)]
 pub struct GrepArgs {
     pub pattern: String,
+    #[arg(value_hint = ValueHint::DirPath)]
+    pub directory: PathBuf,
+    #[arg(long)]
+    pub lsp: Option<String>,
+    #[arg(long)]
+    pub json: bool,
+    #[arg(long)]
+    pub debug: bool,
+    #[arg(long, value_name = "T", default_value = "10", value_parser = parse_timeout)]
+    pub timeout: Duration,
+}
+
+#[derive(Debug, Args, Eq, PartialEq)]
+pub struct ListSymbolsArgs {
     #[arg(value_hint = ValueHint::DirPath)]
     pub directory: PathBuf,
     #[arg(long)]
@@ -99,7 +114,9 @@ fn parse_timeout(value: &str) -> Result<Duration, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{BuildIndexArgs, Command, DetectArgs, GrepArgs, RunArgs, parse_args};
+    use super::{
+        BuildIndexArgs, Command, DetectArgs, GrepArgs, ListSymbolsArgs, RunArgs, parse_args,
+    };
     use std::path::PathBuf;
     use std::time::Duration;
 
@@ -239,6 +256,30 @@ mod tests {
                 lsp: Some("rust-analyzer".to_string()),
                 debug: true,
                 timeout: Duration::from_millis(500),
+            })
+        );
+    }
+
+    #[test]
+    fn parses_list_symbols_arguments() {
+        assert_eq!(
+            parse_args(vec![
+                "list-symbols".to_string(),
+                "workspace".to_string(),
+                "--lsp".to_string(),
+                "rust-analyzer".to_string(),
+                "--json".to_string(),
+                "--debug".to_string(),
+                "--timeout".to_string(),
+                "250ms".to_string(),
+            ])
+            .expect("list-symbols should parse"),
+            Command::ListSymbols(ListSymbolsArgs {
+                directory: PathBuf::from("workspace"),
+                lsp: Some("rust-analyzer".to_string()),
+                json: true,
+                debug: true,
+                timeout: Duration::from_millis(250),
             })
         );
     }

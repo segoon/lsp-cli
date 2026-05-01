@@ -15,7 +15,10 @@ use std::path::{Path, PathBuf};
 use std::process;
 use std::process::Command;
 
-use cli::{BuildIndexArgs, Command as CliCommand, DetectArgs, GrepArgs, RunArgs, parse_args};
+use cli::{
+    BuildIndexArgs, Command as CliCommand, DetectArgs, GrepArgs, ListSymbolsArgs, RunArgs,
+    parse_args,
+};
 use config::{ConfigStore, default_config_root, load_config_store};
 use detect::{DetectionResult, detect_workspace};
 use lsp::{InitializeResponse, LspClient};
@@ -63,6 +66,7 @@ fn main() {
     let output = match args {
         CliCommand::Detect(args) => run_detect(&args, &config),
         CliCommand::Grep(args) => run_grep(&args, &config),
+        CliCommand::ListSymbols(args) => run_list_symbols(&args, &config),
         CliCommand::BuildIndex(args) => run_build_index(&args, &config),
         CliCommand::Run(args) => run_run(&args, &config),
     };
@@ -131,12 +135,40 @@ fn run_build_index(args: &BuildIndexArgs, config: &ConfigStore) -> Result<String
         .initialize(&root_uri, &workspace_name, true)
         .map_err(|error| format!("failed to initialize {}: {error}", server.server))?;
 
-    let wait = client.wait_for_server_status_quiescent();
+    let wait = client.wait_for_background_work();
     let shutdown = client.shutdown();
     wait.map_err(|error| format!("failed to build index with {}: {error}", server.server))?;
     shutdown.map_err(|error| format!("failed to stop {} cleanly: {error}", server.server))?;
 
     Ok(String::new())
+}
+
+fn run_list_symbols(args: &ListSymbolsArgs, config: &ConfigStore) -> Result<String, String> {
+    let (detection, suggestions) = analyze_path(&args.directory, config)?;
+    let server = select_server(&detection, &suggestions, args.lsp.as_deref())?;
+    let root_uri = path_to_file_uri(&server.workspace_root)?;
+    let workspace_name = lsp::workspace_name(&server.workspace_root);
+
+    let mut client = LspClient::new(&server.command, args.debug, args.timeout)?;
+    let initialize = client
+        .initialize(&root_uri, &workspace_name, false)
+        .map_err(|error| format!("failed to initialize {}: {error}", server.server))?;
+    ensure_workspace_symbol_support(&initialize)?;
+
+    let response = client
+        .workspace_symbol("")
+        .map_err(|error| format!("failed to query {}: {error}", server.server));
+    let shutdown = client.shutdown();
+    let response = response?;
+    shutdown.map_err(|error| format!("failed to stop {} cleanly: {error}", server.server))?;
+
+    let matches = grep_matches_from_response(&response)?;
+
+    Ok(if args.json {
+        render_list_symbols_json(args, &detection.filetypes, server, &matches)
+    } else {
+        render_grep_text(&matches)
+    })
 }
 
 fn run_run(args: &RunArgs, config: &ConfigStore) -> Result<String, String> {
@@ -312,6 +344,36 @@ fn render_grep_json(
 ) -> String {
     json!({
         "pattern": args.pattern,
+        "directory": args.directory,
+        "detected": detected_filetypes,
+        "server": {
+            "name": server.server,
+            "languages": server.languages,
+            "command": server.command,
+            "workspace_root": server.workspace_root,
+        },
+        "matches": matches
+            .iter()
+            .map(|matched| {
+                json!({
+                    "path": matched.path,
+                    "line": matched.line,
+                    "col": matched.col,
+                    "line_content": matched.line_content,
+                })
+            })
+            .collect::<Vec<_>>(),
+    })
+    .to_string()
+}
+
+fn render_list_symbols_json(
+    args: &ListSymbolsArgs,
+    detected_filetypes: &BTreeSet<String>,
+    server: &SuggestedLanguage,
+    matches: &[GrepMatch],
+) -> String {
+    json!({
         "directory": args.directory,
         "detected": detected_filetypes,
         "server": {

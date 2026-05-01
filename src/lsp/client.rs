@@ -1,15 +1,17 @@
+use std::io::{BufRead, BufReader, Read, Write};
+use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
+use std::thread;
+use std::time::{Duration, Instant};
+
 use lsp_types::notification::{Exit, Initialized, Notification};
 use lsp_types::request::{
     DocumentSymbolRequest, Initialize, Request, Shutdown, WorkspaceSymbolRequest,
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
-use std::io::{BufRead, BufReader, Read, Write};
-use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
-use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
-use std::thread;
-use std::time::Duration;
-use std::time::Instant;
+
+use super::{InitializeResponse, ServerStatusParams};
 
 pub struct LspClient {
     child: Child,
@@ -25,26 +27,6 @@ enum IncomingMessage {
     Message(Value),
     EndOfStream,
     Error(String),
-}
-
-#[derive(Debug, Deserialize)]
-pub struct InitializeResponse {
-    pub capabilities: ServerCapabilities,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ServerCapabilities {
-    #[serde(rename = "workspaceSymbolProvider")]
-    pub workspace_symbol_provider: Option<Value>,
-    #[serde(rename = "documentSymbolProvider")]
-    pub document_symbol_provider: Option<Value>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ServerStatusParams {
-    pub health: String,
-    pub quiescent: bool,
-    pub message: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -537,12 +519,6 @@ fn format_lsp_error(method: &str, error: &Value) -> String {
         .unwrap_or("unknown error");
 
     format!("{method} failed with {code}: {message}")
-}
-
-pub fn workspace_name(path: &std::path::Path) -> String {
-    path.file_name()
-        .and_then(|value| value.to_str())
-        .map_or_else(|| path.display().to_string(), ToString::to_string)
 }
 
 #[cfg(test)]

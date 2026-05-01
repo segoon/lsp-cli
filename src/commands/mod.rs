@@ -1,10 +1,16 @@
 mod build_index;
+mod callees;
+mod callers;
 mod common;
 mod completion;
+mod declaration;
+mod definition;
 mod detect;
 mod grep;
+mod list_files;
 mod list_functions;
 mod list_symbols;
+mod references;
 mod run;
 mod symbol_query;
 
@@ -17,6 +23,12 @@ pub(crate) fn run(command: CliCommand, config: &ConfigStore) -> Result<String, S
         CliCommand::Grep(args) => grep::run(&args, config),
         CliCommand::ListSymbols(args) => list_symbols::run(&args, config),
         CliCommand::ListFunctions(args) => list_functions::run(&args, config),
+        CliCommand::ListFiles(args) => list_files::run(&args, config),
+        CliCommand::References(args) => references::run(&args, config),
+        CliCommand::Callers(args) => callers::run(&args, config),
+        CliCommand::Callees(args) => callees::run(&args, config),
+        CliCommand::Definition(args) => definition::run(&args, config),
+        CliCommand::Declaration(args) => declaration::run(&args, config),
         CliCommand::BuildIndex(args) => build_index::run(&args, config),
         CliCommand::Completion(_) => unreachable!("completion handled before config loading"),
         CliCommand::Run(args) => run::run(&args, config),

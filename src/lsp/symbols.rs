@@ -2,13 +2,16 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use lsp_types::{DocumentSymbol, DocumentSymbolResponse, SymbolInformation, SymbolKind};
+use lsp_types::{
+    CallHierarchyIncomingCall, CallHierarchyItem, CallHierarchyOutgoingCall, DocumentSymbol,
+    DocumentSymbolResponse, Location, LocationLink, SymbolInformation, SymbolKind,
+};
 use serde::Deserialize;
 use serde_json::Value;
 
 use super::file_uri_to_path;
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SymbolMatch {
     pub name: String,
     pub kind: SymbolKind,
@@ -34,29 +37,20 @@ pub fn function_matches_from_document_response(
     path: &Path,
     source_cache: &mut SourceCache,
 ) -> Result<Vec<SymbolMatch>, String> {
-    if response.is_null() {
-        return Ok(Vec::new());
-    }
+    document_symbol_matches_from_response_with(
+        response,
+        path,
+        source_cache,
+        is_function_symbol_kind,
+    )
+}
 
-    let response: DocumentSymbolResponse =
-        serde_json::from_value(response.clone()).map_err(|error| {
-            format!("failed to decode textDocument/documentSymbol response: {error}")
-        })?;
-
-    match response {
-        DocumentSymbolResponse::Flat(symbols) => symbols
-            .into_iter()
-            .filter(|symbol| is_function_symbol_kind(symbol.kind))
-            .map(|symbol| symbol_information_to_match(symbol, source_cache))
-            .collect(),
-        DocumentSymbolResponse::Nested(symbols) => {
-            let mut matches = Vec::new();
-            for symbol in symbols {
-                collect_document_symbol_matches(path, symbol, source_cache, &mut matches)?;
-            }
-            Ok(matches)
-        }
-    }
+pub fn document_symbol_matches_from_response(
+    response: &Value,
+    path: &Path,
+    source_cache: &mut SourceCache,
+) -> Result<Vec<SymbolMatch>, String> {
+    document_symbol_matches_from_response_with(response, path, source_cache, |_| true)
 }
 
 pub fn symbol_matches_from_response(response: &Value) -> Result<Vec<SymbolMatch>, String> {
@@ -74,38 +68,156 @@ pub fn symbol_matches_from_response(response: &Value) -> Result<Vec<SymbolMatch>
         .collect()
 }
 
+pub fn location_matches_from_response(
+    response: &Value,
+    fallback_name: &str,
+    fallback_kind: SymbolKind,
+    source_cache: &mut SourceCache,
+) -> Result<Vec<SymbolMatch>, String> {
+    if response.is_null() {
+        return Ok(Vec::new());
+    }
+
+    let response: LocationResponse = serde_json::from_value(response.clone())
+        .map_err(|error| format!("failed to decode location response: {error}"))?;
+
+    match response {
+        LocationResponse::Scalar(location) => Ok(vec![location_to_symbol_match(
+            &location,
+            fallback_name.to_string(),
+            fallback_kind,
+            source_cache,
+        )?]),
+        LocationResponse::Array(locations) => locations
+            .into_iter()
+            .map(|location| {
+                location_to_symbol_match(
+                    &location,
+                    fallback_name.to_string(),
+                    fallback_kind,
+                    source_cache,
+                )
+            })
+            .collect(),
+        LocationResponse::Link(links) => links
+            .into_iter()
+            .map(|link| {
+                location_link_to_symbol_match(
+                    &link,
+                    fallback_name.to_string(),
+                    fallback_kind,
+                    source_cache,
+                )
+            })
+            .collect(),
+    }
+}
+
+pub fn prepare_call_hierarchy_response(response: &Value) -> Result<Vec<Value>, String> {
+    if response.is_null() {
+        return Ok(Vec::new());
+    }
+
+    serde_json::from_value(response.clone()).map_err(|error| {
+        format!("failed to decode textDocument/prepareCallHierarchy response: {error}")
+    })
+}
+
+pub fn call_hierarchy_matches_from_incoming_response(
+    response: &Value,
+    source_cache: &mut SourceCache,
+) -> Result<Vec<SymbolMatch>, String> {
+    if response.is_null() {
+        return Ok(Vec::new());
+    }
+
+    let calls: Vec<CallHierarchyIncomingCall> =
+        serde_json::from_value(response.clone()).map_err(|error| {
+            format!("failed to decode callHierarchy/incomingCalls response: {error}")
+        })?;
+
+    calls
+        .into_iter()
+        .map(|call| call_hierarchy_item_to_match(call.from, source_cache))
+        .collect()
+}
+
+pub fn call_hierarchy_matches_from_outgoing_response(
+    response: &Value,
+    source_cache: &mut SourceCache,
+) -> Result<Vec<SymbolMatch>, String> {
+    if response.is_null() {
+        return Ok(Vec::new());
+    }
+
+    let calls: Vec<CallHierarchyOutgoingCall> =
+        serde_json::from_value(response.clone()).map_err(|error| {
+            format!("failed to decode callHierarchy/outgoingCalls response: {error}")
+        })?;
+
+    calls
+        .into_iter()
+        .map(|call| call_hierarchy_item_to_match(call.to, source_cache))
+        .collect()
+}
+
+fn document_symbol_matches_from_response_with<F>(
+    response: &Value,
+    path: &Path,
+    source_cache: &mut SourceCache,
+    include: F,
+) -> Result<Vec<SymbolMatch>, String>
+where
+    F: Copy + Fn(SymbolKind) -> bool,
+{
+    if response.is_null() {
+        return Ok(Vec::new());
+    }
+
+    let response: DocumentSymbolResponse =
+        serde_json::from_value(response.clone()).map_err(|error| {
+            format!("failed to decode textDocument/documentSymbol response: {error}")
+        })?;
+
+    match response {
+        DocumentSymbolResponse::Flat(symbols) => symbols
+            .into_iter()
+            .filter(|symbol| include(symbol.kind))
+            .map(|symbol| symbol_information_to_match(symbol, source_cache))
+            .collect(),
+        DocumentSymbolResponse::Nested(symbols) => {
+            let mut matches = Vec::new();
+            for symbol in symbols {
+                collect_document_symbol_matches(path, symbol, source_cache, &mut matches, include)?;
+            }
+            Ok(matches)
+        }
+    }
+}
+
 fn symbol_information_to_match(
     symbol: SymbolInformation,
     source_cache: &mut SourceCache,
 ) -> Result<SymbolMatch, String> {
-    let path = file_uri_to_path(&symbol.location.uri.to_string())?;
-    let line = symbol.location.range.start.line + 1;
-    let col = symbol.location.range.start.character + 1;
-    let line_index = usize::try_from(symbol.location.range.start.line)
-        .map_err(|_| format!("line index overflow for {}", path.display()))?;
-    let line_content = source_cache.line_content(&path, line_index);
-
-    Ok(SymbolMatch {
-        name: symbol.name,
-        kind: symbol.kind,
-        path,
-        line,
-        col,
-        line_content,
-    })
+    location_to_symbol_match(&symbol.location, symbol.name, symbol.kind, source_cache)
 }
 
-fn collect_document_symbol_matches(
+fn collect_document_symbol_matches<F>(
     path: &Path,
     symbol: DocumentSymbol,
     source_cache: &mut SourceCache,
     matches: &mut Vec<SymbolMatch>,
-) -> Result<(), String> {
-    if is_function_symbol_kind(symbol.kind) {
-        let line = symbol.selection_range.start.line + 1;
-        let col = symbol.selection_range.start.character + 1;
-        let line_index = usize::try_from(symbol.selection_range.start.line)
-            .map_err(|_| format!("line index overflow for {}", path.display()))?;
+    include: F,
+) -> Result<(), String>
+where
+    F: Copy + Fn(SymbolKind) -> bool,
+{
+    if include(symbol.kind) {
+        let (line, col, line_index) = line_col_and_index(
+            symbol.selection_range.start.line,
+            symbol.selection_range.start.character,
+            path,
+        )?;
         let line_content = source_cache.line_content(path, line_index);
 
         matches.push(SymbolMatch {
@@ -120,11 +232,87 @@ fn collect_document_symbol_matches(
 
     if let Some(children) = symbol.children {
         for child in children {
-            collect_document_symbol_matches(path, child, source_cache, matches)?;
+            collect_document_symbol_matches(path, child, source_cache, matches, include)?;
         }
     }
 
     Ok(())
+}
+
+fn location_to_symbol_match(
+    location: &Location,
+    name: String,
+    kind: SymbolKind,
+    source_cache: &mut SourceCache,
+) -> Result<SymbolMatch, String> {
+    let path = file_uri_to_path(&location.uri.to_string())?;
+    let (line, col, line_index) = line_col_and_index(
+        location.range.start.line,
+        location.range.start.character,
+        &path,
+    )?;
+    let line_content = source_cache.line_content(&path, line_index);
+
+    Ok(SymbolMatch {
+        name,
+        kind,
+        path,
+        line,
+        col,
+        line_content,
+    })
+}
+
+fn location_link_to_symbol_match(
+    location: &LocationLink,
+    name: String,
+    kind: SymbolKind,
+    source_cache: &mut SourceCache,
+) -> Result<SymbolMatch, String> {
+    let path = file_uri_to_path(&location.target_uri.to_string())?;
+    let (line, col, line_index) = line_col_and_index(
+        location.target_selection_range.start.line,
+        location.target_selection_range.start.character,
+        &path,
+    )?;
+    let line_content = source_cache.line_content(&path, line_index);
+
+    Ok(SymbolMatch {
+        name,
+        kind,
+        path,
+        line,
+        col,
+        line_content,
+    })
+}
+
+fn call_hierarchy_item_to_match(
+    item: CallHierarchyItem,
+    source_cache: &mut SourceCache,
+) -> Result<SymbolMatch, String> {
+    let path = file_uri_to_path(&item.uri.to_string())?;
+    let (line, col, line_index) = line_col_and_index(
+        item.selection_range.start.line,
+        item.selection_range.start.character,
+        &path,
+    )?;
+    let line_content = source_cache.line_content(&path, line_index);
+
+    Ok(SymbolMatch {
+        name: item.name,
+        kind: item.kind,
+        path,
+        line,
+        col,
+        line_content,
+    })
+}
+
+fn line_col_and_index(line: u32, character: u32, path: &Path) -> Result<(u32, u32, usize), String> {
+    let line_index =
+        usize::try_from(line).map_err(|_| format!("line index overflow for {}", path.display()))?;
+    Ok((line + 1, character + 1, line_index))
 }
 
 #[derive(Debug, Default)]
@@ -160,7 +348,8 @@ impl WorkspaceSymbolItem {
         source_cache: &mut SourceCache,
     ) -> Option<Result<SymbolMatch, String>> {
         match self {
-            Self::SymbolInformation(symbol) => Some(symbol.location.into_symbol_match(
+            Self::SymbolInformation(symbol) => Some(location_to_symbol_match(
+                &symbol.location,
                 symbol.name,
                 symbol.kind,
                 source_cache,
@@ -206,58 +395,32 @@ impl WorkspaceSymbolLocation {
         source_cache: &mut SourceCache,
     ) -> Option<Result<SymbolMatch, String>> {
         match self {
-            Self::Full(location) => Some(location.into_symbol_match(name, kind, source_cache)),
+            Self::Full(location) => Some(location_to_symbol_match(
+                &location,
+                name,
+                kind,
+                source_cache,
+            )),
             Self::UriOnly { .. } => None,
         }
     }
 }
 
 #[derive(Debug, Deserialize)]
-struct Location {
-    uri: String,
-    range: Range,
-}
-
-impl Location {
-    fn into_symbol_match(
-        self,
-        name: String,
-        kind: SymbolKind,
-        source_cache: &mut SourceCache,
-    ) -> Result<SymbolMatch, String> {
-        let path = file_uri_to_path(&self.uri)?;
-        let line = self.range.start.line + 1;
-        let col = self.range.start.character + 1;
-        let line_index = usize::try_from(self.range.start.line)
-            .map_err(|_| format!("line index overflow for {}", path.display()))?;
-        let line_content = source_cache.line_content(&path, line_index);
-
-        Ok(SymbolMatch {
-            name,
-            kind,
-            path,
-            line,
-            col,
-            line_content,
-        })
-    }
-}
-
-#[derive(Debug, Deserialize)]
-struct Range {
-    start: Position,
-}
-
-#[derive(Debug, Deserialize)]
-struct Position {
-    line: u32,
-    character: u32,
+#[serde(untagged)]
+enum LocationResponse {
+    Scalar(Location),
+    Array(Vec<Location>),
+    Link(Vec<LocationLink>),
 }
 
 #[cfg(test)]
 mod tests {
     use super::{
-        SourceCache, SymbolMatch, function_matches_from_document_response, is_function_symbol_kind,
+        SourceCache, SymbolMatch, call_hierarchy_matches_from_incoming_response,
+        call_hierarchy_matches_from_outgoing_response, document_symbol_matches_from_response,
+        function_matches_from_document_response, is_function_symbol_kind,
+        location_matches_from_response, prepare_call_hierarchy_response,
         symbol_matches_from_response,
     };
     use lsp_types::SymbolKind;
@@ -435,5 +598,173 @@ mod tests {
                 },
             ]
         );
+    }
+
+    #[test]
+    fn parses_document_symbols_for_all_kinds() {
+        let dir = TestDir::new();
+        let file = dir.write_file("src/lib.rs", "struct S;\nfn first() {}\n");
+        let mut cache = SourceCache::default();
+
+        let matches = document_symbol_matches_from_response(
+            &json!([
+                {
+                    "name": "S",
+                    "kind": 23,
+                    "range": {
+                        "start": { "line": 0, "character": 0 },
+                        "end": { "line": 0, "character": 8 }
+                    },
+                    "selectionRange": {
+                        "start": { "line": 0, "character": 7 },
+                        "end": { "line": 0, "character": 8 }
+                    }
+                },
+                {
+                    "name": "first",
+                    "kind": 12,
+                    "range": {
+                        "start": { "line": 1, "character": 0 },
+                        "end": { "line": 1, "character": 13 }
+                    },
+                    "selectionRange": {
+                        "start": { "line": 1, "character": 3 },
+                        "end": { "line": 1, "character": 8 }
+                    }
+                }
+            ]),
+            &file,
+            &mut cache,
+        )
+        .expect("document symbols should parse");
+
+        assert_eq!(matches.len(), 2);
+        assert_eq!(matches[0].name, "S");
+        assert_eq!(matches[1].name, "first");
+    }
+
+    #[test]
+    fn parses_location_links() {
+        let dir = TestDir::new();
+        let file = dir.write_file("src/lib.rs", "first line\nsecond line\n");
+        let uri = Url::from_file_path(&file)
+            .expect("file path should become URI")
+            .to_string();
+        let mut cache = SourceCache::default();
+
+        let matches = location_matches_from_response(
+            &json!([
+                {
+                    "targetUri": uri,
+                    "targetRange": {
+                        "start": { "line": 1, "character": 0 },
+                        "end": { "line": 1, "character": 11 }
+                    },
+                    "targetSelectionRange": {
+                        "start": { "line": 1, "character": 2 },
+                        "end": { "line": 1, "character": 8 }
+                    }
+                }
+            ]),
+            "symbol",
+            SymbolKind::FUNCTION,
+            &mut cache,
+        )
+        .expect("location links should parse");
+
+        assert_eq!(matches[0].line, 2);
+        assert_eq!(matches[0].col, 3);
+    }
+
+    #[test]
+    fn parses_prepare_call_hierarchy_response() {
+        let items = prepare_call_hierarchy_response(&json!([
+            {
+                "name": "main",
+                "kind": 12,
+                "uri": "file:///tmp/main.rs",
+                "range": {
+                    "start": { "line": 0, "character": 0 },
+                    "end": { "line": 0, "character": 10 }
+                },
+                "selectionRange": {
+                    "start": { "line": 0, "character": 3 },
+                    "end": { "line": 0, "character": 7 }
+                }
+            }
+        ]))
+        .expect("call hierarchy items should parse");
+
+        assert_eq!(items.len(), 1);
+    }
+
+    #[test]
+    fn parses_call_hierarchy_incoming_calls() {
+        let dir = TestDir::new();
+        let file = dir.write_file("src/lib.rs", "fn caller() {}\n");
+        let uri = Url::from_file_path(&file)
+            .expect("file path should become URI")
+            .to_string();
+        let mut cache = SourceCache::default();
+
+        let matches = call_hierarchy_matches_from_incoming_response(
+            &json!([
+                {
+                    "from": {
+                        "name": "caller",
+                        "kind": 12,
+                        "uri": uri,
+                        "range": {
+                            "start": { "line": 0, "character": 0 },
+                            "end": { "line": 0, "character": 13 }
+                        },
+                        "selectionRange": {
+                            "start": { "line": 0, "character": 3 },
+                            "end": { "line": 0, "character": 9 }
+                        }
+                    },
+                    "fromRanges": []
+                }
+            ]),
+            &mut cache,
+        )
+        .expect("incoming calls should parse");
+
+        assert_eq!(matches[0].name, "caller");
+    }
+
+    #[test]
+    fn parses_call_hierarchy_outgoing_calls() {
+        let dir = TestDir::new();
+        let file = dir.write_file("src/lib.rs", "fn callee() {}\n");
+        let uri = Url::from_file_path(&file)
+            .expect("file path should become URI")
+            .to_string();
+        let mut cache = SourceCache::default();
+
+        let matches = call_hierarchy_matches_from_outgoing_response(
+            &json!([
+                {
+                    "to": {
+                        "name": "callee",
+                        "kind": 12,
+                        "uri": uri,
+                        "range": {
+                            "start": { "line": 0, "character": 0 },
+                            "end": { "line": 0, "character": 13 }
+                        },
+                        "selectionRange": {
+                            "start": { "line": 0, "character": 3 },
+                            "end": { "line": 0, "character": 9 }
+                        }
+                    },
+                    "fromRanges": []
+                }
+            ]),
+            &mut cache,
+        )
+        .expect("outgoing calls should parse");
+
+        assert_eq!(matches[0].name, "callee");
     }
 }

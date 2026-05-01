@@ -1,12 +1,11 @@
-use crate::cli::GrepArgs;
+use crate::cli::SymbolQueryArgs;
 use crate::commands::symbol_query::{
-    render_symbol_matches_text, render_workspace_symbol_json, run_workspace_symbol_query,
-    truncate_items,
+    render_symbol_matches_text, render_workspace_symbol_json, run_declaration_query, truncate_items,
 };
 use crate::config::ConfigStore;
 
-pub(super) fn run(args: &GrepArgs, config: &ConfigStore) -> Result<String, String> {
-    let result = run_workspace_symbol_query(&args.query, &args.pattern, config)?;
+pub(super) fn run(args: &SymbolQueryArgs, config: &ConfigStore) -> Result<String, String> {
+    let result = run_declaration_query(&args.query, &args.name, config)?;
     let matches = truncate_items(
         result.matches,
         args.query.limit,
@@ -15,7 +14,7 @@ pub(super) fn run(args: &GrepArgs, config: &ConfigStore) -> Result<String, Strin
 
     Ok(if args.query.json {
         render_workspace_symbol_json(
-            &args.pattern,
+            &args.name,
             &args.query.directory,
             &result.detected_filetypes,
             &result.server,

@@ -50,7 +50,14 @@ mod tests {
         assert!(output.contains("lsp-cli"));
         assert!(output.contains("detect"));
         assert!(output.contains("grep"));
+        assert!(output.contains("references"));
+        assert!(output.contains("callers"));
+        assert!(output.contains("callees"));
+        assert!(output.contains("definition"));
+        assert!(output.contains("declaration"));
+        assert!(output.contains("list-files"));
         assert!(output.contains("list-functions"));
+        assert!(output.contains("list-symbols"));
         assert!(output.contains("completion"));
     }
 

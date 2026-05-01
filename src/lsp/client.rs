@@ -6,7 +6,9 @@ use std::time::{Duration, Instant};
 
 use lsp_types::notification::{Exit, Initialized, Notification};
 use lsp_types::request::{
-    DocumentSymbolRequest, Initialize, Request, Shutdown, WorkspaceSymbolRequest,
+    CallHierarchyIncomingCalls, CallHierarchyOutgoingCalls, CallHierarchyPrepare,
+    DocumentSymbolRequest, GotoDeclaration, GotoDefinition, Initialize, References, Request,
+    Shutdown, WorkspaceSymbolRequest,
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -138,6 +140,66 @@ impl LspClient {
             DocumentSymbolRequest::METHOD,
             &json!({ "textDocument": { "uri": uri } }),
         )
+    }
+
+    pub fn references(
+        &mut self,
+        uri: &str,
+        line: u32,
+        character: u32,
+        include_declaration: bool,
+    ) -> Result<Value, String> {
+        self.send_request(
+            References::METHOD,
+            &json!({
+                "textDocument": { "uri": uri },
+                "position": { "line": line, "character": character },
+                "context": { "includeDeclaration": include_declaration },
+            }),
+        )
+    }
+
+    pub fn definition(&mut self, uri: &str, line: u32, character: u32) -> Result<Value, String> {
+        self.send_request(
+            GotoDefinition::METHOD,
+            &json!({
+                "textDocument": { "uri": uri },
+                "position": { "line": line, "character": character },
+            }),
+        )
+    }
+
+    pub fn declaration(&mut self, uri: &str, line: u32, character: u32) -> Result<Value, String> {
+        self.send_request(
+            GotoDeclaration::METHOD,
+            &json!({
+                "textDocument": { "uri": uri },
+                "position": { "line": line, "character": character },
+            }),
+        )
+    }
+
+    pub fn prepare_call_hierarchy(
+        &mut self,
+        uri: &str,
+        line: u32,
+        character: u32,
+    ) -> Result<Value, String> {
+        self.send_request(
+            CallHierarchyPrepare::METHOD,
+            &json!({
+                "textDocument": { "uri": uri },
+                "position": { "line": line, "character": character },
+            }),
+        )
+    }
+
+    pub fn incoming_calls(&mut self, item: &Value) -> Result<Value, String> {
+        self.send_request(CallHierarchyIncomingCalls::METHOD, &json!({ "item": item }))
+    }
+
+    pub fn outgoing_calls(&mut self, item: &Value) -> Result<Value, String> {
+        self.send_request(CallHierarchyOutgoingCalls::METHOD, &json!({ "item": item }))
     }
 
     pub fn wait_for_background_work(&mut self) -> Result<(), String> {

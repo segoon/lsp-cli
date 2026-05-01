@@ -9,10 +9,13 @@ mod suggest;
 use std::collections::{BTreeSet, HashMap};
 use std::env;
 use std::fs;
+#[cfg(unix)]
+use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process;
+use std::process::Command;
 
-use cli::{BuildIndexArgs, Command as CliCommand, DetectArgs, GrepArgs, parse_args};
+use cli::{BuildIndexArgs, Command as CliCommand, DetectArgs, GrepArgs, RunArgs, parse_args};
 use config::{ConfigStore, default_config_root, load_config_store};
 use detect::{DetectionResult, detect_workspace};
 use lsp::{InitializeResponse, LspClient};
@@ -61,6 +64,7 @@ fn main() {
         CliCommand::Detect(args) => run_detect(&args, &config),
         CliCommand::Grep(args) => run_grep(&args, &config),
         CliCommand::BuildIndex(args) => run_build_index(&args, &config),
+        CliCommand::Run(args) => run_run(&args, &config),
     };
 
     match output {
@@ -135,6 +139,34 @@ fn run_build_index(args: &BuildIndexArgs, config: &ConfigStore) -> Result<String
     Ok(String::new())
 }
 
+fn run_run(args: &RunArgs, config: &ConfigStore) -> Result<String, String> {
+    let (detection, suggestions) = analyze_path(&args.path, config)?;
+    let server = select_server(&detection, &suggestions, args.lsp.as_deref())?;
+    let Some(program) = server.command.first() else {
+        return Err(format!("selected LSP server {} has an empty command", server.server));
+    };
+
+    if args.debug {
+        eprintln!("LSP server: {}", server.command.join(" "));
+    }
+
+    let mut command = Command::new(program);
+    command
+        .args(&server.command[1..])
+        .current_dir(&server.workspace_root);
+
+    #[cfg(unix)]
+    {
+        Err(format_exec_error(program, &command.exec()))
+    }
+
+    #[cfg(not(unix))]
+    {
+        let _ = command;
+        Err("lsp-cli run is only supported on unix-like systems".to_string())
+    }
+}
+
 fn ensure_workspace_symbol_support(initialize: &InitializeResponse) -> Result<(), String> {
     if matches!(
         initialize.capabilities.workspace_symbol_provider,
@@ -144,6 +176,18 @@ fn ensure_workspace_symbol_support(initialize: &InitializeResponse) -> Result<()
     }
 
     Ok(())
+}
+
+fn format_exec_error(program: &str, error: &std::io::Error) -> String {
+    match error.kind() {
+        std::io::ErrorKind::NotFound if !program.contains(std::path::MAIN_SEPARATOR) => {
+            format!("LSP server executable `{program}` is not installed or not in $PATH")
+        }
+        std::io::ErrorKind::NotFound => {
+            format!("configured LSP server executable `{program}` was not found")
+        }
+        _ => format!("failed to execute LSP server `{program}`: {error}"),
+    }
 }
 
 fn analyze_path(

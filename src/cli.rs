@@ -15,6 +15,7 @@ pub enum Command {
     Detect(DetectArgs),
     Grep(GrepArgs),
     BuildIndex(BuildIndexArgs),
+    Run(RunArgs),
 }
 
 #[derive(Debug, Args, Eq, PartialEq)]
@@ -56,6 +57,16 @@ pub struct BuildIndexArgs {
     pub timeout: Duration,
 }
 
+#[derive(Debug, Args, Eq, PartialEq)]
+pub struct RunArgs {
+    #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
+    pub path: PathBuf,
+    #[arg(long)]
+    pub lsp: Option<String>,
+    #[arg(long)]
+    pub debug: bool,
+}
+
 pub fn parse_args<I>(args: I) -> Result<Command, String>
 where
     I: IntoIterator<Item = String>,
@@ -88,7 +99,7 @@ fn parse_timeout(value: &str) -> Result<Duration, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{BuildIndexArgs, Command, DetectArgs, GrepArgs, parse_args};
+    use super::{BuildIndexArgs, Command, DetectArgs, GrepArgs, RunArgs, parse_args};
     use std::path::PathBuf;
     use std::time::Duration;
 
@@ -228,6 +239,25 @@ mod tests {
                 lsp: Some("rust-analyzer".to_string()),
                 debug: true,
                 timeout: Duration::from_millis(500),
+            })
+        );
+    }
+
+    #[test]
+    fn parses_run_arguments() {
+        assert_eq!(
+            parse_args(vec![
+                "run".to_string(),
+                "workspace".to_string(),
+                "--lsp".to_string(),
+                "rust-analyzer".to_string(),
+                "--debug".to_string(),
+            ])
+            .expect("run should parse"),
+            Command::Run(RunArgs {
+                path: PathBuf::from("workspace"),
+                lsp: Some("rust-analyzer".to_string()),
+                debug: true,
             })
         );
     }

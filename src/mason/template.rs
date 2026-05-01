@@ -30,6 +30,17 @@ impl TemplateContext<'_> {
 
         rendered
     }
+
+    #[must_use]
+    pub(crate) fn empty() -> Self {
+        Self {
+            version: "",
+            source_asset_bin: None,
+            source_asset_file: None,
+            source_download_bin: None,
+            source_download_config: None,
+        }
+    }
 }
 
 #[cfg(test)]

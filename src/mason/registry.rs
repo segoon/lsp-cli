@@ -37,6 +37,14 @@ impl MasonRegistry {
         }
     }
 
+    #[must_use]
+    pub fn load_cached(state: &RuntimeState) -> Option<Self> {
+        let path = state.registry_json_path();
+        path.is_file()
+            .then_some(())
+            .and_then(|()| Self::from_registry_json_path(&path).ok())
+    }
+
     pub fn package_for_lspconfig(&self, lspconfig: &str) -> Option<&MasonPackage> {
         self.packages_by_lspconfig.get(lspconfig)
     }
@@ -94,7 +102,7 @@ fn is_lsp_package_value(value: &serde_json::Value) -> bool {
         })
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub struct MasonPackage {
     pub name: String,
     #[serde(default)]
@@ -114,7 +122,7 @@ impl MasonPackage {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub struct MasonSource {
     pub id: String,
     #[serde(default)]
@@ -137,7 +145,7 @@ impl MasonSource {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum OneOrMany<T> {
     One(T),
@@ -154,7 +162,7 @@ impl<T> OneOrMany<T> {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub struct MasonAsset {
     #[serde(default)]
     pub target: Option<OneOrMany<String>>,
@@ -162,7 +170,7 @@ pub struct MasonAsset {
     pub bin: Option<String>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub struct MasonDownload {
     #[serde(default)]
     pub target: Option<OneOrMany<String>>,
@@ -172,7 +180,7 @@ pub struct MasonDownload {
     pub config: Option<String>,
 }
 
-#[derive(Clone, Debug, Default, Eq, PartialEq, Deserialize)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Deserialize, Serialize)]
 pub struct MasonNeovim {
     pub lspconfig: Option<String>,
 }
@@ -366,7 +374,41 @@ fn unix_timestamp_now() -> Result<u64, String> {
 #[cfg(test)]
 mod tests {
     use super::{MasonPackage, MasonRegistry, RegistryMetadata};
+    use crate::runtime_state::RuntimeState;
     use std::collections::BTreeMap;
+    use std::fs;
+    use std::path::{Path, PathBuf};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    struct TestDir {
+        path: PathBuf,
+    }
+
+    impl TestDir {
+        fn new() -> Self {
+            let unique = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("time should move forward")
+                .as_nanos();
+            let path = std::env::temp_dir().join(format!(
+                "lsp-cli-mason-registry-test-{}-{}",
+                std::process::id(),
+                unique
+            ));
+            fs::create_dir_all(&path).expect("temp dir should be created");
+            Self { path }
+        }
+
+        fn path(&self) -> &Path {
+            &self.path
+        }
+    }
+
+    impl Drop for TestDir {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.path);
+        }
+    }
 
     #[test]
     fn keeps_only_lsp_packages_with_lspconfig_mapping() {
@@ -412,6 +454,25 @@ mod tests {
             "pyright"
         );
         assert!(registry.package_for_lspconfig("stylua").is_none());
+    }
+
+    #[test]
+    fn load_cached_returns_none_when_registry_is_missing() {
+        let dir = TestDir::new();
+        let state = RuntimeState::new(dir.path().join("state"));
+
+        assert!(MasonRegistry::load_cached(&state).is_none());
+    }
+
+    #[test]
+    fn load_cached_returns_none_for_corrupted_registry() {
+        let dir = TestDir::new();
+        let state = RuntimeState::new(dir.path().join("state"));
+        fs::create_dir_all(state.registry_dir()).expect("registry dir should be created");
+        fs::write(state.registry_json_path(), b"{not json]")
+            .expect("corrupted registry should be written");
+
+        assert!(MasonRegistry::load_cached(&state).is_none());
     }
 
     #[test]

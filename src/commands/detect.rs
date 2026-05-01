@@ -1,7 +1,7 @@
 use crate::cli::DetectArgs;
 use crate::commands::common::analyze_path;
 use crate::config::ConfigStore;
-use crate::mason_resolve::resolve_detect_suggestions;
+use crate::mason::resolve_detect_suggestions;
 use crate::suggest::SuggestedLanguage;
 use serde_json::json;
 use std::collections::BTreeSet;
@@ -32,7 +32,18 @@ pub(super) fn render_text(
     suggestions: &[SuggestedLanguage],
 ) -> String {
     if suggestions.is_empty() {
-        return "No supported languages detected".to_string();
+        return if detected_filetypes.is_empty() {
+            "No supported languages detected".to_string()
+        } else {
+            format!(
+                "No runnable LSP server found for detected filetypes: {}",
+                detected_filetypes
+                    .iter()
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        };
     }
 
     let detected = if detected_filetypes.is_empty() {
@@ -97,6 +108,14 @@ mod tests {
         assert_eq!(
             render_text(&BTreeSet::new(), &[]),
             "No supported languages detected"
+        );
+    }
+
+    #[test]
+    fn renders_no_runnable_server_output() {
+        assert_eq!(
+            render_text(&BTreeSet::from(["python".to_string()]), &[]),
+            "No runnable LSP server found for detected filetypes: python"
         );
     }
 

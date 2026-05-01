@@ -32,8 +32,7 @@ pub struct DetectArgs {
 }
 
 #[derive(Debug, Args, Eq, PartialEq)]
-pub struct GrepArgs {
-    pub pattern: String,
+pub struct WorkspaceQueryArgs {
     #[arg(value_hint = ValueHint::DirPath)]
     pub directory: PathBuf,
     #[arg(long)]
@@ -49,19 +48,16 @@ pub struct GrepArgs {
 }
 
 #[derive(Debug, Args, Eq, PartialEq)]
+pub struct GrepArgs {
+    pub pattern: String,
+    #[command(flatten)]
+    pub query: WorkspaceQueryArgs,
+}
+
+#[derive(Debug, Args, Eq, PartialEq)]
 pub struct ListSymbolsArgs {
-    #[arg(value_hint = ValueHint::DirPath)]
-    pub directory: PathBuf,
-    #[arg(long)]
-    pub lsp: Option<String>,
-    #[arg(long)]
-    pub wait_for_index: bool,
-    #[arg(long)]
-    pub json: bool,
-    #[arg(long)]
-    pub debug: bool,
-    #[arg(long, value_name = "T", default_value = "10", value_parser = parse_timeout)]
-    pub timeout: Duration,
+    #[command(flatten)]
+    pub query: WorkspaceQueryArgs,
 }
 
 #[derive(Debug, Args, Eq, PartialEq)]
@@ -119,7 +115,8 @@ fn parse_timeout(value: &str) -> Result<Duration, String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        BuildIndexArgs, Command, DetectArgs, GrepArgs, ListSymbolsArgs, RunArgs, parse_args,
+        BuildIndexArgs, Command, DetectArgs, GrepArgs, ListSymbolsArgs, RunArgs,
+        WorkspaceQueryArgs, parse_args,
     };
     use std::path::PathBuf;
     use std::time::Duration;
@@ -171,12 +168,14 @@ mod tests {
             .expect("grep should parse"),
             Command::Grep(GrepArgs {
                 pattern: "needle".to_string(),
-                directory: PathBuf::from("workspace"),
-                lsp: Some("clangd".to_string()),
-                wait_for_index: false,
-                json: true,
-                debug: true,
-                timeout: Duration::from_secs(10),
+                query: WorkspaceQueryArgs {
+                    directory: PathBuf::from("workspace"),
+                    lsp: Some("clangd".to_string()),
+                    wait_for_index: false,
+                    json: true,
+                    debug: true,
+                    timeout: Duration::from_secs(10),
+                },
             })
         );
     }
@@ -194,12 +193,14 @@ mod tests {
             .expect("grep should parse"),
             Command::Grep(GrepArgs {
                 pattern: "needle".to_string(),
-                directory: PathBuf::from("workspace"),
-                lsp: None,
-                wait_for_index: false,
-                json: false,
-                debug: false,
-                timeout: Duration::from_millis(1500),
+                query: WorkspaceQueryArgs {
+                    directory: PathBuf::from("workspace"),
+                    lsp: None,
+                    wait_for_index: false,
+                    json: false,
+                    debug: false,
+                    timeout: Duration::from_millis(1500),
+                },
             })
         );
 
@@ -214,12 +215,14 @@ mod tests {
             .expect("grep should parse"),
             Command::Grep(GrepArgs {
                 pattern: "needle".to_string(),
-                directory: PathBuf::from("workspace"),
-                lsp: None,
-                wait_for_index: false,
-                json: false,
-                debug: false,
-                timeout: Duration::from_millis(100),
+                query: WorkspaceQueryArgs {
+                    directory: PathBuf::from("workspace"),
+                    lsp: None,
+                    wait_for_index: false,
+                    json: false,
+                    debug: false,
+                    timeout: Duration::from_millis(100),
+                },
             })
         );
     }
@@ -279,12 +282,14 @@ mod tests {
             .expect("grep should parse"),
             Command::Grep(GrepArgs {
                 pattern: "needle".to_string(),
-                directory: PathBuf::from("workspace"),
-                lsp: None,
-                wait_for_index: true,
-                json: false,
-                debug: false,
-                timeout: Duration::from_secs(10),
+                query: WorkspaceQueryArgs {
+                    directory: PathBuf::from("workspace"),
+                    lsp: None,
+                    wait_for_index: true,
+                    json: false,
+                    debug: false,
+                    timeout: Duration::from_secs(10),
+                },
             })
         );
     }
@@ -304,12 +309,14 @@ mod tests {
             ])
             .expect("list-symbols should parse"),
             Command::ListSymbols(ListSymbolsArgs {
-                directory: PathBuf::from("workspace"),
-                lsp: Some("rust-analyzer".to_string()),
-                wait_for_index: false,
-                json: true,
-                debug: true,
-                timeout: Duration::from_millis(250),
+                query: WorkspaceQueryArgs {
+                    directory: PathBuf::from("workspace"),
+                    lsp: Some("rust-analyzer".to_string()),
+                    wait_for_index: false,
+                    json: true,
+                    debug: true,
+                    timeout: Duration::from_millis(250),
+                },
             })
         );
     }
@@ -324,12 +331,14 @@ mod tests {
             ])
             .expect("list-symbols should parse"),
             Command::ListSymbols(ListSymbolsArgs {
-                directory: PathBuf::from("workspace"),
-                lsp: None,
-                wait_for_index: true,
-                json: false,
-                debug: false,
-                timeout: Duration::from_secs(10),
+                query: WorkspaceQueryArgs {
+                    directory: PathBuf::from("workspace"),
+                    lsp: None,
+                    wait_for_index: true,
+                    json: false,
+                    debug: false,
+                    timeout: Duration::from_secs(10),
+                },
             })
         );
     }

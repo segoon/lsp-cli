@@ -6,5 +6,5 @@ filetypes:
 root_markers:
   - "kakehashi.toml"
   - ".git"
-name: "lua-language-server"
-cmdline: "lua-language-server"
+name: "kakehashi"
+cmdline: "kakehashi"

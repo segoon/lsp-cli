@@ -59,6 +59,10 @@ Already implemented:
   - `generic`
 - platform target matching
 - template interpolation subset for common Mason expressions
+- selected extra live-registry template fields:
+  - `{{source.asset.ext}}`
+  - `{{source.download.man}}`
+  - named asset-bin templates such as `{{source.asset.bin.kcl_language_server}}`
 - source-level `version_overrides` support for current Mason `semver:<=...` rules
 - install backends for:
   - `github`
@@ -87,6 +91,7 @@ Partially implemented:
 - runtime state is separated logically from config loading, but both still default under `~/.local/share/lsp-cli`
 - mapping strategy currently implements only the primary `lspconfig` mapping
 - mapping overrides and fallback matching are intentionally conservative and exact-only
+- Mason schema/template support is still intentionally partial, but now covers the live LSP cases hit during manual verification (`ast-grep`, `quick-lint-js`, named asset bins)
 - `share` entries are materialized by copying files/directories, not linking
 - receipts are written but not yet used for lookup or validation
 - current wrapper/install flow is primarily Unix-oriented
@@ -94,6 +99,7 @@ Partially implemented:
 Still to implement:
 - `opt`-style link handling if needed by real packages
 - reuse of managed executable resolution in later query/index commands if useful
+- more Mason template/schema coverage beyond the currently supported live LSP fields
 - broader end-to-end tests for registry refresh and install flows
 - manual verification in `playground/`
 
@@ -275,7 +281,7 @@ Current status:
   - parse supported source-id kinds needed for phase 1
   - choose platform target
   - apply current `semver:<=...` `version_overrides`
-  - interpolate the initial common template subset
+  - interpolate the current common template subset plus selected live-registry extras
   - expand `bin` and `share`
 - not implemented yet:
   - `opt` handling
@@ -370,11 +376,12 @@ Already done:
 10. Integrate executable resolution into `detect --download`.
 
 Recommended next order:
-1. Decide whether to expand the explicit override table beyond the current conservative aliases.
-2. Decide whether broader fallback matching is worth the risk, or if exact-only fallback should remain the limit.
-3. Add broader tests for registry refresh/install flows where practical.
-4. Verify manually in `playground/`.
-5. Run:
+1. Investigate and fix remaining npm-backed install failures that still report `npm ERR! code ENOENT` for some servers.
+2. Decide whether to expand the explicit override table beyond the current conservative aliases.
+3. Decide whether broader fallback matching is worth the risk, or if exact-only fallback should remain the limit.
+4. Add broader tests for registry refresh/install flows where practical.
+5. Verify manually in `playground/`.
+6. Run:
    - `cargo test -q`
    - `cargo clippy`
 
@@ -404,6 +411,10 @@ Current status:
   - platform target selection
   - current `version_overrides` handling
   - template interpolation subset
+  - selected live-registry template/schema cases:
+    - `source.asset.ext`
+    - `source.download.man`
+    - named asset-bin mappings
   - wrapper path generation and cached wrapper resolution
   - managed resolution reuse in `run`
 - still missing or weak:
@@ -439,7 +450,7 @@ Status:
 - the next milestone should focus on real-package coverage and broader verification
 
 Suggested next milestone:
-- expand/manual-verify a few representative Mason-managed servers end-to-end
+- expand/manual-verify a few representative Mason-managed servers end-to-end and reduce remaining npm-backed failures
 - prove at least:
   - `pyright`
   - `typescript-language-server`
@@ -509,9 +520,10 @@ Recommended mitigation:
 ## Start Here In Next Session
 
 1. Decide whether selected additional aliases should be added to the explicit override table.
-2. Decide whether exact-only fallback should stay the boundary, or if a slightly broader fallback is needed.
-3. Add broader regression tests for registry refresh/install behavior.
-4. Manually verify in `playground/` starting with:
+2. Investigate remaining npm-backed failures such as `angular-language-server`, `ember-language-server`, `tailwindcss-language-server`, and `vtsls`.
+3. Decide whether exact-only fallback should stay the boundary, or if a slightly broader fallback is needed.
+4. Add broader regression tests for registry refresh/install behavior.
+5. Manually verify in `playground/` starting with:
    - `playground/python`
    - `playground/typescript`
    - `playground/rust`

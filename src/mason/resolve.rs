@@ -211,6 +211,7 @@ mod tests {
                         )]),
                         bin: None,
                         config: Some("config_linux/".to_string()),
+                        man: None,
                     },
                 ])),
                 version_overrides: Vec::new(),

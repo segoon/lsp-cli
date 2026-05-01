@@ -419,7 +419,8 @@ mod tests {
         join_relative_path, resolve_program, rewrite_program,
     };
     use crate::mason::registry::{
-        MasonAsset, MasonDownload, MasonNeovim, MasonPackage, MasonSource, OneOrMany,
+        MasonAsset, MasonAssetBin, MasonDownload, MasonNeovim, MasonPackage, MasonSource,
+        OneOrMany,
     };
     use crate::mason::template::TemplateContext;
     use crate::runtime_state::RuntimeState;
@@ -499,7 +500,10 @@ mod tests {
                 asset: Some(OneOrMany::Many(vec![MasonAsset {
                     target: Some(OneOrMany::One("linux_x64_gnu".to_string())),
                     file: OneOrMany::One("rust-analyzer-x86_64-unknown-linux-gnu.gz".to_string()),
-                    bin: Some("rust-analyzer-x86_64-unknown-linux-gnu".to_string()),
+                    bin: Some(MasonAssetBin::One(
+                        "rust-analyzer-x86_64-unknown-linux-gnu".to_string(),
+                    )),
+                    ext: None,
                 }])),
                 download: None,
                 version_overrides: Vec::new(),
@@ -531,6 +535,7 @@ mod tests {
                     )]),
                     bin: Some("bzl".to_string()),
                     config: None,
+                    man: None,
                 }])),
                 version_overrides: Vec::new(),
             },
@@ -561,6 +566,7 @@ mod tests {
                     )]),
                     bin: None,
                     config: Some("config_linux/".to_string()),
+                    man: None,
                 }])),
                 version_overrides: Vec::new(),
             },
@@ -574,6 +580,103 @@ mod tests {
             ]),
             neovim: MasonNeovim {
                 lspconfig: Some("jdtls".to_string()),
+            },
+        }
+    }
+
+    fn ast_grep_package() -> MasonPackage {
+        MasonPackage {
+            name: "ast-grep".to_string(),
+            categories: vec!["LSP".to_string()],
+            source: MasonSource {
+                id: "pkg:github/ast-grep/ast-grep@0.42.1".to_string(),
+                extra_packages: Vec::new(),
+                asset: Some(OneOrMany::Many(vec![MasonAsset {
+                    target: Some(OneOrMany::One("linux_x64_gnu".to_string())),
+                    file: OneOrMany::One("app-x86_64-unknown-linux-gnu.zip".to_string()),
+                    bin: None,
+                    ext: None,
+                }])),
+                download: None,
+                version_overrides: Vec::new(),
+            },
+            bin: BTreeMap::from([(
+                "ast-grep".to_string(),
+                "ast-grep{{source.asset.ext}}".to_string(),
+            )]),
+            share: BTreeMap::new(),
+            neovim: MasonNeovim {
+                lspconfig: Some("ast_grep".to_string()),
+            },
+        }
+    }
+
+    fn quick_lint_js_package() -> MasonPackage {
+        MasonPackage {
+            name: "quick-lint-js".to_string(),
+            categories: vec!["LSP".to_string()],
+            source: MasonSource {
+                id: "pkg:generic/quick-lint/quick-lint-js@3.2.0".to_string(),
+                extra_packages: Vec::new(),
+                asset: None,
+                download: Some(OneOrMany::Many(vec![MasonDownload {
+                    target: Some(OneOrMany::One("linux_x64".to_string())),
+                    files: BTreeMap::from([(
+                        "linux.tar.gz".to_string(),
+                        "https://example.invalid/linux.tar.gz".to_string(),
+                    )]),
+                    bin: Some("quick-lint-js/bin/quick-lint-js".to_string()),
+                    config: None,
+                    man: Some("quick-lint-js/share/man/".to_string()),
+                }])),
+                version_overrides: Vec::new(),
+            },
+            bin: BTreeMap::from([(
+                "quick-lint-js".to_string(),
+                "{{source.download.bin}}".to_string(),
+            )]),
+            share: BTreeMap::from([(
+                "man/".to_string(),
+                "{{source.download.man}}".to_string(),
+            )]),
+            neovim: MasonNeovim {
+                lspconfig: Some("quick_lint_js".to_string()),
+            },
+        }
+    }
+
+    fn kcl_package() -> MasonPackage {
+        MasonPackage {
+            name: "kcl".to_string(),
+            categories: vec!["LSP".to_string()],
+            source: MasonSource {
+                id: "pkg:github/kcl-lang/kcl@v0.11.2".to_string(),
+                extra_packages: Vec::new(),
+                asset: Some(OneOrMany::Many(vec![MasonAsset {
+                    target: Some(OneOrMany::One("linux_x64_gnu".to_string())),
+                    file: OneOrMany::One("kclvm-v0.11.2-linux-amd64.tar.gz".to_string()),
+                    bin: Some(MasonAssetBin::Many(BTreeMap::from([
+                        (
+                            "kcl".to_string(),
+                            "exec:kclvm/bin/kclvm_cli".to_string(),
+                        ),
+                        (
+                            "kcl_language_server".to_string(),
+                            "exec:kclvm/bin/kcl-language-server".to_string(),
+                        ),
+                    ]))),
+                    ext: None,
+                }])),
+                download: None,
+                version_overrides: Vec::new(),
+            },
+            bin: BTreeMap::from([(
+                "kcl-language-server".to_string(),
+                "{{source.asset.bin.kcl_language_server}}".to_string(),
+            )]),
+            share: BTreeMap::new(),
+            neovim: MasonNeovim {
+                lspconfig: Some("kcl".to_string()),
             },
         }
     }
@@ -630,8 +733,11 @@ mod tests {
             version: "2026-04-27",
             source_asset_bin: Some("rust-analyzer-x86_64-unknown-linux-gnu"),
             source_asset_file: Some("rust-analyzer-x86_64-unknown-linux-gnu.gz"),
+            source_asset_ext: None,
             source_download_bin: None,
             source_download_config: None,
+            source_download_man: None,
+            source_asset_named_bins: BTreeMap::new(),
         };
 
         assert_eq!(
@@ -651,8 +757,11 @@ mod tests {
             version: "v1.4.22",
             source_asset_bin: None,
             source_asset_file: None,
+            source_asset_ext: None,
             source_download_bin: Some("bzl"),
             source_download_config: None,
+            source_download_man: None,
+            source_asset_named_bins: BTreeMap::new(),
         };
 
         assert_eq!(
@@ -685,6 +794,55 @@ mod tests {
             }
             ResolvedProgram::Direct(_) => panic!("expected wrapper program"),
         }
+    }
+
+    #[test]
+    fn resolves_github_asset_extension_template_to_empty_when_missing() {
+        let dir = TestDir::new();
+        let state = RuntimeState::new(dir.path().join("state"));
+        let context = TemplateContext {
+            version: "0.42.1",
+            source_asset_bin: None,
+            source_asset_file: Some("app-x86_64-unknown-linux-gnu.zip"),
+            source_asset_ext: None,
+            source_download_bin: None,
+            source_download_config: None,
+            source_download_man: None,
+            source_asset_named_bins: BTreeMap::new(),
+        };
+
+        assert_eq!(
+            resolve_program_path(&ast_grep_package(), "ast-grep", &state, &context)
+                .expect("ast-grep path should resolve"),
+            state.package_dir("ast-grep").join("ast-grep")
+        );
+    }
+
+    #[test]
+    fn resolves_named_asset_bin_template() {
+        let dir = TestDir::new();
+        let state = RuntimeState::new(dir.path().join("state"));
+        let context = TemplateContext {
+            version: "v0.11.2",
+            source_asset_bin: None,
+            source_asset_file: Some("kclvm-v0.11.2-linux-amd64.tar.gz"),
+            source_asset_ext: None,
+            source_download_bin: None,
+            source_download_config: None,
+            source_download_man: None,
+            source_asset_named_bins: BTreeMap::from([(
+                "kcl_language_server".to_string(),
+                "exec:kclvm/bin/kcl-language-server".to_string(),
+            )]),
+        };
+
+        assert_eq!(
+            resolve_program_path(&kcl_package(), "kcl-language-server", &state, &context)
+                .expect("named asset bin path should resolve"),
+            state
+                .package_dir("kcl")
+                .join("kclvm/bin/kcl-language-server")
+        );
     }
 
     #[cfg(unix)]
@@ -737,13 +895,41 @@ mod tests {
             version: "v1.0.0",
             source_asset_bin: None,
             source_asset_file: None,
+            source_asset_ext: None,
             source_download_bin: None,
             source_download_config: Some("config_linux/"),
+            source_download_man: None,
+            source_asset_named_bins: BTreeMap::new(),
         };
         super::materialize_share(&state, &package, &context).expect("share should materialize");
 
         assert!(state.share_dir().join("jdtls/plugins/launcher.jar").is_file());
         assert!(state.share_dir().join("jdtls/config/config.ini").is_file());
+    }
+
+    #[test]
+    fn materializes_download_man_share_mapping() {
+        let dir = TestDir::new();
+        let state = RuntimeState::new(dir.path().join("state"));
+        state.ensure_dirs().expect("state dirs should be created");
+        let package = quick_lint_js_package();
+        let man_dir = state.package_dir("quick-lint-js").join("quick-lint-js/share/man/man1");
+        fs::create_dir_all(&man_dir).expect("man dir should be created");
+        fs::write(man_dir.join("quick-lint-js.1"), b"man").expect("man page should be written");
+
+        let context = TemplateContext {
+            version: "3.2.0",
+            source_asset_bin: None,
+            source_asset_file: None,
+            source_asset_ext: None,
+            source_download_bin: Some("quick-lint-js/bin/quick-lint-js"),
+            source_download_config: None,
+            source_download_man: Some("quick-lint-js/share/man/"),
+            source_asset_named_bins: BTreeMap::new(),
+        };
+        super::materialize_share(&state, &package, &context).expect("share should materialize");
+
+        assert!(state.share_dir().join("man/man1/quick-lint-js.1").is_file());
     }
 
     #[test]

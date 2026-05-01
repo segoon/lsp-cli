@@ -292,7 +292,35 @@ pub struct MasonAsset {
     #[serde(default)]
     pub target: Option<OneOrMany<String>>,
     pub file: OneOrMany<String>,
-    pub bin: Option<String>,
+    #[serde(default)]
+    pub bin: Option<MasonAssetBin>,
+    #[serde(default)]
+    pub ext: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
+#[serde(untagged)]
+pub enum MasonAssetBin {
+    One(String),
+    Many(BTreeMap<String, String>),
+}
+
+impl MasonAssetBin {
+    #[must_use]
+    pub fn as_single(&self) -> Option<&str> {
+        match self {
+            Self::One(value) => Some(value),
+            Self::Many(_) => None,
+        }
+    }
+
+    #[must_use]
+    pub fn as_map(&self) -> Option<&BTreeMap<String, String>> {
+        match self {
+            Self::One(_) => None,
+            Self::Many(values) => Some(values),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
@@ -303,6 +331,8 @@ pub struct MasonDownload {
     pub files: BTreeMap<String, String>,
     pub bin: Option<String>,
     pub config: Option<String>,
+    #[serde(default)]
+    pub man: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Deserialize, Serialize)]
@@ -621,7 +651,7 @@ fn unix_timestamp_now() -> Result<u64, String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        MasonAsset, MasonNeovim, MasonPackage, MasonRegistry, MasonSource,
+        MasonAsset, MasonAssetBin, MasonNeovim, MasonPackage, MasonRegistry, MasonSource,
         MasonVersionOverride, OneOrMany, RegistryMetadata,
     };
     use crate::runtime_state::RuntimeState;
@@ -809,7 +839,8 @@ mod tests {
                 asset: Some(OneOrMany::One(MasonAsset {
                     target: Some(OneOrMany::One("linux_x64_gnu".to_string())),
                     file: OneOrMany::One("rubyfmt-latest.tar.gz".to_string()),
-                    bin: Some("rubyfmt".to_string()),
+                    bin: Some(MasonAssetBin::One("rubyfmt".to_string())),
+                    ext: None,
                 })),
                 download: None,
                 version_overrides: vec![MasonVersionOverride {
@@ -819,7 +850,10 @@ mod tests {
                     asset: Some(OneOrMany::One(MasonAsset {
                         target: Some(OneOrMany::One("linux_x64_gnu".to_string())),
                         file: OneOrMany::One("rubyfmt-v0.8.1-Linux.tar.gz".to_string()),
-                        bin: Some("tmp/releases/{{version}}-Linux/rubyfmt".to_string()),
+                        bin: Some(MasonAssetBin::One(
+                            "tmp/releases/{{version}}-Linux/rubyfmt".to_string(),
+                        )),
+                        ext: None,
                     })),
                     download: None,
                 }],
@@ -841,6 +875,43 @@ mod tests {
         assert_eq!(
             package.source.assets()[0].file.as_slice()[0],
             "rubyfmt-v0.8.1-Linux.tar.gz"
+        );
+    }
+
+    #[test]
+    fn parses_object_valued_asset_bin_mapping() {
+        let package = serde_json::from_value::<MasonPackage>(serde_json::json!({
+            "name": "kcl",
+            "categories": ["LSP"],
+            "source": {
+                "id": "pkg:github/kcl-lang/kcl@v0.11.2",
+                "asset": [{
+                    "target": "linux_x64_gnu",
+                    "file": "kclvm-v0.11.2-linux-amd64.tar.gz",
+                    "bin": {
+                        "kcl": "exec:kclvm/bin/kclvm_cli",
+                        "kcl_language_server": "exec:kclvm/bin/kcl-language-server"
+                    }
+                }]
+            },
+            "bin": {
+                "kcl-language-server": "{{source.asset.bin.kcl_language_server}}"
+            },
+            "neovim": {
+                "lspconfig": "kcl"
+            }
+        }))
+        .expect("package should parse");
+
+        let asset_bin = package.source.assets()[0]
+            .bin
+            .as_ref()
+            .and_then(MasonAssetBin::as_map)
+            .expect("object-valued bin should parse as map");
+
+        assert_eq!(
+            asset_bin.get("kcl_language_server"),
+            Some(&"exec:kclvm/bin/kcl-language-server".to_string())
         );
     }
 

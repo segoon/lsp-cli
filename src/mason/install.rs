@@ -2,12 +2,13 @@ use crate::mason::link::{
     finalize_install, is_resolved_program_runnable, join_relative_path, resolve_program,
 };
 use crate::mason::platform::MasonPlatform;
-use crate::mason::registry::{MasonAsset, MasonDownload, MasonPackage, OneOrMany};
+use crate::mason::registry::{MasonAsset, MasonAssetBin, MasonDownload, MasonPackage, OneOrMany};
 use crate::mason::source::{SourceId, parse_source_id};
 use crate::mason::template::TemplateContext;
 use crate::runtime_state::RuntimeState;
 use flate2::read::GzDecoder;
 use reqwest::blocking::Client;
+use std::collections::BTreeMap;
 use std::fs;
 use std::io::{Cursor, Read};
 #[cfg(unix)]
@@ -259,33 +260,8 @@ fn install_github_package(
 
     let platform = MasonPlatform::detect()?;
     let asset = select_asset(package, &platform)?;
-    let asset_bin = asset.bin.as_deref().map(|value| {
-        TemplateContext {
-            version,
-            source_asset_bin: None,
-            source_asset_file: None,
-            source_download_bin: None,
-            source_download_config: None,
-        }
-        .render(value)
-    });
-    let asset_file = TemplateContext {
-        version,
-        source_asset_bin: asset_bin.as_deref(),
-        source_asset_file: None,
-        source_download_bin: None,
-        source_download_config: None,
-    }
-    .render(asset.file.as_slice().first().ok_or_else(|| {
-        format!("cannot install {} because its GitHub asset file list is empty", package.name)
-    })?);
-    let context = TemplateContext {
-        version,
-        source_asset_bin: asset_bin.as_deref(),
-        source_asset_file: Some(&asset_file),
-        source_download_bin: None,
-        source_download_config: None,
-    };
+    let rendered_asset = render_asset_data(asset, version, program, &package.name)?;
+    let context = rendered_asset.template_context(version);
     let resolved_program = resolve_program(package, program, state, &context)?;
 
     if is_resolved_program_runnable(&resolved_program) {
@@ -293,7 +269,7 @@ fn install_github_package(
     }
 
     let client = http_client()?;
-    let (download_name, extract_subdir) = parse_archive_file_spec(&asset_file);
+    let (download_name, extract_subdir) = parse_archive_file_spec(&rendered_asset.file);
     let url = format!(
         "https://github.com/{repository}/releases/download/{version}/{download_name}"
     );
@@ -324,33 +300,8 @@ fn install_generic_package(
 
     let platform = MasonPlatform::detect()?;
     let download = select_download(package, &platform)?;
-    let download_bin = download.bin.as_deref().map(|value| {
-        TemplateContext {
-            version,
-            source_asset_bin: None,
-            source_asset_file: None,
-            source_download_bin: None,
-            source_download_config: None,
-        }
-        .render(value)
-    });
-    let download_config = download.config.as_deref().map(|value| {
-        TemplateContext {
-            version,
-            source_asset_bin: None,
-            source_asset_file: None,
-            source_download_bin: download_bin.as_deref(),
-            source_download_config: None,
-        }
-        .render(value)
-    });
-    let context = TemplateContext {
-        version,
-        source_asset_bin: None,
-        source_asset_file: None,
-        source_download_bin: download_bin.as_deref(),
-        source_download_config: download_config.as_deref(),
-    };
+    let rendered_download = render_download_data(download, version);
+    let context = rendered_download.template_context(version);
     let resolved_program = resolve_program(package, program, state, &context)?;
 
     if is_resolved_program_runnable(&resolved_program) {
@@ -387,33 +338,8 @@ fn resolve_cached_github_program(
 ) -> Result<Option<std::path::PathBuf>, String> {
     let platform = MasonPlatform::detect()?;
     let asset = select_asset(package, &platform)?;
-    let asset_bin = asset.bin.as_deref().map(|value| {
-        TemplateContext {
-            version,
-            source_asset_bin: None,
-            source_asset_file: None,
-            source_download_bin: None,
-            source_download_config: None,
-        }
-        .render(value)
-    });
-    let asset_file = TemplateContext {
-        version,
-        source_asset_bin: asset_bin.as_deref(),
-        source_asset_file: None,
-        source_download_bin: None,
-        source_download_config: None,
-    }
-    .render(asset.file.as_slice().first().ok_or_else(|| {
-        format!("cannot install {} because its GitHub asset file list is empty", package.name)
-    })?);
-    let context = TemplateContext {
-        version,
-        source_asset_bin: asset_bin.as_deref(),
-        source_asset_file: Some(&asset_file),
-        source_download_bin: None,
-        source_download_config: None,
-    };
+    let rendered_asset = render_asset_data(asset, version, program, &package.name)?;
+    let context = rendered_asset.template_context(version);
     let resolved_program = resolve_program(package, program, state, &context)?;
     Ok(is_resolved_program_runnable(&resolved_program)
         .then(|| resolved_program.executable_path().to_path_buf()))
@@ -427,36 +353,137 @@ fn resolve_cached_generic_program(
 ) -> Result<Option<std::path::PathBuf>, String> {
     let platform = MasonPlatform::detect()?;
     let download = select_download(package, &platform)?;
-    let download_bin = download.bin.as_deref().map(|value| {
-        TemplateContext {
-            version,
-            source_asset_bin: None,
-            source_asset_file: None,
-            source_download_bin: None,
-            source_download_config: None,
-        }
-        .render(value)
-    });
-    let download_config = download.config.as_deref().map(|value| {
-        TemplateContext {
-            version,
-            source_asset_bin: None,
-            source_asset_file: None,
-            source_download_bin: download_bin.as_deref(),
-            source_download_config: None,
-        }
-        .render(value)
-    });
-    let context = TemplateContext {
-        version,
-        source_asset_bin: None,
-        source_asset_file: None,
-        source_download_bin: download_bin.as_deref(),
-        source_download_config: download_config.as_deref(),
-    };
+    let rendered_download = render_download_data(download, version);
+    let context = rendered_download.template_context(version);
     let resolved_program = resolve_program(package, program, state, &context)?;
     Ok(is_resolved_program_runnable(&resolved_program)
         .then(|| resolved_program.executable_path().to_path_buf()))
+}
+
+struct RenderedAssetData {
+    bin: Option<String>,
+    file: String,
+    ext: Option<String>,
+    named_bins: BTreeMap<String, String>,
+}
+
+impl RenderedAssetData {
+    fn template_context<'a>(&'a self, version: &'a str) -> TemplateContext<'a> {
+        TemplateContext {
+            version,
+            source_asset_bin: self.bin.as_deref(),
+            source_asset_file: Some(&self.file),
+            source_asset_ext: self.ext.as_deref(),
+            source_download_bin: None,
+            source_download_config: None,
+            source_download_man: None,
+            source_asset_named_bins: self.named_bins.clone(),
+        }
+    }
+}
+
+struct RenderedDownloadData {
+    bin: Option<String>,
+    config: Option<String>,
+    man: Option<String>,
+}
+
+impl RenderedDownloadData {
+    fn template_context<'a>(&'a self, version: &'a str) -> TemplateContext<'a> {
+        TemplateContext {
+            version,
+            source_asset_bin: None,
+            source_asset_file: None,
+            source_asset_ext: None,
+            source_download_bin: self.bin.as_deref(),
+            source_download_config: self.config.as_deref(),
+            source_download_man: self.man.as_deref(),
+            source_asset_named_bins: BTreeMap::new(),
+        }
+    }
+}
+
+fn render_asset_data(
+    asset: &MasonAsset,
+    version: &str,
+    program: &str,
+    package_name: &str,
+) -> Result<RenderedAssetData, String> {
+    let base_context = TemplateContext {
+        version,
+        source_asset_bin: None,
+        source_asset_file: None,
+        source_asset_ext: None,
+        source_download_bin: None,
+        source_download_config: None,
+        source_download_man: None,
+        source_asset_named_bins: BTreeMap::new(),
+    };
+    let named_bins = asset
+        .bin
+        .as_ref()
+        .and_then(MasonAssetBin::as_map)
+        .map(|bins| {
+            bins.iter()
+                .map(|(name, value)| (name.clone(), base_context.render(value)))
+                .collect::<BTreeMap<_, _>>()
+        })
+        .unwrap_or_default();
+    let bin = asset
+        .bin
+        .as_ref()
+        .and_then(MasonAssetBin::as_single)
+        .map(|value| base_context.render(value))
+        .or_else(|| named_bins.get(program).cloned());
+    let ext = asset.ext.as_deref().map(|value| base_context.render(value));
+    let file_context = TemplateContext {
+        version,
+        source_asset_bin: bin.as_deref(),
+        source_asset_file: None,
+        source_asset_ext: ext.as_deref(),
+        source_download_bin: None,
+        source_download_config: None,
+        source_download_man: None,
+        source_asset_named_bins: named_bins.clone(),
+    };
+    let file = file_context.render(asset.file.as_slice().first().ok_or_else(|| {
+        format!("cannot install {package_name} because its GitHub asset file list is empty")
+    })?);
+
+    Ok(RenderedAssetData {
+        bin,
+        file,
+        ext,
+        named_bins,
+    })
+}
+
+fn render_download_data(download: &MasonDownload, version: &str) -> RenderedDownloadData {
+    let base_context = TemplateContext {
+        version,
+        source_asset_bin: None,
+        source_asset_file: None,
+        source_asset_ext: None,
+        source_download_bin: None,
+        source_download_config: None,
+        source_download_man: None,
+        source_asset_named_bins: BTreeMap::new(),
+    };
+    let bin = download.bin.as_deref().map(|value| base_context.render(value));
+    let field_context = TemplateContext {
+        version,
+        source_asset_bin: None,
+        source_asset_file: None,
+        source_asset_ext: None,
+        source_download_bin: bin.as_deref(),
+        source_download_config: None,
+        source_download_man: None,
+        source_asset_named_bins: BTreeMap::new(),
+    };
+    let config = download.config.as_deref().map(|value| field_context.render(value));
+    let man = download.man.as_deref().map(|value| field_context.render(value));
+
+    RenderedDownloadData { bin, config, man }
 }
 
 fn select_asset<'a>(

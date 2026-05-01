@@ -12,10 +12,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process;
 
-use cli::{Command as CliCommand, DetectArgs, GrepArgs, parse_args};
+use cli::{BuildIndexArgs, Command as CliCommand, DetectArgs, GrepArgs, parse_args};
 use config::{ConfigStore, default_config_root, load_config_store};
 use detect::{DetectionResult, detect_workspace};
-use lsp::LspClient;
+use lsp::{InitializeResponse, LspClient};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use suggest::{SuggestedLanguage, suggestions_for};
@@ -60,6 +60,7 @@ fn main() {
     let output = match args {
         CliCommand::Detect(args) => run_detect(&args, &config),
         CliCommand::Grep(args) => run_grep(&args, &config),
+        CliCommand::BuildIndex(args) => run_build_index(&args, &config),
     };
 
     match output {
@@ -94,9 +95,10 @@ fn run_grep(args: &GrepArgs, config: &ConfigStore) -> Result<String, String> {
     let workspace_name = lsp::workspace_name(&server.workspace_root);
 
     let mut client = LspClient::new(&server.command, args.debug, args.timeout)?;
-    client
-        .initialize(&root_uri, &workspace_name)
+    let initialize = client
+        .initialize(&root_uri, &workspace_name, false)
         .map_err(|error| format!("failed to initialize {}: {error}", server.server))?;
+    ensure_workspace_symbol_support(&initialize)?;
 
     let response = client
         .workspace_symbol(&args.pattern)
@@ -112,6 +114,36 @@ fn run_grep(args: &GrepArgs, config: &ConfigStore) -> Result<String, String> {
     } else {
         render_grep_text(&matches)
     })
+}
+
+fn run_build_index(args: &BuildIndexArgs, config: &ConfigStore) -> Result<String, String> {
+    let (detection, suggestions) = analyze_path(&args.directory, config)?;
+    let server = select_server(&detection, &suggestions, args.lsp.as_deref())?;
+    let root_uri = path_to_file_uri(&server.workspace_root)?;
+    let workspace_name = lsp::workspace_name(&server.workspace_root);
+
+    let mut client = LspClient::new(&server.command, args.debug, args.timeout)?;
+    client
+        .initialize(&root_uri, &workspace_name, true)
+        .map_err(|error| format!("failed to initialize {}: {error}", server.server))?;
+
+    let wait = client.wait_for_server_status_quiescent();
+    let shutdown = client.shutdown();
+    wait.map_err(|error| format!("failed to build index with {}: {error}", server.server))?;
+    shutdown.map_err(|error| format!("failed to stop {} cleanly: {error}", server.server))?;
+
+    Ok(String::new())
+}
+
+fn ensure_workspace_symbol_support(initialize: &InitializeResponse) -> Result<(), String> {
+    if matches!(
+        initialize.capabilities.workspace_symbol_provider,
+        Some(Value::Bool(false)) | None
+    ) {
+        return Err("selected LSP server does not support workspace/symbol".to_string());
+    }
+
+    Ok(())
 }
 
 fn analyze_path(

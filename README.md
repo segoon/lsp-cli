@@ -53,11 +53,15 @@ lsp-cli grep --json MySymbol path/to/project
 lsp-cli grep --debug MySymbol path/to/project
 lsp-cli grep --timeout 1.5 MySymbol path/to/project
 lsp-cli grep --timeout 100ms MySymbol path/to/project
+
+# Wait for an LSP server that supports experimental/serverStatus to finish background work
+lsp-cli build-index path/to/project --lsp rust-analyzer
 ```
 
 `grep` uses the LSP `workspace/symbol` request. Pattern syntax and matching behavior are server-dependent.
 `--debug` logs the selected LSP server command line, pid, and raw LSP traffic to stderr.
 `--timeout` controls the per-request LSP timeout. Plain numbers are seconds, and values ending in `ms` are milliseconds.
+`build-index` waits for `experimental/serverStatus` to report `quiescent: true`. If the selected server does not support that feature, the command fails.
 
 
 # Thanks

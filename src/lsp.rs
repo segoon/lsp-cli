@@ -35,6 +35,13 @@ pub struct ServerCapabilities {
     pub workspace_symbol_provider: Option<Value>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct ServerStatusParams {
+    pub health: String,
+    pub quiescent: bool,
+    pub message: Option<String>,
+}
+
 impl LspClient {
     pub fn new(command: &[String], debug: bool, timeout: Duration) -> Result<Self, String> {
         let Some(program) = command.first() else {
@@ -74,7 +81,12 @@ impl LspClient {
         })
     }
 
-    pub fn initialize(&mut self, root_uri: &str, workspace_name: &str) -> Result<(), String> {
+    pub fn initialize(
+        &mut self,
+        root_uri: &str,
+        workspace_name: &str,
+        want_server_status: bool,
+    ) -> Result<InitializeResponse, String> {
         let params = json!({
             "processId": std::process::id(),
             "clientInfo": {
@@ -86,6 +98,9 @@ impl LspClient {
                 "general": {
                     "positionEncodings": ["utf-16"],
                 },
+                "experimental": {
+                    "serverStatusNotification": want_server_status,
+                },
             },
             "workspaceFolders": [{
                 "uri": root_uri,
@@ -96,15 +111,67 @@ impl LspClient {
         let response: InitializeResponse = serde_json::from_value(response)
             .map_err(|error| format!("failed to decode initialize response: {error}"))?;
 
-        if matches!(response.capabilities.workspace_symbol_provider, Some(Value::Bool(false)) | None) {
-            return Err("selected LSP server does not support workspace/symbol".to_string());
-        }
-
-        self.send_notification(Initialized::METHOD, &json!({}))
+        self.send_notification(Initialized::METHOD, &json!({}))?;
+        Ok(response)
     }
 
     pub fn workspace_symbol(&mut self, pattern: &str) -> Result<Value, String> {
         self.send_request(WorkspaceSymbolRequest::METHOD, &json!({ "query": pattern }))
+    }
+
+    pub fn wait_for_server_status_quiescent(&mut self) -> Result<(), String> {
+        loop {
+            match self.messages.recv_timeout(self.timeout) {
+                Ok(IncomingMessage::Message(message)) => {
+                    if let Some(request_id) = request_id(&message) {
+                        self.handle_server_request(&request_id, &message)?;
+                        continue;
+                    }
+
+                    if message
+                        .get("method")
+                        .and_then(Value::as_str)
+                        == Some("experimental/serverStatus")
+                    {
+                        let params = message
+                            .get("params")
+                            .cloned()
+                            .unwrap_or(Value::Null);
+                        let status: ServerStatusParams = serde_json::from_value(params)
+                            .map_err(|error| format!("failed to decode experimental/serverStatus: {error}"))?;
+
+                        if status.health == "error" {
+                            return Err(status
+                                .message
+                                .unwrap_or_else(|| "LSP server reported an indexing error".to_string()));
+                        }
+
+                        if status.quiescent {
+                            return Ok(());
+                        }
+                    }
+                }
+                Ok(IncomingMessage::EndOfStream) => {
+                    return Err("LSP server closed while waiting for experimental/serverStatus".to_string());
+                }
+                Ok(IncomingMessage::Error(error)) => {
+                    return Err(format!(
+                        "failed to read LSP message while waiting for experimental/serverStatus: {error}"
+                    ));
+                }
+                Err(RecvTimeoutError::Timeout) => {
+                    return Err(
+                        "timed out waiting for experimental/serverStatus; the selected LSP server may not support it"
+                            .to_string(),
+                    );
+                }
+                Err(RecvTimeoutError::Disconnected) => {
+                    return Err(
+                        "LSP reader stopped while waiting for experimental/serverStatus".to_string(),
+                    );
+                }
+            }
+        }
     }
 
     pub fn shutdown(&mut self) -> Result<(), String> {
@@ -340,7 +407,7 @@ fn log_debug_message(debug: bool, prefix: &str, message: &Value) {
 }
 
 fn serialize_debug_message(message: &Value) -> String {
-    serde_json::to_string(message)
+    serde_json::to_string_pretty(message)
         .unwrap_or_else(|_| "<failed to serialize debug message>".to_string())
 }
 
@@ -410,7 +477,7 @@ mod tests {
     fn serializes_debug_messages_as_json() {
         assert_eq!(
             serialize_debug_message(&json!({"jsonrpc": "2.0", "id": 1})),
-            "{\"id\":1,\"jsonrpc\":\"2.0\"}"
+            "{\n  \"id\": 1,\n  \"jsonrpc\": \"2.0\"\n}"
         );
     }
 }

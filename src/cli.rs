@@ -5,6 +5,7 @@ use std::time::Duration;
 pub enum Command {
     Detect(DetectArgs),
     Grep(GrepArgs),
+    BuildIndex(BuildIndexArgs),
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -25,6 +26,14 @@ pub struct GrepArgs {
     pub timeout: Duration,
 }
 
+#[derive(Debug, Eq, PartialEq)]
+pub struct BuildIndexArgs {
+    pub directory: PathBuf,
+    pub lsp: Option<String>,
+    pub debug: bool,
+    pub timeout: Duration,
+}
+
 pub fn parse_args<I>(args: I) -> Result<Command, String>
 where
     I: IntoIterator<Item = String>,
@@ -37,13 +46,14 @@ where
     match command.as_str() {
         "detect" => parse_detect(args),
         "grep" => parse_grep(args),
+        "build-index" => parse_build_index(args),
         flag if flag.starts_with('-') => Err(format!("unknown flag: {flag}\n{}", usage())),
         _ => Err(format!("unknown subcommand: {command}\n{}", usage())),
     }
 }
 
 pub fn usage() -> &'static str {
-    "usage: lsp-cli detect [PATH] [--json] [-q] [--debug]\n       lsp-cli grep PATTERN DIRECTORY [--json] [--lsp SERVER] [--debug] [--timeout T]"
+    "usage: lsp-cli detect [PATH] [--json] [-q] [--debug]\n       lsp-cli grep PATTERN DIRECTORY [--json] [--lsp SERVER] [--debug] [--timeout T]\n       lsp-cli build-index DIRECTORY [--lsp SERVER] [--debug] [--timeout T]"
 }
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(10);
@@ -129,6 +139,54 @@ where
     }))
 }
 
+fn parse_build_index<I>(args: I) -> Result<Command, String>
+where
+    I: IntoIterator<Item = String>,
+{
+    let mut directory = None;
+    let mut lsp = None;
+    let mut debug = false;
+    let mut timeout = DEFAULT_TIMEOUT;
+    let mut args = args.into_iter();
+
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--debug" => debug = true,
+            "--lsp" => {
+                let server = args.next().ok_or_else(|| {
+                    format!("missing value for --lsp\n{}", usage())
+                })?;
+                lsp = Some(server);
+            }
+            "--timeout" => {
+                let value = args.next().ok_or_else(|| {
+                    format!("missing value for --timeout\n{}", usage())
+                })?;
+                timeout = parse_timeout(&value)?;
+            }
+            flag if flag.starts_with('-') => {
+                return Err(format!("unknown flag: {flag}\n{}", usage()));
+            }
+            _ => {
+                if directory.replace(PathBuf::from(arg)).is_some() {
+                    return Err(usage().to_string());
+                }
+            }
+        }
+    }
+
+    let Some(directory) = directory else {
+        return Err(usage().to_string());
+    };
+
+    Ok(Command::BuildIndex(BuildIndexArgs {
+        directory,
+        lsp,
+        debug,
+        timeout,
+    }))
+}
+
 fn parse_timeout(value: &str) -> Result<Duration, String> {
     if let Some(milliseconds) = value.strip_suffix("ms") {
         let milliseconds = milliseconds.parse::<u64>().map_err(|_| {
@@ -151,7 +209,7 @@ fn parse_timeout(value: &str) -> Result<Duration, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Command, DetectArgs, GrepArgs, parse_args, usage};
+    use super::{BuildIndexArgs, Command, DetectArgs, GrepArgs, parse_args, usage};
     use std::path::PathBuf;
     use std::time::Duration;
 
@@ -285,5 +343,27 @@ mod tests {
     #[test]
     fn rejects_missing_subcommand() {
         assert_eq!(parse_args(Vec::<String>::new()), Err(usage().to_string()));
+    }
+
+    #[test]
+    fn parses_build_index_arguments() {
+        assert_eq!(
+            parse_args(vec![
+                "build-index".to_string(),
+                "workspace".to_string(),
+                "--lsp".to_string(),
+                "rust-analyzer".to_string(),
+                "--debug".to_string(),
+                "--timeout".to_string(),
+                "500ms".to_string(),
+            ])
+            .expect("build-index should parse"),
+            Command::BuildIndex(BuildIndexArgs {
+                directory: PathBuf::from("workspace"),
+                lsp: Some("rust-analyzer".to_string()),
+                debug: true,
+                timeout: Duration::from_millis(500),
+            })
+        );
     }
 }

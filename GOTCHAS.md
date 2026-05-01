@@ -1,5 +1,7 @@
 # LSP protocol
 
+# daemon gotchas
+
 - LSP 3.17 assumes one server serves one tool. `lsp-cli daemon` therefore implements a
   conservative proxy policy instead of transparent multi-client sharing: only one client may be
   connected at a time, downstream `shutdown`/`exit` are handled locally, and a later client with
@@ -8,6 +10,10 @@
   documents on disconnect, but it does not persist dynamic registrations across sessions. If the
   upstream server uses `client/registerCapability` or `client/unregisterCapability`, lsp-cli marks
   the session as non-reusable and restarts the upstream server before the next client.
+- Reused daemon sessions can attach after the upstream server has already finished indexing. To
+  keep `wait-for-index` semantics stable for warm sessions, the daemon synthesizes a quiescent
+  `experimental/serverStatus` notification after cached `initialize` replies when it already knows
+  the upstream server is idle.
 - Normal LSP commands opportunistically reuse the daemon socket. If the expected socket path exists
   but no daemon listens on it anymore, lsp-cli treats it as stale runtime state, removes the dead
   socket file, and falls back to starting a direct LSP server for that command.

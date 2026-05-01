@@ -123,6 +123,8 @@ pub(super) fn run_file_symbol_query(
     args: &ListSymbolsArgs,
     config: &ConfigStore,
 ) -> Result<WorkspaceSymbolQueryResult, String> {
+    validate_list_symbols_file_path(&args.file)?;
+
     let (workspace, matches) = with_initialized_client(
         &args.file,
         args.lsp.as_deref(),
@@ -158,6 +160,35 @@ pub(super) fn run_file_symbol_query(
         server: workspace.server,
         matches,
     })
+}
+
+fn validate_list_symbols_file_path(path: &Path) -> Result<(), String> {
+    let metadata = std::fs::metadata(path).map_err(|error| {
+        if error.kind() == std::io::ErrorKind::NotFound {
+            format!(
+                "list-symbols expected a file path, but {} does not exist",
+                path.display()
+            )
+        } else {
+            format!("failed to inspect {}: {error}", path.display())
+        }
+    })?;
+
+    if metadata.is_dir() {
+        return Err(format!(
+            "list-symbols expected a file path, but {} is a directory",
+            path.display()
+        ));
+    }
+
+    if !metadata.is_file() {
+        return Err(format!(
+            "list-symbols expected a regular file path, but {} is not a file",
+            path.display()
+        ));
+    }
+
+    Ok(())
 }
 
 pub(super) fn run_list_files_query(
@@ -746,8 +777,10 @@ mod tests {
     use super::{
         dedupe_symbol_matches, preferred_function_name_matches, preferred_name_matches,
         render_paths_text, render_symbol_matches_text, render_symbol_names_text, truncate_items,
+        validate_list_symbols_file_path,
     };
     use crate::lsp::SymbolMatch;
+    use crate::test_support::TestDir;
     use lsp_types::SymbolKind;
     use std::path::PathBuf;
 
@@ -876,5 +909,15 @@ mod tests {
             preferred_function_name_matches(vec![non_function, function.clone()], "main"),
             vec![function]
         );
+    }
+
+    #[test]
+    fn rejects_directory_for_list_symbols_file_query() {
+        let dir = TestDir::new("list-symbols");
+        let error =
+            validate_list_symbols_file_path(dir.path()).expect_err("directory input should fail");
+
+        assert!(error.contains("expected a file path"));
+        assert!(error.contains("is a directory"));
     }
 }

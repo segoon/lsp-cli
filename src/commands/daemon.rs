@@ -2,8 +2,9 @@ use crate::cli::DaemonArgs;
 use crate::commands::common::{analyze_path, resolve_server};
 use crate::config::ConfigStore;
 use crate::lsp::transport::{log_debug_message, read_message, write_message};
-use crate::lsp::{path_to_file_uri, workspace_name};
+use crate::lsp::{ServerStatusParams, path_to_file_uri, workspace_name};
 use crate::runtime_state::{daemon_socket_path, default_daemon_root};
+use serde::Deserialize;
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, File};
@@ -60,17 +61,20 @@ struct UpstreamServer {
     initialize_fingerprint: Option<String>,
     initialize_result: Option<Value>,
     restart_required: bool,
+    background_work: BackgroundWorkTracker,
 }
 
 struct ClientSession {
     writer: UnixStream,
     messages: Receiver<ReaderEvent>,
     phase: ClientPhase,
+    wants_background_work: bool,
     forwarded_client_requests: BTreeSet<String>,
     pending_server_requests: BTreeMap<String, Value>,
     open_documents: BTreeSet<String>,
 }
 
+#[derive(Clone, Copy)]
 enum ClientPhase {
     WaitingForInitialize,
     WaitingForInitialized { forward_to_upstream: bool },
@@ -82,6 +86,37 @@ enum ReaderEvent {
     Message(Value),
     EndOfStream,
     Error(String),
+}
+
+#[derive(Debug, Deserialize)]
+struct ProgressParams {
+    token: Value,
+    value: ProgressValue,
+}
+
+#[derive(Debug, Deserialize)]
+struct ProgressValue {
+    kind: String,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+enum BackgroundWorkState {
+    #[default]
+    Unknown,
+    InProgress,
+    Quiescent,
+}
+
+#[derive(Debug, Default)]
+struct BackgroundWorkTracker {
+    state: BackgroundWorkState,
+    active_progress_tokens: BTreeSet<String>,
+}
+
+impl BackgroundWorkTracker {
+    fn is_quiescent(&self) -> bool {
+        self.state == BackgroundWorkState::Quiescent
+    }
 }
 
 impl Daemon {
@@ -223,7 +258,7 @@ impl Daemon {
             return Ok(());
         }
 
-        match self.active_client.as_ref().map(|client| &client.phase) {
+        match self.active_client.as_ref().map(|client| client.phase) {
             Some(ClientPhase::WaitingForInitialize) => {
                 if method == Some("initialize") && request_id.is_some() {
                     return self.handle_initialize_request(message);
@@ -248,12 +283,13 @@ impl Daemon {
                 forward_to_upstream,
             }) => {
                 if method == Some("initialized") {
-                    if *forward_to_upstream {
+                    if forward_to_upstream {
                         self.write_upstream_message(message)?;
                     }
                     if let Some(client) = self.active_client.as_mut() {
                         client.phase = ClientPhase::Ready;
                     }
+                    self.notify_client_if_background_ready(!forward_to_upstream)?;
                     return Ok(());
                 }
 
@@ -313,6 +349,7 @@ impl Daemon {
             .ok_or_else(|| "initialize request is missing params".to_string())?;
         let normalized = normalize_initialize_params(&params, &self.target)?;
         let fingerprint = fingerprint_value(&normalized);
+        let wants_background_work = wants_background_work(&normalized);
 
         let should_restart = match self.upstream.as_ref() {
             Some(upstream) => {
@@ -342,6 +379,7 @@ impl Daemon {
                 .ok_or_else(|| "daemon lost cached initialize result".to_string())?;
             self.write_client_response(&success_response(&request_id, &result))?;
             if let Some(client) = self.active_client.as_mut() {
+                client.wants_background_work = wants_background_work;
                 client.phase = ClientPhase::WaitingForInitialized {
                     forward_to_upstream: false,
                 };
@@ -363,6 +401,7 @@ impl Daemon {
         });
         self.write_upstream_message(&forwarded)?;
         if let Some(client) = self.active_client.as_mut() {
+            client.wants_background_work = wants_background_work;
             client.phase = ClientPhase::WaitingForInitialized {
                 forward_to_upstream: true,
             };
@@ -373,6 +412,10 @@ impl Daemon {
 
     fn handle_upstream_message(&mut self, message: &Value) -> Result<(), String> {
         log_debug_message(self.debug, "daemon upstream -> ", message);
+
+        if let Some(upstream) = self.upstream.as_mut() {
+            update_background_work_tracker(message, &mut upstream.background_work)?;
+        }
 
         if let Some(response_id) = response_id(message) {
             let response_key = id_key(&response_id);
@@ -543,6 +586,28 @@ impl Daemon {
             .map_err(|error| format!("failed to write LSP server message: {error}"))
     }
 
+    fn notify_client_if_background_ready(&mut self, reused_initialize: bool) -> Result<(), String> {
+        if !reused_initialize {
+            return Ok(());
+        }
+
+        let should_notify = self
+            .active_client
+            .as_ref()
+            .is_some_and(|client| client.wants_background_work)
+            && self
+                .upstream
+                .as_ref()
+                .is_some_and(|upstream| upstream.background_work.is_quiescent());
+        if !should_notify {
+            return Ok(());
+        }
+
+        // Reused daemon sessions can attach after the upstream server already finished indexing.
+        // Emit a synthetic quiescent notification so wait_for_background_work sees the warm state.
+        self.write_client_response(&background_work_ready_notification())
+    }
+
     fn shutdown_upstream(&mut self) -> Result<(), String> {
         if let Some(mut upstream) = self.upstream.take() {
             upstream.shutdown(self.debug)?;
@@ -575,6 +640,7 @@ impl ClientSession {
             writer: stream,
             messages: spawn_reader(reader),
             phase: ClientPhase::WaitingForInitialize,
+            wants_background_work: false,
             forwarded_client_requests: BTreeSet::new(),
             pending_server_requests: BTreeMap::new(),
             open_documents: BTreeSet::new(),
@@ -622,6 +688,7 @@ impl UpstreamServer {
             initialize_fingerprint: None,
             initialize_result: None,
             restart_required: false,
+            background_work: BackgroundWorkTracker::default(),
         })
     }
 
@@ -931,6 +998,93 @@ fn local_server_request_response(request_id: &Value, method: &str) -> Value {
     }
 }
 
+fn update_background_work_tracker(
+    message: &Value,
+    tracker: &mut BackgroundWorkTracker,
+) -> Result<(), String> {
+    let Some(method) = message_method(message) else {
+        return Ok(());
+    };
+
+    match method {
+        "experimental/serverStatus" => {
+            let params = message.get("params").cloned().unwrap_or(Value::Null);
+            let status: ServerStatusParams = serde_json::from_value(params)
+                .map_err(|error| format!("failed to decode experimental/serverStatus: {error}"))?;
+            tracker.state = if status.quiescent {
+                BackgroundWorkState::Quiescent
+            } else {
+                BackgroundWorkState::InProgress
+            };
+            if status.quiescent {
+                tracker.active_progress_tokens.clear();
+            }
+        }
+        "$/progress" => {
+            let params = message.get("params").cloned().unwrap_or(Value::Null);
+            let progress: ProgressParams = serde_json::from_value(params)
+                .map_err(|error| format!("failed to decode $/progress: {error}"))?;
+            let token = progress_token(&progress.token);
+
+            match progress.value.kind.as_str() {
+                "begin" => {
+                    tracker.state = BackgroundWorkState::InProgress;
+                    tracker.active_progress_tokens.insert(token);
+                }
+                "end" => {
+                    tracker.active_progress_tokens.remove(&token);
+                    if tracker.active_progress_tokens.is_empty() {
+                        tracker.state = BackgroundWorkState::Quiescent;
+                    }
+                }
+                _ => {}
+            }
+        }
+        _ => {}
+    }
+
+    Ok(())
+}
+
+fn progress_token(token: &Value) -> String {
+    match token {
+        Value::String(value) => value.clone(),
+        value => value.to_string(),
+    }
+}
+
+fn wants_background_work(params: &Value) -> bool {
+    params
+        .get("capabilities")
+        .and_then(Value::as_object)
+        .is_some_and(|capabilities| {
+            capabilities
+                .get("window")
+                .and_then(Value::as_object)
+                .and_then(|window| window.get("workDoneProgress"))
+                .and_then(Value::as_bool)
+                .unwrap_or(false)
+                || capabilities
+                    .get("experimental")
+                    .and_then(Value::as_object)
+                    .and_then(|experimental| experimental.get("serverStatusNotification"))
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false)
+        })
+}
+
+fn background_work_ready_notification() -> Value {
+    json!({
+        "jsonrpc": "2.0",
+        "method": "experimental/serverStatus",
+        "params": {
+            "health": "ok",
+            "quiescent": true,
+            "message": Value::Null,
+        }
+    })
+}
+
 fn normalize_initialize_params(params: &Value, target: &DaemonTarget) -> Result<Value, String> {
     let Some(object) = params.as_object() else {
         return Err("initialize params must be a JSON object".to_string());
@@ -1095,7 +1249,11 @@ unsafe fn setsid_wrapper() -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{fingerprint_value, normalize_initialize_params};
+    use super::{
+        BackgroundWorkState, BackgroundWorkTracker, background_work_ready_notification,
+        fingerprint_value, normalize_initialize_params, update_background_work_tracker,
+        wants_background_work,
+    };
     use crate::runtime_state::daemon_socket_path;
     use crate::test_support::TestDir;
     use serde_json::json;
@@ -1193,5 +1351,95 @@ mod tests {
         let right = json!({"a": [true, null], "b": 1});
 
         assert_eq!(fingerprint_value(&left), fingerprint_value(&right));
+    }
+
+    #[test]
+    fn tracks_background_work_until_progress_completes() {
+        let mut tracker = BackgroundWorkTracker::default();
+
+        update_background_work_tracker(
+            &json!({
+                "jsonrpc": "2.0",
+                "method": "$/progress",
+                "params": {
+                    "token": "rust-analyzer/flycheck",
+                    "value": {"kind": "begin"}
+                }
+            }),
+            &mut tracker,
+        )
+        .expect("progress begin should decode");
+        assert_eq!(tracker.state, BackgroundWorkState::InProgress);
+
+        update_background_work_tracker(
+            &json!({
+                "jsonrpc": "2.0",
+                "method": "$/progress",
+                "params": {
+                    "token": "rust-analyzer/flycheck",
+                    "value": {"kind": "end"}
+                }
+            }),
+            &mut tracker,
+        )
+        .expect("progress end should decode");
+
+        assert_eq!(tracker.state, BackgroundWorkState::Quiescent);
+    }
+
+    #[test]
+    fn tracks_quiescent_server_status_from_upstream() {
+        let mut tracker = BackgroundWorkTracker::default();
+
+        update_background_work_tracker(
+            &json!({
+                "jsonrpc": "2.0",
+                "method": "experimental/serverStatus",
+                "params": {
+                    "health": "ok",
+                    "quiescent": true,
+                    "message": null
+                }
+            }),
+            &mut tracker,
+        )
+        .expect("server status should decode");
+
+        assert_eq!(tracker.state, BackgroundWorkState::Quiescent);
+    }
+
+    #[test]
+    fn detects_background_work_capabilities_in_initialize_params() {
+        assert!(wants_background_work(&json!({
+            "capabilities": {
+                "window": {"workDoneProgress": true}
+            }
+        })));
+        assert!(wants_background_work(&json!({
+            "capabilities": {
+                "experimental": {"serverStatusNotification": true}
+            }
+        })));
+        assert!(!wants_background_work(&json!({
+            "capabilities": {
+                "window": {"workDoneProgress": false}
+            }
+        })));
+    }
+
+    #[test]
+    fn emits_quiescent_notification_for_reused_warm_sessions() {
+        assert_eq!(
+            background_work_ready_notification(),
+            json!({
+                "jsonrpc": "2.0",
+                "method": "experimental/serverStatus",
+                "params": {
+                    "health": "ok",
+                    "quiescent": true,
+                    "message": null,
+                }
+            })
+        );
     }
 }

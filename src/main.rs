@@ -5,8 +5,10 @@ mod commands;
 mod config;
 mod detect;
 mod lsp;
+mod mason_platform;
 mod mason_registry;
 mod mason_resolve;
+mod mason_template;
 mod runtime_state;
 mod suggest;
 

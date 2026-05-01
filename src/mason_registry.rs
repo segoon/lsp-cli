@@ -44,8 +44,21 @@ impl MasonRegistry {
     fn from_registry_json_path(path: &Path) -> Result<Self, String> {
         let contents = fs::read_to_string(path)
             .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
-        let packages = serde_json::from_str::<Vec<MasonPackage>>(&contents)
+        let package_values = serde_json::from_str::<Vec<serde_json::Value>>(&contents)
             .map_err(|error| format!("failed to parse {}: {error}", path.display()))?;
+        let mut packages = Vec::new();
+        for value in package_values.into_iter().filter(is_lsp_package_value) {
+            if let Ok(package) = serde_json::from_value::<MasonPackage>(value) {
+                packages.push(package);
+            }
+        }
+
+        if packages.is_empty() {
+            return Err(format!(
+                "failed to parse any Mason LSP packages from {}",
+                path.display()
+            ));
+        }
 
         Ok(Self::from_packages(packages))
     }
@@ -70,6 +83,17 @@ impl MasonRegistry {
     }
 }
 
+fn is_lsp_package_value(value: &serde_json::Value) -> bool {
+    value
+        .get("categories")
+        .and_then(serde_json::Value::as_array)
+        .is_some_and(|categories| {
+            categories
+                .iter()
+                .any(|category| category.as_str() == Some("LSP"))
+        })
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
 pub struct MasonPackage {
     pub name: String,
@@ -78,6 +102,8 @@ pub struct MasonPackage {
     pub source: MasonSource,
     #[serde(default)]
     pub bin: BTreeMap<String, String>,
+    #[serde(default)]
+    pub share: BTreeMap<String, String>,
     #[serde(default)]
     pub neovim: MasonNeovim,
 }
@@ -93,6 +119,57 @@ pub struct MasonSource {
     pub id: String,
     #[serde(default)]
     pub extra_packages: Vec<String>,
+    #[serde(default)]
+    pub asset: Option<OneOrMany<MasonAsset>>,
+    #[serde(default)]
+    pub download: Option<OneOrMany<MasonDownload>>,
+}
+
+impl MasonSource {
+    #[must_use]
+    pub fn assets(&self) -> &[MasonAsset] {
+        self.asset.as_ref().map_or(&[], OneOrMany::as_slice)
+    }
+
+    #[must_use]
+    pub fn downloads(&self) -> &[MasonDownload] {
+        self.download.as_ref().map_or(&[], OneOrMany::as_slice)
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+#[serde(untagged)]
+pub enum OneOrMany<T> {
+    One(T),
+    Many(Vec<T>),
+}
+
+impl<T> OneOrMany<T> {
+    #[must_use]
+    pub fn as_slice(&self) -> &[T] {
+        match self {
+            Self::One(value) => std::slice::from_ref(value),
+            Self::Many(values) => values,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+pub struct MasonAsset {
+    #[serde(default)]
+    pub target: Option<OneOrMany<String>>,
+    pub file: OneOrMany<String>,
+    pub bin: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+pub struct MasonDownload {
+    #[serde(default)]
+    pub target: Option<OneOrMany<String>>,
+    #[serde(default)]
+    pub files: BTreeMap<String, String>,
+    pub bin: Option<String>,
+    pub config: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Deserialize)]
@@ -300,6 +377,8 @@ mod tests {
                 source: super::MasonSource {
                     id: "pkg:npm/pyright@1.0.0".to_string(),
                     extra_packages: Vec::new(),
+                    asset: None,
+                    download: None,
                 },
                 bin: BTreeMap::from([(
                     "pyright-langserver".to_string(),
@@ -315,6 +394,8 @@ mod tests {
                 source: super::MasonSource {
                     id: "pkg:github/john/stylua@1.0.0".to_string(),
                     extra_packages: Vec::new(),
+                    asset: None,
+                    download: None,
                 },
                 bin: BTreeMap::new(),
                 neovim: super::MasonNeovim::default(),

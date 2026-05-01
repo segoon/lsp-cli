@@ -26,6 +26,14 @@ lsp-cli is a high-level commandline tool that makes it possible to query LSP ser
   you have to inform the user.
 
 
+# Documentation
+
+* `README.md` contains information easily readable by newbies who don't know anything about
+  lsp-cli internals.
+* If you implement some hack/tricky/complex code, write a short summary in the code comment
+  why you do it this way.
+
+
 # Testing
 
 When adding/changing any major feature (e.g. subcommand),
@@ -33,6 +41,7 @@ check it:
 - in unit tests in *.rs
 - in playground/ (see @playground/README.md)
 
+If you catch a bug in the code, write a regression test for that.
 
 # Commands
 

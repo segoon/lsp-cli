@@ -8,16 +8,19 @@ mod suggest;
 
 use std::collections::{BTreeSet, HashMap};
 use std::env;
+use std::ffi::OsStr;
 use std::fs;
+use std::io::Cursor;
 #[cfg(unix)]
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process;
 use std::process::Command;
 
+use clap_complete::generate;
 use cli::{
-    BuildIndexArgs, Command as CliCommand, DetectArgs, GrepArgs, ListSymbolsArgs, RunArgs,
-    WorkspaceQueryArgs, parse_args,
+    BuildIndexArgs, Command as CliCommand, CompletionArgs, DetectArgs, GrepArgs, ListSymbolsArgs,
+    RunArgs, WorkspaceQueryArgs, clap_command, parse_args,
 };
 use config::{ConfigStore, default_config_root, load_config_store};
 use detect::{DetectionResult, detect_workspace};
@@ -57,6 +60,20 @@ fn main() {
         }
     };
 
+    let args = match args {
+        CliCommand::Completion(args) => {
+            match generate_completion(args) {
+                Ok(output) => print!("{output}"),
+                Err(error) => {
+                    eprintln!("failed to generate completion: {error}");
+                    process::exit(1);
+                }
+            }
+            return;
+        }
+        args => args,
+    };
+
     let config_root = match default_config_root() {
         Ok(path) => path,
         Err(error) => {
@@ -81,6 +98,7 @@ fn main() {
         CliCommand::Grep(args) => run_grep(&args, &config),
         CliCommand::ListSymbols(args) => run_list_symbols(&args, &config),
         CliCommand::BuildIndex(args) => run_build_index(&args, &config),
+        CliCommand::Completion(_) => unreachable!("completion handled before config loading"),
         CliCommand::Run(args) => run_run(&args, &config),
     };
 
@@ -95,6 +113,35 @@ fn main() {
             process::exit(1);
         }
     }
+}
+
+fn generate_completion(args: CompletionArgs) -> Result<String, String> {
+    let shell = args.shell.map_or_else(detect_current_shell, Ok)?;
+    let mut command = clap_command();
+    let mut output = Cursor::new(Vec::new());
+    generate(shell, &mut command, "lsp-cli", &mut output);
+
+    String::from_utf8(output.into_inner())
+        .map_err(|error| format!("completion output was not valid UTF-8: {error}"))
+}
+
+fn detect_current_shell() -> Result<clap_complete::Shell, String> {
+    clap_complete::Shell::from_env()
+        .ok_or(())
+        .or_else(|()| detect_shell_from_env(env::var_os("SHELL").as_deref()))
+}
+
+fn detect_shell_from_env(shell: Option<&OsStr>) -> Result<clap_complete::Shell, String> {
+    let shell = shell.ok_or_else(|| {
+        "could not detect current shell from $SHELL; pass one explicitly like `lsp-cli completion bash`"
+            .to_string()
+    })?;
+    clap_complete::Shell::from_shell_path(shell).ok_or_else(|| {
+        format!(
+            "could not map current shell from $SHELL={}; pass one explicitly like `lsp-cli completion bash`",
+            Path::new(shell).display()
+        )
+    })
 }
 
 fn run_detect(args: &DetectArgs, config: &ConfigStore) -> Result<String, String> {
@@ -597,11 +644,14 @@ fn file_uri_to_path(uri: &str) -> Result<PathBuf, String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        SourceCache, SymbolMatch, render_detect_json, render_detect_quiet, render_detect_text,
-        render_symbol_matches_text, select_server, symbol_matches_from_response,
+        SourceCache, SymbolMatch, detect_shell_from_env, generate_completion, render_detect_json,
+        render_detect_quiet, render_detect_text, render_symbol_matches_text, select_server,
+        symbol_matches_from_response,
     };
+    use crate::cli::CompletionArgs;
     use crate::detect::DetectionResult;
     use crate::suggest::SuggestedLanguage;
+    use clap_complete::Shell;
     use serde_json::json;
     use std::collections::BTreeSet;
     use std::fs;
@@ -795,6 +845,53 @@ mod tests {
         assert_eq!(
             error,
             "Requested LSP server \"missing-lsp\" is not in the detected server list: example-lsp"
+        );
+    }
+
+    #[test]
+    fn generates_bash_completion_script() {
+        let output = generate_completion(CompletionArgs {
+            shell: Some(Shell::Bash),
+        })
+        .expect("completion script should generate");
+
+        assert!(output.contains("lsp-cli"));
+        assert!(output.contains("detect"));
+        assert!(output.contains("grep"));
+        assert!(output.contains("completion"));
+    }
+
+    #[test]
+    fn detects_shell_from_shell_path() {
+        assert_eq!(
+            detect_shell_from_env(Some("/bin/zsh".as_ref())),
+            Ok(Shell::Zsh)
+        );
+        assert_eq!(
+            detect_shell_from_env(Some("/usr/bin/powershell".as_ref())),
+            Ok(Shell::PowerShell)
+        );
+    }
+
+    #[test]
+    fn errors_when_shell_env_is_missing() {
+        assert_eq!(
+            detect_shell_from_env(None),
+            Err(
+                "could not detect current shell from $SHELL; pass one explicitly like `lsp-cli completion bash`"
+                    .to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn errors_when_shell_env_is_unsupported() {
+        assert_eq!(
+            detect_shell_from_env(Some("/bin/sh".as_ref())),
+            Err(
+                "could not map current shell from $SHELL=/bin/sh; pass one explicitly like `lsp-cli completion bash`"
+                    .to_string()
+            )
         );
     }
 }

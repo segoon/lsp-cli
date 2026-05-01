@@ -1,7 +1,8 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use clap::{Args, Parser, Subcommand, ValueHint};
+use clap::{Args, CommandFactory, Parser, Subcommand, ValueHint};
+use clap_complete::Shell;
 
 #[derive(Debug, Parser)]
 #[command(name = "lsp-cli")]
@@ -16,6 +17,7 @@ pub enum Command {
     Grep(GrepArgs),
     ListSymbols(ListSymbolsArgs),
     BuildIndex(BuildIndexArgs),
+    Completion(CompletionArgs),
     Run(RunArgs),
 }
 
@@ -82,6 +84,15 @@ pub struct RunArgs {
     pub debug: bool,
 }
 
+#[derive(Clone, Copy, Debug, Args, Eq, PartialEq)]
+pub struct CompletionArgs {
+    pub shell: Option<Shell>,
+}
+
+pub fn clap_command() -> clap::Command {
+    Cli::command()
+}
+
 pub fn parse_args<I>(args: I) -> Result<Command, String>
 where
     I: IntoIterator<Item = String>,
@@ -115,9 +126,10 @@ fn parse_timeout(value: &str) -> Result<Duration, String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        BuildIndexArgs, Command, DetectArgs, GrepArgs, ListSymbolsArgs, RunArgs,
+        BuildIndexArgs, Command, CompletionArgs, DetectArgs, GrepArgs, ListSymbolsArgs, RunArgs,
         WorkspaceQueryArgs, parse_args,
     };
+    use clap_complete::Shell;
     use std::path::PathBuf;
     use std::time::Duration;
 
@@ -267,6 +279,25 @@ mod tests {
                 debug: true,
                 timeout: Duration::from_millis(500),
             })
+        );
+    }
+
+    #[test]
+    fn parses_completion_arguments() {
+        assert_eq!(
+            parse_args(vec!["completion".to_string(), "bash".to_string()])
+                .expect("completion should parse"),
+            Command::Completion(CompletionArgs {
+                shell: Some(Shell::Bash),
+            })
+        );
+    }
+
+    #[test]
+    fn parses_completion_without_shell() {
+        assert_eq!(
+            parse_args(vec!["completion".to_string()]).expect("completion should parse"),
+            Command::Completion(CompletionArgs { shell: None })
         );
     }
 

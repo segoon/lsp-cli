@@ -64,6 +64,11 @@ lsp-cli list-symbols path/to/project --wait-for-index
 lsp-cli build-index path/to/project --lsp rust-analyzer
 lsp-cli build-index path/to/project --lsp clangd
 
+# Generate shell completion script to stdout
+lsp-cli completion > /tmp/lsp-cli.bash
+lsp-cli completion bash > /tmp/lsp-cli.bash
+lsp-cli completion zsh > /tmp/_lsp-cli
+
 # Replace lsp-cli with the detected LSP server process
 lsp-cli run path/to/project --lsp rust-analyzer
 ```
@@ -74,6 +79,7 @@ lsp-cli run path/to/project --lsp rust-analyzer
 `--debug` logs the selected LSP server command line, pid, and raw LSP traffic to stderr.
 `--timeout` controls the per-request LSP timeout. Plain numbers are seconds, and values ending in `ms` are milliseconds.
 `build-index` waits for background-work signals such as `experimental/serverStatus` or work-done progress. If the selected server does not expose such progress, the command fails.
+`completion` writes a shell completion script to stdout. If no shell is passed, it uses the current shell from `$SHELL`.
 `run` performs detection and then replaces `lsp-cli` with the detected LSP server process using `execve`.
 
 

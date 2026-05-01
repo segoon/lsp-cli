@@ -1,36 +1,58 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-#[derive(Debug, Eq, PartialEq)]
+use clap::{Args, Parser, Subcommand, ValueHint};
+
+#[derive(Debug, Parser)]
+#[command(name = "lsp-cli")]
+struct Cli {
+    #[command(subcommand)]
+    command: Command,
+}
+
+#[derive(Debug, Eq, PartialEq, Subcommand)]
 pub enum Command {
     Detect(DetectArgs),
     Grep(GrepArgs),
     BuildIndex(BuildIndexArgs),
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Args, Eq, PartialEq)]
 pub struct DetectArgs {
+    #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
     pub path: PathBuf,
+    #[arg(long)]
     pub json: bool,
+    #[arg(short = 'q')]
     pub quiet: bool,
+    #[arg(long)]
     pub debug: bool,
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Args, Eq, PartialEq)]
 pub struct GrepArgs {
     pub pattern: String,
+    #[arg(value_hint = ValueHint::DirPath)]
     pub directory: PathBuf,
+    #[arg(long)]
     pub lsp: Option<String>,
+    #[arg(long)]
     pub json: bool,
+    #[arg(long)]
     pub debug: bool,
+    #[arg(long, value_name = "T", default_value = "10", value_parser = parse_timeout)]
     pub timeout: Duration,
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Args, Eq, PartialEq)]
 pub struct BuildIndexArgs {
+    #[arg(value_hint = ValueHint::DirPath)]
     pub directory: PathBuf,
+    #[arg(long)]
     pub lsp: Option<String>,
+    #[arg(long)]
     pub debug: bool,
+    #[arg(long, value_name = "T", default_value = "10", value_parser = parse_timeout)]
     pub timeout: Duration,
 }
 
@@ -38,153 +60,10 @@ pub fn parse_args<I>(args: I) -> Result<Command, String>
 where
     I: IntoIterator<Item = String>,
 {
-    let mut args = args.into_iter();
-    let Some(command) = args.next() else {
-        return Err(usage().to_string());
-    };
-
-    match command.as_str() {
-        "detect" => parse_detect(args),
-        "grep" => parse_grep(args),
-        "build-index" => parse_build_index(args),
-        flag if flag.starts_with('-') => Err(format!("unknown flag: {flag}\n{}", usage())),
-        _ => Err(format!("unknown subcommand: {command}\n{}", usage())),
-    }
-}
-
-pub fn usage() -> &'static str {
-    "usage: lsp-cli detect [PATH] [--json] [-q] [--debug]\n       lsp-cli grep PATTERN DIRECTORY [--json] [--lsp SERVER] [--debug] [--timeout T]\n       lsp-cli build-index DIRECTORY [--lsp SERVER] [--debug] [--timeout T]"
-}
-
-const DEFAULT_TIMEOUT: Duration = Duration::from_secs(10);
-
-fn parse_detect<I>(args: I) -> Result<Command, String>
-where
-    I: IntoIterator<Item = String>,
-{
-    let mut path = None;
-    let mut json = false;
-    let mut quiet = false;
-    let mut debug = false;
-
-    for arg in args {
-        match arg.as_str() {
-            "--json" => json = true,
-            "-q" => quiet = true,
-            "--debug" => debug = true,
-            flag if flag.starts_with('-') => {
-                return Err(format!("unknown flag: {flag}\n{}", usage()));
-            }
-            _ => {
-                if path.replace(PathBuf::from(arg)).is_some() {
-                    return Err(usage().to_string());
-                }
-            }
-        }
-    }
-
-    Ok(Command::Detect(DetectArgs {
-        path: path.unwrap_or_else(|| PathBuf::from(".")),
-        json,
-        quiet,
-        debug,
-    }))
-}
-
-fn parse_grep<I>(args: I) -> Result<Command, String>
-where
-    I: IntoIterator<Item = String>,
-{
-    let mut positionals = Vec::new();
-    let mut json = false;
-    let mut lsp = None;
-    let mut debug = false;
-    let mut timeout = DEFAULT_TIMEOUT;
-    let mut args = args.into_iter();
-
-    while let Some(arg) = args.next() {
-        match arg.as_str() {
-            "--json" => json = true,
-            "--debug" => debug = true,
-            "--lsp" => {
-                let server = args.next().ok_or_else(|| {
-                    format!("missing value for --lsp\n{}", usage())
-                })?;
-                lsp = Some(server);
-            }
-            "--timeout" => {
-                let value = args.next().ok_or_else(|| {
-                    format!("missing value for --timeout\n{}", usage())
-                })?;
-                timeout = parse_timeout(&value)?;
-            }
-            flag if flag.starts_with('-') => {
-                return Err(format!("unknown flag: {flag}\n{}", usage()));
-            }
-            _ => positionals.push(arg),
-        }
-    }
-
-    if positionals.len() != 2 {
-        return Err(usage().to_string());
-    }
-
-    Ok(Command::Grep(GrepArgs {
-        pattern: positionals.remove(0),
-        directory: PathBuf::from(positionals.remove(0)),
-        lsp,
-        json,
-        debug,
-        timeout,
-    }))
-}
-
-fn parse_build_index<I>(args: I) -> Result<Command, String>
-where
-    I: IntoIterator<Item = String>,
-{
-    let mut directory = None;
-    let mut lsp = None;
-    let mut debug = false;
-    let mut timeout = DEFAULT_TIMEOUT;
-    let mut args = args.into_iter();
-
-    while let Some(arg) = args.next() {
-        match arg.as_str() {
-            "--debug" => debug = true,
-            "--lsp" => {
-                let server = args.next().ok_or_else(|| {
-                    format!("missing value for --lsp\n{}", usage())
-                })?;
-                lsp = Some(server);
-            }
-            "--timeout" => {
-                let value = args.next().ok_or_else(|| {
-                    format!("missing value for --timeout\n{}", usage())
-                })?;
-                timeout = parse_timeout(&value)?;
-            }
-            flag if flag.starts_with('-') => {
-                return Err(format!("unknown flag: {flag}\n{}", usage()));
-            }
-            _ => {
-                if directory.replace(PathBuf::from(arg)).is_some() {
-                    return Err(usage().to_string());
-                }
-            }
-        }
-    }
-
-    let Some(directory) = directory else {
-        return Err(usage().to_string());
-    };
-
-    Ok(Command::BuildIndex(BuildIndexArgs {
-        directory,
-        lsp,
-        debug,
-        timeout,
-    }))
+    let args = std::iter::once("lsp-cli".to_string()).chain(args);
+    Cli::try_parse_from(args)
+        .map(|cli| cli.command)
+        .map_err(|error| error.to_string())
 }
 
 fn parse_timeout(value: &str) -> Result<Duration, String> {
@@ -209,7 +88,7 @@ fn parse_timeout(value: &str) -> Result<Duration, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{BuildIndexArgs, Command, DetectArgs, GrepArgs, parse_args, usage};
+    use super::{BuildIndexArgs, Command, DetectArgs, GrepArgs, parse_args};
     use std::path::PathBuf;
     use std::time::Duration;
 
@@ -311,22 +190,6 @@ mod tests {
     }
 
     #[test]
-    fn rejects_missing_lsp_value() {
-        assert_eq!(
-            parse_args(vec!["grep".to_string(), "needle".to_string(), "workspace".to_string(), "--lsp".to_string()]),
-            Err(format!("missing value for --lsp\n{}", usage()))
-        );
-    }
-
-    #[test]
-    fn rejects_missing_timeout_value() {
-        assert_eq!(
-            parse_args(vec!["grep".to_string(), "needle".to_string(), "workspace".to_string(), "--timeout".to_string()]),
-            Err(format!("missing value for --timeout\n{}", usage()))
-        );
-    }
-
-    #[test]
     fn rejects_invalid_timeout_value() {
         assert_eq!(
             parse_args(vec![
@@ -336,13 +199,15 @@ mod tests {
                 "--timeout".to_string(),
                 "nope".to_string(),
             ]),
-            Err("invalid timeout \"nope\": expected integer milliseconds or seconds".to_string())
+            Err("error: invalid value 'nope' for '--timeout <T>': invalid timeout \"nope\": expected integer milliseconds or seconds\n\nFor more information, try '--help'.\n".to_string())
         );
     }
 
     #[test]
     fn rejects_missing_subcommand() {
-        assert_eq!(parse_args(Vec::<String>::new()), Err(usage().to_string()));
+        let error = parse_args(Vec::<String>::new()).expect_err("missing subcommand should fail");
+
+        assert!(error.contains("Usage: lsp-cli <COMMAND>"));
     }
 
     #[test]

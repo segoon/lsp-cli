@@ -77,6 +77,11 @@ lsp-cli run path/to/project --lsp rust-analyzer
 `run` performs detection and then replaces `lsp-cli` with the detected LSP server process using `execve`.
 
 
+# References
+
+- [LSP specification](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/)
+
+
 # Thanks
 
 I'd like to say "thank you" to the following opensource projects:

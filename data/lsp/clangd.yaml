@@ -14,3 +14,4 @@ root_markers:
   - ".git"
 name: "clangd"
 cmdline: "clangd --background-index $WORKSPACE"
+wait-for-index: true

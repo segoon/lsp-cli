@@ -9,6 +9,7 @@ pub struct SuggestedLanguage {
     pub server: String,
     pub command: Vec<String>,
     pub workspace_root: PathBuf,
+    pub wait_for_index: bool,
 }
 
 pub fn suggestions_for(
@@ -52,6 +53,7 @@ fn build_suggestion(
         server: lsp.name.clone(),
         command,
         workspace_root,
+        wait_for_index: lsp.wait_for_index,
     })
 }
 
@@ -110,6 +112,7 @@ mod tests {
             root_markers: vec![".workspace-root".to_string(), ".git".to_string()],
             name: "example-lsp".to_string(),
             cmdline: "example-lsp --stdio $WORKSPACE".to_string(),
+            wait_for_index: false,
         }
     }
 
@@ -176,8 +179,27 @@ mod tests {
                     ".".to_string()
                 ],
                 workspace_root: PathBuf::from("."),
+                wait_for_index: false,
             }]
         );
+    }
+
+    #[test]
+    fn carries_wait_for_index_from_config() {
+        let mut lsp = example_lsp();
+        lsp.wait_for_index = true;
+
+        let suggestions = suggestions_for(
+            &[lsp],
+            &DetectionResult {
+                filetypes: BTreeSet::from(["beta".to_string()]),
+                filenames: BTreeSet::new(),
+            },
+            Path::new("."),
+        )
+        .expect("suggestions should succeed");
+
+        assert!(suggestions[0].wait_for_index);
     }
 
     #[test]

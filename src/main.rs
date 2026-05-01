@@ -101,14 +101,15 @@ fn run_grep(args: &GrepArgs, config: &ConfigStore) -> Result<String, String> {
     let server = select_server(&detection, &suggestions, args.lsp.as_deref())?;
     let root_uri = path_to_file_uri(&server.workspace_root)?;
     let workspace_name = lsp::workspace_name(&server.workspace_root);
+    let wait_for_index = args.wait_for_index || server.wait_for_index;
 
     let mut client = LspClient::new(&server.command, args.debug, args.timeout)?;
     let initialize = client
-        .initialize(&root_uri, &workspace_name, args.wait_for_index)
+        .initialize(&root_uri, &workspace_name, wait_for_index)
         .map_err(|error| format!("failed to initialize {}: {error}", server.server))?;
     ensure_workspace_symbol_support(&initialize)?;
 
-    let response = (if args.wait_for_index {
+    let response = (if wait_for_index {
         client.wait_for_background_work().map_err(|error| {
             format!(
                 "failed to wait for background work with {}: {error}",
@@ -160,14 +161,15 @@ fn run_list_symbols(args: &ListSymbolsArgs, config: &ConfigStore) -> Result<Stri
     let server = select_server(&detection, &suggestions, args.lsp.as_deref())?;
     let root_uri = path_to_file_uri(&server.workspace_root)?;
     let workspace_name = lsp::workspace_name(&server.workspace_root);
+    let wait_for_index = args.wait_for_index || server.wait_for_index;
 
     let mut client = LspClient::new(&server.command, args.debug, args.timeout)?;
     let initialize = client
-        .initialize(&root_uri, &workspace_name, args.wait_for_index)
+        .initialize(&root_uri, &workspace_name, wait_for_index)
         .map_err(|error| format!("failed to initialize {}: {error}", server.server))?;
     ensure_workspace_symbol_support(&initialize)?;
 
-    let response = (if args.wait_for_index {
+    let response = (if wait_for_index {
         client.wait_for_background_work().map_err(|error| {
             format!(
                 "failed to wait for background work with {}: {error}",
@@ -589,6 +591,7 @@ mod tests {
             server: "example-lsp".to_string(),
             command: vec!["example-lsp".to_string(), "--stdio".to_string()],
             workspace_root: PathBuf::from("."),
+            wait_for_index: false,
         }
     }
 
@@ -736,6 +739,7 @@ mod tests {
             server: "secondary-lsp".to_string(),
             command: vec!["secondary-lsp".to_string()],
             workspace_root: PathBuf::from("."),
+            wait_for_index: false,
         };
         let suggestions = [primary, secondary.clone()];
 

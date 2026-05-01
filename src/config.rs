@@ -25,6 +25,7 @@ pub struct LspConfig {
     pub root_markers: Vec<String>,
     pub name: String,
     pub cmdline: String,
+    pub wait_for_index: bool,
 }
 
 #[derive(Deserialize)]
@@ -43,6 +44,8 @@ struct LspFile {
     root_markers: Vec<String>,
     name: String,
     cmdline: String,
+    #[serde(rename = "wait-for-index", default)]
+    wait_for_index: bool,
 }
 
 pub fn default_config_root() -> Result<PathBuf, String> {
@@ -145,6 +148,7 @@ fn load_lsps(dir: &Path) -> Result<Vec<LspConfig>, String> {
                 root_markers: file.root_markers,
                 name: file.name,
                 cmdline: file.cmdline,
+                wait_for_index: file.wait_for_index,
             })
         })
         .collect()
@@ -346,7 +350,8 @@ mod tests {
                 "root_markers:\n",
                 "  - compile_commands.json\n",
                 "name: clangd\n",
-                "cmdline: clangd --background-index $WORKSPACE\n"
+                "cmdline: clangd --background-index $WORKSPACE\n",
+                "wait-for-index: true\n"
             ),
         );
 
@@ -356,6 +361,7 @@ mod tests {
         assert_eq!(config.lsps.len(), 1);
         assert!(config.filetypes.iter().any(|filetype| filetype.id == "c"));
         assert_eq!(config.lsps[0].name, "clangd");
+        assert!(config.lsps[0].wait_for_index);
     }
 
     #[test]

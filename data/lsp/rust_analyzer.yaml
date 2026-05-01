@@ -6,3 +6,4 @@ root_markers:
   - ".git"
 name: "rust-analyzer"
 cmdline: "rust-analyzer"
+wait-for-index: true

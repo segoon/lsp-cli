@@ -5,9 +5,10 @@ use crate::detect::matching_files;
 use crate::lsp::{
     LspClient, SourceCache, SymbolMatch, call_hierarchy_matches_from_incoming_response,
     call_hierarchy_matches_from_outgoing_response, document_symbol_matches_from_response,
-    ensure_call_hierarchy_support, ensure_declaration_support, ensure_definition_support,
-    ensure_document_symbol_support, ensure_references_support, ensure_workspace_symbol_support,
-    function_matches_from_document_response, location_matches_from_response, path_to_file_uri,
+    document_symbol_supported, ensure_call_hierarchy_support, ensure_declaration_support,
+    ensure_definition_support, ensure_document_symbol_support, ensure_references_support,
+    ensure_workspace_symbol_support, function_matches_from_document_response,
+    is_function_symbol_kind, location_matches_from_response, path_to_file_uri,
     prepare_call_hierarchy_response, should_skip_document_symbol_error,
     symbol_matches_from_response,
 };
@@ -391,7 +392,19 @@ fn run_named_location_query(
                     workspace.server.server
                 )
             })?;
-            let anchors = symbol_matches_from_response(&anchors)?;
+            let workspace_anchors = symbol_matches_from_response(&anchors)?;
+            let anchors = select_named_anchors(
+                workspace,
+                initialize,
+                client,
+                config,
+                NamedAnchorRequest {
+                    directory: &args.directory,
+                    name,
+                    function_only: false,
+                },
+                workspace_anchors,
+            )?;
             let mut source_cache = SourceCache::default();
             let mut matches = Vec::new();
 
@@ -446,7 +459,19 @@ fn run_call_hierarchy_query(
                     workspace.server.server
                 )
             })?;
-            let anchors = symbol_matches_from_response(&anchors)?;
+            let workspace_anchors = symbol_matches_from_response(&anchors)?;
+            let anchors = select_named_anchors(
+                workspace,
+                initialize,
+                client,
+                config,
+                NamedAnchorRequest {
+                    directory: &args.directory,
+                    name,
+                    function_only: true,
+                },
+                workspace_anchors,
+            )?;
             let mut source_cache = SourceCache::default();
             let mut matches = Vec::new();
 
@@ -502,6 +527,94 @@ fn dedupe_symbol_matches(matches: Vec<SymbolMatch>) -> Vec<SymbolMatch> {
     }
 
     deduped
+}
+
+fn preferred_name_matches(matches: Vec<SymbolMatch>, name: &str) -> Vec<SymbolMatch> {
+    let exact_matches = matches
+        .iter()
+        .filter(|matched| matched.name == name)
+        .cloned()
+        .collect::<Vec<_>>();
+
+    if exact_matches.is_empty() {
+        matches
+    } else {
+        exact_matches
+    }
+}
+
+fn preferred_function_name_matches(matches: Vec<SymbolMatch>, name: &str) -> Vec<SymbolMatch> {
+    let matches = preferred_name_matches(matches, name);
+    matches
+        .into_iter()
+        .filter(|matched| is_function_symbol_kind(matched.kind))
+        .collect()
+}
+
+fn select_named_anchors(
+    workspace: &PreparedWorkspace,
+    initialize: &crate::lsp::InitializeResponse,
+    client: &mut LspClient,
+    config: &ConfigStore,
+    request: NamedAnchorRequest<'_>,
+    workspace_anchors: Vec<SymbolMatch>,
+) -> Result<Vec<SymbolMatch>, String> {
+    if document_symbol_supported(initialize) {
+        let document_anchors = exact_named_document_anchors(workspace, client, config, request)?;
+        if !document_anchors.is_empty() {
+            return Ok(document_anchors);
+        }
+    }
+
+    Ok(if request.function_only {
+        preferred_function_name_matches(workspace_anchors, request.name)
+    } else {
+        preferred_name_matches(workspace_anchors, request.name)
+    })
+}
+
+#[derive(Clone, Copy)]
+struct NamedAnchorRequest<'a> {
+    directory: &'a Path,
+    name: &'a str,
+    function_only: bool,
+}
+
+fn exact_named_document_anchors(
+    workspace: &PreparedWorkspace,
+    client: &mut LspClient,
+    config: &ConfigStore,
+    request: NamedAnchorRequest<'_>,
+) -> Result<Vec<SymbolMatch>, String> {
+    let files = matching_files(
+        request.directory,
+        &config.filetypes,
+        &server_filetypes(&workspace.server),
+    )
+    .map_err(|error| format!("failed to scan {}: {error}", request.directory.display()))?;
+    let mut source_cache = SourceCache::default();
+    let mut matches = Vec::new();
+
+    for file in &files {
+        let uri = path_to_file_uri(file)?;
+        let response = match client.document_symbol(&uri) {
+            Ok(response) => response,
+            Err(error) if should_skip_document_symbol_error(&error) => continue,
+            Err(_) => continue,
+        };
+        let file_matches = if request.function_only {
+            function_matches_from_document_response(&response, file, &mut source_cache)?
+        } else {
+            document_symbol_matches_from_response(&response, file, &mut source_cache)?
+        };
+        matches.extend(
+            file_matches
+                .into_iter()
+                .filter(|matched| matched.name == request.name),
+        );
+    }
+
+    Ok(dedupe_symbol_matches(matches))
 }
 
 fn server_filetypes(server: &SuggestedLanguage) -> BTreeSet<String> {
@@ -596,8 +709,8 @@ impl CallHierarchyDirection {
 #[cfg(test)]
 mod tests {
     use super::{
-        dedupe_symbol_matches, render_paths_text, render_symbol_matches_text,
-        render_symbol_names_text, truncate_items,
+        dedupe_symbol_matches, preferred_function_name_matches, preferred_name_matches,
+        render_paths_text, render_symbol_matches_text, render_symbol_names_text, truncate_items,
     };
     use crate::lsp::SymbolMatch;
     use lsp_types::SymbolKind;
@@ -677,6 +790,56 @@ mod tests {
         assert_eq!(
             dedupe_symbol_matches(vec![matched.clone(), matched.clone()]),
             vec![matched]
+        );
+    }
+
+    #[test]
+    fn prefers_exact_name_matches_over_fuzzy_matches() {
+        let exact = SymbolMatch {
+            name: "main".to_string(),
+            kind: SymbolKind::FUNCTION,
+            path: PathBuf::from("src/main.rs"),
+            line: 1,
+            col: 1,
+            line_content: "fn main() {}".to_string(),
+        };
+        let fuzzy = SymbolMatch {
+            name: "SymbolInformationItem".to_string(),
+            kind: SymbolKind::STRUCT,
+            path: PathBuf::from("src/lsp/symbols.rs"),
+            line: 1,
+            col: 1,
+            line_content: "struct SymbolInformationItem {}".to_string(),
+        };
+
+        assert_eq!(
+            preferred_name_matches(vec![fuzzy, exact.clone()], "main"),
+            vec![exact]
+        );
+    }
+
+    #[test]
+    fn prefers_function_matches_for_function_queries() {
+        let function = SymbolMatch {
+            name: "main".to_string(),
+            kind: SymbolKind::FUNCTION,
+            path: PathBuf::from("src/main.rs"),
+            line: 1,
+            col: 1,
+            line_content: "fn main() {}".to_string(),
+        };
+        let non_function = SymbolMatch {
+            name: "main".to_string(),
+            kind: SymbolKind::STRUCT,
+            path: PathBuf::from("src/lib.rs"),
+            line: 1,
+            col: 1,
+            line_content: "struct main;".to_string(),
+        };
+
+        assert_eq!(
+            preferred_function_name_matches(vec![non_function, function.clone()], "main"),
+            vec![function]
         );
     }
 }

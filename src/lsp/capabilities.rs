@@ -39,11 +39,15 @@ pub fn ensure_workspace_symbol_support(initialize: &InitializeResponse) -> Resul
 }
 
 pub fn ensure_document_symbol_support(initialize: &InitializeResponse) -> Result<(), String> {
-    if !supports(initialize.capabilities.document_symbol_provider.as_ref()) {
+    if !document_symbol_supported(initialize) {
         return Err("selected LSP server does not support textDocument/documentSymbol".to_string());
     }
 
     Ok(())
+}
+
+pub fn document_symbol_supported(initialize: &InitializeResponse) -> bool {
+    supports(initialize.capabilities.document_symbol_provider.as_ref())
 }
 
 pub fn ensure_references_support(initialize: &InitializeResponse) -> Result<(), String> {

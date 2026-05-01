@@ -1,7 +1,8 @@
 use std::collections::BTreeSet;
 use std::io::BufReader;
+use std::os::unix::net::UnixStream;
 use std::path::Path;
-use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -19,8 +20,7 @@ use super::transport::{log_debug_message, read_message, write_message};
 use super::{InitializeResponse, ServerStatusParams};
 
 pub struct LspClient {
-    child: Child,
-    stdin: ChildStdin,
+    transport: ClientTransport,
     messages: Receiver<IncomingMessage>,
     next_request_id: u64,
     shutdown_sent: bool,
@@ -33,6 +33,11 @@ enum IncomingMessage {
     Message(Value),
     EndOfStream,
     Error(String),
+}
+
+enum ClientTransport {
+    Process { child: Child, stdin: ChildStdin },
+    Socket { stream: UnixStream },
 }
 
 #[derive(Debug, Deserialize)]
@@ -94,8 +99,41 @@ impl LspClient {
         }
 
         Ok(Self {
-            child,
-            stdin,
+            transport: ClientTransport::Process { child, stdin },
+            messages,
+            next_request_id: 1,
+            shutdown_sent: false,
+            opened_documents: BTreeSet::new(),
+            debug,
+            timeout,
+        })
+    }
+
+    pub fn connect_unix(
+        socket_path: &Path,
+        debug: bool,
+        timeout: Duration,
+    ) -> Result<Self, String> {
+        let stream = UnixStream::connect(socket_path).map_err(|error| {
+            format!(
+                "failed to connect to daemon socket {}: {error}",
+                socket_path.display()
+            )
+        })?;
+        let reader = stream.try_clone().map_err(|error| {
+            format!(
+                "failed to clone daemon socket {}: {error}",
+                socket_path.display()
+            )
+        })?;
+        let messages = spawn_reader(reader, debug);
+
+        if debug {
+            eprintln!("LSP daemon socket: {}", socket_path.display());
+        }
+
+        Ok(Self {
+            transport: ClientTransport::Socket { stream },
             messages,
             next_request_id: 1,
             shutdown_sent: false,
@@ -283,9 +321,11 @@ impl LspClient {
         self.send_notification(Exit::METHOD, &Value::Null)?;
         self.shutdown_sent = true;
 
-        self.child
-            .wait()
-            .map_err(|error| format!("failed to wait for LSP server exit: {error}"))?;
+        if let ClientTransport::Process { child, .. } = &mut self.transport {
+            child
+                .wait()
+                .map_err(|error| format!("failed to wait for LSP server exit: {error}"))?;
+        }
 
         Ok(())
     }
@@ -301,7 +341,7 @@ impl LspClient {
             "params": params,
         });
         log_debug_message(self.debug, "-> ", &message);
-        write_message(&mut self.stdin, &message)?;
+        self.write_transport_message(&message)?;
 
         loop {
             match self.messages.recv_timeout(self.timeout) {
@@ -345,7 +385,14 @@ impl LspClient {
             "params": params,
         });
         log_debug_message(self.debug, "-> ", &message);
-        write_message(&mut self.stdin, &message)
+        self.write_transport_message(&message)
+    }
+
+    fn write_transport_message(&mut self, message: &Value) -> Result<(), String> {
+        match &mut self.transport {
+            ClientTransport::Process { stdin, .. } => write_message(stdin, message),
+            ClientTransport::Socket { stream } => write_message(stream, message),
+        }
     }
 
     fn handle_server_request(&mut self, request_id: &Value, message: &Value) -> Result<(), String> {
@@ -384,7 +431,7 @@ impl LspClient {
         };
 
         log_debug_message(self.debug, "-> ", &response);
-        write_message(&mut self.stdin, &response)
+        self.write_transport_message(&response)
     }
 }
 
@@ -417,9 +464,11 @@ fn language_id(path: &Path) -> &'static str {
 
 impl Drop for LspClient {
     fn drop(&mut self) {
-        if !self.shutdown_sent {
-            let _ = self.child.kill();
-            let _ = self.child.wait();
+        if !self.shutdown_sent
+            && let ClientTransport::Process { child, .. } = &mut self.transport
+        {
+            let _ = child.kill();
+            let _ = child.wait();
         }
     }
 }
@@ -500,14 +549,20 @@ fn timeout_error(state: &BuildIndexState) -> String {
     }
 }
 
-fn spawn_reader(stdout: ChildStdout, debug: bool) -> Receiver<IncomingMessage> {
+fn spawn_reader<R>(reader: R, debug: bool) -> Receiver<IncomingMessage>
+where
+    R: std::io::Read + Send + 'static,
+{
     let (sender, receiver) = mpsc::channel();
-    thread::spawn(move || reader_loop(stdout, &sender, debug));
+    thread::spawn(move || reader_loop(reader, &sender, debug));
     receiver
 }
 
-fn reader_loop(stdout: ChildStdout, sender: &Sender<IncomingMessage>, debug: bool) {
-    let mut reader = BufReader::new(stdout);
+fn reader_loop<R>(reader: R, sender: &Sender<IncomingMessage>, debug: bool)
+where
+    R: std::io::Read,
+{
+    let mut reader = BufReader::new(reader);
 
     loop {
         match read_message(&mut reader) {
@@ -558,7 +613,7 @@ fn format_lsp_error(method: &str, error: &Value) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{LspClient, format_spawn_error};
+    use super::{ClientTransport, LspClient, format_spawn_error};
     use crate::test_support::TestDir;
     use std::fs;
     use std::time::Duration;
@@ -590,7 +645,12 @@ mod tests {
 
         let mut client = LspClient::new(&command, &workspace_root, false, Duration::from_secs(1))
             .expect("helper process should start");
-        let status = client.child.wait().expect("helper process should exit");
+        let status = match &mut client.transport {
+            ClientTransport::Process { child, .. } => {
+                child.wait().expect("helper process should exit")
+            }
+            ClientTransport::Socket { .. } => panic!("expected process transport"),
+        };
 
         assert!(status.success());
         assert_eq!(

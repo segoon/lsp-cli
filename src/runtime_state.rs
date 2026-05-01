@@ -2,6 +2,8 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use sha2::{Digest, Sha256};
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RuntimeState {
     root: PathBuf,
@@ -90,6 +92,26 @@ pub fn default_daemon_root() -> Result<PathBuf, String> {
     choose_daemon_root(runtime_dir.as_deref())
 }
 
+#[must_use]
+pub fn daemon_socket_path(
+    daemon_root: &Path,
+    workspace_root: &Path,
+    server_name: &str,
+    command: &[String],
+) -> PathBuf {
+    let mut hasher = Sha256::new();
+    hasher.update(workspace_root.display().to_string().as_bytes());
+    hasher.update([0]);
+    for argument in command {
+        hasher.update(argument.as_bytes());
+        hasher.update([0]);
+    }
+
+    let digest = format!("{:x}", hasher.finalize());
+    let slug = sanitize_daemon_socket_component(server_name);
+    daemon_root.join(format!("{}-{}.sock", slug, &digest[..24]))
+}
+
 fn choose_runtime_state_root(home: Option<&Path>) -> Result<PathBuf, String> {
     home.map(|path| path.join(".local/share/lsp-cli"))
         .ok_or_else(|| "could not resolve runtime state root because $HOME is not set".to_string())
@@ -101,9 +123,31 @@ fn choose_daemon_root(runtime_dir: Option<&Path>) -> Result<PathBuf, String> {
     })
 }
 
+fn sanitize_daemon_socket_component(value: &str) -> String {
+    let sanitized = value
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() {
+                ch.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>();
+    let sanitized = sanitized.trim_matches('-');
+    if sanitized.is_empty() {
+        "lsp".to_string()
+    } else {
+        sanitized.chars().take(32).collect()
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{RuntimeState, choose_daemon_root, choose_runtime_state_root};
+    use super::{
+        RuntimeState, choose_daemon_root, choose_runtime_state_root, daemon_socket_path,
+        sanitize_daemon_socket_component,
+    };
     use crate::test_support::{LOCAL_SHARE_LSP_CLI, TestDir};
 
     #[test]
@@ -138,6 +182,42 @@ mod tests {
         let error = choose_daemon_root(None).expect_err("missing runtime dir should fail");
 
         assert!(error.contains("daemon socket root"));
+    }
+
+    #[test]
+    fn daemon_socket_path_depends_on_workspace_and_command() {
+        let dir = TestDir::new("daemon-root");
+        let daemon_root = dir.path().join("runtime");
+        let first = daemon_socket_path(
+            &daemon_root,
+            &dir.path().join("one"),
+            "rust-analyzer",
+            &["rust-analyzer".to_string()],
+        );
+        let second = daemon_socket_path(
+            &daemon_root,
+            &dir.path().join("two"),
+            "rust-analyzer",
+            &["rust-analyzer".to_string()],
+        );
+        let third = daemon_socket_path(
+            &daemon_root,
+            &dir.path().join("one"),
+            "rust-analyzer",
+            &["rust-analyzer".to_string(), "--stdio".to_string()],
+        );
+
+        assert_ne!(first, second);
+        assert_ne!(first, third);
+    }
+
+    #[test]
+    fn sanitizes_daemon_socket_component() {
+        assert_eq!(
+            sanitize_daemon_socket_component("Rust Analyzer"),
+            "rust-analyzer"
+        );
+        assert_eq!(sanitize_daemon_socket_component("***"), "lsp");
     }
 
     #[test]

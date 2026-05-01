@@ -1,17 +1,11 @@
 use crate::cli::BuildIndexArgs;
-use crate::commands::common::prepare_workspace;
+use crate::commands::common::{connect_lsp_client, prepare_workspace};
 use crate::config::ConfigStore;
-use crate::lsp::LspClient;
 
 pub(super) fn run(args: &BuildIndexArgs, config: &ConfigStore) -> Result<String, String> {
     let workspace = prepare_workspace(&args.directory, args.lsp.as_deref(), config)?;
 
-    let mut client = LspClient::new(
-        &workspace.server.command,
-        &workspace.server.workspace_root,
-        args.debug,
-        args.timeout,
-    )?;
+    let mut client = connect_lsp_client(&workspace, args.debug, args.timeout)?;
     client
         .initialize(&workspace.root_uri, &workspace.workspace_name, true)
         .map_err(|error| format!("failed to initialize {}: {error}", workspace.server.server))?;

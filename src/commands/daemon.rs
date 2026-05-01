@@ -3,9 +3,8 @@ use crate::commands::common::{analyze_path, resolve_server};
 use crate::config::ConfigStore;
 use crate::lsp::transport::{log_debug_message, read_message, write_message};
 use crate::lsp::{path_to_file_uri, workspace_name};
-use crate::runtime_state::default_daemon_root;
+use crate::runtime_state::{daemon_socket_path, default_daemon_root};
 use serde_json::{Value, json};
-use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Write};
@@ -724,7 +723,7 @@ fn resolve_target(args: &DaemonArgs, config: &ConfigStore) -> Result<DaemonTarge
         })?;
     }
 
-    let socket_path = socket_path_for(
+    let socket_path = daemon_socket_path(
         &socket_root,
         &workspace_root,
         &server.server,
@@ -998,43 +997,6 @@ fn normalize_initialize_params(params: &Value, target: &DaemonTarget) -> Result<
     Ok(Value::Object(normalized))
 }
 
-fn socket_path_for(
-    socket_root: &Path,
-    workspace_root: &Path,
-    server_name: &str,
-    command: &[String],
-) -> PathBuf {
-    let mut hasher = Sha256::new();
-    hasher.update(workspace_root.display().to_string().as_bytes());
-    hasher.update([0]);
-    for argument in command {
-        hasher.update(argument.as_bytes());
-        hasher.update([0]);
-    }
-    let digest = format!("{:x}", hasher.finalize());
-    let slug = sanitize_socket_component(server_name);
-    socket_root.join(format!("{}-{}.sock", slug, &digest[..24]))
-}
-
-fn sanitize_socket_component(value: &str) -> String {
-    let sanitized = value
-        .chars()
-        .map(|ch| {
-            if ch.is_ascii_alphanumeric() {
-                ch.to_ascii_lowercase()
-            } else {
-                '-'
-            }
-        })
-        .collect::<String>();
-    let sanitized = sanitized.trim_matches('-');
-    if sanitized.is_empty() {
-        "lsp".to_string()
-    } else {
-        sanitized.chars().take(32).collect()
-    }
-}
-
 fn request_id(message: &Value) -> Option<Value> {
     message
         .get("id")
@@ -1133,9 +1095,8 @@ unsafe fn setsid_wrapper() -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        fingerprint_value, normalize_initialize_params, sanitize_socket_component, socket_path_for,
-    };
+    use super::{fingerprint_value, normalize_initialize_params};
+    use crate::runtime_state::daemon_socket_path;
     use crate::test_support::TestDir;
     use serde_json::json;
 
@@ -1157,19 +1118,19 @@ mod tests {
     fn socket_path_changes_with_workspace_and_command() {
         let dir = TestDir::new("daemon-socket");
         let socket_root = dir.path().join("run");
-        let first = socket_path_for(
+        let first = daemon_socket_path(
             &socket_root,
             &dir.path().join("one"),
             "rust-analyzer",
             &["rust-analyzer".to_string()],
         );
-        let second = socket_path_for(
+        let second = daemon_socket_path(
             &socket_root,
             &dir.path().join("two"),
             "rust-analyzer",
             &["rust-analyzer".to_string()],
         );
-        let third = socket_path_for(
+        let third = daemon_socket_path(
             &socket_root,
             &dir.path().join("one"),
             "rust-analyzer",
@@ -1178,12 +1139,6 @@ mod tests {
 
         assert_ne!(first, second);
         assert_ne!(first, third);
-    }
-
-    #[test]
-    fn sanitize_socket_component_keeps_socket_names_short() {
-        assert_eq!(sanitize_socket_component("Rust Analyzer"), "rust-analyzer");
-        assert_eq!(sanitize_socket_component("***"), "lsp");
     }
 
     #[test]

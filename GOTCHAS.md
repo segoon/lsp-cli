@@ -8,6 +8,9 @@
   documents on disconnect, but it does not persist dynamic registrations across sessions. If the
   upstream server uses `client/registerCapability` or `client/unregisterCapability`, lsp-cli marks
   the session as non-reusable and restarts the upstream server before the next client.
+- Normal LSP commands opportunistically reuse the daemon socket. If the expected socket path exists
+  but no daemon listens on it anymore, lsp-cli treats it as stale runtime state, removes the dead
+  socket file, and falls back to starting a direct LSP server for that command.
 - `workspace/applyEdit` only works while a client is actively connected. If no client is connected,
   lsp-cli rejects the request instead of editing files behind the client's back.
 

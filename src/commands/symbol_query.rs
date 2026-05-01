@@ -1,5 +1,5 @@
 use crate::cli::{ListSymbolsArgs, WorkspaceQueryArgs};
-use crate::commands::common::{PreparedWorkspace, prepare_workspace};
+use crate::commands::common::{PreparedWorkspace, connect_lsp_client, prepare_workspace};
 use crate::config::ConfigStore;
 use crate::detect::matching_files;
 use crate::lsp::{
@@ -351,12 +351,7 @@ where
     let workspace = prepare_workspace(path, selected_server, config)?;
     let wait_for_index = wait_for_index_requested || workspace.server.wait_for_index;
 
-    let mut client = LspClient::new(
-        &workspace.server.command,
-        &workspace.server.workspace_root,
-        debug,
-        timeout,
-    )?;
+    let mut client = connect_lsp_client(&workspace, debug, timeout)?;
     let initialize = client
         .initialize(
             &workspace.root_uri,

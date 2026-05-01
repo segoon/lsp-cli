@@ -2,14 +2,21 @@ use crate::config::ConfigStore;
 use crate::detect::{DetectionResult, detect_workspace};
 use crate::lsp::path_to_file_uri;
 use crate::mason::resolve_detect_suggestions;
+use crate::runtime_state::{daemon_socket_path, default_daemon_root};
 use crate::suggest::{SuggestedLanguage, suggestions_for};
+use std::fs;
 use std::path::Path;
+use std::path::PathBuf;
+use std::time::Duration;
+
+use crate::lsp::LspClient;
 
 pub(super) struct PreparedWorkspace {
     pub detection: DetectionResult,
     pub server: SuggestedLanguage,
     pub root_uri: String,
     pub workspace_name: String,
+    pub daemon_socket_path: Option<PathBuf>,
 }
 
 pub(super) fn analyze_path(
@@ -30,16 +37,78 @@ pub(super) fn prepare_workspace(
     config: &ConfigStore,
 ) -> Result<PreparedWorkspace, String> {
     let (detection, suggestions) = analyze_path(path, config)?;
-    let server = select_server(&detection, &suggestions, selected_server)?.clone();
+    let mut server = resolve_server(&detection, &suggestions, selected_server)?;
+    server.workspace_root = fs::canonicalize(&server.workspace_root).map_err(|error| {
+        format!(
+            "failed to resolve {}: {error}",
+            server.workspace_root.display()
+        )
+    })?;
     let root_uri = path_to_file_uri(&server.workspace_root)?;
     let workspace_name = crate::lsp::workspace_name(&server.workspace_root);
+    let daemon_socket_path = default_daemon_root().ok().map(|daemon_root| {
+        daemon_socket_path(
+            &daemon_root,
+            &server.workspace_root,
+            &server.server,
+            &server.command,
+        )
+    });
 
     Ok(PreparedWorkspace {
         detection,
         server,
         root_uri,
         workspace_name,
+        daemon_socket_path,
     })
+}
+
+pub(super) fn connect_lsp_client(
+    workspace: &PreparedWorkspace,
+    debug: bool,
+    timeout: Duration,
+) -> Result<LspClient, String> {
+    if let Some(socket_path) = &workspace.daemon_socket_path
+        && socket_path.exists()
+    {
+        match LspClient::connect_unix(socket_path, debug, timeout) {
+            Ok(client) => return Ok(client),
+            Err(connect_error) => {
+                match fs::remove_file(socket_path) {
+                    Ok(()) => {}
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                    Err(error) => {
+                        return Err(format!(
+                            "failed to clean up dead daemon socket {}: {error}",
+                            socket_path.display()
+                        ));
+                    }
+                }
+
+                return LspClient::new(
+                    &workspace.server.command,
+                    &workspace.server.workspace_root,
+                    debug,
+                    timeout,
+                )
+                .map_err(|spawn_error| {
+                    format!(
+                        "failed to use daemon socket {}: {connect_error}; failed to start {}: {spawn_error}",
+                        socket_path.display(),
+                        workspace.server.server
+                    )
+                });
+            }
+        }
+    }
+
+    LspClient::new(
+        &workspace.server.command,
+        &workspace.server.workspace_root,
+        debug,
+        timeout,
+    )
 }
 
 pub(super) fn select_server<'a>(
@@ -93,16 +162,21 @@ pub(super) fn resolve_server(
 
 #[cfg(test)]
 mod tests {
-    use super::{resolve_server, select_server};
+    use super::{PreparedWorkspace, connect_lsp_client, resolve_server, select_server};
     use crate::detect::DetectionResult;
+    use crate::lsp::transport::{read_message, write_message};
     use crate::suggest::SuggestedLanguage;
     use crate::test_support::{
-        env_var, make_executable, pyright_package, runtime_state_in_home, with_env_vars,
+        TestDir, env_var, make_executable, pyright_package, runtime_state_in_home, with_env_vars,
         write_registry,
     };
     use std::collections::BTreeSet;
     use std::fs;
+    use std::io::BufReader;
+    use std::os::unix::net::UnixListener;
     use std::path::PathBuf;
+    use std::thread;
+    use std::time::Duration;
 
     fn example_suggestion() -> SuggestedLanguage {
         SuggestedLanguage {
@@ -198,5 +272,163 @@ mod tests {
         );
 
         assert_eq!(resolved.command[0], cached.display().to_string());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn prefers_live_daemon_socket_before_spawning_server() {
+        let dir = TestDir::new("common-daemon");
+        let runtime_dir = dir.path().join("runtime");
+        fs::create_dir_all(runtime_dir.join("lsp-cli")).expect("runtime dir should be created");
+        let socket_path = runtime_dir.join("lsp-cli/test.sock");
+        let listener = UnixListener::bind(&socket_path).expect("socket should bind");
+        let cwd_file = dir.path().join("cwd.txt");
+        let workspace_root = dir.path().join("workspace");
+        fs::create_dir_all(&workspace_root).expect("workspace should exist");
+
+        let server = thread::spawn(move || {
+            let (stream, _) = listener.accept().expect("client should connect");
+            let reader_stream = stream.try_clone().expect("socket should clone");
+            let mut reader = BufReader::new(reader_stream);
+            let mut writer = stream;
+
+            let initialize = read_message(&mut reader)
+                .expect("initialize should parse")
+                .expect("initialize should exist");
+            assert_eq!(
+                initialize.get("method").and_then(serde_json::Value::as_str),
+                Some("initialize")
+            );
+            let response = serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": initialize.get("id").cloned().expect("initialize id should exist"),
+                "result": { "capabilities": {} },
+            });
+            write_message(&mut writer, &response).expect("initialize response should write");
+
+            let initialized = read_message(&mut reader)
+                .expect("initialized should parse")
+                .expect("initialized should exist");
+            assert_eq!(
+                initialized
+                    .get("method")
+                    .and_then(serde_json::Value::as_str),
+                Some("initialized")
+            );
+
+            let shutdown = read_message(&mut reader)
+                .expect("shutdown should parse")
+                .expect("shutdown should exist");
+            assert_eq!(
+                shutdown.get("method").and_then(serde_json::Value::as_str),
+                Some("shutdown")
+            );
+            let response = serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": shutdown.get("id").cloned().expect("shutdown id should exist"),
+                "result": null,
+            });
+            write_message(&mut writer, &response).expect("shutdown response should write");
+
+            let exit = read_message(&mut reader)
+                .expect("exit should parse")
+                .expect("exit should exist");
+            assert_eq!(
+                exit.get("method").and_then(serde_json::Value::as_str),
+                Some("exit")
+            );
+        });
+
+        with_env_vars(&[env_var("XDG_RUNTIME_DIR", &runtime_dir)], || {
+            let mut client = connect_lsp_client(
+                &PreparedWorkspace {
+                    detection: DetectionResult {
+                        filetypes: BTreeSet::from(["rust".to_string()]),
+                        filenames: BTreeSet::new(),
+                    },
+                    server: SuggestedLanguage {
+                        config_id: "rust-analyzer".to_string(),
+                        languages: vec!["rust".to_string()],
+                        server: "rust-analyzer".to_string(),
+                        command: vec![
+                            "/bin/sh".to_string(),
+                            "-c".to_string(),
+                            format!("pwd > {}", cwd_file.display()),
+                        ],
+                        workspace_root: workspace_root.clone(),
+                        wait_for_index: false,
+                    },
+                    root_uri: crate::lsp::path_to_file_uri(&workspace_root)
+                        .expect("root uri should build"),
+                    workspace_name: crate::lsp::workspace_name(&workspace_root),
+                    daemon_socket_path: Some(socket_path.clone()),
+                },
+                false,
+                Duration::from_secs(1),
+            )
+            .expect("client should connect");
+
+            client
+                .initialize(
+                    &crate::lsp::path_to_file_uri(&workspace_root).expect("root uri should build"),
+                    &crate::lsp::workspace_name(&workspace_root),
+                    false,
+                )
+                .expect("initialize should succeed");
+            client.shutdown().expect("shutdown should succeed");
+        });
+
+        server.join().expect("daemon thread should finish");
+        assert!(
+            !cwd_file.exists(),
+            "direct server should not have been spawned"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn removes_dead_daemon_socket_and_falls_back_to_server_process() {
+        let dir = TestDir::new("common-dead-daemon");
+        let runtime_dir = dir.path().join("runtime");
+        fs::create_dir_all(runtime_dir.join("lsp-cli")).expect("runtime dir should be created");
+        let socket_path = runtime_dir.join("lsp-cli/test.sock");
+        let listener = UnixListener::bind(&socket_path).expect("socket should bind");
+        drop(listener);
+
+        let workspace_root = dir.path().join("workspace");
+        fs::create_dir_all(&workspace_root).expect("workspace should exist");
+        let command = vec![
+            "/bin/sh".to_string(),
+            "-c".to_string(),
+            "exit 0".to_string(),
+        ];
+
+        with_env_vars(&[env_var("XDG_RUNTIME_DIR", &runtime_dir)], || {
+            let _client = connect_lsp_client(
+                &PreparedWorkspace {
+                    detection: DetectionResult {
+                        filetypes: BTreeSet::from(["rust".to_string()]),
+                        filenames: BTreeSet::new(),
+                    },
+                    server: SuggestedLanguage {
+                        config_id: "rust-analyzer".to_string(),
+                        languages: vec!["rust".to_string()],
+                        server: "rust-analyzer".to_string(),
+                        command,
+                        workspace_root: workspace_root.clone(),
+                        wait_for_index: false,
+                    },
+                    root_uri: crate::lsp::path_to_file_uri(&workspace_root)
+                        .expect("root uri should build"),
+                    workspace_name: crate::lsp::workspace_name(&workspace_root),
+                    daemon_socket_path: Some(socket_path.clone()),
+                },
+                false,
+                Duration::from_secs(1),
+            )
+            .expect("client should fall back to process");
+        });
+
+        assert!(!socket_path.exists(), "dead socket should be removed");
     }
 }

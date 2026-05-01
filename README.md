@@ -131,6 +131,7 @@ lsp-cli daemon path/to/project --lsp rust-analyzer
 `completion` writes a shell completion script to stdout. If no shell is passed, it uses the current shell from `$SHELL`.
 `run` performs detection and then replaces `lsp-cli` with the detected LSP server process using `execve`.
 `daemon` creates a Unix socket under `$XDG_RUNTIME_DIR/lsp-cli/`, starts `lsp-cli run` in the background, and prints the socket path only after the socket is already listening. The daemon accepts one LSP client at a time, keeps the upstream server warm while idle, and shuts it down after `--idle-timeout` (default `60s`). If the next client initializes with different normalized settings, lsp-cli restarts the upstream LSP server before serving that client.
+LSP-backed commands such as `grep`, `list-symbols`, `references`, and `build-index` automatically prefer the matching daemon socket when it exists. If the socket file exists but no daemon is listening, lsp-cli removes the dead socket and falls back to starting the LSP server directly.
 
 
 # References

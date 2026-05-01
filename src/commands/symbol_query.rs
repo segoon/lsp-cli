@@ -3,20 +3,33 @@ use crate::commands::common::{PreparedWorkspace, connect_lsp_client, prepare_wor
 use crate::config::ConfigStore;
 use crate::detect::matching_files;
 use crate::lsp::{
-    LspClient, SourceCache, SymbolMatch, call_hierarchy_matches_from_incoming_response,
-    call_hierarchy_matches_from_outgoing_response, document_symbol_matches_from_response,
-    document_symbol_supported, ensure_call_hierarchy_support, ensure_declaration_support,
-    ensure_definition_support, ensure_document_symbol_support, ensure_references_support,
+    LspClient, SourceCache, SymbolMatch, document_symbol_matches_from_response,
+    document_symbol_supported, ensure_call_hierarchy_support, ensure_document_symbol_support,
     ensure_workspace_symbol_support, function_matches_from_document_response,
     is_function_symbol_kind, location_matches_from_response, path_to_file_uri,
     prepare_call_hierarchy_response, should_skip_document_symbol_error,
     symbol_matches_from_response,
 };
 use crate::suggest::SuggestedLanguage;
-use serde_json::{Value, json};
 use std::collections::{BTreeSet, HashSet};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+
+mod kinds;
+mod render;
+
+#[cfg(test)]
+mod tests;
+
+use kinds::{
+    CallHierarchyDirection, LocationQueryKind, server_filetypes, zero_based_col, zero_based_line,
+};
+
+pub(super) use render::{
+    render_document_symbol_json, render_file_list_json, render_paths_text,
+    render_symbol_matches_text, render_symbol_names_text, render_workspace_symbol_json,
+    truncate_items,
+};
 
 pub(super) struct WorkspaceSymbolQueryResult {
     pub detected_filetypes: BTreeSet<String>,
@@ -248,119 +261,6 @@ pub(super) fn run_callees_query(
     config: &ConfigStore,
 ) -> Result<WorkspaceSymbolQueryResult, String> {
     run_call_hierarchy_query(args, name, CallHierarchyDirection::Outgoing, config)
-}
-
-pub(super) fn truncate_items<T>(mut items: Vec<T>, limit: usize, unit: &str) -> Vec<T> {
-    if items.len() > limit {
-        items.truncate(limit);
-        eprintln!("output limit reached ({limit} {unit}); increase it with --limit");
-    }
-
-    items
-}
-
-pub(super) fn render_symbol_matches_text(matches: &[SymbolMatch]) -> String {
-    matches
-        .iter()
-        .map(|matched| {
-            format!(
-                "{}:{}:{}:{}",
-                matched.path.display(),
-                matched.line,
-                matched.col,
-                matched.line_content
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
-pub(super) fn render_symbol_names_text(matches: &[SymbolMatch]) -> String {
-    matches
-        .iter()
-        .map(|matched| matched.name.clone())
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
-pub(super) fn render_paths_text(paths: &[PathBuf]) -> String {
-    paths
-        .iter()
-        .map(|path| path.display().to_string())
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
-pub(super) fn render_workspace_symbol_json(
-    query: &str,
-    directory: &Path,
-    detected_filetypes: &BTreeSet<String>,
-    server: &SuggestedLanguage,
-    matches: &[SymbolMatch],
-) -> String {
-    json!({
-        "query": query,
-        "directory": directory,
-        "detected": detected_filetypes,
-        "server": render_server_json(server),
-        "matches": render_symbol_matches_json(matches),
-    })
-    .to_string()
-}
-
-pub(super) fn render_document_symbol_json(
-    file: &Path,
-    detected_filetypes: &BTreeSet<String>,
-    server: &SuggestedLanguage,
-    matches: &[SymbolMatch],
-) -> String {
-    json!({
-        "file": file,
-        "detected": detected_filetypes,
-        "server": render_server_json(server),
-        "matches": render_symbol_matches_json(matches),
-    })
-    .to_string()
-}
-
-pub(super) fn render_file_list_json(
-    directory: &Path,
-    detected_filetypes: &BTreeSet<String>,
-    server: &SuggestedLanguage,
-    files: &[PathBuf],
-) -> String {
-    json!({
-        "directory": directory,
-        "detected": detected_filetypes,
-        "server": render_server_json(server),
-        "files": files,
-    })
-    .to_string()
-}
-
-fn render_server_json(server: &SuggestedLanguage) -> Value {
-    json!({
-        "name": server.server,
-        "languages": server.languages,
-        "command": server.command,
-        "workspace_root": server.workspace_root,
-    })
-}
-
-fn render_symbol_matches_json(matches: &[SymbolMatch]) -> Vec<Value> {
-    matches
-        .iter()
-        .map(|matched| {
-            json!({
-                "name": matched.name,
-                "kind": matched.kind,
-                "path": matched.path,
-                "line": matched.line,
-                "col": matched.col,
-                "line_content": matched.line_content,
-            })
-        })
-        .collect()
 }
 
 fn with_initialized_client<T, F>(
@@ -681,243 +581,4 @@ fn exact_named_document_anchors(
     }
 
     Ok(dedupe_symbol_matches(matches))
-}
-
-fn server_filetypes(server: &SuggestedLanguage) -> BTreeSet<String> {
-    server.languages.iter().cloned().collect()
-}
-
-fn zero_based_line(symbol: &SymbolMatch) -> u32 {
-    symbol.line.saturating_sub(1)
-}
-
-fn zero_based_col(symbol: &SymbolMatch) -> u32 {
-    symbol.col.saturating_sub(1)
-}
-
-#[derive(Clone, Copy)]
-enum LocationQueryKind {
-    References,
-    Definition,
-    Declaration,
-}
-
-impl LocationQueryKind {
-    fn label(self) -> &'static str {
-        match self {
-            Self::References => "references",
-            Self::Definition => "definition",
-            Self::Declaration => "declaration",
-        }
-    }
-
-    fn ensure_support(self, initialize: &crate::lsp::InitializeResponse) -> Result<(), String> {
-        match self {
-            Self::References => ensure_references_support(initialize),
-            Self::Definition => ensure_definition_support(initialize),
-            Self::Declaration => ensure_declaration_support(initialize),
-        }
-    }
-
-    fn query(
-        self,
-        client: &mut LspClient,
-        uri: &str,
-        anchor: &SymbolMatch,
-    ) -> Result<Value, String> {
-        match self {
-            Self::References => {
-                client.references(uri, zero_based_line(anchor), zero_based_col(anchor), false)
-            }
-            Self::Definition => {
-                client.definition(uri, zero_based_line(anchor), zero_based_col(anchor))
-            }
-            Self::Declaration => {
-                client.declaration(uri, zero_based_line(anchor), zero_based_col(anchor))
-            }
-        }
-    }
-}
-
-#[derive(Clone, Copy)]
-enum CallHierarchyDirection {
-    Incoming,
-    Outgoing,
-}
-
-impl CallHierarchyDirection {
-    fn label(self) -> &'static str {
-        match self {
-            Self::Incoming => "callers",
-            Self::Outgoing => "callees",
-        }
-    }
-
-    fn query(self, client: &mut LspClient, item: &Value) -> Result<Value, String> {
-        match self {
-            Self::Incoming => client.incoming_calls(item),
-            Self::Outgoing => client.outgoing_calls(item),
-        }
-    }
-
-    fn decode(
-        self,
-        response: &Value,
-        source_cache: &mut SourceCache,
-    ) -> Result<Vec<SymbolMatch>, String> {
-        match self {
-            Self::Incoming => call_hierarchy_matches_from_incoming_response(response, source_cache),
-            Self::Outgoing => call_hierarchy_matches_from_outgoing_response(response, source_cache),
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{
-        dedupe_symbol_matches, preferred_function_name_matches, preferred_name_matches,
-        render_paths_text, render_symbol_matches_text, render_symbol_names_text, truncate_items,
-        validate_list_symbols_file_path,
-    };
-    use crate::lsp::SymbolMatch;
-    use crate::test_support::TestDir;
-    use lsp_types::SymbolKind;
-    use std::path::PathBuf;
-
-    #[test]
-    fn renders_grep_text_output() {
-        assert_eq!(
-            render_symbol_matches_text(&[SymbolMatch {
-                name: "main".to_string(),
-                kind: SymbolKind::FUNCTION,
-                path: PathBuf::from("src/main.rs"),
-                line: 3,
-                col: 14,
-                line_content: "fn main() {".to_string(),
-            }]),
-            "src/main.rs:3:14:fn main() {"
-        );
-    }
-
-    #[test]
-    fn renders_empty_grep_text_output() {
-        assert_eq!(render_symbol_matches_text(&[]), "");
-    }
-
-    #[test]
-    fn renders_symbol_names_text_output() {
-        assert_eq!(
-            render_symbol_names_text(&[
-                SymbolMatch {
-                    name: "main".to_string(),
-                    kind: SymbolKind::FUNCTION,
-                    path: PathBuf::from("src/main.rs"),
-                    line: 3,
-                    col: 14,
-                    line_content: "fn main() {".to_string(),
-                },
-                SymbolMatch {
-                    name: "helper".to_string(),
-                    kind: SymbolKind::METHOD,
-                    path: PathBuf::from("src/lib.rs"),
-                    line: 8,
-                    col: 1,
-                    line_content: "fn helper() {}".to_string(),
-                },
-            ]),
-            "main\nhelper"
-        );
-    }
-
-    #[test]
-    fn renders_paths_text_output() {
-        assert_eq!(
-            render_paths_text(&[PathBuf::from("src/lib.rs"), PathBuf::from("src/main.rs")]),
-            "src/lib.rs\nsrc/main.rs"
-        );
-    }
-
-    #[test]
-    fn truncates_items_to_limit() {
-        let items = truncate_items(vec![1, 2, 3], 2, "lines");
-
-        assert_eq!(items, vec![1, 2]);
-    }
-
-    #[test]
-    fn dedupes_symbol_matches_by_location_and_name() {
-        let matched = SymbolMatch {
-            name: "main".to_string(),
-            kind: SymbolKind::FUNCTION,
-            path: PathBuf::from("src/main.rs"),
-            line: 1,
-            col: 1,
-            line_content: "fn main() {}".to_string(),
-        };
-
-        assert_eq!(
-            dedupe_symbol_matches(vec![matched.clone(), matched.clone()]),
-            vec![matched]
-        );
-    }
-
-    #[test]
-    fn prefers_exact_name_matches_over_fuzzy_matches() {
-        let exact = SymbolMatch {
-            name: "main".to_string(),
-            kind: SymbolKind::FUNCTION,
-            path: PathBuf::from("src/main.rs"),
-            line: 1,
-            col: 1,
-            line_content: "fn main() {}".to_string(),
-        };
-        let fuzzy = SymbolMatch {
-            name: "SymbolInformationItem".to_string(),
-            kind: SymbolKind::STRUCT,
-            path: PathBuf::from("src/lsp/symbols.rs"),
-            line: 1,
-            col: 1,
-            line_content: "struct SymbolInformationItem {}".to_string(),
-        };
-
-        assert_eq!(
-            preferred_name_matches(vec![fuzzy, exact.clone()], "main"),
-            vec![exact]
-        );
-    }
-
-    #[test]
-    fn prefers_function_matches_for_function_queries() {
-        let function = SymbolMatch {
-            name: "main".to_string(),
-            kind: SymbolKind::FUNCTION,
-            path: PathBuf::from("src/main.rs"),
-            line: 1,
-            col: 1,
-            line_content: "fn main() {}".to_string(),
-        };
-        let non_function = SymbolMatch {
-            name: "main".to_string(),
-            kind: SymbolKind::STRUCT,
-            path: PathBuf::from("src/lib.rs"),
-            line: 1,
-            col: 1,
-            line_content: "struct main;".to_string(),
-        };
-
-        assert_eq!(
-            preferred_function_name_matches(vec![non_function, function.clone()], "main"),
-            vec![function]
-        );
-    }
-
-    #[test]
-    fn rejects_directory_for_list_symbols_file_query() {
-        let dir = TestDir::new("list-symbols");
-        let error =
-            validate_list_symbols_file_path(dir.path()).expect_err("directory input should fail");
-
-        assert!(error.contains("expected a file path"));
-        assert!(error.contains("is a directory"));
-    }
 }

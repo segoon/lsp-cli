@@ -5,7 +5,7 @@ use std::path::Path;
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use lsp_types::notification::{Exit, Initialized, Notification};
 use lsp_types::request::{
@@ -13,11 +13,15 @@ use lsp_types::request::{
     DocumentSymbolRequest, GotoDeclaration, GotoDefinition, Initialize, References, Request,
     Shutdown, WorkspaceSymbolRequest,
 };
-use serde::Deserialize;
 use serde_json::{Value, json};
 
+use super::InitializeResponse;
 use super::transport::{log_debug_message, read_message, write_message};
-use super::{InitializeResponse, ServerStatusParams};
+
+mod background;
+
+#[cfg(test)]
+mod tests;
 
 pub struct LspClient {
     transport: ClientTransport,
@@ -38,30 +42,6 @@ enum IncomingMessage {
 enum ClientTransport {
     Process { child: Child, stdin: ChildStdin },
     Socket { stream: UnixStream },
-}
-
-#[derive(Debug, Deserialize)]
-struct WorkDoneProgressCreateParams {
-    token: Value,
-}
-
-#[derive(Debug, Deserialize)]
-struct ProgressParams {
-    token: Value,
-    value: ProgressValue,
-}
-
-#[derive(Debug, Deserialize)]
-struct ProgressValue {
-    kind: String,
-}
-
-#[derive(Debug, Default)]
-struct BuildIndexState {
-    saw_server_status: bool,
-    saw_work_done_progress: bool,
-    active_progress_tokens: std::collections::BTreeSet<String>,
-    finished_progress: bool,
 }
 
 impl LspClient {
@@ -273,45 +253,6 @@ impl LspClient {
         self.send_request(CallHierarchyOutgoingCalls::METHOD, &json!({ "item": item }))
     }
 
-    pub fn wait_for_background_work(&mut self) -> Result<(), String> {
-        let started = Instant::now();
-        let mut state = BuildIndexState::default();
-
-        loop {
-            let Some(remaining) = self.timeout.checked_sub(started.elapsed()) else {
-                return Err(timeout_error(&state));
-            };
-
-            match self.messages.recv_timeout(remaining) {
-                Ok(IncomingMessage::Message(message)) => {
-                    if let Some(outcome) = update_build_index_state(&message, &mut state)? {
-                        return outcome;
-                    }
-
-                    if let Some(request_id) = request_id(&message) {
-                        self.handle_server_request(&request_id, &message)?;
-                    }
-                }
-                Ok(IncomingMessage::EndOfStream) => {
-                    return Err(
-                        "LSP server closed while waiting for background work to finish".to_string(),
-                    );
-                }
-                Ok(IncomingMessage::Error(error)) => {
-                    return Err(format!(
-                        "failed to read LSP message while waiting for background work: {error}"
-                    ));
-                }
-                Err(RecvTimeoutError::Timeout) => {
-                    return Err(timeout_error(&state));
-                }
-                Err(RecvTimeoutError::Disconnected) => {
-                    return Err("LSP reader stopped while waiting for background work".to_string());
-                }
-            }
-        }
-    }
-
     pub fn shutdown(&mut self) -> Result<(), String> {
         if self.shutdown_sent {
             return Ok(());
@@ -473,82 +414,6 @@ impl Drop for LspClient {
     }
 }
 
-fn update_build_index_state(
-    message: &Value,
-    state: &mut BuildIndexState,
-) -> Result<Option<Result<(), String>>, String> {
-    let Some(method) = message.get("method").and_then(Value::as_str) else {
-        return Ok(None);
-    };
-
-    match method {
-        "experimental/serverStatus" => {
-            state.saw_server_status = true;
-            let params = message.get("params").cloned().unwrap_or(Value::Null);
-            let status: ServerStatusParams = serde_json::from_value(params)
-                .map_err(|error| format!("failed to decode experimental/serverStatus: {error}"))?;
-
-            if status.health == "error" {
-                return Ok(Some(Err(status.message.unwrap_or_else(|| {
-                    "LSP server reported an indexing error".to_string()
-                }))));
-            }
-
-            if status.quiescent {
-                return Ok(Some(Ok(())));
-            }
-        }
-        "window/workDoneProgress/create" => {
-            let params = message.get("params").cloned().unwrap_or(Value::Null);
-            let create: WorkDoneProgressCreateParams =
-                serde_json::from_value(params).map_err(|error| {
-                    format!("failed to decode window/workDoneProgress/create: {error}")
-                })?;
-            state.saw_work_done_progress = true;
-            let _ = create.token;
-        }
-        "$/progress" => {
-            let params = message.get("params").cloned().unwrap_or(Value::Null);
-            let progress: ProgressParams = serde_json::from_value(params)
-                .map_err(|error| format!("failed to decode $/progress: {error}"))?;
-            state.saw_work_done_progress = true;
-            let token = progress_token(&progress.token);
-
-            match progress.value.kind.as_str() {
-                "begin" => {
-                    state.active_progress_tokens.insert(token);
-                }
-                "end" => {
-                    state.finished_progress = true;
-                    state.active_progress_tokens.remove(&token);
-                    if !state.saw_server_status && state.active_progress_tokens.is_empty() {
-                        return Ok(Some(Ok(())));
-                    }
-                }
-                _ => {}
-            }
-        }
-        _ => {}
-    }
-
-    Ok(None)
-}
-
-fn progress_token(token: &Value) -> String {
-    match token {
-        Value::String(value) => value.clone(),
-        value => value.to_string(),
-    }
-}
-
-fn timeout_error(state: &BuildIndexState) -> String {
-    if state.saw_server_status || state.saw_work_done_progress {
-        "timed out waiting for LSP server to finish background work".to_string()
-    } else {
-        "selected LSP server did not expose background-work progress".to_string()
-    }
-}
-
 fn spawn_reader<R>(reader: R, debug: bool) -> Receiver<IncomingMessage>
 where
     R: std::io::Read + Send + 'static,
@@ -609,55 +474,4 @@ fn format_lsp_error(method: &str, error: &Value) -> String {
         .unwrap_or("unknown error");
 
     format!("{method} failed with {code}: {message}")
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{ClientTransport, LspClient, format_spawn_error};
-    use crate::test_support::TestDir;
-    use std::fs;
-    use std::time::Duration;
-
-    #[test]
-    fn formats_missing_binary_error() {
-        let error = std::io::Error::new(std::io::ErrorKind::NotFound, "missing");
-
-        assert_eq!(
-            format_spawn_error("ast-grep", &error),
-            "LSP server executable `ast-grep` is not installed or not in $PATH"
-        );
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn starts_server_in_workspace_root() {
-        let dir = TestDir::new("client");
-        let workspace_root = dir.path().join("workspace");
-        fs::create_dir_all(&workspace_root).expect("workspace should be created");
-        let cwd_file = dir.path().join("cwd.txt");
-        let command = vec![
-            "/bin/sh".to_string(),
-            "-c".to_string(),
-            "pwd > \"$1\"".to_string(),
-            "sh".to_string(),
-            cwd_file.display().to_string(),
-        ];
-
-        let mut client = LspClient::new(&command, &workspace_root, false, Duration::from_secs(1))
-            .expect("helper process should start");
-        let status = match &mut client.transport {
-            ClientTransport::Process { child, .. } => {
-                child.wait().expect("helper process should exit")
-            }
-            ClientTransport::Socket { .. } => panic!("expected process transport"),
-        };
-
-        assert!(status.success());
-        assert_eq!(
-            fs::read_to_string(&cwd_file)
-                .expect("cwd file should be written")
-                .trim_end(),
-            workspace_root.display().to_string()
-        );
-    }
 }

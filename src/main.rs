@@ -32,6 +32,7 @@ use url::Url;
 
 #[derive(Debug, Eq, PartialEq)]
 struct SymbolMatch {
+    name: String,
     path: PathBuf,
     line: u32,
     col: u32,
@@ -210,7 +211,7 @@ fn run_list_symbols(args: &ListSymbolsArgs, config: &ConfigStore) -> Result<Stri
             &result.matches,
         )
     } else {
-        render_symbol_matches_text(&result.matches)
+        render_symbol_names_text(&result.matches)
     })
 }
 
@@ -457,6 +458,14 @@ fn render_symbol_matches_text(matches: &[SymbolMatch]) -> String {
         .join("\n")
 }
 
+fn render_symbol_names_text(matches: &[SymbolMatch]) -> String {
+    matches
+        .iter()
+        .map(|matched| matched.name.clone())
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 fn render_workspace_symbol_json(
     query: &str,
     directory: &Path,
@@ -488,6 +497,7 @@ fn render_symbol_matches_json(matches: &[SymbolMatch]) -> Vec<Value> {
         .iter()
         .map(|matched| {
             json!({
+                "name": matched.name,
                 "path": matched.path,
                 "line": matched.line,
                 "col": matched.col,
@@ -560,20 +570,24 @@ impl WorkspaceSymbolItem {
     ) -> Option<Result<SymbolMatch, String>> {
         match self {
             Self::SymbolInformation(symbol) => {
-                Some(symbol.location.into_symbol_match(source_cache))
+                Some(symbol.location.into_symbol_match(symbol.name, source_cache))
             }
-            Self::WorkspaceSymbol(symbol) => symbol.location.into_symbol_match(source_cache),
+            Self::WorkspaceSymbol(symbol) => {
+                symbol.location.into_symbol_match(symbol.name, source_cache)
+            }
         }
     }
 }
 
 #[derive(Debug, Deserialize)]
 struct SymbolInformationItem {
+    name: String,
     location: Location,
 }
 
 #[derive(Debug, Deserialize)]
 struct WorkspaceSymbol {
+    name: String,
     location: WorkspaceSymbolLocation,
 }
 
@@ -590,10 +604,11 @@ enum WorkspaceSymbolLocation {
 impl WorkspaceSymbolLocation {
     fn into_symbol_match(
         self,
+        name: String,
         source_cache: &mut SourceCache,
     ) -> Option<Result<SymbolMatch, String>> {
         match self {
-            Self::Full(location) => Some(location.into_symbol_match(source_cache)),
+            Self::Full(location) => Some(location.into_symbol_match(name, source_cache)),
             Self::UriOnly { .. } => None,
         }
     }
@@ -606,7 +621,11 @@ struct Location {
 }
 
 impl Location {
-    fn into_symbol_match(self, source_cache: &mut SourceCache) -> Result<SymbolMatch, String> {
+    fn into_symbol_match(
+        self,
+        name: String,
+        source_cache: &mut SourceCache,
+    ) -> Result<SymbolMatch, String> {
         let path = file_uri_to_path(&self.uri)?;
         let line = self.range.start.line + 1;
         let col = self.range.start.character + 1;
@@ -615,6 +634,7 @@ impl Location {
         let line_content = source_cache.line_content(&path, line_index);
 
         Ok(SymbolMatch {
+            name,
             path,
             line,
             col,
@@ -645,8 +665,8 @@ fn file_uri_to_path(uri: &str) -> Result<PathBuf, String> {
 mod tests {
     use super::{
         SourceCache, SymbolMatch, detect_shell_from_env, generate_completion, render_detect_json,
-        render_detect_quiet, render_detect_text, render_symbol_matches_text, select_server,
-        symbol_matches_from_response,
+        render_detect_quiet, render_detect_text, render_symbol_matches_text,
+        render_symbol_names_text, select_server, symbol_matches_from_response,
     };
     use crate::cli::CompletionArgs;
     use crate::detect::DetectionResult;
@@ -748,6 +768,7 @@ mod tests {
     fn renders_grep_text_output() {
         assert_eq!(
             render_symbol_matches_text(&[SymbolMatch {
+                name: "main".to_string(),
                 path: PathBuf::from("src/main.rs"),
                 line: 3,
                 col: 14,
@@ -760,6 +781,29 @@ mod tests {
     #[test]
     fn renders_empty_grep_text_output() {
         assert_eq!(render_symbol_matches_text(&[]), "");
+    }
+
+    #[test]
+    fn renders_symbol_names_text_output() {
+        assert_eq!(
+            render_symbol_names_text(&[
+                SymbolMatch {
+                    name: "main".to_string(),
+                    path: PathBuf::from("src/main.rs"),
+                    line: 3,
+                    col: 14,
+                    line_content: "fn main() {".to_string(),
+                },
+                SymbolMatch {
+                    name: "helper".to_string(),
+                    path: PathBuf::from("src/lib.rs"),
+                    line: 8,
+                    col: 1,
+                    line_content: "fn helper() {}".to_string(),
+                },
+            ]),
+            "main\nhelper"
+        );
     }
 
     #[test]
@@ -797,6 +841,7 @@ mod tests {
         assert_eq!(
             matches,
             vec![SymbolMatch {
+                name: "symbol".to_string(),
                 path: file,
                 line: 2,
                 col: 3,

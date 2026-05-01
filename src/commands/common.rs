@@ -1,6 +1,7 @@
 use crate::config::ConfigStore;
 use crate::detect::{DetectionResult, detect_workspace};
 use crate::lsp::path_to_file_uri;
+use crate::mason::resolve_detect_suggestions;
 use crate::suggest::{SuggestedLanguage, suggestions_for};
 use std::path::Path;
 
@@ -80,12 +81,27 @@ pub(super) fn select_server<'a>(
     })
 }
 
+pub(super) fn resolve_server(
+    detection: &DetectionResult,
+    suggestions: &[SuggestedLanguage],
+    selected_server: Option<&str>,
+) -> Result<SuggestedLanguage, String> {
+    let selected = select_server(detection, suggestions, selected_server)?.clone();
+    let resolved = resolve_detect_suggestions(std::slice::from_ref(&selected), false)?;
+    Ok(resolved.into_iter().next().unwrap_or(selected))
+}
+
 #[cfg(test)]
 mod tests {
-    use super::select_server;
+    use super::{resolve_server, select_server};
     use crate::detect::DetectionResult;
     use crate::suggest::SuggestedLanguage;
+    use crate::test_support::{
+        env_var, make_executable, pyright_package, runtime_state_in_home, with_env_vars,
+        write_registry,
+    };
     use std::collections::BTreeSet;
+    use std::fs;
     use std::path::PathBuf;
 
     fn example_suggestion() -> SuggestedLanguage {
@@ -141,5 +157,46 @@ mod tests {
             error,
             "Requested LSP server \"missing-lsp\" is not in the detected server list: example-lsp"
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn resolves_server_from_managed_install() {
+        let dir = crate::test_support::TestDir::new("common");
+        let home = dir.path().join("home");
+        let state = runtime_state_in_home(&home);
+        state.ensure_dirs().expect("state dirs should be created");
+        write_registry(&state, &[pyright_package()]);
+        let cached = state
+            .package_dir("pyright")
+            .join("node_modules/.bin/pyright-langserver");
+        fs::create_dir_all(cached.parent().expect("parent should exist"))
+            .expect("parent dirs should be created");
+        fs::write(&cached, b"#!/bin/sh\nexit 0\n").expect("cached binary should be written");
+        make_executable(&cached);
+
+        let resolved = with_env_vars(
+            &[env_var("HOME", &home), env_var("PATH", "/nonexistent")],
+            || {
+                resolve_server(
+                    &DetectionResult {
+                        filetypes: BTreeSet::from(["python".to_string()]),
+                        filenames: BTreeSet::new(),
+                    },
+                    &[SuggestedLanguage {
+                        config_id: "pyright".to_string(),
+                        languages: vec!["python".to_string()],
+                        server: "pyright-langserver".to_string(),
+                        command: vec!["pyright-langserver".to_string(), "--stdio".to_string()],
+                        workspace_root: PathBuf::from("."),
+                        wait_for_index: false,
+                    }],
+                    None,
+                )
+                .expect("server should resolve")
+            },
+        );
+
+        assert_eq!(resolved.command[0], cached.display().to_string());
     }
 }

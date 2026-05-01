@@ -1,8 +1,6 @@
 use crate::cli::RunArgs;
-use crate::commands::common::{analyze_path, select_server};
+use crate::commands::common::{analyze_path, resolve_server};
 use crate::config::ConfigStore;
-use crate::mason::resolve_detect_suggestions;
-use crate::suggest::SuggestedLanguage;
 use std::process::Command;
 
 #[cfg(unix)]
@@ -51,63 +49,17 @@ fn format_exec_error(program: &str, error: &std::io::Error) -> String {
     }
 }
 
-fn resolve_server(
-    detection: &crate::detect::DetectionResult,
-    suggestions: &[SuggestedLanguage],
-    selected_server: Option<&str>,
-) -> Result<SuggestedLanguage, String> {
-    let selected = select_server(detection, suggestions, selected_server)?.clone();
-    let resolved = resolve_detect_suggestions(std::slice::from_ref(&selected), false)?;
-    Ok(resolved.into_iter().next().unwrap_or(selected))
-}
-
 #[cfg(test)]
 mod tests {
-    use super::resolve_server;
-    use crate::detect::DetectionResult;
-    use crate::test_support::{
-        TestDir, env_var, make_executable, pyright_package, runtime_state_in_home,
-        suggested_language, with_env_vars, write_registry,
-    };
-    use std::collections::BTreeSet;
-    use std::fs;
+    use super::format_exec_error;
 
-    #[cfg(unix)]
     #[test]
-    fn resolves_run_server_from_managed_install() {
-        let dir = TestDir::new("run");
-        let home = dir.path().join("home");
-        let state = runtime_state_in_home(&home);
-        state.ensure_dirs().expect("state dirs should be created");
-        write_registry(&state, &[pyright_package()]);
-        let cached = state
-            .package_dir("pyright")
-            .join("node_modules/.bin/pyright-langserver");
-        fs::create_dir_all(cached.parent().expect("parent should exist"))
-            .expect("parent dirs should be created");
-        fs::write(&cached, b"#!/bin/sh\nexit 0\n").expect("cached binary should be written");
-        make_executable(&cached);
+    fn formats_missing_binary_error() {
+        let error = std::io::Error::new(std::io::ErrorKind::NotFound, "missing");
 
-        let resolved = with_env_vars(
-            &[env_var("HOME", &home), env_var("PATH", "/nonexistent")],
-            || {
-                resolve_server(
-                    &DetectionResult {
-                        filetypes: BTreeSet::from(["python".to_string()]),
-                        filenames: BTreeSet::new(),
-                    },
-                    &[suggested_language(
-                        "pyright-langserver",
-                        "pyright",
-                        "pyright",
-                        "python",
-                    )],
-                    None,
-                )
-                .expect("run server should resolve")
-            },
+        assert_eq!(
+            format_exec_error("ast-grep", &error),
+            "LSP server executable `ast-grep` is not installed or not in $PATH"
         );
-
-        assert_eq!(resolved.command[0], cached.display().to_string());
     }
 }

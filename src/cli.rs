@@ -13,6 +13,7 @@ struct Cli {
 
 #[derive(Debug, Eq, PartialEq, Subcommand)]
 pub enum Command {
+    Daemon(DaemonArgs),
     Detect(DetectArgs),
     Grep(GrepArgs),
     ListSymbols(ListSymbolsArgs),
@@ -128,6 +129,18 @@ pub struct RunArgs {
     pub debug: bool,
 }
 
+#[derive(Debug, Args, Eq, PartialEq)]
+pub struct DaemonArgs {
+    #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
+    pub path: PathBuf,
+    #[arg(long)]
+    pub lsp: Option<String>,
+    #[arg(long)]
+    pub debug: bool,
+    #[arg(long, value_name = "T", default_value = "60", value_parser = parse_timeout)]
+    pub idle_timeout: Duration,
+}
+
 #[derive(Clone, Copy, Debug, Args, Eq, PartialEq)]
 pub struct CompletionArgs {
     pub shell: Option<Shell>,
@@ -170,7 +183,7 @@ fn parse_timeout(value: &str) -> Result<Duration, String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        BuildIndexArgs, Command, CompletionArgs, DetectArgs, GrepArgs, ListFilesArgs,
+        BuildIndexArgs, Command, CompletionArgs, DaemonArgs, DetectArgs, GrepArgs, ListFilesArgs,
         ListFunctionsArgs, ListSymbolsArgs, RunArgs, SymbolQueryArgs, WorkspaceQueryArgs,
         parse_args,
     };
@@ -639,6 +652,28 @@ mod tests {
                 path: PathBuf::from("workspace"),
                 lsp: Some("rust-analyzer".to_string()),
                 debug: true,
+            })
+        );
+    }
+
+    #[test]
+    fn parses_daemon_arguments() {
+        assert_eq!(
+            parse_args(vec![
+                "daemon".to_string(),
+                "workspace".to_string(),
+                "--lsp".to_string(),
+                "rust-analyzer".to_string(),
+                "--debug".to_string(),
+                "--idle-timeout".to_string(),
+                "1.5".to_string(),
+            ])
+            .expect("daemon should parse"),
+            Command::Daemon(DaemonArgs {
+                path: PathBuf::from("workspace"),
+                lsp: Some("rust-analyzer".to_string()),
+                debug: true,
+                idle_timeout: Duration::from_millis(1500),
             })
         );
     }

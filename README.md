@@ -114,6 +114,9 @@ lsp-cli completion zsh > /tmp/_lsp-cli
 
 # Replace lsp-cli with the detected LSP server process
 lsp-cli run path/to/project --lsp rust-analyzer
+
+# Start a background daemon and print its Unix socket path
+lsp-cli daemon path/to/project --lsp rust-analyzer
 ```
 
 `grep` uses the LSP `workspace/symbol` request. Pattern syntax and matching behavior are server-dependent.
@@ -127,6 +130,7 @@ lsp-cli run path/to/project --lsp rust-analyzer
 `build-index` waits for background-work signals such as `experimental/serverStatus` or work-done progress. If the selected server does not expose such progress, the command fails.
 `completion` writes a shell completion script to stdout. If no shell is passed, it uses the current shell from `$SHELL`.
 `run` performs detection and then replaces `lsp-cli` with the detected LSP server process using `execve`.
+`daemon` creates a Unix socket under `$XDG_RUNTIME_DIR/lsp-cli/`, starts `lsp-cli run` in the background, and prints the socket path only after the socket is already listening. The daemon accepts one LSP client at a time, keeps the upstream server warm while idle, and shuts it down after `--idle-timeout` (default `60s`). If the next client initializes with different normalized settings, lsp-cli restarts the upstream LSP server before serving that client.
 
 
 # References

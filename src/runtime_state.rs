@@ -85,14 +85,25 @@ pub fn default_runtime_state_root() -> Result<PathBuf, String> {
     choose_runtime_state_root(home.as_deref())
 }
 
+pub fn default_daemon_root() -> Result<PathBuf, String> {
+    let runtime_dir = env::var_os("XDG_RUNTIME_DIR").map(PathBuf::from);
+    choose_daemon_root(runtime_dir.as_deref())
+}
+
 fn choose_runtime_state_root(home: Option<&Path>) -> Result<PathBuf, String> {
     home.map(|path| path.join(".local/share/lsp-cli"))
         .ok_or_else(|| "could not resolve runtime state root because $HOME is not set".to_string())
 }
 
+fn choose_daemon_root(runtime_dir: Option<&Path>) -> Result<PathBuf, String> {
+    runtime_dir.map(|path| path.join("lsp-cli")).ok_or_else(|| {
+        "could not resolve daemon socket root because $XDG_RUNTIME_DIR is not set".to_string()
+    })
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{RuntimeState, choose_runtime_state_root};
+    use super::{RuntimeState, choose_daemon_root, choose_runtime_state_root};
     use crate::test_support::{LOCAL_SHARE_LSP_CLI, TestDir};
 
     #[test]
@@ -110,6 +121,23 @@ mod tests {
         let error = choose_runtime_state_root(None).expect_err("missing home should fail");
 
         assert!(error.contains("runtime state root"));
+    }
+
+    #[test]
+    fn resolves_daemon_root_under_xdg_runtime_dir() {
+        let runtime_dir = TestDir::new("daemon-root");
+
+        assert_eq!(
+            choose_daemon_root(Some(runtime_dir.path())).expect("root should resolve"),
+            runtime_dir.path().join("lsp-cli")
+        );
+    }
+
+    #[test]
+    fn errors_without_xdg_runtime_dir() {
+        let error = choose_daemon_root(None).expect_err("missing runtime dir should fail");
+
+        assert!(error.contains("daemon socket root"));
     }
 
     #[test]

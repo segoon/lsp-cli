@@ -1,6 +1,7 @@
 mod capabilities;
 mod client;
 mod symbols;
+pub(crate) mod transport;
 mod uri;
 
 pub use capabilities::{

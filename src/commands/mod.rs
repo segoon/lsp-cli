@@ -3,6 +3,7 @@ mod callees;
 mod callers;
 mod common;
 mod completion;
+mod daemon;
 mod declaration;
 mod definition;
 mod detect;
@@ -20,6 +21,7 @@ use crate::config::ConfigStore;
 pub(crate) fn run(command: CliCommand, config: &ConfigStore) -> Result<String, String> {
     match command {
         CliCommand::Detect(args) => detect::run(&args, config),
+        CliCommand::Daemon(args) => daemon::run(&args, config),
         CliCommand::Grep(args) => grep::run(&args, config),
         CliCommand::ListSymbols(args) => list_symbols::run(&args, config),
         CliCommand::ListFunctions(args) => list_functions::run(&args, config),

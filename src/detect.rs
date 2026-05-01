@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 use std::fs;
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::config::FiletypeConfig;
 
@@ -15,6 +15,17 @@ pub fn detect_workspace(path: &Path, filetypes: &[FiletypeConfig]) -> io::Result
     let mut detection = DetectionResult::default();
     scan_path(path, filetypes, &mut detection)?;
     Ok(detection)
+}
+
+pub fn matching_files(
+    path: &Path,
+    filetypes: &[FiletypeConfig],
+    allowed_filetypes: &BTreeSet<String>,
+) -> io::Result<Vec<PathBuf>> {
+    let mut matches = Vec::new();
+    collect_matching_files(path, filetypes, allowed_filetypes, &mut matches)?;
+    matches.sort();
+    Ok(matches)
 }
 
 fn scan_path(
@@ -40,6 +51,38 @@ fn scan_path(
         for entry in entries {
             let entry = entry.map_err(|error| path_error(path, &error))?;
             scan_path(&entry.path(), filetypes, detection)?;
+        }
+    }
+
+    Ok(())
+}
+
+fn collect_matching_files(
+    path: &Path,
+    filetypes: &[FiletypeConfig],
+    allowed_filetypes: &BTreeSet<String>,
+    matches: &mut Vec<PathBuf>,
+) -> io::Result<()> {
+    let metadata = fs::symlink_metadata(path).map_err(|error| path_error(path, &error))?;
+    let file_type = metadata.file_type();
+
+    if file_type.is_symlink() {
+        return Ok(());
+    }
+
+    if file_type.is_file() {
+        if file_matches(path, filetypes, allowed_filetypes) {
+            matches.push(path.to_path_buf());
+        }
+        return Ok(());
+    }
+
+    if file_type.is_dir() {
+        let entries = fs::read_dir(path).map_err(|error| path_error(path, &error))?;
+
+        for entry in entries {
+            let entry = entry.map_err(|error| path_error(path, &error))?;
+            collect_matching_files(&entry.path(), filetypes, allowed_filetypes, matches)?;
         }
     }
 
@@ -74,13 +117,51 @@ fn detect_file(path: &Path, filetypes: &[FiletypeConfig], detection: &mut Detect
     }
 }
 
+fn file_matches(
+    path: &Path,
+    filetypes: &[FiletypeConfig],
+    allowed_filetypes: &BTreeSet<String>,
+) -> bool {
+    matching_filetypes(path, filetypes)
+        .into_iter()
+        .any(|filetype| allowed_filetypes.contains(&filetype))
+}
+
+fn matching_filetypes(path: &Path, filetypes: &[FiletypeConfig]) -> Vec<String> {
+    let file_name = match path.file_name() {
+        Some(file_name) => file_name.to_string_lossy().into_owned(),
+        None => return Vec::new(),
+    };
+
+    let extension = path
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(str::to_ascii_lowercase);
+
+    filetypes
+        .iter()
+        .filter(|filetype| {
+            let extension_match = extension
+                .as_deref()
+                .is_some_and(|value| filetype.extensions.iter().any(|ext| ext == value));
+            let pattern_match = filetype
+                .patterns
+                .iter()
+                .any(|pattern| pattern.is_match(&file_name));
+
+            extension_match || pattern_match
+        })
+        .map(|filetype| filetype.id.clone())
+        .collect()
+}
+
 fn path_error(path: &Path, error: &io::Error) -> io::Error {
     io::Error::new(error.kind(), format!("{}: {error}", path.display()))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{DetectionResult, detect_workspace};
+    use super::{DetectionResult, detect_workspace, matching_files};
     use crate::config::FiletypeConfig;
     use regex::Regex;
     use std::collections::BTreeSet;
@@ -279,5 +360,25 @@ mod tests {
 
         assert_eq!(error.kind(), io::ErrorKind::NotFound);
         assert!(error.to_string().contains(&missing.display().to_string()));
+    }
+
+    #[test]
+    fn collects_matching_files_for_allowed_filetypes() {
+        let dir = TestDir::new();
+        dir.write_file("src/main.foo");
+        dir.write_file("src/lib.bar");
+        dir.write_file("README.md");
+
+        let matches = matching_files(
+            dir.path(),
+            &[
+                filetype("alpha", &["foo"], &[]),
+                filetype("beta", &["bar"], &[]),
+            ],
+            &BTreeSet::from(["alpha".to_string()]),
+        )
+        .expect("matching files should succeed");
+
+        assert_eq!(matches, vec![dir.path().join("src/main.foo")]);
     }
 }

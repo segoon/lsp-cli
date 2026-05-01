@@ -60,6 +60,10 @@ lsp-cli list-symbols path/to/project
 lsp-cli list-symbols path/to/project --json
 lsp-cli list-symbols path/to/project --wait-for-index
 
+# List only function-like workspace symbols
+lsp-cli list-functions path/to/project
+lsp-cli list-functions path/to/project --json
+
 # Wait for an LSP server that exposes background-work progress to finish indexing
 lsp-cli build-index path/to/project --lsp rust-analyzer
 lsp-cli build-index path/to/project --lsp clangd
@@ -75,6 +79,7 @@ lsp-cli run path/to/project --lsp rust-analyzer
 
 `grep` uses the LSP `workspace/symbol` request. Pattern syntax and matching behavior are server-dependent.
 `list-symbols` uses the same request with an empty query.
+`list-functions` walks matching files with `textDocument/documentSymbol` and keeps only method, constructor, function, and operator symbol kinds.
 `--wait-for-index` waits for the same background-work signals as `build-index` before sending `workspace/symbol`.
 `--debug` logs the selected LSP server command line, pid, and raw LSP traffic to stderr.
 `--timeout` controls the per-request LSP timeout. Plain numbers are seconds, and values ending in `ms` are milliseconds.

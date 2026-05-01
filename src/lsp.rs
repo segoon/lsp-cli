@@ -1,5 +1,7 @@
 use lsp_types::notification::{Exit, Initialized, Notification};
-use lsp_types::request::{Initialize, Request, Shutdown, WorkspaceSymbolRequest};
+use lsp_types::request::{
+    DocumentSymbolRequest, Initialize, Request, Shutdown, WorkspaceSymbolRequest,
+};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use std::io::{BufRead, BufReader, Read, Write};
@@ -34,6 +36,8 @@ pub struct InitializeResponse {
 pub struct ServerCapabilities {
     #[serde(rename = "workspaceSymbolProvider")]
     pub workspace_symbol_provider: Option<Value>,
+    #[serde(rename = "documentSymbolProvider")]
+    pub document_symbol_provider: Option<Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -145,6 +149,13 @@ impl LspClient {
 
     pub fn workspace_symbol(&mut self, pattern: &str) -> Result<Value, String> {
         self.send_request(WorkspaceSymbolRequest::METHOD, &json!({ "query": pattern }))
+    }
+
+    pub fn document_symbol(&mut self, uri: &str) -> Result<Value, String> {
+        self.send_request(
+            DocumentSymbolRequest::METHOD,
+            &json!({ "textDocument": { "uri": uri } }),
+        )
     }
 
     pub fn wait_for_background_work(&mut self) -> Result<(), String> {

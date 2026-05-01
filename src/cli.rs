@@ -16,6 +16,7 @@ pub enum Command {
     Detect(DetectArgs),
     Grep(GrepArgs),
     ListSymbols(ListSymbolsArgs),
+    ListFunctions(ListSymbolsArgs),
     BuildIndex(BuildIndexArgs),
     Completion(CompletionArgs),
     Run(RunArgs),
@@ -362,6 +363,55 @@ mod tests {
             ])
             .expect("list-symbols should parse"),
             Command::ListSymbols(ListSymbolsArgs {
+                query: WorkspaceQueryArgs {
+                    directory: PathBuf::from("workspace"),
+                    lsp: None,
+                    wait_for_index: true,
+                    json: false,
+                    debug: false,
+                    timeout: Duration::from_secs(10),
+                },
+            })
+        );
+    }
+
+    #[test]
+    fn parses_list_functions_arguments() {
+        assert_eq!(
+            parse_args(vec![
+                "list-functions".to_string(),
+                "workspace".to_string(),
+                "--lsp".to_string(),
+                "rust-analyzer".to_string(),
+                "--json".to_string(),
+                "--debug".to_string(),
+                "--timeout".to_string(),
+                "250ms".to_string(),
+            ])
+            .expect("list-functions should parse"),
+            Command::ListFunctions(ListSymbolsArgs {
+                query: WorkspaceQueryArgs {
+                    directory: PathBuf::from("workspace"),
+                    lsp: Some("rust-analyzer".to_string()),
+                    wait_for_index: false,
+                    json: true,
+                    debug: true,
+                    timeout: Duration::from_millis(250),
+                },
+            })
+        );
+    }
+
+    #[test]
+    fn parses_list_functions_wait_for_index() {
+        assert_eq!(
+            parse_args(vec![
+                "list-functions".to_string(),
+                "workspace".to_string(),
+                "--wait-for-index".to_string(),
+            ])
+            .expect("list-functions should parse"),
+            Command::ListFunctions(ListSymbolsArgs {
                 query: WorkspaceQueryArgs {
                     directory: PathBuf::from("workspace"),
                     lsp: None,

@@ -23,8 +23,9 @@ use cli::{
     RunArgs, WorkspaceQueryArgs, clap_command, parse_args,
 };
 use config::{ConfigStore, default_config_root, load_config_store};
-use detect::{DetectionResult, detect_workspace};
+use detect::{DetectionResult, detect_workspace, matching_files};
 use lsp::{InitializeResponse, LspClient};
+use lsp_types::SymbolKind;
 use serde::Deserialize;
 use serde_json::{Value, json};
 use suggest::{SuggestedLanguage, suggestions_for};
@@ -33,6 +34,7 @@ use url::Url;
 #[derive(Debug, Eq, PartialEq)]
 struct SymbolMatch {
     name: String,
+    kind: SymbolKind,
     path: PathBuf,
     line: u32,
     col: u32,
@@ -98,6 +100,7 @@ fn main() {
         CliCommand::Detect(args) => run_detect(&args, &config),
         CliCommand::Grep(args) => run_grep(&args, &config),
         CliCommand::ListSymbols(args) => run_list_symbols(&args, &config),
+        CliCommand::ListFunctions(args) => run_list_functions(&args, &config),
         CliCommand::BuildIndex(args) => run_build_index(&args, &config),
         CliCommand::Completion(_) => unreachable!("completion handled before config loading"),
         CliCommand::Run(args) => run_run(&args, &config),
@@ -215,6 +218,22 @@ fn run_list_symbols(args: &ListSymbolsArgs, config: &ConfigStore) -> Result<Stri
     })
 }
 
+fn run_list_functions(args: &ListSymbolsArgs, config: &ConfigStore) -> Result<String, String> {
+    let result = run_document_symbol_query(&args.query, config)?;
+
+    Ok(if args.query.json {
+        render_workspace_symbol_json(
+            "",
+            &args.query.directory,
+            &result.detected_filetypes,
+            &result.server,
+            &result.matches,
+        )
+    } else {
+        render_symbol_names_text(&result.matches)
+    })
+}
+
 fn run_run(args: &RunArgs, config: &ConfigStore) -> Result<String, String> {
     let (detection, suggestions) = analyze_path(&args.path, config)?;
     let server = select_server(&detection, &suggestions, args.lsp.as_deref())?;
@@ -252,6 +271,17 @@ fn ensure_workspace_symbol_support(initialize: &InitializeResponse) -> Result<()
         Some(Value::Bool(false)) | None
     ) {
         return Err("selected LSP server does not support workspace/symbol".to_string());
+    }
+
+    Ok(())
+}
+
+fn ensure_document_symbol_support(initialize: &InitializeResponse) -> Result<(), String> {
+    if matches!(
+        initialize.capabilities.document_symbol_provider,
+        Some(Value::Bool(false)) | None
+    ) {
+        return Err("selected LSP server does not support textDocument/documentSymbol".to_string());
     }
 
     Ok(())
@@ -345,6 +375,79 @@ fn run_workspace_symbol_query(
         detected_filetypes: workspace.detection.filetypes,
         server: workspace.server,
         matches: symbol_matches_from_response(&response)?,
+    })
+}
+
+fn run_document_symbol_query(
+    args: &WorkspaceQueryArgs,
+    config: &ConfigStore,
+) -> Result<WorkspaceSymbolQueryResult, String> {
+    let workspace = prepare_workspace(&args.directory, args.lsp.as_deref(), config)?;
+    let files = matching_files(
+        &args.directory,
+        &config.filetypes,
+        &workspace.detection.filetypes,
+    )
+    .map_err(|error| format!("failed to scan {}: {error}", args.directory.display()))?;
+    let wait_for_index = args.wait_for_index || workspace.server.wait_for_index;
+
+    let mut client = LspClient::new(&workspace.server.command, args.debug, args.timeout)?;
+    let initialize = client
+        .initialize(
+            &workspace.root_uri,
+            &workspace.workspace_name,
+            wait_for_index,
+        )
+        .map_err(|error| format!("failed to initialize {}: {error}", workspace.server.server))?;
+    ensure_document_symbol_support(&initialize)?;
+
+    let mut source_cache = SourceCache::default();
+    let response = (if wait_for_index {
+        client.wait_for_background_work().map_err(|error| {
+            format!(
+                "failed to wait for background work with {}: {error}",
+                workspace.server.server
+            )
+        })
+    } else {
+        Ok(())
+    })
+    .and_then(|()| {
+        let mut matches = Vec::new();
+        for file in &files {
+            let uri = path_to_file_uri(file)?;
+            let response = match client.document_symbol(&uri) {
+                Ok(response) => response,
+                Err(error) if should_skip_document_symbol_error(&error) => continue,
+                Err(error) => {
+                    return Err(format!(
+                        "failed to query {} for {}: {error}",
+                        workspace.server.server,
+                        file.display()
+                    ));
+                }
+            };
+            matches.extend(function_matches_from_document_response(
+                &response,
+                file,
+                &mut source_cache,
+            )?);
+        }
+        Ok(matches)
+    });
+    let shutdown = client.shutdown();
+    let matches = response?;
+    shutdown.map_err(|error| {
+        format!(
+            "failed to stop {} cleanly: {error}",
+            workspace.server.server
+        )
+    })?;
+
+    Ok(WorkspaceSymbolQueryResult {
+        detected_filetypes: workspace.detection.filetypes,
+        server: workspace.server,
+        matches,
     })
 }
 
@@ -498,6 +601,7 @@ fn render_symbol_matches_json(matches: &[SymbolMatch]) -> Vec<Value> {
         .map(|matched| {
             json!({
                 "name": matched.name,
+                "kind": matched.kind,
                 "path": matched.path,
                 "line": matched.line,
                 "col": matched.col,
@@ -505,6 +609,100 @@ fn render_symbol_matches_json(matches: &[SymbolMatch]) -> Vec<Value> {
             })
         })
         .collect()
+}
+
+fn is_function_symbol_kind(kind: SymbolKind) -> bool {
+    matches!(
+        kind,
+        SymbolKind::METHOD | SymbolKind::CONSTRUCTOR | SymbolKind::FUNCTION | SymbolKind::OPERATOR
+    )
+}
+
+fn should_skip_document_symbol_error(error: &str) -> bool {
+    error.contains("file not found")
+}
+
+fn function_matches_from_document_response(
+    response: &Value,
+    path: &Path,
+    source_cache: &mut SourceCache,
+) -> Result<Vec<SymbolMatch>, String> {
+    if response.is_null() {
+        return Ok(Vec::new());
+    }
+
+    let response: lsp_types::DocumentSymbolResponse = serde_json::from_value(response.clone())
+        .map_err(|error| {
+            format!("failed to decode textDocument/documentSymbol response: {error}")
+        })?;
+
+    match response {
+        lsp_types::DocumentSymbolResponse::Flat(symbols) => symbols
+            .into_iter()
+            .filter(|symbol| is_function_symbol_kind(symbol.kind))
+            .map(|symbol| symbol_information_to_match(symbol, source_cache))
+            .collect(),
+        lsp_types::DocumentSymbolResponse::Nested(symbols) => {
+            let mut matches = Vec::new();
+            for symbol in symbols {
+                collect_document_symbol_matches(path, symbol, source_cache, &mut matches)?;
+            }
+            Ok(matches)
+        }
+    }
+}
+
+fn symbol_information_to_match(
+    symbol: lsp_types::SymbolInformation,
+    source_cache: &mut SourceCache,
+) -> Result<SymbolMatch, String> {
+    let path = file_uri_to_path(&symbol.location.uri.to_string())?;
+    let line = symbol.location.range.start.line + 1;
+    let col = symbol.location.range.start.character + 1;
+    let line_index = usize::try_from(symbol.location.range.start.line)
+        .map_err(|_| format!("line index overflow for {}", path.display()))?;
+    let line_content = source_cache.line_content(&path, line_index);
+
+    Ok(SymbolMatch {
+        name: symbol.name,
+        kind: symbol.kind,
+        path,
+        line,
+        col,
+        line_content,
+    })
+}
+
+fn collect_document_symbol_matches(
+    path: &Path,
+    symbol: lsp_types::DocumentSymbol,
+    source_cache: &mut SourceCache,
+    matches: &mut Vec<SymbolMatch>,
+) -> Result<(), String> {
+    if is_function_symbol_kind(symbol.kind) {
+        let line = symbol.selection_range.start.line + 1;
+        let col = symbol.selection_range.start.character + 1;
+        let line_index = usize::try_from(symbol.selection_range.start.line)
+            .map_err(|_| format!("line index overflow for {}", path.display()))?;
+        let line_content = source_cache.line_content(path, line_index);
+
+        matches.push(SymbolMatch {
+            name: symbol.name.clone(),
+            kind: symbol.kind,
+            path: path.to_path_buf(),
+            line,
+            col,
+            line_content,
+        });
+    }
+
+    if let Some(children) = symbol.children {
+        for child in children {
+            collect_document_symbol_matches(path, child, source_cache, matches)?;
+        }
+    }
+
+    Ok(())
 }
 
 fn symbol_matches_from_response(response: &Value) -> Result<Vec<SymbolMatch>, String> {
@@ -569,11 +767,15 @@ impl WorkspaceSymbolItem {
         source_cache: &mut SourceCache,
     ) -> Option<Result<SymbolMatch, String>> {
         match self {
-            Self::SymbolInformation(symbol) => {
-                Some(symbol.location.into_symbol_match(symbol.name, source_cache))
-            }
+            Self::SymbolInformation(symbol) => Some(symbol.location.into_symbol_match(
+                symbol.name,
+                symbol.kind,
+                source_cache,
+            )),
             Self::WorkspaceSymbol(symbol) => {
-                symbol.location.into_symbol_match(symbol.name, source_cache)
+                symbol
+                    .location
+                    .into_symbol_match(symbol.name, symbol.kind, source_cache)
             }
         }
     }
@@ -582,12 +784,14 @@ impl WorkspaceSymbolItem {
 #[derive(Debug, Deserialize)]
 struct SymbolInformationItem {
     name: String,
+    kind: SymbolKind,
     location: Location,
 }
 
 #[derive(Debug, Deserialize)]
 struct WorkspaceSymbol {
     name: String,
+    kind: SymbolKind,
     location: WorkspaceSymbolLocation,
 }
 
@@ -605,10 +809,11 @@ impl WorkspaceSymbolLocation {
     fn into_symbol_match(
         self,
         name: String,
+        kind: SymbolKind,
         source_cache: &mut SourceCache,
     ) -> Option<Result<SymbolMatch, String>> {
         match self {
-            Self::Full(location) => Some(location.into_symbol_match(name, source_cache)),
+            Self::Full(location) => Some(location.into_symbol_match(name, kind, source_cache)),
             Self::UriOnly { .. } => None,
         }
     }
@@ -624,6 +829,7 @@ impl Location {
     fn into_symbol_match(
         self,
         name: String,
+        kind: SymbolKind,
         source_cache: &mut SourceCache,
     ) -> Result<SymbolMatch, String> {
         let path = file_uri_to_path(&self.uri)?;
@@ -635,6 +841,7 @@ impl Location {
 
         Ok(SymbolMatch {
             name,
+            kind,
             path,
             line,
             col,
@@ -664,14 +871,16 @@ fn file_uri_to_path(uri: &str) -> Result<PathBuf, String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        SourceCache, SymbolMatch, detect_shell_from_env, generate_completion, render_detect_json,
-        render_detect_quiet, render_detect_text, render_symbol_matches_text,
-        render_symbol_names_text, select_server, symbol_matches_from_response,
+        SourceCache, SymbolMatch, detect_shell_from_env, function_matches_from_document_response,
+        generate_completion, is_function_symbol_kind, render_detect_json, render_detect_quiet,
+        render_detect_text, render_symbol_matches_text, render_symbol_names_text, select_server,
+        symbol_matches_from_response,
     };
     use crate::cli::CompletionArgs;
     use crate::detect::DetectionResult;
     use crate::suggest::SuggestedLanguage;
     use clap_complete::Shell;
+    use lsp_types::SymbolKind;
     use serde_json::json;
     use std::collections::BTreeSet;
     use std::fs;
@@ -769,6 +978,7 @@ mod tests {
         assert_eq!(
             render_symbol_matches_text(&[SymbolMatch {
                 name: "main".to_string(),
+                kind: SymbolKind::FUNCTION,
                 path: PathBuf::from("src/main.rs"),
                 line: 3,
                 col: 14,
@@ -789,6 +999,7 @@ mod tests {
             render_symbol_names_text(&[
                 SymbolMatch {
                     name: "main".to_string(),
+                    kind: SymbolKind::FUNCTION,
                     path: PathBuf::from("src/main.rs"),
                     line: 3,
                     col: 14,
@@ -796,6 +1007,7 @@ mod tests {
                 },
                 SymbolMatch {
                     name: "helper".to_string(),
+                    kind: SymbolKind::METHOD,
                     path: PathBuf::from("src/lib.rs"),
                     line: 8,
                     col: 1,
@@ -842,11 +1054,100 @@ mod tests {
             matches,
             vec![SymbolMatch {
                 name: "symbol".to_string(),
+                kind: SymbolKind::FUNCTION,
                 path: file,
                 line: 2,
                 col: 3,
                 line_content: "second line".to_string(),
             }]
+        );
+    }
+
+    #[test]
+    fn identifies_function_like_symbol_kinds() {
+        assert!(is_function_symbol_kind(SymbolKind::METHOD));
+        assert!(is_function_symbol_kind(SymbolKind::CONSTRUCTOR));
+        assert!(is_function_symbol_kind(SymbolKind::FUNCTION));
+        assert!(is_function_symbol_kind(SymbolKind::OPERATOR));
+        assert!(!is_function_symbol_kind(SymbolKind::CLASS));
+        assert!(!is_function_symbol_kind(SymbolKind::VARIABLE));
+    }
+
+    #[test]
+    fn parses_document_symbols_for_functions() {
+        let dir = TestDir::new();
+        let file = dir.write_file(
+            "src/lib.rs",
+            "struct S;\nfn first() {}\nimpl S {\n    fn second(&self) {}\n}\n",
+        );
+        let mut cache = SourceCache::default();
+
+        let matches = function_matches_from_document_response(
+            &json!([
+                {
+                    "name": "S",
+                    "kind": 23,
+                    "range": {
+                        "start": { "line": 0, "character": 0 },
+                        "end": { "line": 3, "character": 1 }
+                    },
+                    "selectionRange": {
+                        "start": { "line": 0, "character": 7 },
+                        "end": { "line": 0, "character": 8 }
+                    },
+                    "children": [
+                        {
+                            "name": "second",
+                            "kind": 6,
+                            "range": {
+                                "start": { "line": 3, "character": 0 },
+                                "end": { "line": 3, "character": 23 }
+                            },
+                            "selectionRange": {
+                                "start": { "line": 3, "character": 7 },
+                                "end": { "line": 3, "character": 13 }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "first",
+                    "kind": 12,
+                    "range": {
+                        "start": { "line": 1, "character": 0 },
+                        "end": { "line": 1, "character": 13 }
+                    },
+                    "selectionRange": {
+                        "start": { "line": 1, "character": 3 },
+                        "end": { "line": 1, "character": 8 }
+                    }
+                }
+            ]),
+            &file,
+            &mut cache,
+        )
+        .expect("document symbols should parse");
+
+        assert_eq!(
+            matches,
+            vec![
+                SymbolMatch {
+                    name: "second".to_string(),
+                    kind: SymbolKind::METHOD,
+                    path: file.clone(),
+                    line: 4,
+                    col: 8,
+                    line_content: "    fn second(&self) {}".to_string(),
+                },
+                SymbolMatch {
+                    name: "first".to_string(),
+                    kind: SymbolKind::FUNCTION,
+                    path: file,
+                    line: 2,
+                    col: 4,
+                    line_content: "fn first() {}".to_string(),
+                },
+            ]
         );
     }
 
@@ -903,6 +1204,7 @@ mod tests {
         assert!(output.contains("lsp-cli"));
         assert!(output.contains("detect"));
         assert!(output.contains("grep"));
+        assert!(output.contains("list-functions"));
         assert!(output.contains("completion"));
     }
 

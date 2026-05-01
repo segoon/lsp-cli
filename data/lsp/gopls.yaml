@@ -3,6 +3,9 @@ filetypes:
   - "gomod"
   - "gowork"
   - "gotmpl"
-root_markers: []
-name: "go"
-cmdline: "go env"
+root_markers:
+  - "go.work"
+  - "go.mod"
+  - ".git"
+name: "gopls"
+cmdline: "gopls"

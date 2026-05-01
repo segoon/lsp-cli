@@ -1,2 +1,3 @@
-extensions: []
+extensions:
+  - "go"
 patterns: []

@@ -13,5 +13,5 @@ root_markers:
   - "configure.ac"
   - ".git"
 name: "clangd"
-cmdline: "clangd --background-index $WORKSPACE"
-wait-for-index: true
+cmdline: "clangd --background-index --compile-commands-dir=$WORKSPACE"
+wait-for-index: false

@@ -1,1 +1,4 @@
 /target
+playground/rust/target/
+playground/cpp/.cache
+playground/c/.cache

@@ -83,6 +83,13 @@ pub(super) fn run_document_symbol_query(
 
             for file in &files {
                 let uri = path_to_file_uri(file)?;
+                client.open_document(file, &uri).map_err(|error| {
+                    format!(
+                        "failed to open {} with {}: {error}",
+                        file.display(),
+                        workspace.server.server
+                    )
+                })?;
                 let response = match client.document_symbol(&uri) {
                     Ok(response) => response,
                     Err(error) if should_skip_document_symbol_error(&error) => continue,
@@ -127,6 +134,13 @@ pub(super) fn run_file_symbol_query(
             ensure_document_symbol_support(initialize)?;
 
             let uri = path_to_file_uri(&args.file)?;
+            client.open_document(&args.file, &uri).map_err(|error| {
+                format!(
+                    "failed to open {} with {}: {error}",
+                    args.file.display(),
+                    workspace.server.server
+                )
+            })?;
             let response = client.document_symbol(&uri).map_err(|error| {
                 format!(
                     "failed to query {} for {}: {error}",
@@ -410,6 +424,13 @@ fn run_named_location_query(
 
             for anchor in anchors {
                 let uri = path_to_file_uri(&anchor.path)?;
+                client.open_document(&anchor.path, &uri).map_err(|error| {
+                    format!(
+                        "failed to open {} with {}: {error}",
+                        anchor.path.display(),
+                        workspace.server.server
+                    )
+                })?;
                 let response = kind.query(client, &uri, &anchor).map_err(|error| {
                     format!(
                         "failed to query {} for {} of {name:?}: {error}",
@@ -477,6 +498,13 @@ fn run_call_hierarchy_query(
 
             for anchor in anchors {
                 let uri = path_to_file_uri(&anchor.path)?;
+                client.open_document(&anchor.path, &uri).map_err(|error| {
+                    format!(
+                        "failed to open {} with {}: {error}",
+                        anchor.path.display(),
+                        workspace.server.server
+                    )
+                })?;
                 let prepared = client
                     .prepare_call_hierarchy(&uri, zero_based_line(&anchor), zero_based_col(&anchor))
                     .map_err(|error| {
@@ -597,6 +625,13 @@ fn exact_named_document_anchors(
 
     for file in &files {
         let uri = path_to_file_uri(file)?;
+        client.open_document(file, &uri).map_err(|error| {
+            format!(
+                "failed to open {} with {}: {error}",
+                file.display(),
+                workspace.server.server
+            )
+        })?;
         let response = match client.document_symbol(&uri) {
             Ok(response) => response,
             Err(error) if should_skip_document_symbol_error(&error) => continue,

@@ -1,4 +1,6 @@
+use std::collections::BTreeSet;
 use std::io::{BufRead, BufReader, Read, Write};
+use std::path::Path;
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::thread;
@@ -21,6 +23,7 @@ pub struct LspClient {
     messages: Receiver<IncomingMessage>,
     next_request_id: u64,
     shutdown_sent: bool,
+    opened_documents: BTreeSet<String>,
     debug: bool,
     timeout: Duration,
 }
@@ -89,9 +92,32 @@ impl LspClient {
             messages,
             next_request_id: 1,
             shutdown_sent: false,
+            opened_documents: BTreeSet::new(),
             debug,
             timeout,
         })
+    }
+
+    pub fn open_document(&mut self, path: &Path, uri: &str) -> Result<(), String> {
+        if self.opened_documents.contains(uri) {
+            return Ok(());
+        }
+
+        let text = std::fs::read_to_string(path)
+            .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+        self.send_notification(
+            "textDocument/didOpen",
+            &json!({
+                "textDocument": {
+                    "uri": uri,
+                    "languageId": language_id(path),
+                    "version": 1,
+                    "text": text,
+                }
+            }),
+        )?;
+        self.opened_documents.insert(uri.to_string());
+        Ok(())
     }
 
     pub fn initialize(
@@ -364,6 +390,21 @@ fn format_spawn_error(program: &str, error: &std::io::Error) -> String {
             format!("configured LSP server executable `{program}` was not found")
         }
         _ => format!("failed to start LSP server `{program}`: {error}"),
+    }
+}
+
+fn language_id(path: &Path) -> &'static str {
+    match path.extension().and_then(|value| value.to_str()) {
+        Some("c" | "h") => "c",
+        Some("cc" | "cpp" | "cxx" | "hh" | "hpp" | "hxx") => "cpp",
+        Some("cs") => "csharp",
+        Some("go") => "go",
+        Some("java") => "java",
+        Some("js" | "mjs" | "cjs") => "javascript",
+        Some("py") => "python",
+        Some("rs") => "rust",
+        Some("ts" | "mts" | "cts") => "typescript",
+        _ => "plaintext",
     }
 }
 

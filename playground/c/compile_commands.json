@@ -1,0 +1,17 @@
+[
+  {
+    "directory": "/home/segoon/projects/lsp-cli/playground/c",
+    "command": "cc -Iinclude -c src/main.c",
+    "file": "src/main.c"
+  },
+  {
+    "directory": "/home/segoon/projects/lsp-cli/playground/c",
+    "command": "cc -Iinclude -c src/order.c",
+    "file": "src/order.c"
+  },
+  {
+    "directory": "/home/segoon/projects/lsp-cli/playground/c",
+    "command": "cc -Iinclude -c src/format/formatter.c",
+    "file": "src/format/formatter.c"
+  }
+]

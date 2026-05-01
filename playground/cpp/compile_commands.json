@@ -1,0 +1,17 @@
+[
+  {
+    "directory": "/home/segoon/projects/lsp-cli/playground/cpp",
+    "command": "c++ -std=c++17 -Iinclude -c src/main.cpp",
+    "file": "src/main.cpp"
+  },
+  {
+    "directory": "/home/segoon/projects/lsp-cli/playground/cpp",
+    "command": "c++ -std=c++17 -Iinclude -c src/order.cpp",
+    "file": "src/order.cpp"
+  },
+  {
+    "directory": "/home/segoon/projects/lsp-cli/playground/cpp",
+    "command": "c++ -std=c++17 -Iinclude -c src/report/formatter.cpp",
+    "file": "src/report/formatter.cpp"
+  }
+]

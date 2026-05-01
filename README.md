@@ -39,6 +39,34 @@ cargo run
 ```
 
 
+# Playground
+
+The repository includes small multi-file sample projects under `playground/` for manual
+`lsp-cli` experiments across multiple languages:
+
+- `playground/c`
+- `playground/cpp`
+- `playground/java`
+- `playground/python`
+- `playground/csharp`
+- `playground/rust`
+- `playground/js`
+- `playground/typescript`
+- `playground/go`
+
+Each playground contains cross-file references, a subdirectory, and a minimal project marker so
+you can try commands such as:
+
+```sh
+cargo run -- detect playground/python
+cargo run -- grep Order playground/rust
+cargo run -- list-symbols playground/java/src/main/java/playground/order/Order.java
+cargo run -- definition format_order playground/c --lsp clangd
+```
+
+See `playground/README.md` for more examples.
+
+
 # Available modes
 
 ```sh
@@ -127,14 +155,6 @@ detect:
 - LSP servers priority among server for the same filetype
 
 commands:
-- symbol|search|find
-- symbol-definition
-- symbol-declaration
-- references|refs
-- callers
-- callees
-- symbols-file
-- symbols-workspace
 - repl (TODO: name... cli, console, terminal, interactive?)
 
 options:

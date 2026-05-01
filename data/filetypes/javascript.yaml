@@ -1,2 +1,5 @@
-extensions: []
+extensions:
+  - "js"
+  - "mjs"
+  - "cjs"
 patterns: []

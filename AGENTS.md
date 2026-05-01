@@ -14,7 +14,19 @@ lsp-cli is a high-level commandline tool that makes it possible to query LSP ser
   - inform about made decisions and tricky/risky/controversial/ugly details
   - summarize alternatives with pros/cons
   - inform about architectural/strategic consequencies and possible future problems/limitations
-* When done, inform the user about difficulties you've met during the work
+* When done, inform the user about difficulties you've met during the work.
+  If you had no difficulties, omit the report.
+* If you meet any difficulties with LSP protocol or LSP server implementation
+  (e.g. bugs or non-standard API), write it down into `GOTCHAS.md`
+  to the relevant section.
+
+
+# Testing
+
+When adding/changing any major feature (e.g. subcommand),
+check it:
+- in unit tests in *.rs
+- in playground/ (see @playground/README.md)
 
 
 # Commands

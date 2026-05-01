@@ -53,10 +53,12 @@ lsp-cli grep --json MySymbol path/to/project
 lsp-cli grep --debug MySymbol path/to/project
 lsp-cli grep --timeout 1.5 MySymbol path/to/project
 lsp-cli grep --timeout 100ms MySymbol path/to/project
+lsp-cli grep --wait-for-index MySymbol path/to/project
 
 # List all workspace symbols by sending an empty query
 lsp-cli list-symbols path/to/project
 lsp-cli list-symbols path/to/project --json
+lsp-cli list-symbols path/to/project --wait-for-index
 
 # Wait for an LSP server that exposes background-work progress to finish indexing
 lsp-cli build-index path/to/project --lsp rust-analyzer
@@ -68,6 +70,7 @@ lsp-cli run path/to/project --lsp rust-analyzer
 
 `grep` uses the LSP `workspace/symbol` request. Pattern syntax and matching behavior are server-dependent.
 `list-symbols` uses the same request with an empty query.
+`--wait-for-index` waits for the same background-work signals as `build-index` before sending `workspace/symbol`.
 `--debug` logs the selected LSP server command line, pid, and raw LSP traffic to stderr.
 `--timeout` controls the per-request LSP timeout. Plain numbers are seconds, and values ending in `ms` are milliseconds.
 `build-index` waits for background-work signals such as `experimental/serverStatus` or work-done progress. If the selected server does not expose such progress, the command fails.
@@ -115,7 +118,3 @@ lifecycle:
 - status
 - addr - show active LSP server
 - serve - synch start LSP server, stop it on exit (TODO: what to do with multiple LSP servers?)
-
-indexation:
-- $/progress
-- textDocument/clangd.fileStatus + loop over all files

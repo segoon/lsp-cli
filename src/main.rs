@@ -104,13 +104,25 @@ fn run_grep(args: &GrepArgs, config: &ConfigStore) -> Result<String, String> {
 
     let mut client = LspClient::new(&server.command, args.debug, args.timeout)?;
     let initialize = client
-        .initialize(&root_uri, &workspace_name, false)
+        .initialize(&root_uri, &workspace_name, args.wait_for_index)
         .map_err(|error| format!("failed to initialize {}: {error}", server.server))?;
     ensure_workspace_symbol_support(&initialize)?;
 
-    let response = client
-        .workspace_symbol(&args.pattern)
-        .map_err(|error| format!("failed to query {}: {error}", server.server));
+    let response = (if args.wait_for_index {
+        client.wait_for_background_work().map_err(|error| {
+            format!(
+                "failed to wait for background work with {}: {error}",
+                server.server
+            )
+        })
+    } else {
+        Ok(())
+    })
+    .and_then(|()| {
+        client
+            .workspace_symbol(&args.pattern)
+            .map_err(|error| format!("failed to query {}: {error}", server.server))
+    });
     let shutdown = client.shutdown();
     let response = response?;
     shutdown.map_err(|error| format!("failed to stop {} cleanly: {error}", server.server))?;
@@ -151,13 +163,25 @@ fn run_list_symbols(args: &ListSymbolsArgs, config: &ConfigStore) -> Result<Stri
 
     let mut client = LspClient::new(&server.command, args.debug, args.timeout)?;
     let initialize = client
-        .initialize(&root_uri, &workspace_name, false)
+        .initialize(&root_uri, &workspace_name, args.wait_for_index)
         .map_err(|error| format!("failed to initialize {}: {error}", server.server))?;
     ensure_workspace_symbol_support(&initialize)?;
 
-    let response = client
-        .workspace_symbol("")
-        .map_err(|error| format!("failed to query {}: {error}", server.server));
+    let response = (if args.wait_for_index {
+        client.wait_for_background_work().map_err(|error| {
+            format!(
+                "failed to wait for background work with {}: {error}",
+                server.server
+            )
+        })
+    } else {
+        Ok(())
+    })
+    .and_then(|()| {
+        client
+            .workspace_symbol("")
+            .map_err(|error| format!("failed to query {}: {error}", server.server))
+    });
     let shutdown = client.shutdown();
     let response = response?;
     shutdown.map_err(|error| format!("failed to stop {} cleanly: {error}", server.server))?;
@@ -175,7 +199,10 @@ fn run_run(args: &RunArgs, config: &ConfigStore) -> Result<String, String> {
     let (detection, suggestions) = analyze_path(&args.path, config)?;
     let server = select_server(&detection, &suggestions, args.lsp.as_deref())?;
     let Some(program) = server.command.first() else {
-        return Err(format!("selected LSP server {} has an empty command", server.server));
+        return Err(format!(
+            "selected LSP server {} has an empty command",
+            server.server
+        ));
     };
 
     if args.debug {
@@ -262,7 +289,12 @@ fn select_server<'a>(
         } else {
             format!(
                 "No LSP server matches detected filetypes: {}",
-                detection.filetypes.iter().cloned().collect::<Vec<_>>().join(", ")
+                detection
+                    .filetypes
+                    .iter()
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join(", ")
             )
         }
     })
@@ -276,7 +308,10 @@ fn render_detect_quiet(suggestions: &[SuggestedLanguage]) -> String {
         .join("\n")
 }
 
-fn render_detect_text(detected_filetypes: &BTreeSet<String>, suggestions: &[SuggestedLanguage]) -> String {
+fn render_detect_text(
+    detected_filetypes: &BTreeSet<String>,
+    suggestions: &[SuggestedLanguage],
+) -> String {
     if suggestions.is_empty() {
         return "No supported languages detected".to_string();
     }
@@ -456,9 +491,7 @@ enum WorkspaceSymbolItem {
 impl WorkspaceSymbolItem {
     fn into_grep_match(self, source_cache: &mut SourceCache) -> Option<Result<GrepMatch, String>> {
         match self {
-            Self::SymbolInformation(symbol) => {
-                Some(symbol.location.into_grep_match(source_cache))
-            }
+            Self::SymbolInformation(symbol) => Some(symbol.location.into_grep_match(source_cache)),
             Self::WorkspaceSymbol(symbol) => symbol.location.into_grep_match(source_cache),
         }
     }
@@ -616,7 +649,10 @@ mod tests {
 
     #[test]
     fn renders_detect_quiet_output() {
-        assert_eq!(render_detect_quiet(&[example_suggestion()]), "example-lsp --stdio");
+        assert_eq!(
+            render_detect_quiet(&[example_suggestion()]),
+            "example-lsp --stdio"
+        );
     }
 
     #[test]

@@ -39,6 +39,8 @@ pub struct GrepArgs {
     #[arg(long)]
     pub lsp: Option<String>,
     #[arg(long)]
+    pub wait_for_index: bool,
+    #[arg(long)]
     pub json: bool,
     #[arg(long)]
     pub debug: bool,
@@ -52,6 +54,8 @@ pub struct ListSymbolsArgs {
     pub directory: PathBuf,
     #[arg(long)]
     pub lsp: Option<String>,
+    #[arg(long)]
+    pub wait_for_index: bool,
     #[arg(long)]
     pub json: bool,
     #[arg(long)]
@@ -169,6 +173,7 @@ mod tests {
                 pattern: "needle".to_string(),
                 directory: PathBuf::from("workspace"),
                 lsp: Some("clangd".to_string()),
+                wait_for_index: false,
                 json: true,
                 debug: true,
                 timeout: Duration::from_secs(10),
@@ -191,6 +196,7 @@ mod tests {
                 pattern: "needle".to_string(),
                 directory: PathBuf::from("workspace"),
                 lsp: None,
+                wait_for_index: false,
                 json: false,
                 debug: false,
                 timeout: Duration::from_millis(1500),
@@ -210,6 +216,7 @@ mod tests {
                 pattern: "needle".to_string(),
                 directory: PathBuf::from("workspace"),
                 lsp: None,
+                wait_for_index: false,
                 json: false,
                 debug: false,
                 timeout: Duration::from_millis(100),
@@ -261,6 +268,28 @@ mod tests {
     }
 
     #[test]
+    fn parses_grep_wait_for_index() {
+        assert_eq!(
+            parse_args(vec![
+                "grep".to_string(),
+                "needle".to_string(),
+                "workspace".to_string(),
+                "--wait-for-index".to_string(),
+            ])
+            .expect("grep should parse"),
+            Command::Grep(GrepArgs {
+                pattern: "needle".to_string(),
+                directory: PathBuf::from("workspace"),
+                lsp: None,
+                wait_for_index: true,
+                json: false,
+                debug: false,
+                timeout: Duration::from_secs(10),
+            })
+        );
+    }
+
+    #[test]
     fn parses_list_symbols_arguments() {
         assert_eq!(
             parse_args(vec![
@@ -277,9 +306,30 @@ mod tests {
             Command::ListSymbols(ListSymbolsArgs {
                 directory: PathBuf::from("workspace"),
                 lsp: Some("rust-analyzer".to_string()),
+                wait_for_index: false,
                 json: true,
                 debug: true,
                 timeout: Duration::from_millis(250),
+            })
+        );
+    }
+
+    #[test]
+    fn parses_list_symbols_wait_for_index() {
+        assert_eq!(
+            parse_args(vec![
+                "list-symbols".to_string(),
+                "workspace".to_string(),
+                "--wait-for-index".to_string(),
+            ])
+            .expect("list-symbols should parse"),
+            Command::ListSymbols(ListSymbolsArgs {
+                directory: PathBuf::from("workspace"),
+                lsp: None,
+                wait_for_index: true,
+                json: false,
+                debug: false,
+                timeout: Duration::from_secs(10),
             })
         );
     }

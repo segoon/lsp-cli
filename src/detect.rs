@@ -74,8 +74,6 @@ fn detect_file(path: &Path, filetypes: &[FiletypeConfig], detection: &mut Detect
     }
 }
 
-
-
 fn path_error(path: &Path, error: &io::Error) -> io::Error {
     io::Error::new(error.kind(), format!("{}: {error}", path.display()))
 }

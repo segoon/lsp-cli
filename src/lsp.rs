@@ -1,13 +1,13 @@
-use std::io::{BufRead, BufReader, Read, Write};
-use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
-use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
-use std::thread;
-use std::time::Instant;
 use lsp_types::notification::{Exit, Initialized, Notification};
 use lsp_types::request::{Initialize, Request, Shutdown, WorkspaceSymbolRequest};
 use serde::Deserialize;
 use serde_json::{Value, json};
+use std::io::{BufRead, BufReader, Read, Write};
+use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
+use std::thread;
 use std::time::Duration;
+use std::time::Instant;
 
 pub struct LspClient {
     child: Child,
@@ -167,7 +167,9 @@ impl LspClient {
                     }
                 }
                 Ok(IncomingMessage::EndOfStream) => {
-                    return Err("LSP server closed while waiting for background work to finish".to_string());
+                    return Err(
+                        "LSP server closed while waiting for background work to finish".to_string(),
+                    );
                 }
                 Ok(IncomingMessage::Error(error)) => {
                     return Err(format!(
@@ -274,7 +276,9 @@ impl LspClient {
                 "id": request_id,
                 "result": [],
             }),
-            "client/registerCapability" | "client/unregisterCapability" | "window/workDoneProgress/create" => {
+            "client/registerCapability"
+            | "client/unregisterCapability"
+            | "window/workDoneProgress/create" => {
                 json!({
                     "jsonrpc": "2.0",
                     "id": request_id,
@@ -333,9 +337,9 @@ fn update_build_index_state(
                 .map_err(|error| format!("failed to decode experimental/serverStatus: {error}"))?;
 
             if status.health == "error" {
-                return Ok(Some(Err(status
-                    .message
-                    .unwrap_or_else(|| "LSP server reported an indexing error".to_string()))));
+                return Ok(Some(Err(status.message.unwrap_or_else(|| {
+                    "LSP server reported an indexing error".to_string()
+                }))));
             }
 
             if status.quiescent {
@@ -344,8 +348,10 @@ fn update_build_index_state(
         }
         "window/workDoneProgress/create" => {
             let params = message.get("params").cloned().unwrap_or(Value::Null);
-            let create: WorkDoneProgressCreateParams = serde_json::from_value(params)
-                .map_err(|error| format!("failed to decode window/workDoneProgress/create: {error}"))?;
+            let create: WorkDoneProgressCreateParams =
+                serde_json::from_value(params).map_err(|error| {
+                    format!("failed to decode window/workDoneProgress/create: {error}")
+                })?;
             state.saw_work_done_progress = true;
             let _ = create.token;
         }
@@ -387,7 +393,7 @@ fn timeout_error(state: &BuildIndexState) -> String {
     if state.saw_server_status || state.saw_work_done_progress {
         "timed out waiting for LSP server to finish background work".to_string()
     } else {
-        "selected LSP server did not expose build-index progress".to_string()
+        "selected LSP server did not expose background-work progress".to_string()
     }
 }
 

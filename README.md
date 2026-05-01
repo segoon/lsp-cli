@@ -148,15 +148,7 @@ I'd like to say "thank you" to the following opensource projects:
 
 # TODO
 
-core:
-- download LSP server
-- start LSP server / pretend to be an LSP server (proxying requests to the real LSP server)
-- as LSP cli: use LSP server to make LSP requests (e.g. symbols, references, callers)
-- handle LSP server housekeeping (start/stop) for an external LSP client
-
 detect:
-- multiple LSP servers for the same filetype: priority
-- output file count
 - LSP servers priority among server for the same filetype
 
 commands:
@@ -166,9 +158,3 @@ options:
 - -s|--signature - show the full signature
 - -b|--body - show the full function body
 - -l|--limit - output limit in lines
-
-lifecycle:
-- start+stop - in background
-- status
-- addr - show active LSP server
-- serve - synch start LSP server, stop it on exit (TODO: what to do with multiple LSP servers?)

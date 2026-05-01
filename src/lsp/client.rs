@@ -59,13 +59,19 @@ struct BuildIndexState {
 }
 
 impl LspClient {
-    pub fn new(command: &[String], debug: bool, timeout: Duration) -> Result<Self, String> {
+    pub fn new(
+        command: &[String],
+        workspace_root: &Path,
+        debug: bool,
+        timeout: Duration,
+    ) -> Result<Self, String> {
         let Some(program) = command.first() else {
             return Err("cannot start LSP server from empty command".to_string());
         };
 
         let mut child = Command::new(program)
             .args(&command[1..])
+            .current_dir(workspace_root)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::inherit())
@@ -626,9 +632,44 @@ fn format_lsp_error(method: &str, error: &Value) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{format_spawn_error, read_message, serialize_debug_message, write_message};
+    use super::{
+        LspClient, format_spawn_error, read_message, serialize_debug_message, write_message,
+    };
     use serde_json::json;
+    use std::fs;
     use std::io::BufReader;
+    use std::path::{Path, PathBuf};
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+    struct TestDir {
+        path: PathBuf,
+    }
+
+    impl TestDir {
+        fn new() -> Self {
+            let unique = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("time should move forward")
+                .as_nanos();
+            let path = std::env::temp_dir().join(format!(
+                "lsp-cli-client-test-{}-{}",
+                std::process::id(),
+                unique
+            ));
+            fs::create_dir_all(&path).expect("temp dir should be created");
+            Self { path }
+        }
+
+        fn path(&self) -> &Path {
+            &self.path
+        }
+    }
+
+    impl Drop for TestDir {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.path);
+        }
+    }
 
     #[test]
     fn writes_and_reads_lsp_message() {
@@ -658,6 +699,34 @@ mod tests {
         assert_eq!(
             serialize_debug_message(&json!({"jsonrpc": "2.0", "id": 1})),
             "{\n  \"id\": 1,\n  \"jsonrpc\": \"2.0\"\n}"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn starts_server_in_workspace_root() {
+        let dir = TestDir::new();
+        let workspace_root = dir.path().join("workspace");
+        fs::create_dir_all(&workspace_root).expect("workspace should be created");
+        let cwd_file = dir.path().join("cwd.txt");
+        let command = vec![
+            "/bin/sh".to_string(),
+            "-c".to_string(),
+            "pwd > \"$1\"".to_string(),
+            "sh".to_string(),
+            cwd_file.display().to_string(),
+        ];
+
+        let mut client = LspClient::new(&command, &workspace_root, false, Duration::from_secs(1))
+            .expect("helper process should start");
+        let status = client.child.wait().expect("helper process should exit");
+
+        assert!(status.success());
+        assert_eq!(
+            fs::read_to_string(&cwd_file)
+                .expect("cwd file should be written")
+                .trim_end(),
+            workspace_root.display().to_string()
         );
     }
 }

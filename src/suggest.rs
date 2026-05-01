@@ -37,6 +37,8 @@ fn build_suggestion(
 ) -> Result<SuggestedLanguage, String> {
     let workspace_root = resolve_workspace_root(lsp, workspace)
         .map_err(|error| format!("failed to resolve workspace for {}: {error}", lsp.name))?;
+    let workspace_root = absolute_path(&workspace_root)
+        .map_err(|error| format!("failed to resolve workspace for {}: {error}", lsp.name))?;
     let workspace = workspace_root.to_string_lossy();
     let template = shlex::split(&lsp.cmdline)
         .ok_or_else(|| format!("invalid cmdline for {}: {}", lsp.name, lsp.cmdline))?;
@@ -84,6 +86,17 @@ fn resolve_workspace_root(lsp: &LspConfig, workspace: &Path) -> std::io::Result<
     }
 
     Ok(start)
+}
+
+fn absolute_path(path: &Path) -> std::io::Result<PathBuf> {
+    match std::fs::canonicalize(path) {
+        Ok(path) => Ok(path),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound && path.is_relative() => {
+            Ok(std::env::current_dir()?.join(path))
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(path.to_path_buf()),
+        Err(error) => Err(error),
+    }
 }
 
 fn has_any_root_marker(directory: &Path, root_markers: &[String]) -> bool {
@@ -161,6 +174,7 @@ mod tests {
 
     #[test]
     fn suggests_lsp_from_detected_filetype() {
+        let current_dir = std::env::current_dir().expect("current dir should resolve");
         let suggestions = suggestions_for(
             &[example_lsp()],
             &DetectionResult {
@@ -180,9 +194,9 @@ mod tests {
                 command: vec![
                     "example-lsp".to_string(),
                     "--stdio".to_string(),
-                    ".".to_string()
+                    current_dir.display().to_string()
                 ],
-                workspace_root: PathBuf::from("."),
+                workspace_root: current_dir,
                 wait_for_index: false,
             }]
         );
@@ -256,6 +270,9 @@ mod tests {
 
     #[test]
     fn substitutes_workspace_without_splitting_spaces() {
+        let workspace = std::env::current_dir()
+            .expect("current dir should resolve")
+            .join("/tmp/with spaces");
         let suggestions = suggestions_for(
             &[example_lsp()],
             &DetectionResult {
@@ -271,8 +288,35 @@ mod tests {
             vec![
                 "example-lsp".to_string(),
                 "--stdio".to_string(),
-                "/tmp/with spaces".to_string()
+                workspace.display().to_string()
             ]
+        );
+    }
+
+    #[test]
+    fn substitutes_relative_workspace_as_absolute_path() {
+        let current_dir = std::env::current_dir().expect("current dir should resolve");
+        let suggestions = suggestions_for(
+            &[example_lsp()],
+            &DetectionResult {
+                filetypes: BTreeSet::from(["alpha".to_string()]),
+                filenames: BTreeSet::new(),
+            },
+            Path::new("playground/c"),
+        )
+        .expect("suggestions should succeed");
+
+        assert_eq!(
+            suggestions[0].command,
+            vec![
+                "example-lsp".to_string(),
+                "--stdio".to_string(),
+                current_dir.join("playground/c").display().to_string()
+            ]
+        );
+        assert_eq!(
+            suggestions[0].workspace_root,
+            current_dir.join("playground/c")
         );
     }
 

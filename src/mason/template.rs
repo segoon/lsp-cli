@@ -29,9 +29,12 @@ impl TemplateContext<'_> {
 
         match expression {
             "version" => Some(self.version.to_string()),
-            "version | strip_prefix \"v\"" => {
-                Some(self.version.strip_prefix('v').unwrap_or(self.version).to_string())
-            }
+            "version | strip_prefix \"v\"" => Some(
+                self.version
+                    .strip_prefix('v')
+                    .unwrap_or(self.version)
+                    .to_string(),
+            ),
             "source.asset.bin" => Some(self.source_asset_bin.unwrap_or("").to_string()),
             "source.asset.file" => Some(self.source_asset_file.unwrap_or("").to_string()),
             "source.asset.ext" => Some(self.source_asset_ext.unwrap_or("").to_string()),
@@ -86,12 +89,24 @@ mod tests {
         };
 
         assert_eq!(context.render("{{version}}"), "v1.2.3");
-        assert_eq!(context.render("{{ version | strip_prefix \"v\" }}"), "1.2.3");
-        assert_eq!(context.render("{{source.asset.bin}}"), "exec:libexec/bin/server");
-        assert_eq!(context.render("{{source.asset.file}}"), "server-v1.2.3.tar.gz");
+        assert_eq!(
+            context.render("{{ version | strip_prefix \"v\" }}"),
+            "1.2.3"
+        );
+        assert_eq!(
+            context.render("{{source.asset.bin}}"),
+            "exec:libexec/bin/server"
+        );
+        assert_eq!(
+            context.render("{{source.asset.file}}"),
+            "server-v1.2.3.tar.gz"
+        );
         assert_eq!(context.render("tool{{source.asset.ext}}"), "tool.exe");
         assert_eq!(context.render("{{source.download.bin}}"), "bzl");
-        assert_eq!(context.render("{{source.download.config}}"), "config_linux/");
+        assert_eq!(
+            context.render("{{source.download.config}}"),
+            "config_linux/"
+        );
         assert_eq!(
             context.render("{{source.download.man}}"),
             "quick-lint-js/share/man/"

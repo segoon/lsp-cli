@@ -218,7 +218,11 @@ fn ensure_resolved_program(
                     wrapper.target_path.display()
                 ));
             }
-            write_wrapper_script(&wrapper.launcher_path, wrapper.runtime, &wrapper.target_path)?;
+            write_wrapper_script(
+                &wrapper.launcher_path,
+                wrapper.runtime,
+                &wrapper.target_path,
+            )?;
             ensure_executable(&wrapper.launcher_path)
         }
     }
@@ -234,7 +238,8 @@ fn materialize_share(
         let rendered_source = context.render(source);
         let target_is_dir = rendered_target.ends_with('/');
         let source_is_dir = rendered_source.ends_with('/');
-        let share_path = join_relative_path(&state.share_dir(), rendered_target.trim_end_matches('/'))?;
+        let share_path =
+            join_relative_path(&state.share_dir(), rendered_target.trim_end_matches('/'))?;
         let package_path = join_relative_path(
             &state.package_dir(&package.name),
             rendered_source.trim_end_matches('/'),
@@ -274,10 +279,11 @@ fn copy_directory_contents(source: &Path, target: &Path) -> Result<(), String> {
 
     fs::create_dir_all(target)
         .map_err(|error| format!("failed to create {}: {error}", target.display()))?;
-    for entry in
-        fs::read_dir(source).map_err(|error| format!("failed to read {}: {error}", source.display()))?
+    for entry in fs::read_dir(source)
+        .map_err(|error| format!("failed to read {}: {error}", source.display()))?
     {
-        let entry = entry.map_err(|error| format!("failed to read {}: {error}", source.display()))?;
+        let entry =
+            entry.map_err(|error| format!("failed to read {}: {error}", source.display()))?;
         let source_path = entry.path();
         let target_path = target.join(entry.file_name());
         let metadata = entry
@@ -319,7 +325,10 @@ fn suggestion_server_name(package: &MasonPackage, program: &str) -> String {
 
 fn write_file(path: &Path, bytes: &[u8]) -> Result<(), String> {
     let Some(parent) = path.parent() else {
-        return Err(format!("failed to determine parent directory for {}", path.display()));
+        return Err(format!(
+            "failed to determine parent directory for {}",
+            path.display()
+        ));
     };
     fs::create_dir_all(parent)
         .map_err(|error| format!("failed to create {}: {error}", parent.display()))?;
@@ -338,8 +347,9 @@ fn ensure_executable(path: &Path) -> Result<(), String> {
         let mode = permissions.mode();
         if mode & 0o111 == 0 {
             permissions.set_mode(mode | 0o755);
-            fs::set_permissions(path, permissions)
-                .map_err(|error| format!("failed to set permissions on {}: {error}", path.display()))?;
+            fs::set_permissions(path, permissions).map_err(|error| {
+                format!("failed to set permissions on {}: {error}", path.display())
+            })?;
         }
     }
 
@@ -402,13 +412,17 @@ fn write_receipt(
     };
     let path = state.receipt_path(&package.name);
     let Some(parent) = path.parent() else {
-        return Err(format!("failed to determine parent directory for {}", path.display()));
+        return Err(format!(
+            "failed to determine parent directory for {}",
+            path.display()
+        ));
     };
     fs::create_dir_all(parent)
         .map_err(|error| format!("failed to create {}: {error}", parent.display()))?;
     let bytes = serde_json::to_vec_pretty(&receipt)
         .map_err(|error| format!("failed to serialize {}: {error}", path.display()))?;
-    fs::write(&path, bytes).map_err(|error| format!("failed to write {}: {error}", path.display()))?;
+    fs::write(&path, bytes)
+        .map_err(|error| format!("failed to write {}: {error}", path.display()))?;
     Ok(executable_path.to_path_buf())
 }
 
@@ -419,8 +433,7 @@ mod tests {
         join_relative_path, resolve_program, rewrite_program,
     };
     use crate::mason::registry::{
-        MasonAsset, MasonAssetBin, MasonDownload, MasonNeovim, MasonPackage, MasonSource,
-        OneOrMany,
+        MasonAsset, MasonAssetBin, MasonDownload, MasonNeovim, MasonPackage, MasonSource, OneOrMany,
     };
     use crate::mason::template::TemplateContext;
     use crate::runtime_state::RuntimeState;
@@ -539,10 +552,7 @@ mod tests {
                 }])),
                 version_overrides: Vec::new(),
             },
-            bin: BTreeMap::from([(
-                "bzl".to_string(),
-                "{{source.download.bin}}".to_string(),
-            )]),
+            bin: BTreeMap::from([("bzl".to_string(), "{{source.download.bin}}".to_string())]),
             share: BTreeMap::new(),
             neovim: MasonNeovim {
                 lspconfig: Some("bzl".to_string()),
@@ -635,10 +645,7 @@ mod tests {
                 "quick-lint-js".to_string(),
                 "{{source.download.bin}}".to_string(),
             )]),
-            share: BTreeMap::from([(
-                "man/".to_string(),
-                "{{source.download.man}}".to_string(),
-            )]),
+            share: BTreeMap::from([("man/".to_string(), "{{source.download.man}}".to_string())]),
             neovim: MasonNeovim {
                 lspconfig: Some("quick_lint_js".to_string()),
             },
@@ -656,10 +663,7 @@ mod tests {
                     target: Some(OneOrMany::One("linux_x64_gnu".to_string())),
                     file: OneOrMany::One("kclvm-v0.11.2-linux-amd64.tar.gz".to_string()),
                     bin: Some(MasonAssetBin::Many(BTreeMap::from([
-                        (
-                            "kcl".to_string(),
-                            "exec:kclvm/bin/kclvm_cli".to_string(),
-                        ),
+                        ("kcl".to_string(), "exec:kclvm/bin/kclvm_cli".to_string()),
                         (
                             "kcl_language_server".to_string(),
                             "exec:kclvm/bin/kcl-language-server".to_string(),
@@ -782,14 +786,16 @@ mod tests {
                 .expect("wrapper path should resolve"),
             state.bin_dir().join("jdtls")
         );
-        let resolved =
-            resolve_program(&package, "jdtls", &state, &TemplateContext::empty())
-                .expect("wrapper program should resolve");
+        let resolved = resolve_program(&package, "jdtls", &state, &TemplateContext::empty())
+            .expect("wrapper program should resolve");
 
         match resolved {
             ResolvedProgram::Wrapper(wrapper) => {
                 assert_eq!(wrapper.launcher_path, state.bin_dir().join("jdtls"));
-                assert_eq!(wrapper.target_path, state.package_dir("jdtls").join("bin").join("jdtls"));
+                assert_eq!(
+                    wrapper.target_path,
+                    state.package_dir("jdtls").join("bin").join("jdtls")
+                );
                 assert_eq!(wrapper.runtime, WrapperRuntime::Python);
             }
             ResolvedProgram::Direct(_) => panic!("expected wrapper program"),
@@ -857,7 +863,8 @@ mod tests {
         let target = package_dir.join("jdtls");
         fs::write(&target, b"print('ok')\n").expect("target should be written");
         let launcher = state.bin_dir().join("jdtls");
-        fs::write(&launcher, b"#!/bin/sh\nexec python3 \"$@\"\n").expect("launcher should be written");
+        fs::write(&launcher, b"#!/bin/sh\nexec python3 \"$@\"\n")
+            .expect("launcher should be written");
         let mut permissions = fs::metadata(&launcher)
             .expect("metadata should be available")
             .permissions();
@@ -866,8 +873,9 @@ mod tests {
 
         let original_path = std::env::var_os("PATH");
         unsafe { std::env::set_var("PATH", "/usr/bin") };
-        let resolved = resolve_program(&jdtls_package(), "jdtls", &state, &TemplateContext::empty())
-            .expect("wrapper should resolve");
+        let resolved =
+            resolve_program(&jdtls_package(), "jdtls", &state, &TemplateContext::empty())
+                .expect("wrapper should resolve");
         let runnable = is_resolved_program_runnable(&resolved);
         match original_path {
             Some(path) => unsafe { std::env::set_var("PATH", path) },
@@ -903,7 +911,12 @@ mod tests {
         };
         super::materialize_share(&state, &package, &context).expect("share should materialize");
 
-        assert!(state.share_dir().join("jdtls/plugins/launcher.jar").is_file());
+        assert!(
+            state
+                .share_dir()
+                .join("jdtls/plugins/launcher.jar")
+                .is_file()
+        );
         assert!(state.share_dir().join("jdtls/config/config.ini").is_file());
     }
 
@@ -913,7 +926,9 @@ mod tests {
         let state = RuntimeState::new(dir.path().join("state"));
         state.ensure_dirs().expect("state dirs should be created");
         let package = quick_lint_js_package();
-        let man_dir = state.package_dir("quick-lint-js").join("quick-lint-js/share/man/man1");
+        let man_dir = state
+            .package_dir("quick-lint-js")
+            .join("quick-lint-js/share/man/man1");
         fs::create_dir_all(&man_dir).expect("man dir should be created");
         fs::write(man_dir.join("quick-lint-js.1"), b"man").expect("man page should be written");
 
@@ -935,7 +950,8 @@ mod tests {
     #[test]
     fn rejects_parent_directory_paths() {
         let dir = TestDir::new();
-        let error = join_relative_path(dir.path(), "../escape").expect_err("parent path should fail");
+        let error =
+            join_relative_path(dir.path(), "../escape").expect_err("parent path should fail");
 
         assert!(error.contains("outside"));
     }
@@ -946,10 +962,7 @@ mod tests {
 
         assert_eq!(
             rewritten.command,
-            vec![
-                "/tmp/pyright-langserver".to_string(),
-                "--stdio".to_string(),
-            ]
+            vec!["/tmp/pyright-langserver".to_string(), "--stdio".to_string(),]
         );
     }
 

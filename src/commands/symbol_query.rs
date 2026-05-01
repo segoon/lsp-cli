@@ -351,7 +351,12 @@ where
     let workspace = prepare_workspace(path, selected_server, config)?;
     let wait_for_index = wait_for_index_requested || workspace.server.wait_for_index;
 
-    let mut client = LspClient::new(&workspace.server.command, debug, timeout)?;
+    let mut client = LspClient::new(
+        &workspace.server.command,
+        &workspace.server.workspace_root,
+        debug,
+        timeout,
+    )?;
     let initialize = client
         .initialize(
             &workspace.root_uri,

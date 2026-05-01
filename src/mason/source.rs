@@ -1,16 +1,33 @@
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum SourceId {
-    Npm { package_name: String, version: String },
+    Npm {
+        package_name: String,
+        version: String,
+    },
     Pypi {
         package_name: String,
         version: String,
         extras: Vec<String>,
     },
-    Cargo { package_name: String, version: String },
-    Golang { module_path: String, version: String },
-    Github { repository: String, version: String },
-    Generic { package_name: String, version: String },
-    Unsupported { kind: String },
+    Cargo {
+        package_name: String,
+        version: String,
+    },
+    Golang {
+        module_path: String,
+        version: String,
+    },
+    Github {
+        repository: String,
+        version: String,
+    },
+    Generic {
+        package_name: String,
+        version: String,
+    },
+    Unsupported {
+        kind: String,
+    },
 }
 
 pub(crate) fn parse_source_id(source_id: &str) -> Result<SourceId, String> {
@@ -23,33 +40,35 @@ pub(crate) fn parse_source_id(source_id: &str) -> Result<SourceId, String> {
     let (kind, name) = package_ref
         .split_once('/')
         .ok_or_else(|| format!("unsupported Mason package source {source_id}"))?;
+    let decoded_name = percent_decode_component(name)
+        .ok_or_else(|| format!("unsupported Mason package source {source_id}"))?;
 
     let (version, qualifiers) = split_version_qualifiers(version_with_qualifiers);
 
     Ok(match kind {
         "npm" => SourceId::Npm {
-            package_name: name.to_string(),
+            package_name: decoded_name.clone(),
             version: version.to_string(),
         },
         "pypi" => SourceId::Pypi {
-            package_name: name.to_string(),
+            package_name: decoded_name.clone(),
             version: version.to_string(),
             extras: parse_pypi_extras(qualifiers),
         },
         "cargo" => SourceId::Cargo {
-            package_name: name.to_string(),
+            package_name: decoded_name.clone(),
             version: version.to_string(),
         },
         "golang" => SourceId::Golang {
-            module_path: name.to_string(),
+            module_path: decoded_name.clone(),
             version: version.to_string(),
         },
         "github" => SourceId::Github {
-            repository: name.to_string(),
+            repository: decoded_name.clone(),
             version: version.to_string(),
         },
         "generic" => SourceId::Generic {
-            package_name: name.to_string(),
+            package_name: decoded_name,
             version: version.to_string(),
         },
         _ => SourceId::Unsupported {
@@ -73,6 +92,39 @@ fn parse_pypi_extras(qualifiers: Option<&str>) -> Vec<String> {
         .collect()
 }
 
+fn percent_decode_component(value: &str) -> Option<String> {
+    let bytes = value.as_bytes();
+    let mut decoded = String::with_capacity(value.len());
+    let mut index = 0;
+
+    while index < bytes.len() {
+        if bytes[index] == b'%' {
+            if index + 2 >= bytes.len() {
+                return None;
+            }
+            let high = decode_hex_digit(bytes[index + 1])?;
+            let low = decode_hex_digit(bytes[index + 2])?;
+            decoded.push((high << 4 | low) as char);
+            index += 3;
+            continue;
+        }
+
+        decoded.push(bytes[index] as char);
+        index += 1;
+    }
+
+    Some(decoded)
+}
+
+fn decode_hex_digit(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{SourceId, parse_source_id};
@@ -84,6 +136,14 @@ mod tests {
             SourceId::Npm {
                 package_name: "pyright".to_string(),
                 version: "1.1.409".to_string(),
+            }
+        );
+        assert_eq!(
+            parse_source_id("pkg:npm/%40angular/language-server@21.2.11")
+                .expect("scoped npm source should parse"),
+            SourceId::Npm {
+                package_name: "@angular/language-server".to_string(),
+                version: "21.2.11".to_string(),
             }
         );
         assert_eq!(

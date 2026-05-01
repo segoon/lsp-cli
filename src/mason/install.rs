@@ -30,12 +30,17 @@ pub(crate) fn resolve_cached_program(
         | SourceId::Pypi { .. }
         | SourceId::Cargo { .. }
         | SourceId::Golang { .. } => {
-            let resolved_program = resolve_program(package, program, state, &TemplateContext::empty())?;
+            let resolved_program =
+                resolve_program(package, program, state, &TemplateContext::empty())?;
             Ok(is_resolved_program_runnable(&resolved_program)
                 .then(|| resolved_program.executable_path().to_path_buf()))
         }
-        SourceId::Github { version, .. } => resolve_cached_github_program(state, package, program, &version),
-        SourceId::Generic { version, .. } => resolve_cached_generic_program(state, package, program, &version),
+        SourceId::Github { version, .. } => {
+            resolve_cached_github_program(state, package, program, &version)
+        }
+        SourceId::Generic { version, .. } => {
+            resolve_cached_generic_program(state, package, program, &version)
+        }
         SourceId::Unsupported { .. } => Ok(None),
     }
 }
@@ -105,7 +110,12 @@ fn install_npm_package(
         .arg(&install_spec)
         .args(&package.source.extra_packages)
         .output()
-        .map_err(|error| format!("cannot install {} because npm could not start: {error}", package.name))?;
+        .map_err(|error| {
+            format!(
+                "cannot install {} because npm could not start: {error}",
+                package.name
+            )
+        })?;
     ensure_command_success(&output, package, "npm")?;
 
     finalize_install(
@@ -195,7 +205,12 @@ fn install_cargo_package(
         .arg(version)
         .arg(package_name)
         .output()
-        .map_err(|error| format!("cannot install {} because cargo could not start: {error}", package.name))?;
+        .map_err(|error| {
+            format!(
+                "cannot install {} because cargo could not start: {error}",
+                package.name
+            )
+        })?;
     ensure_command_success(&output, package, "cargo")?;
 
     finalize_install(
@@ -236,7 +251,12 @@ fn install_golang_package(
         .arg(format!("{module_path}@{version}"))
         .env("GOBIN", bin_dir)
         .output()
-        .map_err(|error| format!("cannot install {} because go could not start: {error}", package.name))?;
+        .map_err(|error| {
+            format!(
+                "cannot install {} because go could not start: {error}",
+                package.name
+            )
+        })?;
     ensure_command_success(&output, package, "go")?;
 
     finalize_install(
@@ -270,9 +290,8 @@ fn install_github_package(
 
     let client = http_client()?;
     let (download_name, extract_subdir) = parse_archive_file_spec(&rendered_asset.file);
-    let url = format!(
-        "https://github.com/{repository}/releases/download/{version}/{download_name}"
-    );
+    let url =
+        format!("https://github.com/{repository}/releases/download/{version}/{download_name}");
     let archive_bytes = download_bytes(&client, &url, package)?;
     let install_dir = match extract_subdir {
         Some(path) => join_relative_path(&state.package_dir(&package.name), path)?,
@@ -469,7 +488,10 @@ fn render_download_data(download: &MasonDownload, version: &str) -> RenderedDown
         source_download_man: None,
         source_asset_named_bins: BTreeMap::new(),
     };
-    let bin = download.bin.as_deref().map(|value| base_context.render(value));
+    let bin = download
+        .bin
+        .as_deref()
+        .map(|value| base_context.render(value));
     let field_context = TemplateContext {
         version,
         source_asset_bin: None,
@@ -480,8 +502,14 @@ fn render_download_data(download: &MasonDownload, version: &str) -> RenderedDown
         source_download_man: None,
         source_asset_named_bins: BTreeMap::new(),
     };
-    let config = download.config.as_deref().map(|value| field_context.render(value));
-    let man = download.man.as_deref().map(|value| field_context.render(value));
+    let config = download
+        .config
+        .as_deref()
+        .map(|value| field_context.render(value));
+    let man = download
+        .man
+        .as_deref()
+        .map(|value| field_context.render(value));
 
     RenderedDownloadData { bin, config, man }
 }
@@ -511,7 +539,12 @@ fn select_download<'a>(
 }
 
 fn matches_platform(targets: Option<&OneOrMany<String>>, platform: &MasonPlatform) -> bool {
-    targets.is_none_or(|targets| targets.as_slice().iter().any(|target| platform.matches(target)))
+    targets.is_none_or(|targets| {
+        targets
+            .as_slice()
+            .iter()
+            .any(|target| platform.matches(target))
+    })
 }
 
 fn require_command(command: &str, package: &MasonPackage, program: &str) -> Result<(), String> {
@@ -576,7 +609,11 @@ fn download_bytes(client: &Client, url: &str, package: &MasonPackage) -> Result<
     Ok(bytes)
 }
 
-fn install_downloaded_artifact(root: &Path, relative_name: &str, bytes: &[u8]) -> Result<(), String> {
+fn install_downloaded_artifact(
+    root: &Path,
+    relative_name: &str,
+    bytes: &[u8],
+) -> Result<(), String> {
     fs::create_dir_all(root)
         .map_err(|error| format!("failed to create {}: {error}", root.display()))?;
     let relative_name_lower = relative_name.to_ascii_lowercase();
@@ -601,13 +638,22 @@ fn extract_tar_gz(root: &Path, bytes: &[u8]) -> Result<(), String> {
     let reader = GzDecoder::new(Cursor::new(bytes));
     let mut archive = Archive::new(reader);
     for entry in archive.entries().map_err(|error| {
-        format!("failed to open downloaded tar archive in {}: {error}", root.display())
+        format!(
+            "failed to open downloaded tar archive in {}: {error}",
+            root.display()
+        )
     })? {
         let mut entry = entry.map_err(|error| {
-            format!("failed to read downloaded tar archive in {}: {error}", root.display())
+            format!(
+                "failed to read downloaded tar archive in {}: {error}",
+                root.display()
+            )
         })?;
         let entry_path = entry.path().map_err(|error| {
-            format!("failed to read tar entry path in {}: {error}", root.display())
+            format!(
+                "failed to read tar entry path in {}: {error}",
+                root.display()
+            )
         })?;
         let output_path = join_relative_path(root, &entry_path.to_string_lossy())?;
         if entry.header().entry_type().is_dir() {
@@ -619,21 +665,32 @@ fn extract_tar_gz(root: &Path, bytes: &[u8]) -> Result<(), String> {
             fs::create_dir_all(parent)
                 .map_err(|error| format!("failed to create {}: {error}", parent.display()))?;
         }
-        entry.unpack(&output_path)
+        entry
+            .unpack(&output_path)
             .map_err(|error| format!("failed to extract {}: {error}", output_path.display()))?;
     }
     Ok(())
 }
 
 fn extract_zip(root: &Path, bytes: &[u8]) -> Result<(), String> {
-    let mut archive = ZipArchive::new(Cursor::new(bytes))
-        .map_err(|error| format!("failed to open downloaded zip archive in {}: {error}", root.display()))?;
+    let mut archive = ZipArchive::new(Cursor::new(bytes)).map_err(|error| {
+        format!(
+            "failed to open downloaded zip archive in {}: {error}",
+            root.display()
+        )
+    })?;
     for index in 0..archive.len() {
         let mut file = archive.by_index(index).map_err(|error| {
-            format!("failed to read downloaded zip archive in {}: {error}", root.display())
+            format!(
+                "failed to read downloaded zip archive in {}: {error}",
+                root.display()
+            )
         })?;
         let Some(name) = file.enclosed_name() else {
-            return Err(format!("downloaded zip archive contains unsafe paths for {}", root.display()));
+            return Err(format!(
+                "downloaded zip archive contains unsafe paths for {}",
+                root.display()
+            ));
         };
         let output_path = root.join(name);
         if file.is_dir() {
@@ -651,8 +708,14 @@ fn extract_zip(root: &Path, bytes: &[u8]) -> Result<(), String> {
             .map_err(|error| format!("failed to extract {}: {error}", output_path.display()))?;
         #[cfg(unix)]
         if let Some(mode) = file.unix_mode() {
-            fs::set_permissions(&output_path, fs::Permissions::from_mode(mode))
-                .map_err(|error| format!("failed to set permissions on {}: {error}", output_path.display()))?;
+            fs::set_permissions(&output_path, fs::Permissions::from_mode(mode)).map_err(
+                |error| {
+                    format!(
+                        "failed to set permissions on {}: {error}",
+                        output_path.display()
+                    )
+                },
+            )?;
         }
     }
     Ok(())
@@ -669,7 +732,10 @@ fn write_gzip_file(path: &Path, bytes: &[u8]) -> Result<(), String> {
 
 fn write_file(path: &Path, bytes: &[u8]) -> Result<(), String> {
     let Some(parent) = path.parent() else {
-        return Err(format!("failed to determine parent directory for {}", path.display()));
+        return Err(format!(
+            "failed to determine parent directory for {}",
+            path.display()
+        ));
     };
     fs::create_dir_all(parent)
         .map_err(|error| format!("failed to create {}: {error}", parent.display()))?;
@@ -691,7 +757,10 @@ mod tests {
     fn parses_archive_file_spec() {
         assert_eq!(
             parse_archive_file_spec("lua-language-server-3.18.2-linux-x64.tar.gz:libexec/"),
-            ("lua-language-server-3.18.2-linux-x64.tar.gz", Some("libexec"))
+            (
+                "lua-language-server-3.18.2-linux-x64.tar.gz",
+                Some("libexec")
+            )
         );
         assert_eq!(
             parse_archive_file_spec("clangd-linux-22.1.0.zip"),

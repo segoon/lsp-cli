@@ -10,7 +10,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tempfile::NamedTempFile;
 use zip::ZipArchive;
 
-const GITHUB_API_URL: &str = "https://api.github.com/repos/mason-org/mason-registry/releases/latest";
+const GITHUB_API_URL: &str =
+    "https://api.github.com/repos/mason-org/mason-registry/releases/latest";
 const REGISTRY_ASSET_NAME: &str = "registry.json.zip";
 const REGISTRY_FRESHNESS_THRESHOLD: Duration = Duration::from_secs(30 * 24 * 60 * 60);
 const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
@@ -30,9 +31,7 @@ impl MasonRegistry {
         match ensure_registry_cache(state) {
             Ok(()) => Self::from_registry_json_path(&registry_json_path),
             Err(error) if registry_json_path.is_file() => {
-                eprintln!(
-                    "warning: failed to refresh Mason registry, using cached data: {error}"
-                );
+                eprintln!("warning: failed to refresh Mason registry, using cached data: {error}");
                 Self::from_registry_json_path(&registry_json_path)
             }
             Err(error) => Err(error),
@@ -58,7 +57,9 @@ impl MasonRegistry {
         program: &str,
     ) -> Option<&MasonPackage> {
         self.package_for_lspconfig(config_id)
-            .or_else(|| mapping_override(config_id).and_then(|target| self.package_for_override(target)))
+            .or_else(|| {
+                mapping_override(config_id).and_then(|target| self.package_for_override(target))
+            })
             .or_else(|| self.package_for_name(config_id))
             .or_else(|| self.package_for_name(server))
             .or_else(|| self.package_for_bin(program))
@@ -160,7 +161,9 @@ fn mapping_override(config_id: &str) -> Option<MappingOverride> {
         // Conservative historical aliases that are still common in user config.
         "sumneko_lua" => Some(MappingOverride::Lspconfig("lua_ls")),
         "tsserver" => Some(MappingOverride::Lspconfig("ts_ls")),
-        "typescript_language_server" => Some(MappingOverride::Package("typescript-language-server")),
+        "typescript_language_server" => {
+            Some(MappingOverride::Package("typescript-language-server"))
+        }
         "volar" => Some(MappingOverride::Lspconfig("vue_ls")),
         _ => None,
     }
@@ -420,7 +423,9 @@ fn push_version_part(
     }
 
     if current_is_digit.unwrap_or(false) {
-        parts.push(VersionPart::Number(current.parse::<u64>().unwrap_or(u64::MAX)));
+        parts.push(VersionPart::Number(
+            current.parse::<u64>().unwrap_or(u64::MAX),
+        ));
     } else {
         parts.push(VersionPart::Text(current.to_ascii_lowercase()));
     }
@@ -618,13 +623,20 @@ fn read_registry_metadata(path: &Path) -> Result<Option<RegistryMetadata>, Strin
 
 fn write_bytes_file(path: &Path, bytes: &[u8]) -> Result<(), String> {
     let Some(parent) = path.parent() else {
-        return Err(format!("failed to determine parent directory for {}", path.display()));
+        return Err(format!(
+            "failed to determine parent directory for {}",
+            path.display()
+        ));
     };
 
     fs::create_dir_all(parent)
         .map_err(|error| format!("failed to create {}: {error}", parent.display()))?;
-    let mut temp = NamedTempFile::new_in(parent)
-        .map_err(|error| format!("failed to create temporary file in {}: {error}", parent.display()))?;
+    let mut temp = NamedTempFile::new_in(parent).map_err(|error| {
+        format!(
+            "failed to create temporary file in {}: {error}",
+            parent.display()
+        )
+    })?;
     temp.write_all(bytes)
         .map_err(|error| format!("failed to write {}: {error}", path.display()))?;
     temp.persist(path)
@@ -761,7 +773,11 @@ mod tests {
     fn falls_back_to_package_name_and_binary_name() {
         let registry = MasonRegistry::from_packages(vec![
             package("aiken", Some("aiken_lsp"), "aiken"),
-            package("ada-language-server", Some("ada_language_server"), "ada_language_server"),
+            package(
+                "ada-language-server",
+                Some("ada_language_server"),
+                "ada_language_server",
+            ),
         ]);
 
         assert_eq!(
@@ -807,10 +823,7 @@ mod tests {
                     },
                 ],
             },
-            bin: BTreeMap::from([(
-                "ngserver".to_string(),
-                "npm:ngserver".to_string(),
-            )]),
+            bin: BTreeMap::from([("ngserver".to_string(), "npm:ngserver".to_string())]),
             share: BTreeMap::new(),
             neovim: MasonNeovim {
                 lspconfig: Some("angularls".to_string()),
@@ -821,10 +834,7 @@ mod tests {
             .package_for_lspconfig("angularls")
             .expect("angular package should be indexed");
 
-        assert_eq!(
-            package.source.id,
-            "pkg:npm/@angular/language-server@17.3.2"
-        );
+        assert_eq!(package.source.id, "pkg:npm/@angular/language-server@17.3.2");
         assert_eq!(package.source.extra_packages, vec!["typescript@5.3.2"]);
     }
 
@@ -858,10 +868,7 @@ mod tests {
                     download: None,
                 }],
             },
-            bin: BTreeMap::from([(
-                "rubyfmt".to_string(),
-                "{{source.asset.bin}}".to_string(),
-            )]),
+            bin: BTreeMap::from([("rubyfmt".to_string(), "{{source.asset.bin}}".to_string())]),
             share: BTreeMap::new(),
             neovim: MasonNeovim {
                 lspconfig: Some("rubyfmt".to_string()),

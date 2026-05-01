@@ -57,6 +57,7 @@ Already implemented:
   - `cargo`
   - `golang`
   - `generic`
+- decoding of URL-encoded Mason package names in `source.id` (for scoped npm packages such as `%40angular/...`)
 - platform target matching
 - template interpolation subset for common Mason expressions
 - selected extra live-registry template fields:
@@ -101,7 +102,7 @@ Still to implement:
 - reuse of managed executable resolution in later query/index commands if useful
 - more Mason template/schema coverage beyond the currently supported live LSP fields
 - broader end-to-end tests for registry refresh and install flows
-- manual verification in `playground/`
+- broader manual verification beyond the currently checked `python`, `typescript`, and `rust` playgrounds
 
 Important consequence:
 - the original first vertical slice is effectively done already
@@ -376,12 +377,11 @@ Already done:
 10. Integrate executable resolution into `detect --download`.
 
 Recommended next order:
-1. Investigate and fix remaining npm-backed install failures that still report `npm ERR! code ENOENT` for some servers.
-2. Decide whether to expand the explicit override table beyond the current conservative aliases.
-3. Decide whether broader fallback matching is worth the risk, or if exact-only fallback should remain the limit.
-4. Add broader tests for registry refresh/install flows where practical.
-5. Verify manually in `playground/`.
-6. Run:
+1. Decide whether to expand the explicit override table beyond the current conservative aliases.
+2. Decide whether broader fallback matching is worth the risk, or if exact-only fallback should remain the limit.
+3. Add broader tests for registry refresh/install flows where practical.
+4. Verify manually in additional `playground/` targets such as `go`, `c`/`cpp`, and `java`.
+5. Run:
    - `cargo test -q`
    - `cargo clippy`
 
@@ -408,6 +408,7 @@ Current status:
   - primary `lspconfig` mapping
   - conservative mapping overrides and exact fallback lookup
   - purl/source-id parsing for supported backends
+  - URL-decoding of Mason package names in `source.id`
   - platform target selection
   - current `version_overrides` handling
   - template interpolation subset
@@ -420,7 +421,7 @@ Current status:
 - still missing or weak:
   - registry refresh/download behavior against realistic HTTP responses
   - end-to-end install-plan coverage for representative real packages
-  - manual `playground/` verification
+  - broader manual `playground/` verification beyond `python`, `typescript`, and `rust`
 
 Manual checks in `playground/` should cover at least:
 - `playground/python`
@@ -450,7 +451,7 @@ Status:
 - the next milestone should focus on real-package coverage and broader verification
 
 Suggested next milestone:
-- expand/manual-verify a few representative Mason-managed servers end-to-end and reduce remaining npm-backed failures
+- expand/manual-verify a few more representative Mason-managed servers end-to-end beyond the currently fixed npm cases
 - prove at least:
   - `pyright`
   - `typescript-language-server`
@@ -520,13 +521,13 @@ Recommended mitigation:
 ## Start Here In Next Session
 
 1. Decide whether selected additional aliases should be added to the explicit override table.
-2. Investigate remaining npm-backed failures such as `angular-language-server`, `ember-language-server`, `tailwindcss-language-server`, and `vtsls`.
-3. Decide whether exact-only fallback should stay the boundary, or if a slightly broader fallback is needed.
-4. Add broader regression tests for registry refresh/install behavior.
-5. Manually verify in `playground/` starting with:
+2. Decide whether exact-only fallback should stay the boundary, or if a slightly broader fallback is needed.
+3. Add broader regression tests for registry refresh/install behavior.
+4. Manually verify in `playground/` starting with:
    - `playground/python`
    - `playground/typescript`
    - `playground/rust`
+   - then extend to `playground/go`, `playground/c` or `playground/cpp`, and `playground/java` where relevant
 
 
 ## Non-goals For The First Pass

@@ -73,7 +73,9 @@ fn resolve_suggestion_from_path_or_cache(
     let (Some(state), Some(registry)) = (state, registry) else {
         return Ok(None);
     };
-    let Some(package) = registry.package_for_detected(&suggestion.config_id, &suggestion.server, program) else {
+    let Some(package) =
+        registry.package_for_detected(&suggestion.config_id, &suggestion.server, program)
+    else {
         return Ok(None);
     };
 
@@ -101,8 +103,9 @@ fn install_suggestion(
         ));
     }
 
-    let state = state
-        .ok_or_else(|| "cannot install LSP servers automatically because $HOME is not set".to_string())?;
+    let state = state.ok_or_else(|| {
+        "cannot install LSP servers automatically because $HOME is not set".to_string()
+    })?;
     let registry = registry.get_or_insert(MasonRegistry::load(state)?);
     let package = registry
         .package_for_detected(&suggestion.config_id, &suggestion.server, program)
@@ -265,8 +268,11 @@ mod tests {
         let original_path = std::env::var_os("PATH");
         unsafe { std::env::set_var("HOME", &home) };
         unsafe { std::env::set_var("PATH", "/nonexistent") };
-        let resolved = resolve_detect_suggestions(&[suggestion("pyright-langserver", "pyright", "pyright")], false)
-            .expect("resolution should succeed");
+        let resolved = resolve_detect_suggestions(
+            &[suggestion("pyright-langserver", "pyright", "pyright")],
+            false,
+        )
+        .expect("resolution should succeed");
         match original_home {
             Some(home) => unsafe { std::env::set_var("HOME", home) },
             None => unsafe { std::env::remove_var("HOME") },
@@ -329,8 +335,11 @@ mod tests {
         let original_path = std::env::var_os("PATH");
         unsafe { std::env::set_var("HOME", &home) };
         unsafe { std::env::set_var("PATH", "/nonexistent") };
-        let resolved = resolve_detect_suggestions(&[suggestion("pyright-langserver", "pyright", "pyright")], false)
-            .expect("resolution should succeed");
+        let resolved = resolve_detect_suggestions(
+            &[suggestion("pyright-langserver", "pyright", "pyright")],
+            false,
+        )
+        .expect("resolution should succeed");
         match original_home {
             Some(home) => unsafe { std::env::set_var("HOME", home) },
             None => unsafe { std::env::remove_var("HOME") },
@@ -351,14 +360,18 @@ mod tests {
         let home = dir.path().join("home");
         let state = RuntimeState::new(home.join(".local/share/lsp-cli"));
         state.ensure_dirs().expect("state dirs should be created");
-        fs::write(state.registry_json_path(), b"not json").expect("corrupted registry should be written");
+        fs::write(state.registry_json_path(), b"not json")
+            .expect("corrupted registry should be written");
 
         let original_home = std::env::var_os("HOME");
         let original_path = std::env::var_os("PATH");
         unsafe { std::env::set_var("HOME", &home) };
         unsafe { std::env::set_var("PATH", "/nonexistent") };
-        let resolved = resolve_detect_suggestions(&[suggestion("pyright-langserver", "pyright", "pyright")], false)
-            .expect("resolution should succeed");
+        let resolved = resolve_detect_suggestions(
+            &[suggestion("pyright-langserver", "pyright", "pyright")],
+            false,
+        )
+        .expect("resolution should succeed");
         match original_home {
             Some(home) => unsafe { std::env::set_var("HOME", home) },
             None => unsafe { std::env::remove_var("HOME") },

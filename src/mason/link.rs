@@ -437,71 +437,13 @@ mod tests {
     };
     use crate::mason::template::TemplateContext;
     use crate::runtime_state::RuntimeState;
-    use crate::suggest::SuggestedLanguage;
+    use crate::test_support::{
+        TestDir, env_var, jdtls_package, make_executable, pyright_package, suggested_language,
+        with_env_vars,
+    };
     use std::collections::BTreeMap;
     use std::fs;
-    #[cfg(unix)]
-    use std::os::unix::fs::PermissionsExt;
-    use std::path::{Path, PathBuf};
-    use std::sync::{Mutex, OnceLock};
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    struct TestDir {
-        path: PathBuf,
-    }
-
-    impl TestDir {
-        fn new() -> Self {
-            let unique = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .expect("time should move forward")
-                .as_nanos();
-            let path = std::env::temp_dir().join(format!(
-                "lsp-cli-mason-link-test-{}-{}",
-                std::process::id(),
-                unique
-            ));
-            fs::create_dir_all(&path).expect("temp dir should be created");
-            Self { path }
-        }
-
-        fn path(&self) -> &Path {
-            &self.path
-        }
-    }
-
-    impl Drop for TestDir {
-        fn drop(&mut self) {
-            let _ = fs::remove_dir_all(&self.path);
-        }
-    }
-
-    fn env_lock() -> &'static Mutex<()> {
-        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-        LOCK.get_or_init(|| Mutex::new(()))
-    }
-
-    fn pyright_package() -> MasonPackage {
-        MasonPackage {
-            name: "pyright".to_string(),
-            categories: vec!["LSP".to_string()],
-            source: MasonSource {
-                id: "pkg:npm/pyright@1.1.409".to_string(),
-                extra_packages: Vec::new(),
-                asset: None,
-                download: None,
-                version_overrides: Vec::new(),
-            },
-            bin: BTreeMap::from([(
-                "pyright-langserver".to_string(),
-                "npm:pyright-langserver".to_string(),
-            )]),
-            share: BTreeMap::new(),
-            neovim: MasonNeovim {
-                lspconfig: Some("pyright".to_string()),
-            },
-        }
-    }
+    use std::path::PathBuf;
 
     fn rust_analyzer_package() -> MasonPackage {
         MasonPackage {
@@ -556,40 +498,6 @@ mod tests {
             share: BTreeMap::new(),
             neovim: MasonNeovim {
                 lspconfig: Some("bzl".to_string()),
-            },
-        }
-    }
-
-    fn jdtls_package() -> MasonPackage {
-        MasonPackage {
-            name: "jdtls".to_string(),
-            categories: vec!["LSP".to_string()],
-            source: MasonSource {
-                id: "pkg:generic/eclipse/eclipse.jdt.ls@v1.0.0".to_string(),
-                extra_packages: Vec::new(),
-                asset: None,
-                download: Some(OneOrMany::Many(vec![MasonDownload {
-                    target: Some(OneOrMany::One("linux".to_string())),
-                    files: BTreeMap::from([(
-                        "jdtls.tar.gz".to_string(),
-                        "https://example.invalid/jdtls.tar.gz".to_string(),
-                    )]),
-                    bin: None,
-                    config: Some("config_linux/".to_string()),
-                    man: None,
-                }])),
-                version_overrides: Vec::new(),
-            },
-            bin: BTreeMap::from([("jdtls".to_string(), "python:bin/jdtls".to_string())]),
-            share: BTreeMap::from([
-                ("jdtls/plugins/".to_string(), "plugins/".to_string()),
-                (
-                    "jdtls/config/".to_string(),
-                    "{{source.download.config}}".to_string(),
-                ),
-            ]),
-            neovim: MasonNeovim {
-                lspconfig: Some("jdtls".to_string()),
             },
         }
     }
@@ -685,17 +593,6 @@ mod tests {
         }
     }
 
-    fn suggestion() -> SuggestedLanguage {
-        SuggestedLanguage {
-            config_id: "pyright".to_string(),
-            languages: vec!["python".to_string()],
-            server: "pyright-langserver".to_string(),
-            command: vec!["pyright-langserver".to_string(), "--stdio".to_string()],
-            workspace_root: PathBuf::from("."),
-            wait_for_index: false,
-        }
-    }
-
     fn resolve_program_path(
         package: &MasonPackage,
         program: &str,
@@ -709,7 +606,7 @@ mod tests {
 
     #[test]
     fn resolves_npm_program_path() {
-        let dir = TestDir::new();
+        let dir = TestDir::new("mason-link");
         let state = RuntimeState::new(dir.path().join("state"));
 
         assert_eq!(
@@ -730,7 +627,7 @@ mod tests {
 
     #[test]
     fn resolves_github_template_program_path() {
-        let dir = TestDir::new();
+        let dir = TestDir::new("mason-link");
         let state = RuntimeState::new(dir.path().join("state"));
         let package = rust_analyzer_package();
         let context = TemplateContext {
@@ -755,7 +652,7 @@ mod tests {
 
     #[test]
     fn resolves_generic_template_program_path() {
-        let dir = TestDir::new();
+        let dir = TestDir::new("mason-link");
         let state = RuntimeState::new(dir.path().join("state"));
         let context = TemplateContext {
             version: "v1.4.22",
@@ -777,7 +674,7 @@ mod tests {
 
     #[test]
     fn resolves_python_wrapper_program_path() {
-        let dir = TestDir::new();
+        let dir = TestDir::new("mason-link");
         let state = RuntimeState::new(dir.path().join("state"));
         let package = jdtls_package();
 
@@ -804,7 +701,7 @@ mod tests {
 
     #[test]
     fn resolves_github_asset_extension_template_to_empty_when_missing() {
-        let dir = TestDir::new();
+        let dir = TestDir::new("mason-link");
         let state = RuntimeState::new(dir.path().join("state"));
         let context = TemplateContext {
             version: "0.42.1",
@@ -826,7 +723,7 @@ mod tests {
 
     #[test]
     fn resolves_named_asset_bin_template() {
-        let dir = TestDir::new();
+        let dir = TestDir::new("mason-link");
         let state = RuntimeState::new(dir.path().join("state"));
         let context = TemplateContext {
             version: "v0.11.2",
@@ -854,8 +751,7 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn detects_runnable_wrapper_with_generated_launcher() {
-        let _guard = env_lock().lock().expect("env lock should be available");
-        let dir = TestDir::new();
+        let dir = TestDir::new("mason-link");
         let state = RuntimeState::new(dir.path().join("state"));
         state.ensure_dirs().expect("state dirs should be created");
         let package_dir = state.package_dir("jdtls").join("bin");
@@ -865,29 +761,21 @@ mod tests {
         let launcher = state.bin_dir().join("jdtls");
         fs::write(&launcher, b"#!/bin/sh\nexec python3 \"$@\"\n")
             .expect("launcher should be written");
-        let mut permissions = fs::metadata(&launcher)
-            .expect("metadata should be available")
-            .permissions();
-        permissions.set_mode(0o755);
-        fs::set_permissions(&launcher, permissions).expect("permissions should be updated");
+        make_executable(&launcher);
 
-        let original_path = std::env::var_os("PATH");
-        unsafe { std::env::set_var("PATH", "/usr/bin") };
-        let resolved =
-            resolve_program(&jdtls_package(), "jdtls", &state, &TemplateContext::empty())
-                .expect("wrapper should resolve");
-        let runnable = is_resolved_program_runnable(&resolved);
-        match original_path {
-            Some(path) => unsafe { std::env::set_var("PATH", path) },
-            None => unsafe { std::env::remove_var("PATH") },
-        }
+        let runnable = with_env_vars(&[env_var("PATH", "/usr/bin")], || {
+            let resolved =
+                resolve_program(&jdtls_package(), "jdtls", &state, &TemplateContext::empty())
+                    .expect("wrapper should resolve");
+            is_resolved_program_runnable(&resolved)
+        });
 
         assert!(runnable);
     }
 
     #[test]
     fn materializes_share_mappings() {
-        let dir = TestDir::new();
+        let dir = TestDir::new("mason-link");
         let state = RuntimeState::new(dir.path().join("state"));
         state.ensure_dirs().expect("state dirs should be created");
         let package = jdtls_package();
@@ -922,7 +810,7 @@ mod tests {
 
     #[test]
     fn materializes_download_man_share_mapping() {
-        let dir = TestDir::new();
+        let dir = TestDir::new("mason-link");
         let state = RuntimeState::new(dir.path().join("state"));
         state.ensure_dirs().expect("state dirs should be created");
         let package = quick_lint_js_package();
@@ -949,7 +837,7 @@ mod tests {
 
     #[test]
     fn rejects_parent_directory_paths() {
-        let dir = TestDir::new();
+        let dir = TestDir::new("mason-link");
         let error =
             join_relative_path(dir.path(), "../escape").expect_err("parent path should fail");
 
@@ -958,7 +846,15 @@ mod tests {
 
     #[test]
     fn rewrites_detect_command_program() {
-        let rewritten = rewrite_program(&suggestion(), &PathBuf::from("/tmp/pyright-langserver"));
+        let rewritten = rewrite_program(
+            &suggested_language(
+                "pyright-langserver",
+                "pyright",
+                "pyright-langserver",
+                "python",
+            ),
+            &PathBuf::from("/tmp/pyright-langserver"),
+        );
 
         assert_eq!(
             rewritten.command,
@@ -969,23 +865,14 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn detects_runnable_command_on_path() {
-        let _guard = env_lock().lock().expect("env lock should be available");
-        let dir = TestDir::new();
+        let dir = TestDir::new("mason-link");
         let executable = dir.path().join("pyright-langserver");
         fs::write(&executable, b"#!/bin/sh\nexit 0\n").expect("file should be written");
-        let mut permissions = fs::metadata(&executable)
-            .expect("metadata should be available")
-            .permissions();
-        permissions.set_mode(0o755);
-        fs::set_permissions(&executable, permissions).expect("permissions should be updated");
+        make_executable(&executable);
 
-        let original_path = std::env::var_os("PATH");
-        unsafe { std::env::set_var("PATH", dir.path()) };
-        let detected = is_command_runnable("pyright-langserver");
-        match original_path {
-            Some(path) => unsafe { std::env::set_var("PATH", path) },
-            None => unsafe { std::env::remove_var("PATH") },
-        }
+        let detected = with_env_vars(&[env_var("PATH", dir.path())], || {
+            is_command_runnable("pyright-langserver")
+        });
 
         assert!(detected);
     }

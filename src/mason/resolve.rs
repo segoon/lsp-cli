@@ -123,139 +123,20 @@ fn install_suggestion(
 #[cfg(test)]
 mod tests {
     use super::resolve_detect_suggestions;
-    use crate::mason::registry::{MasonNeovim, MasonPackage, MasonSource};
-    use crate::runtime_state::RuntimeState;
-    use crate::suggest::SuggestedLanguage;
-    use std::collections::BTreeMap;
+    use crate::test_support::{
+        TestDir, env_var, jdtls_package, make_executable, pyright_package, runtime_state_in_home,
+        suggested_language, with_env_vars, write_registry,
+    };
     use std::fs;
-    #[cfg(unix)]
-    use std::os::unix::fs::PermissionsExt;
-    use std::path::{Path, PathBuf};
-    use std::sync::{Mutex, OnceLock};
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    struct TestDir {
-        path: PathBuf,
-    }
-
-    impl TestDir {
-        fn new() -> Self {
-            let unique = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .expect("time should move forward")
-                .as_nanos();
-            let path = std::env::temp_dir().join(format!(
-                "lsp-cli-mason-resolve-test-{}-{}",
-                std::process::id(),
-                unique
-            ));
-            fs::create_dir_all(&path).expect("temp dir should be created");
-            Self { path }
-        }
-
-        fn path(&self) -> &Path {
-            &self.path
-        }
-    }
-
-    impl Drop for TestDir {
-        fn drop(&mut self) {
-            let _ = fs::remove_dir_all(&self.path);
-        }
-    }
-
-    fn env_lock() -> &'static Mutex<()> {
-        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-        LOCK.get_or_init(|| Mutex::new(()))
-    }
-
-    fn write_registry(state: &RuntimeState, package: MasonPackage) {
-        fs::create_dir_all(state.registry_dir()).expect("registry dir should be created");
-        let bytes = serde_json::to_vec(&vec![package]).expect("registry should serialize");
-        fs::write(state.registry_json_path(), bytes).expect("registry should be written");
-    }
-
-    fn pyright_package() -> MasonPackage {
-        MasonPackage {
-            name: "pyright".to_string(),
-            categories: vec!["LSP".to_string()],
-            source: MasonSource {
-                id: "pkg:npm/pyright@1.1.409".to_string(),
-                extra_packages: Vec::new(),
-                asset: None,
-                download: None,
-                version_overrides: Vec::new(),
-            },
-            bin: BTreeMap::from([(
-                "pyright-langserver".to_string(),
-                "npm:pyright-langserver".to_string(),
-            )]),
-            share: BTreeMap::new(),
-            neovim: MasonNeovim {
-                lspconfig: Some("pyright".to_string()),
-            },
-        }
-    }
-
-    fn jdtls_package() -> MasonPackage {
-        MasonPackage {
-            name: "jdtls".to_string(),
-            categories: vec!["LSP".to_string()],
-            source: MasonSource {
-                id: "pkg:generic/eclipse/eclipse.jdt.ls@v1.0.0".to_string(),
-                extra_packages: Vec::new(),
-                asset: None,
-                download: Some(crate::mason::registry::OneOrMany::Many(vec![
-                    crate::mason::registry::MasonDownload {
-                        target: Some(crate::mason::registry::OneOrMany::One("linux".to_string())),
-                        files: BTreeMap::from([(
-                            "jdtls.tar.gz".to_string(),
-                            "https://example.invalid/jdtls.tar.gz".to_string(),
-                        )]),
-                        bin: None,
-                        config: Some("config_linux/".to_string()),
-                        man: None,
-                    },
-                ])),
-                version_overrides: Vec::new(),
-            },
-            bin: BTreeMap::from([("jdtls".to_string(), "python:bin/jdtls".to_string())]),
-            share: BTreeMap::new(),
-            neovim: MasonNeovim {
-                lspconfig: Some("jdtls".to_string()),
-            },
-        }
-    }
-
-    fn suggestion(program: &str, config_id: &str, server: &str) -> SuggestedLanguage {
-        SuggestedLanguage {
-            config_id: config_id.to_string(),
-            languages: vec!["python".to_string()],
-            server: server.to_string(),
-            command: vec![program.to_string(), "--stdio".to_string()],
-            workspace_root: PathBuf::from("."),
-            wait_for_index: false,
-        }
-    }
-
-    #[cfg(unix)]
-    fn make_executable(path: &Path) {
-        let mut permissions = fs::metadata(path)
-            .expect("metadata should be available")
-            .permissions();
-        permissions.set_mode(0o755);
-        fs::set_permissions(path, permissions).expect("permissions should be updated");
-    }
 
     #[cfg(unix)]
     #[test]
     fn prefers_cached_direct_binary_when_path_misses() {
-        let _guard = env_lock().lock().expect("env lock should be available");
-        let dir = TestDir::new();
+        let dir = TestDir::new("mason-resolve");
         let home = dir.path().join("home");
-        let state = RuntimeState::new(home.join(".local/share/lsp-cli"));
+        let state = runtime_state_in_home(&home);
         state.ensure_dirs().expect("state dirs should be created");
-        write_registry(&state, pyright_package());
+        write_registry(&state, &[pyright_package()]);
         let cached = state
             .package_dir("pyright")
             .join("node_modules/.bin/pyright-langserver");
@@ -264,23 +145,21 @@ mod tests {
         fs::write(&cached, b"#!/bin/sh\nexit 0\n").expect("cached binary should be written");
         make_executable(&cached);
 
-        let original_home = std::env::var_os("HOME");
-        let original_path = std::env::var_os("PATH");
-        unsafe { std::env::set_var("HOME", &home) };
-        unsafe { std::env::set_var("PATH", "/nonexistent") };
-        let resolved = resolve_detect_suggestions(
-            &[suggestion("pyright-langserver", "pyright", "pyright")],
-            false,
-        )
-        .expect("resolution should succeed");
-        match original_home {
-            Some(home) => unsafe { std::env::set_var("HOME", home) },
-            None => unsafe { std::env::remove_var("HOME") },
-        }
-        match original_path {
-            Some(path) => unsafe { std::env::set_var("PATH", path) },
-            None => unsafe { std::env::remove_var("PATH") },
-        }
+        let resolved = with_env_vars(
+            &[env_var("HOME", &home), env_var("PATH", "/nonexistent")],
+            || {
+                resolve_detect_suggestions(
+                    &[suggested_language(
+                        "pyright-langserver",
+                        "pyright",
+                        "pyright",
+                        "python",
+                    )],
+                    false,
+                )
+                .expect("resolution should succeed")
+            },
+        );
 
         assert_eq!(resolved.len(), 1);
         assert_eq!(resolved[0].command[0], cached.display().to_string());
@@ -289,12 +168,11 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn prefers_cached_wrapper_when_path_misses() {
-        let _guard = env_lock().lock().expect("env lock should be available");
-        let dir = TestDir::new();
+        let dir = TestDir::new("mason-resolve");
         let home = dir.path().join("home");
-        let state = RuntimeState::new(home.join(".local/share/lsp-cli"));
+        let state = runtime_state_in_home(&home);
         state.ensure_dirs().expect("state dirs should be created");
-        write_registry(&state, jdtls_package());
+        write_registry(&state, &[jdtls_package()]);
         let target = state.package_dir("jdtls").join("bin/jdtls");
         fs::create_dir_all(target.parent().expect("parent should exist"))
             .expect("parent dirs should be created");
@@ -304,20 +182,16 @@ mod tests {
             .expect("launcher should be written");
         make_executable(&launcher);
 
-        let original_home = std::env::var_os("HOME");
-        let original_path = std::env::var_os("PATH");
-        unsafe { std::env::set_var("HOME", &home) };
-        unsafe { std::env::set_var("PATH", "/usr/bin") };
-        let resolved = resolve_detect_suggestions(&[suggestion("jdtls", "jdtls", "jdtls")], false)
-            .expect("resolution should succeed");
-        match original_home {
-            Some(home) => unsafe { std::env::set_var("HOME", home) },
-            None => unsafe { std::env::remove_var("HOME") },
-        }
-        match original_path {
-            Some(path) => unsafe { std::env::set_var("PATH", path) },
-            None => unsafe { std::env::remove_var("PATH") },
-        }
+        let resolved = with_env_vars(
+            &[env_var("HOME", &home), env_var("PATH", "/usr/bin")],
+            || {
+                resolve_detect_suggestions(
+                    &[suggested_language("jdtls", "jdtls", "jdtls", "python")],
+                    false,
+                )
+                .expect("resolution should succeed")
+            },
+        );
 
         assert_eq!(resolved.len(), 1);
         assert_eq!(resolved[0].command[0], launcher.display().to_string());
@@ -326,28 +200,25 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn skips_server_when_not_in_path_or_cache() {
-        let _guard = env_lock().lock().expect("env lock should be available");
-        let dir = TestDir::new();
+        let dir = TestDir::new("mason-resolve");
         let home = dir.path().join("home");
         fs::create_dir_all(&home).expect("home dir should be created");
 
-        let original_home = std::env::var_os("HOME");
-        let original_path = std::env::var_os("PATH");
-        unsafe { std::env::set_var("HOME", &home) };
-        unsafe { std::env::set_var("PATH", "/nonexistent") };
-        let resolved = resolve_detect_suggestions(
-            &[suggestion("pyright-langserver", "pyright", "pyright")],
-            false,
-        )
-        .expect("resolution should succeed");
-        match original_home {
-            Some(home) => unsafe { std::env::set_var("HOME", home) },
-            None => unsafe { std::env::remove_var("HOME") },
-        }
-        match original_path {
-            Some(path) => unsafe { std::env::set_var("PATH", path) },
-            None => unsafe { std::env::remove_var("PATH") },
-        }
+        let resolved = with_env_vars(
+            &[env_var("HOME", &home), env_var("PATH", "/nonexistent")],
+            || {
+                resolve_detect_suggestions(
+                    &[suggested_language(
+                        "pyright-langserver",
+                        "pyright",
+                        "pyright",
+                        "python",
+                    )],
+                    false,
+                )
+                .expect("resolution should succeed")
+            },
+        );
 
         assert!(resolved.is_empty());
     }
@@ -355,31 +226,28 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn treats_corrupted_cache_as_missing() {
-        let _guard = env_lock().lock().expect("env lock should be available");
-        let dir = TestDir::new();
+        let dir = TestDir::new("mason-resolve");
         let home = dir.path().join("home");
-        let state = RuntimeState::new(home.join(".local/share/lsp-cli"));
+        let state = runtime_state_in_home(&home);
         state.ensure_dirs().expect("state dirs should be created");
         fs::write(state.registry_json_path(), b"not json")
             .expect("corrupted registry should be written");
 
-        let original_home = std::env::var_os("HOME");
-        let original_path = std::env::var_os("PATH");
-        unsafe { std::env::set_var("HOME", &home) };
-        unsafe { std::env::set_var("PATH", "/nonexistent") };
-        let resolved = resolve_detect_suggestions(
-            &[suggestion("pyright-langserver", "pyright", "pyright")],
-            false,
-        )
-        .expect("resolution should succeed");
-        match original_home {
-            Some(home) => unsafe { std::env::set_var("HOME", home) },
-            None => unsafe { std::env::remove_var("HOME") },
-        }
-        match original_path {
-            Some(path) => unsafe { std::env::set_var("PATH", path) },
-            None => unsafe { std::env::remove_var("PATH") },
-        }
+        let resolved = with_env_vars(
+            &[env_var("HOME", &home), env_var("PATH", "/nonexistent")],
+            || {
+                resolve_detect_suggestions(
+                    &[suggested_language(
+                        "pyright-langserver",
+                        "pyright",
+                        "pyright",
+                        "python",
+                    )],
+                    false,
+                )
+                .expect("resolution should succeed")
+            },
+        );
 
         assert!(resolved.is_empty());
     }

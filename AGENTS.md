@@ -43,6 +43,9 @@ check it:
 
 If you catch a bug in the code, write a regression test for that.
 
+After you add/edit a test, check the whole file for code duplication in tests.
+Don't leave similar boilerplate in tests.
+
 # Commands
 
 Test the code with the following commands:

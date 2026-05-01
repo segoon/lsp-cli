@@ -163,65 +163,29 @@ fn path_error(path: &Path, error: &io::Error) -> io::Error {
 mod tests {
     use super::{DetectionResult, detect_workspace, matching_files};
     use crate::config::FiletypeConfig;
+    use crate::test_support::TestDir;
     use regex::Regex;
     use std::collections::BTreeSet;
-    use std::fs;
     use std::io;
-    use std::path::{Path, PathBuf};
     use std::time::{SystemTime, UNIX_EPOCH};
 
     #[cfg(unix)]
+    use std::fs;
+    #[cfg(unix)]
     use std::os::unix::fs::symlink;
 
-    struct TestDir {
-        path: PathBuf,
+    fn write_file(dir: &TestDir, relative: &str) {
+        dir.write_file(relative, "test");
     }
 
-    impl TestDir {
-        fn new() -> Self {
-            let unique = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .expect("time should move forward")
-                .as_nanos();
-            let path = std::env::temp_dir().join(format!(
-                "lsp-cli-test-{}-{}",
-                std::process::id(),
-                unique
-            ));
-
-            fs::create_dir_all(&path).expect("temp dir should be created");
-
-            Self { path }
+    #[cfg(unix)]
+    fn write_symlink(dir: &TestDir, target: &str, link: &str) {
+        let link_path = dir.path().join(link);
+        if let Some(parent) = link_path.parent() {
+            fs::create_dir_all(parent).expect("parent dirs should be created");
         }
 
-        fn path(&self) -> &Path {
-            &self.path
-        }
-
-        fn write_file(&self, relative: &str) {
-            let path = self.path.join(relative);
-            if let Some(parent) = path.parent() {
-                fs::create_dir_all(parent).expect("parent dirs should be created");
-            }
-
-            fs::write(path, b"test").expect("file should be written");
-        }
-
-        #[cfg(unix)]
-        fn symlink(&self, target: &str, link: &str) {
-            let link_path = self.path.join(link);
-            if let Some(parent) = link_path.parent() {
-                fs::create_dir_all(parent).expect("parent dirs should be created");
-            }
-
-            symlink(target, link_path).expect("symlink should be created");
-        }
-    }
-
-    impl Drop for TestDir {
-        fn drop(&mut self) {
-            let _ = fs::remove_dir_all(&self.path);
-        }
+        symlink(target, link_path).expect("symlink should be created");
     }
 
     fn filetype(id: &str, extensions: &[&str], patterns: &[&str]) -> FiletypeConfig {
@@ -237,8 +201,8 @@ mod tests {
 
     #[test]
     fn detects_filetypes_by_extension() {
-        let dir = TestDir::new();
-        dir.write_file("src/main.foo");
+        let dir = TestDir::new("detect");
+        write_file(&dir, "src/main.foo");
 
         let detection = detect_workspace(dir.path(), &[filetype("alpha", &["foo"], &[])])
             .expect("scan should succeed");
@@ -254,8 +218,8 @@ mod tests {
 
     #[test]
     fn detects_filetypes_by_pattern() {
-        let dir = TestDir::new();
-        dir.write_file("src/tooling.config");
+        let dir = TestDir::new("detect");
+        write_file(&dir, "src/tooling.config");
 
         let detection = detect_workspace(
             dir.path(),
@@ -268,9 +232,9 @@ mod tests {
 
     #[test]
     fn detects_multiple_extensions_for_one_filetype() {
-        let dir = TestDir::new();
-        dir.write_file("src/main.bar");
-        dir.write_file("include/main.baz");
+        let dir = TestDir::new("detect");
+        write_file(&dir, "src/main.bar");
+        write_file(&dir, "include/main.baz");
 
         let detection = detect_workspace(dir.path(), &[filetype("beta", &["bar", "baz"], &[])])
             .expect("scan should succeed");
@@ -280,8 +244,8 @@ mod tests {
 
     #[test]
     fn scans_nested_directories() {
-        let dir = TestDir::new();
-        dir.write_file("deeply/nested/project/source.foo");
+        let dir = TestDir::new("detect");
+        write_file(&dir, "deeply/nested/project/source.foo");
 
         let detection = detect_workspace(dir.path(), &[filetype("alpha", &["foo"], &[])])
             .expect("scan should succeed");
@@ -291,8 +255,8 @@ mod tests {
 
     #[test]
     fn returns_empty_when_no_supported_files_exist() {
-        let dir = TestDir::new();
-        dir.write_file("README.md");
+        let dir = TestDir::new("detect");
+        write_file(&dir, "README.md");
 
         let detection = detect_workspace(dir.path(), &[filetype("alpha", &["foo"], &[])])
             .expect("scan should succeed");
@@ -303,9 +267,9 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn skips_broken_symlinks() {
-        let dir = TestDir::new();
-        dir.symlink("missing-target", "broken-link");
-        dir.write_file("src/main.foo");
+        let dir = TestDir::new("detect");
+        write_symlink(&dir, "missing-target", "broken-link");
+        write_file(&dir, "src/main.foo");
 
         let detection = detect_workspace(dir.path(), &[filetype("alpha", &["foo"], &[])])
             .expect("scan should succeed");
@@ -316,9 +280,9 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn skips_symlinked_directories() {
-        let dir = TestDir::new();
-        dir.write_file("real-src/main.foo");
-        dir.symlink("real-src", "linked-src");
+        let dir = TestDir::new("detect");
+        write_file(&dir, "real-src/main.foo");
+        write_symlink(&dir, "real-src", "linked-src");
 
         let detection = detect_workspace(
             &dir.path().join("linked-src"),
@@ -332,9 +296,9 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn skips_symlinked_files() {
-        let dir = TestDir::new();
-        dir.write_file("real.foo");
-        dir.symlink("real.foo", "linked.foo");
+        let dir = TestDir::new("detect");
+        write_file(&dir, "real.foo");
+        write_symlink(&dir, "real.foo", "linked.foo");
 
         let detection = detect_workspace(
             &dir.path().join("linked.foo"),
@@ -364,10 +328,10 @@ mod tests {
 
     #[test]
     fn collects_matching_files_for_allowed_filetypes() {
-        let dir = TestDir::new();
-        dir.write_file("src/main.foo");
-        dir.write_file("src/lib.bar");
-        dir.write_file("README.md");
+        let dir = TestDir::new("detect");
+        write_file(&dir, "src/main.foo");
+        write_file(&dir, "src/lib.bar");
+        write_file(&dir, "README.md");
 
         let matches = matching_files(
             dir.path(),

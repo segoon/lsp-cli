@@ -667,40 +667,9 @@ mod tests {
         MasonVersionOverride, OneOrMany, RegistryMetadata,
     };
     use crate::runtime_state::RuntimeState;
+    use crate::test_support::TestDir;
     use std::collections::BTreeMap;
     use std::fs;
-    use std::path::{Path, PathBuf};
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    struct TestDir {
-        path: PathBuf,
-    }
-
-    impl TestDir {
-        fn new() -> Self {
-            let unique = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .expect("time should move forward")
-                .as_nanos();
-            let path = std::env::temp_dir().join(format!(
-                "lsp-cli-mason-registry-test-{}-{}",
-                std::process::id(),
-                unique
-            ));
-            fs::create_dir_all(&path).expect("temp dir should be created");
-            Self { path }
-        }
-
-        fn path(&self) -> &Path {
-            &self.path
-        }
-    }
-
-    impl Drop for TestDir {
-        fn drop(&mut self) {
-            let _ = fs::remove_dir_all(&self.path);
-        }
-    }
 
     #[test]
     fn keeps_only_lsp_packages_with_lspconfig_mapping() {
@@ -924,7 +893,7 @@ mod tests {
 
     #[test]
     fn load_cached_returns_none_when_registry_is_missing() {
-        let dir = TestDir::new();
+        let dir = TestDir::new("mason-registry");
         let state = RuntimeState::new(dir.path().join("state"));
 
         assert!(MasonRegistry::load_cached(&state).is_none());
@@ -932,7 +901,7 @@ mod tests {
 
     #[test]
     fn load_cached_returns_none_for_corrupted_registry() {
-        let dir = TestDir::new();
+        let dir = TestDir::new("mason-registry");
         let state = RuntimeState::new(dir.path().join("state"));
         fs::create_dir_all(state.registry_dir()).expect("registry dir should be created");
         fs::write(state.registry_json_path(), b"{not json]")

@@ -635,41 +635,11 @@ mod tests {
     use super::{
         LspClient, format_spawn_error, read_message, serialize_debug_message, write_message,
     };
+    use crate::test_support::TestDir;
     use serde_json::json;
     use std::fs;
     use std::io::BufReader;
-    use std::path::{Path, PathBuf};
-    use std::time::{Duration, SystemTime, UNIX_EPOCH};
-
-    struct TestDir {
-        path: PathBuf,
-    }
-
-    impl TestDir {
-        fn new() -> Self {
-            let unique = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .expect("time should move forward")
-                .as_nanos();
-            let path = std::env::temp_dir().join(format!(
-                "lsp-cli-client-test-{}-{}",
-                std::process::id(),
-                unique
-            ));
-            fs::create_dir_all(&path).expect("temp dir should be created");
-            Self { path }
-        }
-
-        fn path(&self) -> &Path {
-            &self.path
-        }
-    }
-
-    impl Drop for TestDir {
-        fn drop(&mut self) {
-            let _ = fs::remove_dir_all(&self.path);
-        }
-    }
+    use std::time::Duration;
 
     #[test]
     fn writes_and_reads_lsp_message() {
@@ -705,7 +675,7 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn starts_server_in_workspace_root() {
-        let dir = TestDir::new();
+        let dir = TestDir::new("client");
         let workspace_root = dir.path().join("workspace");
         fs::create_dir_all(&workspace_root).expect("workspace should be created");
         let cwd_file = dir.path().join("cwd.txt");

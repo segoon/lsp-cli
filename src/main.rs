@@ -9,6 +9,9 @@ mod mason;
 mod runtime_state;
 mod suggest;
 
+#[cfg(test)]
+mod test_support;
+
 use std::env;
 use std::process;
 

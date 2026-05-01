@@ -423,53 +423,14 @@ mod tests {
         location_matches_from_response, prepare_call_hierarchy_response,
         symbol_matches_from_response,
     };
+    use crate::test_support::TestDir;
     use lsp_types::SymbolKind;
     use serde_json::json;
-    use std::fs;
-    use std::path::PathBuf;
-    use std::time::{SystemTime, UNIX_EPOCH};
     use url::Url;
-
-    struct TestDir {
-        path: PathBuf,
-    }
-
-    impl TestDir {
-        fn new() -> Self {
-            let unique = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .expect("time should move forward")
-                .as_nanos();
-            let path = std::env::temp_dir().join(format!(
-                "lsp-cli-symbols-test-{}-{}",
-                std::process::id(),
-                unique
-            ));
-            fs::create_dir_all(&path).expect("temp dir should be created");
-
-            Self { path }
-        }
-
-        fn write_file(&self, relative: &str, contents: &str) -> PathBuf {
-            let path = self.path.join(relative);
-            if let Some(parent) = path.parent() {
-                fs::create_dir_all(parent).expect("parent dirs should be created");
-            }
-
-            fs::write(&path, contents).expect("file should be written");
-            path
-        }
-    }
-
-    impl Drop for TestDir {
-        fn drop(&mut self) {
-            let _ = fs::remove_dir_all(&self.path);
-        }
-    }
 
     #[test]
     fn returns_placeholder_for_missing_line() {
-        let dir = TestDir::new();
+        let dir = TestDir::new("symbols");
         let file = dir.write_file("main.rs", "fn main() {}\n");
         let mut cache = SourceCache::default();
 
@@ -478,7 +439,7 @@ mod tests {
 
     #[test]
     fn parses_workspace_symbol_locations() {
-        let dir = TestDir::new();
+        let dir = TestDir::new("symbols");
         let file = dir.write_file("src/lib.rs", "first line\nsecond line\n");
         let uri = Url::from_file_path(&file)
             .expect("file path should become URI")
@@ -524,7 +485,7 @@ mod tests {
 
     #[test]
     fn parses_document_symbols_for_functions() {
-        let dir = TestDir::new();
+        let dir = TestDir::new("symbols");
         let file = dir.write_file(
             "src/lib.rs",
             "struct S;\nfn first() {}\nimpl S {\n    fn second(&self) {}\n}\n",
@@ -602,7 +563,7 @@ mod tests {
 
     #[test]
     fn parses_document_symbols_for_all_kinds() {
-        let dir = TestDir::new();
+        let dir = TestDir::new("symbols");
         let file = dir.write_file("src/lib.rs", "struct S;\nfn first() {}\n");
         let mut cache = SourceCache::default();
 
@@ -645,7 +606,7 @@ mod tests {
 
     #[test]
     fn parses_location_links() {
-        let dir = TestDir::new();
+        let dir = TestDir::new("symbols");
         let file = dir.write_file("src/lib.rs", "first line\nsecond line\n");
         let uri = Url::from_file_path(&file)
             .expect("file path should become URI")
@@ -700,7 +661,7 @@ mod tests {
 
     #[test]
     fn parses_call_hierarchy_incoming_calls() {
-        let dir = TestDir::new();
+        let dir = TestDir::new("symbols");
         let file = dir.write_file("src/lib.rs", "fn caller() {}\n");
         let uri = Url::from_file_path(&file)
             .expect("file path should become URI")
@@ -735,7 +696,7 @@ mod tests {
 
     #[test]
     fn parses_call_hierarchy_outgoing_calls() {
-        let dir = TestDir::new();
+        let dir = TestDir::new("symbols");
         let file = dir.write_file("src/lib.rs", "fn callee() {}\n");
         let uri = Url::from_file_path(&file)
             .expect("file path should become URI")

@@ -93,47 +93,15 @@ fn choose_runtime_state_root(home: Option<&Path>) -> Result<PathBuf, String> {
 #[cfg(test)]
 mod tests {
     use super::{RuntimeState, choose_runtime_state_root};
-    use std::fs;
-    use std::path::{Path, PathBuf};
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    struct TestDir {
-        path: PathBuf,
-    }
-
-    impl TestDir {
-        fn new() -> Self {
-            let unique = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .expect("time should move forward")
-                .as_nanos();
-            let path = std::env::temp_dir().join(format!(
-                "lsp-cli-runtime-state-test-{}-{}",
-                std::process::id(),
-                unique
-            ));
-            fs::create_dir_all(&path).expect("temp dir should be created");
-            Self { path }
-        }
-
-        fn path(&self) -> &Path {
-            &self.path
-        }
-    }
-
-    impl Drop for TestDir {
-        fn drop(&mut self) {
-            let _ = fs::remove_dir_all(&self.path);
-        }
-    }
+    use crate::test_support::{LOCAL_SHARE_LSP_CLI, TestDir};
 
     #[test]
     fn resolves_runtime_state_under_home() {
-        let home = TestDir::new();
+        let home = TestDir::new("runtime-state");
 
         assert_eq!(
             choose_runtime_state_root(Some(home.path())).expect("root should resolve"),
-            home.path().join(".local/share/lsp-cli")
+            home.path().join(LOCAL_SHARE_LSP_CLI)
         );
     }
 
@@ -146,7 +114,7 @@ mod tests {
 
     #[test]
     fn creates_expected_runtime_directories() {
-        let dir = TestDir::new();
+        let dir = TestDir::new("runtime-state");
         let state = RuntimeState::new(dir.path().join("state"));
 
         state.ensure_dirs().expect("directories should be created");

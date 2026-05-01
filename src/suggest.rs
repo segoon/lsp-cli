@@ -118,8 +118,9 @@ mod tests {
     use super::{SuggestedLanguage, suggestions_for};
     use crate::config::LspConfig;
     use crate::detect::DetectionResult;
+    use crate::test_support::TestDir;
     use std::collections::BTreeSet;
-    use std::path::{Path, PathBuf};
+    use std::path::Path;
 
     fn example_lsp() -> LspConfig {
         LspConfig {
@@ -129,46 +130,6 @@ mod tests {
             name: "example-lsp".to_string(),
             cmdline: "example-lsp --stdio $WORKSPACE".to_string(),
             wait_for_index: false,
-        }
-    }
-
-    struct TestDir {
-        path: PathBuf,
-    }
-
-    impl TestDir {
-        fn new() -> Self {
-            let unique = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .expect("time should move forward")
-                .as_nanos();
-            let path = std::env::temp_dir().join(format!(
-                "lsp-cli-suggest-test-{}-{}",
-                std::process::id(),
-                unique
-            ));
-            std::fs::create_dir_all(&path).expect("temp dir should be created");
-            Self { path }
-        }
-
-        fn path(&self) -> &Path {
-            &self.path
-        }
-
-        fn write_file(&self, relative: &str) -> PathBuf {
-            let path = self.path.join(relative);
-            if let Some(parent) = path.parent() {
-                std::fs::create_dir_all(parent).expect("parent dirs should be created");
-            }
-
-            std::fs::write(&path, b"test").expect("file should be written");
-            path
-        }
-    }
-
-    impl Drop for TestDir {
-        fn drop(&mut self) {
-            let _ = std::fs::remove_dir_all(&self.path);
         }
     }
 
@@ -322,9 +283,9 @@ mod tests {
 
     #[test]
     fn resolves_workspace_from_root_marker() {
-        let dir = TestDir::new();
-        dir.write_file(".workspace-root");
-        let nested = dir.write_file("src/main.foo");
+        let dir = TestDir::new("suggest");
+        dir.write_file(".workspace-root", "test");
+        let nested = dir.write_file("src/main.foo", "test");
 
         let suggestions = suggestions_for(
             &[example_lsp()],
@@ -349,8 +310,8 @@ mod tests {
 
     #[test]
     fn falls_back_to_input_directory_when_no_marker_exists() {
-        let dir = TestDir::new();
-        let nested = dir.write_file("src/main.foo");
+        let dir = TestDir::new("suggest");
+        let nested = dir.write_file("src/main.foo", "test");
 
         let suggestions = suggestions_for(
             &[example_lsp()],

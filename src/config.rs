@@ -209,79 +209,37 @@ fn validate_lsp_filetypes(filetypes: &[FiletypeConfig], lsps: &[LspConfig]) -> R
 #[cfg(test)]
 mod tests {
     use super::{choose_config_root, default_config_root, load_config_store};
-    use std::fs;
-    use std::path::{Path, PathBuf};
+    use crate::test_support::{LOCAL_SHARE_LSP_CLI, TestDir};
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    struct TestDir {
-        path: PathBuf,
-    }
+    const EMPTY_FILETYPE_YAML: &str = "extensions: []\npatterns: []\n";
+    const MINIMAL_LSP_YAML: &str =
+        "filetypes: []\nroot_markers: []\nname: placeholder\ncmdline: placeholder\n";
 
-    impl TestDir {
-        fn new() -> Self {
-            let unique = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .expect("time should move forward")
-                .as_nanos();
-            let path = std::env::temp_dir().join(format!(
-                "lsp-cli-config-test-{}-{}",
-                std::process::id(),
-                unique
-            ));
-            fs::create_dir_all(&path).expect("temp dir should be created");
-            Self { path }
-        }
-
-        fn path(&self) -> &Path {
-            &self.path
-        }
-
-        fn write_file(&self, relative: &str, contents: &str) {
-            let path = self.path.join(relative);
-            if let Some(parent) = path.parent() {
-                fs::create_dir_all(parent).expect("parent dirs should be created");
-            }
-
-            fs::write(path, contents).expect("file should be written");
-        }
-
-        fn writes_config_dirs(&self) {
-            self.write_file(
-                "filetypes/placeholder.yaml",
-                "extensions: []\npatterns: []\n",
-            );
-            self.write_file(
-                "lsp/placeholder.yaml",
-                "filetypes: []\nroot_markers: []\nname: placeholder\ncmdline: placeholder\n",
-            );
-        }
-    }
-
-    impl Drop for TestDir {
-        fn drop(&mut self) {
-            let _ = fs::remove_dir_all(&self.path);
-        }
+    fn write_config_dirs(dir: &TestDir) {
+        dir.write_file("filetypes/placeholder.yaml", EMPTY_FILETYPE_YAML);
+        dir.write_file("lsp/placeholder.yaml", MINIMAL_LSP_YAML);
     }
 
     #[test]
     fn resolves_config_root_from_lsp_data_env() {
-        let lsp_data = TestDir::new();
-        let home = TestDir::new();
-        let repo = TestDir::new();
-        lsp_data.write_file("filetypes/a.yaml", "extensions: []\npatterns: []\n");
+        let lsp_data = TestDir::new("config");
+        let home = TestDir::new("config");
+        let repo = TestDir::new("config");
+        lsp_data.write_file("filetypes/a.yaml", EMPTY_FILETYPE_YAML);
         lsp_data.write_file(
             "lsp/a.yaml",
             "filetypes: []\nroot_markers: []\nname: a\ncmdline: a\n",
         );
         home.write_file(
-            ".local/share/lsp-cli/filetypes/b.yaml",
-            "extensions: []\npatterns: []\n",
+            &format!("{LOCAL_SHARE_LSP_CLI}/filetypes/b.yaml"),
+            EMPTY_FILETYPE_YAML,
         );
         home.write_file(
-            ".local/share/lsp-cli/lsp/b.yaml",
+            &format!("{LOCAL_SHARE_LSP_CLI}/lsp/b.yaml"),
             "filetypes: []\nroot_markers: []\nname: b\ncmdline: b\n",
         );
-        repo.writes_config_dirs();
+        write_config_dirs(&repo);
 
         assert_eq!(
             choose_config_root(Some(lsp_data.path()), Some(home.path()), repo.path())
@@ -292,29 +250,29 @@ mod tests {
 
     #[test]
     fn falls_back_to_home_local_share() {
-        let home = TestDir::new();
-        let repo = TestDir::new();
+        let home = TestDir::new("config");
+        let repo = TestDir::new("config");
         home.write_file(
-            ".local/share/lsp-cli/filetypes/c.yaml",
-            "extensions: []\npatterns: []\n",
+            &format!("{LOCAL_SHARE_LSP_CLI}/filetypes/c.yaml"),
+            EMPTY_FILETYPE_YAML,
         );
         home.write_file(
-            ".local/share/lsp-cli/lsp/clangd.yaml",
+            &format!("{LOCAL_SHARE_LSP_CLI}/lsp/clangd.yaml"),
             "filetypes: []\nroot_markers: []\nname: clangd\ncmdline: clangd\n",
         );
-        repo.writes_config_dirs();
+        write_config_dirs(&repo);
 
         assert_eq!(
             choose_config_root(None, Some(home.path()), repo.path()).expect("root should resolve"),
-            home.path().join(".local/share/lsp-cli")
+            home.path().join(LOCAL_SHARE_LSP_CLI)
         );
     }
 
     #[test]
     fn falls_back_to_repo_data_when_home_default_missing() {
-        let home = TestDir::new();
-        let repo = TestDir::new();
-        repo.writes_config_dirs();
+        let home = TestDir::new("config");
+        let repo = TestDir::new("config");
+        write_config_dirs(&repo);
 
         assert_eq!(
             choose_config_root(None, Some(home.path()), repo.path()).expect("root should resolve"),
@@ -324,8 +282,8 @@ mod tests {
 
     #[test]
     fn errors_when_no_root_can_be_resolved() {
-        let home = TestDir::new();
-        let repo = TestDir::new();
+        let home = TestDir::new("config");
+        let repo = TestDir::new("config");
 
         let error = choose_config_root(None, Some(home.path()), repo.path())
             .expect_err("root resolution should fail");
@@ -342,7 +300,7 @@ mod tests {
 
     #[test]
     fn loads_valid_config_store() {
-        let dir = TestDir::new();
+        let dir = TestDir::new("config");
         dir.write_file(
             "filetypes/c.yaml",
             "extensions:\n  - c\n  - h\npatterns:\n  - '^special$'\n",
@@ -390,7 +348,7 @@ mod tests {
 
     #[test]
     fn fails_on_invalid_yaml() {
-        let dir = TestDir::new();
+        let dir = TestDir::new("config");
         dir.write_file("filetypes/c.yaml", "extensions: [c\n");
         dir.write_file(
             "lsp/clangd.yaml",
@@ -404,7 +362,7 @@ mod tests {
 
     #[test]
     fn fails_on_unknown_lsp_filetype() {
-        let dir = TestDir::new();
+        let dir = TestDir::new("config");
         dir.write_file("filetypes/c.yaml", "extensions: [c]\npatterns: []\n");
         dir.write_file(
             "lsp/clangd.yaml",
@@ -418,7 +376,7 @@ mod tests {
 
     #[test]
     fn fails_on_invalid_regex() {
-        let dir = TestDir::new();
+        let dir = TestDir::new("config");
         dir.write_file("filetypes/c.yaml", "extensions: [c]\npatterns: ['(']\n");
         dir.write_file(
             "lsp/clangd.yaml",

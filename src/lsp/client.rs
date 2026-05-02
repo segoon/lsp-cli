@@ -1,11 +1,11 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, VecDeque};
 use std::io::BufReader;
 use std::os::unix::net::UnixStream;
 use std::path::Path;
 use std::process::{Child, ChildStdin, Command, Stdio};
-use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender, TryRecvError};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use lsp_types::notification::{Exit, Initialized, Notification};
 use lsp_types::request::{
@@ -26,6 +26,7 @@ mod tests;
 pub struct LspClient {
     transport: ClientTransport,
     messages: Receiver<IncomingMessage>,
+    pending_messages: VecDeque<IncomingMessage>,
     next_request_id: u64,
     shutdown_sent: bool,
     opened_documents: BTreeSet<String>,
@@ -85,6 +86,7 @@ impl LspClient {
         Ok(Self {
             transport: ClientTransport::Process { child, stdin },
             messages,
+            pending_messages: VecDeque::new(),
             next_request_id: 1,
             shutdown_sent: false,
             opened_documents: BTreeSet::new(),
@@ -119,6 +121,7 @@ impl LspClient {
         Ok(Self {
             transport: ClientTransport::Socket { stream },
             messages,
+            pending_messages: VecDeque::new(),
             next_request_id: 1,
             shutdown_sent: false,
             opened_documents: BTreeSet::new(),
@@ -183,6 +186,7 @@ impl LspClient {
             .map_err(|error| format!("failed to decode initialize response: {error}"))?;
 
         self.send_notification(Initialized::METHOD, &json!({}))?;
+        self.drain_pending_server_requests()?;
         Ok(response)
     }
 
@@ -266,16 +270,16 @@ impl LspClient {
         self.send_notification(Exit::METHOD, &Value::Null)?;
         self.shutdown_sent = true;
 
-        if let ClientTransport::Process { child, .. } = &mut self.transport {
-            child
-                .wait()
-                .map_err(|error| format!("failed to wait for LSP server exit: {error}"))?;
-        }
+        self.wait_for_process_exit()?;
 
         Ok(())
     }
 
     fn send_request(&mut self, method: &str, params: &Value) -> Result<Value, String> {
+        if method != Initialize::METHOD {
+            self.drain_pending_server_requests()?;
+        }
+
         let id = self.next_request_id;
         self.next_request_id += 1;
 
@@ -289,7 +293,7 @@ impl LspClient {
         self.write_transport_message(&message)?;
 
         loop {
-            match self.messages.recv_timeout(self.timeout) {
+            match self.recv_message(self.timeout) {
                 Ok(IncomingMessage::Message(message)) => {
                     if let Some(response_id) = response_id(&message) {
                         if response_id == id {
@@ -324,6 +328,10 @@ impl LspClient {
     }
 
     fn send_notification(&mut self, method: &str, params: &Value) -> Result<(), String> {
+        if method != Initialized::METHOD {
+            self.drain_pending_server_requests()?;
+        }
+
         let message = json!({
             "jsonrpc": "2.0",
             "method": method,
@@ -338,6 +346,113 @@ impl LspClient {
             ClientTransport::Process { stdin, .. } => write_message(stdin, message),
             ClientTransport::Socket { stream } => write_message(stream, message),
         }
+    }
+
+    fn recv_message(&mut self, timeout: Duration) -> Result<IncomingMessage, RecvTimeoutError> {
+        if let Some(message) = self.pending_messages.pop_front() {
+            return Ok(message);
+        }
+
+        self.messages.recv_timeout(timeout)
+    }
+
+    fn try_recv_message(&mut self) -> Result<Option<IncomingMessage>, TryRecvError> {
+        if let Some(message) = self.pending_messages.pop_front() {
+            return Ok(Some(message));
+        }
+
+        match self.messages.try_recv() {
+            Ok(message) => Ok(Some(message)),
+            Err(TryRecvError::Empty) => Ok(None),
+            Err(error) => Err(error),
+        }
+    }
+
+    fn drain_pending_server_requests(&mut self) -> Result<(), String> {
+        let mut deferred = VecDeque::new();
+
+        loop {
+            match self.try_recv_message() {
+                Ok(Some(IncomingMessage::Message(message))) => {
+                    if let Some(request_id) = request_id(&message) {
+                        self.handle_server_request(&request_id, &message)?;
+                    } else {
+                        deferred.push_back(IncomingMessage::Message(message));
+                    }
+                }
+                Ok(Some(message @ (IncomingMessage::EndOfStream | IncomingMessage::Error(_)))) => {
+                    deferred.push_back(message);
+                    break;
+                }
+                Ok(None) | Err(TryRecvError::Empty) => break,
+                Err(TryRecvError::Disconnected) => {
+                    deferred.push_back(IncomingMessage::Error(
+                        "LSP reader stopped unexpectedly".to_string(),
+                    ));
+                    break;
+                }
+            }
+        }
+
+        self.pending_messages.extend(deferred);
+        Ok(())
+    }
+
+    fn wait_for_process_exit(&mut self) -> Result<(), String> {
+        const PROCESS_EXIT_POLL_INTERVAL: Duration = Duration::from_millis(50);
+
+        let started = Instant::now();
+        loop {
+            match &mut self.transport {
+                ClientTransport::Process { child, .. } => match child.try_wait() {
+                    Ok(Some(_)) => return Ok(()),
+                    Ok(None) => {}
+                    Err(error) => {
+                        return Err(format!("failed to wait for LSP server exit: {error}"));
+                    }
+                },
+                ClientTransport::Socket { .. } => return Ok(()),
+            }
+
+            let Some(remaining) = self.timeout.checked_sub(started.elapsed()) else {
+                self.kill_process()?;
+                return Err("timed out waiting for LSP server exit".to_string());
+            };
+            let poll_timeout = if remaining < PROCESS_EXIT_POLL_INTERVAL {
+                remaining
+            } else {
+                PROCESS_EXIT_POLL_INTERVAL
+            };
+
+            match self.recv_message(poll_timeout) {
+                Ok(IncomingMessage::Message(message)) => {
+                    if let Some(request_id) = request_id(&message) {
+                        self.handle_server_request(&request_id, &message)?;
+                    }
+                }
+                Ok(IncomingMessage::EndOfStream)
+                | Err(RecvTimeoutError::Timeout | RecvTimeoutError::Disconnected) => {}
+                Ok(IncomingMessage::Error(error)) => {
+                    return Err(format!(
+                        "failed to read LSP message while waiting for server exit: {error}"
+                    ));
+                }
+            }
+        }
+    }
+
+    fn kill_process(&mut self) -> Result<(), String> {
+        let ClientTransport::Process { child, .. } = &mut self.transport else {
+            return Ok(());
+        };
+
+        child
+            .kill()
+            .map_err(|error| format!("failed to stop LSP server process: {error}"))?;
+        child
+            .wait()
+            .map_err(|error| format!("failed to wait for LSP server exit: {error}"))?;
+        Ok(())
     }
 
     fn handle_server_request(&mut self, request_id: &Value, message: &Value) -> Result<(), String> {

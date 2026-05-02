@@ -4,8 +4,8 @@ use crate::config::ConfigStore;
 use crate::detect::matching_files;
 use crate::lsp::{
     LspClient, SourceCache, SymbolMatch, document_symbol_matches_from_response,
-    document_symbol_supported, ensure_call_hierarchy_support, ensure_document_symbol_support,
-    ensure_workspace_symbol_support, function_matches_from_document_response,
+    document_symbol_supported, ensure_call_hierarchy_support, ensure_workspace_symbol_support,
+    function_matches_from_document_response,
     is_function_symbol_kind, location_matches_from_response, path_to_file_uri,
     prepare_call_hierarchy_response, should_skip_document_symbol_error,
     symbol_matches_from_response,
@@ -87,7 +87,7 @@ pub(super) fn run_document_symbol_query(
         args.query.timeout,
         config,
         |workspace, initialize, client| {
-            ensure_document_symbol_support(initialize)?;
+            ensure_list_functions_support(initialize, &workspace.server.server)?;
 
             let files = matching_files(
                 &args.query.directory,
@@ -155,7 +155,7 @@ pub(super) fn run_file_symbol_query(
         args.timeout,
         config,
         |workspace, initialize, client| {
-            ensure_document_symbol_support(initialize)?;
+            ensure_list_symbols_support(initialize, &workspace.server.server)?;
 
             let uri = path_to_file_uri(&args.file)?;
             client.open_document(&args.file, &uri).map_err(|error| {
@@ -207,6 +207,32 @@ fn validate_list_symbols_file_path(path: &Path) -> Result<(), String> {
         return Err(format!(
             "list-symbols expected a regular file path, but {} is not a file",
             path.display()
+        ));
+    }
+
+    Ok(())
+}
+
+fn ensure_list_functions_support(
+    initialize: &crate::lsp::InitializeResponse,
+    server_name: &str,
+) -> Result<(), String> {
+    if !document_symbol_supported(initialize) {
+        return Err(format!(
+            "{server_name} does not support list-functions because it does not advertise textDocument/documentSymbol"
+        ));
+    }
+
+    Ok(())
+}
+
+fn ensure_list_symbols_support(
+    initialize: &crate::lsp::InitializeResponse,
+    server_name: &str,
+) -> Result<(), String> {
+    if !document_symbol_supported(initialize) {
+        return Err(format!(
+            "{server_name} does not support list-symbols because it does not advertise textDocument/documentSymbol"
         ));
     }
 

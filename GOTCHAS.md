@@ -1,5 +1,11 @@
 # LSP protocol
 
+- Some servers send client requests such as `client/registerCapability` immediately after the
+  `initialize` response and expect those requests to be answered before later client traffic.
+  lsp-cli therefore drains and replies to queued server requests right after `initialized` and
+  before sending later requests, instead of assuming request-response traffic is strictly
+  one-directional.
+
 # daemon gotchas
 
 - LSP 3.17 assumes one server serves one tool. `lsp-cli daemon` therefore implements a

@@ -3,13 +3,13 @@
 commands:
 - repl (TODO: name... cli, console, terminal, interactive?)
 
-
 options:
 - -s|--signature - show the full signature
 - -b|--body - show the full function body
 
-
+generic:
 - lsp commands should spawn ALL discovered LSP servers in case of multiple languages
+
 
 # Bugs
 
@@ -21,6 +21,13 @@ options:
 # Source code
 
 - duplication (vec![x.to_string(), ...])
-- user-visible messages - more friendly/informative
+- user-visible messages - more friendly/informative -> into explicit module
 - improve readme (integration with agents/IDE)
 
+
+
+# Raw thoughts
+
+- cover more initialize capabilities?
+- cover more useful commands?
+- ask GPT itself "how to word the skill file?"

@@ -7,7 +7,7 @@ mod uri;
 pub use capabilities::{
     InitializeResponse, ServerStatusParams, document_symbol_supported,
     ensure_call_hierarchy_support, ensure_declaration_support, ensure_definition_support,
-    ensure_document_symbol_support, ensure_references_support, ensure_workspace_symbol_support,
+    ensure_references_support, ensure_workspace_symbol_support,
 };
 pub use client::LspClient;
 pub use symbols::{

@@ -1,16 +1,26 @@
 use super::{ClientTransport, LspClient, format_spawn_error};
 use crate::test_support::TestDir;
+#[cfg(unix)]
+use crate::lsp::transport::{read_message, write_message};
+#[cfg(unix)]
+use serde_json::json;
 use std::fs;
 use std::time::Duration;
 
 #[cfg(unix)]
 use std::fs::File;
 #[cfg(unix)]
+use std::io::BufReader;
+#[cfg(unix)]
 use std::io::Write;
 #[cfg(unix)]
 use std::os::fd::AsRawFd;
 #[cfg(unix)]
+use std::os::unix::net::UnixListener;
+#[cfg(unix)]
 use std::sync::{Mutex, OnceLock};
+#[cfg(unix)]
+use std::thread;
 
 #[test]
 fn formats_missing_binary_error() {
@@ -63,6 +73,111 @@ fn hides_server_stderr_without_debug() {
 #[test]
 fn keeps_server_stderr_visible_with_debug() {
     assert!(captured_server_stderr(true).contains("server stderr\n"));
+}
+
+#[cfg(unix)]
+#[test]
+fn initialize_replies_to_queued_server_requests_before_next_request() {
+    let dir = TestDir::new("client-init-queue");
+    let socket_path = dir.path().join("server.sock");
+    let listener = UnixListener::bind(&socket_path).expect("socket should bind");
+
+    let server = thread::spawn(move || {
+        let (stream, _) = listener.accept().expect("client should connect");
+        let reader_stream = stream.try_clone().expect("stream should clone");
+        let mut reader = BufReader::new(reader_stream);
+        let mut writer = stream;
+
+        let initialize = read_message(&mut reader)
+            .expect("initialize should parse")
+            .expect("initialize should exist");
+        assert_eq!(
+            initialize.get("method").and_then(serde_json::Value::as_str),
+            Some("initialize")
+        );
+        write_message(
+            &mut writer,
+            &json!({
+                "jsonrpc": "2.0",
+                "id": initialize.get("id").cloned().expect("initialize id should exist"),
+                "result": {
+                    "capabilities": {
+                        "documentSymbolProvider": true,
+                    }
+                },
+            }),
+        )
+        .expect("initialize response should write");
+        write_message(
+            &mut writer,
+            &json!({
+                "jsonrpc": "2.0",
+                "id": "register-1",
+                "method": "client/registerCapability",
+                "params": {
+                    "registrations": [{
+                        "id": "watcher",
+                        "method": "workspace/didChangeWatchedFiles",
+                        "registerOptions": {
+                            "watchers": [{"globPattern": "**/*", "kind": 4}]
+                        }
+                    }]
+                }
+            }),
+        )
+        .expect("registerCapability request should write");
+
+        let initialized = read_message(&mut reader)
+            .expect("initialized should parse")
+            .expect("initialized should exist");
+        assert_eq!(
+            initialized.get("method").and_then(serde_json::Value::as_str),
+            Some("initialized")
+        );
+
+        let register_response = read_message(&mut reader)
+            .expect("register response should parse")
+            .expect("register response should exist");
+        assert_eq!(
+            register_response.get("id").and_then(serde_json::Value::as_str),
+            Some("register-1")
+        );
+        assert!(register_response.get("result").is_some());
+
+        let shutdown = read_message(&mut reader)
+            .expect("shutdown should parse")
+            .expect("shutdown should exist");
+        assert_eq!(
+            shutdown.get("method").and_then(serde_json::Value::as_str),
+            Some("shutdown")
+        );
+        write_message(
+            &mut writer,
+            &json!({
+                "jsonrpc": "2.0",
+                "id": shutdown.get("id").cloned().expect("shutdown id should exist"),
+                "result": null,
+            }),
+        )
+        .expect("shutdown response should write");
+
+        let exit = read_message(&mut reader)
+            .expect("exit should parse")
+            .expect("exit should exist");
+        assert_eq!(
+            exit.get("method").and_then(serde_json::Value::as_str),
+            Some("exit")
+        );
+    });
+
+    let mut client =
+        LspClient::connect_unix(&socket_path, false, Duration::from_secs(1)).expect("connect");
+    client
+        .initialize("file:///workspace", "workspace", false)
+        .expect("initialize should succeed");
+    client.shutdown().expect("shutdown should succeed");
+
+    server.join().expect("server thread should finish");
 }
 
 #[cfg(unix)]

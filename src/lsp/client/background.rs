@@ -40,7 +40,7 @@ impl LspClient {
                 return Err(timeout_error(&state));
             };
 
-            match self.messages.recv_timeout(remaining) {
+            match self.recv_message(remaining) {
                 Ok(IncomingMessage::Message(message)) => {
                     if let Some(outcome) = update_build_index_state(&message, &mut state)? {
                         return outcome;

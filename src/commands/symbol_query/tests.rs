@@ -1,9 +1,11 @@
 use super::{
-    dedupe_symbol_matches, preferred_function_name_matches, preferred_name_matches,
-    render_paths_text, render_symbol_matches_text, render_symbol_names_text, truncate_items,
+    dedupe_symbol_matches, ensure_list_functions_support, ensure_list_symbols_support,
+    preferred_function_name_matches, preferred_name_matches, render_paths_text,
+    render_symbol_matches_text, render_symbol_names_text, truncate_items,
     validate_list_symbols_file_path,
 };
 use crate::lsp::SymbolMatch;
+use serde_json::json;
 use crate::test_support::TestDir;
 use lsp_types::SymbolKind;
 use std::path::PathBuf;
@@ -143,4 +145,35 @@ fn rejects_directory_for_list_symbols_file_query() {
 
     assert!(error.contains("expected a file path"));
     assert!(error.contains("is a directory"));
+}
+
+fn initialize_response(document_symbol_provider: Option<serde_json::Value>) -> crate::lsp::InitializeResponse {
+    serde_json::from_value(json!({
+        "capabilities": {
+            "documentSymbolProvider": document_symbol_provider,
+        }
+    }))
+    .expect("initialize response should decode")
+}
+
+#[test]
+fn formats_list_functions_support_error_for_missing_document_symbol() {
+    let error = ensure_list_functions_support(&initialize_response(None), "harper-ls")
+        .expect_err("missing document symbol support should fail");
+
+    assert_eq!(
+        error,
+        "harper-ls does not support list-functions because it does not advertise textDocument/documentSymbol"
+    );
+}
+
+#[test]
+fn formats_list_symbols_support_error_for_missing_document_symbol() {
+    let error = ensure_list_symbols_support(&initialize_response(None), "harper-ls")
+        .expect_err("missing document symbol support should fail");
+
+    assert_eq!(
+        error,
+        "harper-ls does not support list-symbols because it does not advertise textDocument/documentSymbol"
+    );
 }

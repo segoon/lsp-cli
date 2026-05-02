@@ -46,6 +46,13 @@ If you catch a bug in the code, write a regression test for that.
 After you add/edit a test, check the whole file for code duplication in tests.
 Don't leave similar boilerplate in tests.
 
+Tests must not contain boilerplate.
+Test setup stage must be as compact and readable as possible.
+Compare tests of the same type/class/module/function for duplicated blocks/expressions.
+Move duplicated test initialization code to helper functions.
+Similar initialization may use parametrized helpers with distinct arguments.
+
+
 # Commands
 
 Test the code with the following commands:

@@ -122,8 +122,10 @@ lsp-cli grep --timeout 1.5 MySymbol path/to/project
 lsp-cli grep --timeout 100ms MySymbol path/to/project
 lsp-cli grep --wait-for-index MySymbol path/to/project
 
-# List all symbols in one file
+# List symbols in one file or across one workspace directory
+lsp-cli list-symbols path/to/project
 lsp-cli list-symbols path/to/project/src/main.rs
+lsp-cli list-symbols path/to/project --json
 lsp-cli list-symbols path/to/project/src/main.rs --json
 
 # List only function-like workspace symbols
@@ -174,7 +176,7 @@ lsp-cli servers --lang rust
 ```
 
 `grep` uses the LSP `workspace/symbol` request. Pattern syntax and matching behavior are server-dependent.
-`list-symbols` uses `textDocument/documentSymbol` for a single file.
+`list-symbols` uses `textDocument/documentSymbol`. For a file input it lists that file's symbols; for a directory input it walks matching files in that workspace.
 `list-functions` walks matching files with `textDocument/documentSymbol` and keeps only method, constructor, function, and operator symbol kinds.
 `references`, `definition`, `declaration`, `callers`, and `callees` start from `workspace/symbol` matches and then run the corresponding position-based LSP request for each match.
 `--limit` defaults to `100`. Text output is limited by lines, and JSON output is limited by result items. When the limit is hit, lsp-cli prints a notice to stderr.

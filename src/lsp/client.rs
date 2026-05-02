@@ -84,12 +84,9 @@ impl LspClient {
         let stderr = if debug {
             None
         } else {
-            Some(CapturedStderr::spawn(
-                child
-                    .stderr
-                    .take()
-                    .ok_or_else(|| format!("failed to open stderr for {program}"))?,
-            ))
+            Some(CapturedStderr::spawn(child.stderr.take().ok_or_else(
+                || format!("failed to open stderr for {program}"),
+            )?))
         };
         let messages = spawn_reader(stdout, debug);
 

@@ -199,7 +199,99 @@ fn symbol_information_to_match(
     symbol: SymbolInformation,
     source_cache: &mut SourceCache,
 ) -> Result<SymbolMatch, String> {
-    location_to_symbol_match(&symbol.location, symbol.name, symbol.kind, source_cache)
+    let name = symbol.name;
+    let kind = symbol.kind;
+    let path = file_uri_to_path(&symbol.location.uri.to_string())?;
+    let (line, col, line_index) = symbol_information_anchor(&symbol.location, &name, &path)?;
+    let line_content = source_cache.line_content(&path, line_index);
+
+    Ok(SymbolMatch {
+        name,
+        kind,
+        path,
+        line,
+        col,
+        line_content,
+    })
+}
+
+fn symbol_information_anchor(
+    location: &Location,
+    name: &str,
+    path: &Path,
+) -> Result<(u32, u32, usize), String> {
+    let lines = fs::read_to_string(path)
+        .map(|contents| {
+            contents
+                .lines()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+
+    // Flat SymbolInformation ranges often start at the whole declaration, not the symbol name.
+    if let Some((line_index, character)) = name_offset_in_range(&lines, &location.range, name) {
+        let line = u32::try_from(line_index)
+            .map_err(|_| format!("line index overflow for {}", path.display()))?;
+        return line_col_and_index(line, character, path);
+    }
+
+    line_col_and_index(
+        location.range.start.line,
+        location.range.start.character,
+        path,
+    )
+}
+
+fn name_offset_in_range(
+    lines: &[String],
+    range: &lsp_types::Range,
+    name: &str,
+) -> Option<(usize, u32)> {
+    let start_line_index = usize::try_from(range.start.line).ok()?;
+    let end_line_index = usize::try_from(range.end.line).ok()?;
+
+    for line_index in start_line_index..=end_line_index {
+        let line = lines.get(line_index)?;
+        let start_col = if line_index == start_line_index {
+            usize::try_from(range.start.character).ok()?
+        } else {
+            0
+        };
+        let end_col = if line_index == end_line_index {
+            usize::try_from(range.end.character).ok()?
+        } else {
+            line.len()
+        };
+        let end_col = end_col.min(line.len());
+        if start_col > end_col {
+            continue;
+        }
+
+        let segment = &line[start_col..end_col];
+        if let Some(offset) = identifier_name_offset(segment, name) {
+            let character = u32::try_from(start_col + offset).ok()?;
+            return Some((line_index, character));
+        }
+    }
+
+    None
+}
+
+fn identifier_name_offset(line: &str, name: &str) -> Option<usize> {
+    line.match_indices(name).find_map(|(offset, _)| {
+        let before = line[..offset].chars().next_back();
+        let after = line[offset + name.len()..].chars().next();
+        if before.is_some_and(is_identifier_char) || after.is_some_and(is_identifier_char) {
+            None
+        } else {
+            Some(offset)
+        }
+    })
+}
+
+fn is_identifier_char(ch: char) -> bool {
+    ch == '_' || ch.is_ascii_alphanumeric()
 }
 
 fn collect_document_symbol_matches<F>(

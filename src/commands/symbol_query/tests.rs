@@ -1,8 +1,8 @@
 use super::{
-    dedupe_symbol_matches, ensure_list_functions_support, ensure_list_symbols_support,
-    preferred_function_name_matches, preferred_name_matches, render_paths_text,
-    render_symbol_matches_text, render_symbol_names_text, truncate_items,
-    validate_list_symbols_file_path,
+    ListSymbolsTarget, dedupe_symbol_matches, ensure_list_functions_support,
+    ensure_list_symbols_support, list_symbols_target, preferred_function_name_matches,
+    preferred_name_matches, render_paths_text, render_symbol_matches_text,
+    render_symbol_names_text, truncate_items,
 };
 use crate::lsp::SymbolMatch;
 use crate::test_support::TestDir;
@@ -138,13 +138,31 @@ fn prefers_function_matches_for_function_queries() {
 }
 
 #[test]
-fn rejects_directory_for_list_symbols_file_query() {
-    let dir = TestDir::new("list-symbols");
-    let error =
-        validate_list_symbols_file_path(dir.path()).expect_err("directory input should fail");
+fn classifies_directory_for_list_symbols_query() {
+    let dir = TestDir::new("list-symbols-dir");
 
-    assert!(error.contains("expected a file path"));
-    assert!(error.contains("is a directory"));
+    assert_eq!(
+        list_symbols_target(dir.path()),
+        Ok(ListSymbolsTarget::Directory)
+    );
+}
+
+#[test]
+fn classifies_file_for_list_symbols_query() {
+    let dir = TestDir::new("list-symbols-file");
+    let file = dir.write_file("src/main.rs", "fn main() {}\n");
+
+    assert_eq!(list_symbols_target(&file), Ok(ListSymbolsTarget::File));
+}
+
+#[test]
+fn rejects_missing_list_symbols_path() {
+    let dir = TestDir::new("list-symbols-missing");
+    let error =
+        list_symbols_target(&dir.path().join("missing.rs")).expect_err("missing input should fail");
+
+    assert!(error.contains("expected a file or directory path"));
+    assert!(error.contains("does not exist"));
 }
 
 fn initialize_response(

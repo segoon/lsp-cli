@@ -31,9 +31,9 @@ pub(super) fn lsp_workspace_query(directory: &str) -> LspWorkspaceQueryArgs {
     }
 }
 
-pub(super) fn list_symbols_args(file: &str) -> ListSymbolsArgs {
+pub(super) fn list_symbols_args(path: &str) -> ListSymbolsArgs {
     ListSymbolsArgs {
-        file: PathBuf::from(file),
+        path: PathBuf::from(path),
         lang: None,
         lsp: None,
         detach: false,

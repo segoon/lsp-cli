@@ -170,8 +170,8 @@ pub struct GrepArgs {
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Args, Eq, PartialEq)]
 pub(crate) struct RawListSymbolsArgs {
-    #[arg(value_hint = ValueHint::FilePath)]
-    file: PathBuf,
+    #[arg(value_hint = ValueHint::AnyPath)]
+    path: PathBuf,
     #[arg(long)]
     lang: Option<String>,
     #[arg(long)]
@@ -203,7 +203,7 @@ pub(crate) struct RawListSymbolsArgs {
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Eq, PartialEq)]
 pub struct ListSymbolsArgs {
-    pub file: PathBuf,
+    pub path: PathBuf,
     pub lang: Option<String>,
     pub lsp: Option<String>,
     pub detach: bool,
@@ -518,7 +518,7 @@ impl RawGrepArgs {
 impl RawListSymbolsArgs {
     fn resolve(self, defaults: &CliConfig) -> ListSymbolsArgs {
         ListSymbolsArgs {
-            file: self.file,
+            path: self.path,
             lang: self.lang,
             lsp: self.lsp,
             detach: resolve_bool(

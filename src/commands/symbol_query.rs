@@ -23,10 +23,15 @@ mod tests;
 use kinds::{CallHierarchyDirection, LocationQueryKind, zero_based_col, zero_based_line};
 
 pub(super) use render::{
-    render_document_symbol_json, render_file_list_json, render_paths_text,
-    render_symbol_matches_text, render_symbol_names_text, render_workspace_symbol_json,
-    truncate_items,
+    render_file_list_json, render_list_symbols_json, render_paths_text, render_symbol_matches_text,
+    render_symbol_names_text, render_workspace_symbol_json, truncate_items,
 };
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum ListSymbolsTarget {
+    File,
+    Directory,
+}
 
 pub(super) struct WorkspaceSymbolQueryResult {
     pub detected_filetypes: BTreeSet<String>,
@@ -137,14 +142,14 @@ pub(super) fn run_document_symbol_query(
     })
 }
 
-pub(super) fn run_file_symbol_query(
+pub(super) fn run_list_symbols_query(
     args: &ListSymbolsArgs,
     config: &ConfigStore,
 ) -> Result<WorkspaceSymbolQueryResult, String> {
-    validate_list_symbols_file_path(&args.file)?;
+    let target = list_symbols_target(&args.path)?;
 
     let (workspace, matches) = with_initialized_client(
-        &args.file,
+        &args.path,
         args.lsp.as_deref(),
         args.lang.as_deref(),
         args.detach,
@@ -156,23 +161,52 @@ pub(super) fn run_file_symbol_query(
         |workspace, initialize, client| {
             ensure_list_symbols_support(initialize, &workspace.server.server)?;
 
-            let uri = path_to_file_uri(&args.file)?;
-            client.open_document(&args.file, &uri).map_err(|error| {
-                format!(
-                    "failed to open {} with {}: {error}",
-                    args.file.display(),
-                    workspace.server.server
-                )
-            })?;
-            let response = client.document_symbol(&uri).map_err(|error| {
-                format!(
-                    "failed to query {} for {}: {error}",
-                    workspace.server.server,
-                    args.file.display()
-                )
-            })?;
+            let files = match target {
+                ListSymbolsTarget::File => vec![args.path.clone()],
+                ListSymbolsTarget::Directory => {
+                    matching_files(&args.path, &config.filetypes, &workspace.allowed_filetypes)
+                        .map_err(|error| {
+                            format!("failed to scan {}: {error}", args.path.display())
+                        })?
+                }
+            };
+
             let mut source_cache = SourceCache::default();
-            document_symbol_matches_from_response(&response, &args.file, &mut source_cache)
+            let mut matches = Vec::new();
+
+            for file in &files {
+                let uri = path_to_file_uri(file)?;
+                client.open_document(file, &uri).map_err(|error| {
+                    format!(
+                        "failed to open {} with {}: {error}",
+                        file.display(),
+                        workspace.server.server
+                    )
+                })?;
+                let response = match client.document_symbol(&uri) {
+                    Ok(response) => response,
+                    Err(error)
+                        if target == ListSymbolsTarget::Directory
+                            && should_skip_document_symbol_error(&error) =>
+                    {
+                        continue;
+                    }
+                    Err(error) => {
+                        return Err(format!(
+                            "failed to query {} for {}: {error}",
+                            workspace.server.server,
+                            file.display()
+                        ));
+                    }
+                };
+                matches.extend(document_symbol_matches_from_response(
+                    &response,
+                    file,
+                    &mut source_cache,
+                )?);
+            }
+
+            Ok(matches)
         },
     )?;
 
@@ -183,11 +217,11 @@ pub(super) fn run_file_symbol_query(
     })
 }
 
-fn validate_list_symbols_file_path(path: &Path) -> Result<(), String> {
+pub(super) fn list_symbols_target(path: &Path) -> Result<ListSymbolsTarget, String> {
     let metadata = std::fs::metadata(path).map_err(|error| {
         if error.kind() == std::io::ErrorKind::NotFound {
             format!(
-                "list-symbols expected a file path, but {} does not exist",
+                "list-symbols expected a file or directory path, but {} does not exist",
                 path.display()
             )
         } else {
@@ -196,20 +230,17 @@ fn validate_list_symbols_file_path(path: &Path) -> Result<(), String> {
     })?;
 
     if metadata.is_dir() {
-        return Err(format!(
-            "list-symbols expected a file path, but {} is a directory",
-            path.display()
-        ));
+        return Ok(ListSymbolsTarget::Directory);
     }
 
-    if !metadata.is_file() {
-        return Err(format!(
-            "list-symbols expected a regular file path, but {} is not a file",
-            path.display()
-        ));
+    if metadata.is_file() {
+        return Ok(ListSymbolsTarget::File);
     }
 
-    Ok(())
+    Err(format!(
+        "list-symbols expected a regular file or directory path, but {} is not supported",
+        path.display()
+    ))
 }
 
 fn ensure_list_functions_support(

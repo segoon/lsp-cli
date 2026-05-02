@@ -18,6 +18,7 @@ Suggested commands:
 ```sh
 cargo run -- detect playground/python
 cargo run -- grep Order playground/rust
+cargo run -- list-symbols playground/c
 cargo run -- list-symbols playground/java/src/main/java/playground/order/Order.java
 cargo run -- definition format_order playground/c
 cargo run -- references OrderFormatter playground/csharp

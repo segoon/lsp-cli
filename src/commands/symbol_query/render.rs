@@ -77,6 +77,26 @@ pub(crate) fn render_document_symbol_json(
     .to_string()
 }
 
+pub(crate) fn render_list_symbols_json(
+    path: &Path,
+    is_file: bool,
+    detected_filetypes: &BTreeSet<String>,
+    server: &SuggestedLanguage,
+    matches: &[SymbolMatch],
+) -> String {
+    if is_file {
+        return render_document_symbol_json(path, detected_filetypes, server, matches);
+    }
+
+    json!({
+        "directory": path,
+        "detected": detected_filetypes,
+        "server": render_server_json(server),
+        "matches": render_symbol_matches_json(matches),
+    })
+    .to_string()
+}
+
 pub(crate) fn render_file_list_json(
     directory: &Path,
     detected_filetypes: &BTreeSet<String>,

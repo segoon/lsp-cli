@@ -198,6 +198,66 @@ fn parses_document_symbols_for_all_kinds() {
 }
 
 #[test]
+fn parses_flat_document_symbols_at_symbol_name() {
+    let mut fixture =
+        source_fixture("pub fn format_order(order: &str) -> String { order.to_string() }\n");
+
+    let matches = document_symbol_matches_from_response(
+        &json!([
+            {
+                "name": "format_order",
+                "kind": 12,
+                "location": {
+                    "uri": fixture.uri,
+                    "range": {
+                        "start": { "line": 0, "character": 0 },
+                        "end": { "line": 0, "character": 62 }
+                    }
+                }
+            }
+        ]),
+        &fixture.file,
+        &mut fixture.cache,
+    )
+    .expect("document symbols should parse");
+
+    assert_eq!(matches[0].line, 1);
+    assert_eq!(matches[0].col, 8);
+    assert_eq!(
+        matches[0].line_content,
+        "pub fn format_order(order: &str) -> String { order.to_string() }"
+    );
+}
+
+#[test]
+fn parses_flat_document_symbols_inside_attributed_ranges() {
+    let mut fixture = source_fixture("#[test]\nfn parses_callers_arguments() {}\n");
+
+    let matches = function_matches_from_document_response(
+        &json!([
+            {
+                "name": "parses_callers_arguments",
+                "kind": 12,
+                "location": {
+                    "uri": fixture.uri,
+                    "range": {
+                        "start": { "line": 0, "character": 0 },
+                        "end": { "line": 1, "character": 32 }
+                    }
+                }
+            }
+        ]),
+        &fixture.file,
+        &mut fixture.cache,
+    )
+    .expect("document symbols should parse");
+
+    assert_eq!(matches[0].line, 2);
+    assert_eq!(matches[0].col, 4);
+    assert_eq!(matches[0].line_content, "fn parses_callers_arguments() {}");
+}
+
+#[test]
 fn parses_location_links() {
     let mut fixture = source_fixture("first line\nsecond line\n");
 

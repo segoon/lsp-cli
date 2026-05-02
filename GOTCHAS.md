@@ -34,6 +34,12 @@
 
 ## rust-analyzer
 
+- `rust-analyzer` may answer `textDocument/documentSymbol` with flat `SymbolInformation` items whose
+  `location.range.start` points at the start of the whole declaration (for example `pub fn` or an
+  attribute line) instead of the identifier itself. When a later LSP request needs a precise
+  symbol position, prefer recovering the identifier offset from source text inside that range
+  instead of assuming `range.start` is directly queryable.
+
 ## clangd
 
 - `clangd` may start successfully without sending the background-work progress notifications that

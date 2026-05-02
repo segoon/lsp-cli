@@ -53,6 +53,11 @@ Move duplicated test initialization code to helper functions.
 Similar initialization may use parametrized helpers with distinct arguments.
 
 
+# Code
+
+Limit each file to 600 lines (including the tests).
+
+
 # Commands
 
 Test the code with the following commands:

@@ -1,15 +1,40 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use regex::Regex;
-use serde::Deserialize;
+use serde::{Deserialize, de};
 
 #[derive(Debug)]
 pub struct ConfigStore {
     pub filetypes: Vec<FiletypeConfig>,
     pub lsps: Vec<LspConfig>,
+    pub cli: CliConfig,
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct CliConfig {
+    pub download: Option<bool>,
+    pub detach: Option<bool>,
+    pub json: Option<bool>,
+    pub debug: Option<bool>,
+    pub timeout: Option<Duration>,
+    pub limit: Option<usize>,
+    pub detect: DetectCliConfig,
+    pub daemon: DaemonCliConfig,
+    pub lsp_preferences: BTreeMap<String, Vec<String>>,
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct DetectCliConfig {
+    pub quiet: Option<bool>,
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct DaemonCliConfig {
+    pub idle_timeout: Option<Duration>,
 }
 
 #[derive(Debug)]
@@ -49,12 +74,62 @@ struct LspFile {
     wait_for_index: bool,
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CliConfigFile {
+    #[serde(default)]
+    download: Option<bool>,
+    #[serde(default)]
+    detach: Option<bool>,
+    #[serde(default)]
+    json: Option<bool>,
+    #[serde(default)]
+    debug: Option<bool>,
+    #[serde(default, deserialize_with = "deserialize_optional_timeout")]
+    timeout: Option<Duration>,
+    #[serde(default)]
+    limit: Option<usize>,
+    #[serde(default)]
+    detect: DetectCliConfigFile,
+    #[serde(default)]
+    daemon: DaemonCliConfigFile,
+    #[serde(default, rename = "lsp")]
+    lsp_preferences: BTreeMap<String, Vec<String>>,
+}
+
+#[derive(Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DetectCliConfigFile {
+    #[serde(default)]
+    quiet: Option<bool>,
+}
+
+#[derive(Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DaemonCliConfigFile {
+    #[serde(
+        rename = "idle-timeout",
+        default,
+        deserialize_with = "deserialize_optional_timeout"
+    )]
+    idle_timeout: Option<Duration>,
+}
+
 pub fn default_config_root() -> Result<PathBuf, String> {
     let lsp_data = env::var_os("LSP_DATA").map(PathBuf::from);
     let home = env::var_os("HOME").map(PathBuf::from);
     let repo_data = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data");
 
     choose_config_root(lsp_data.as_deref(), home.as_deref(), &repo_data)
+}
+
+pub fn default_cli_config_roots() -> (PathBuf, Option<PathBuf>) {
+    let global = env::var_os("LSP_DATA").map_or_else(
+        || PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data"),
+        PathBuf::from,
+    );
+    let user = env::var_os("HOME").map(|home| PathBuf::from(home).join(".local/share/lsp-cli"));
+    (global, user)
 }
 
 fn choose_config_root(
@@ -92,7 +167,118 @@ pub fn load_config_store(root: &Path) -> Result<ConfigStore, String> {
     let lsps = load_lsps(&root.join("lsp"))?;
     validate_lsp_filetypes(&filetypes, &lsps)?;
 
-    Ok(ConfigStore { filetypes, lsps })
+    Ok(ConfigStore {
+        filetypes,
+        lsps,
+        cli: CliConfig::default(),
+    })
+}
+
+pub fn load_cli_config(global_root: &Path, user_root: Option<&Path>) -> Result<CliConfig, String> {
+    let mut config = CliConfig::default();
+    config.merge(load_optional_cli_config_file(
+        &global_root.join("lsp-cli.yaml"),
+    )?);
+
+    if let Some(user_root) = user_root {
+        config.merge(load_optional_cli_config_file(
+            &user_root.join("lsp-cli.yaml"),
+        )?);
+    }
+
+    Ok(config)
+}
+
+fn load_optional_cli_config_file(path: &Path) -> Result<CliConfig, String> {
+    if !path.exists() {
+        return Ok(CliConfig::default());
+    }
+
+    let contents =
+        fs::read_to_string(path).map_err(|error| format!("{}: {error}", path.display()))?;
+    let file: CliConfigFile =
+        serde_yaml::from_str(&contents).map_err(|error| format!("{}: {error}", path.display()))?;
+    Ok(CliConfig::from(file))
+}
+
+impl CliConfig {
+    fn merge(&mut self, other: Self) {
+        if other.download.is_some() {
+            self.download = other.download;
+        }
+        if other.detach.is_some() {
+            self.detach = other.detach;
+        }
+        if other.json.is_some() {
+            self.json = other.json;
+        }
+        if other.debug.is_some() {
+            self.debug = other.debug;
+        }
+        if other.timeout.is_some() {
+            self.timeout = other.timeout;
+        }
+        if other.limit.is_some() {
+            self.limit = other.limit;
+        }
+        if other.detect.quiet.is_some() {
+            self.detect.quiet = other.detect.quiet;
+        }
+        if other.daemon.idle_timeout.is_some() {
+            self.daemon.idle_timeout = other.daemon.idle_timeout;
+        }
+        self.lsp_preferences.extend(other.lsp_preferences);
+    }
+}
+
+impl From<CliConfigFile> for CliConfig {
+    fn from(file: CliConfigFile) -> Self {
+        Self {
+            download: file.download,
+            detach: file.detach,
+            json: file.json,
+            debug: file.debug,
+            timeout: file.timeout,
+            limit: file.limit,
+            detect: DetectCliConfig {
+                quiet: file.detect.quiet,
+            },
+            daemon: DaemonCliConfig {
+                idle_timeout: file.daemon.idle_timeout,
+            },
+            lsp_preferences: file.lsp_preferences,
+        }
+    }
+}
+
+pub(crate) fn parse_timeout(value: &str) -> Result<Duration, String> {
+    if let Some(milliseconds) = value.strip_suffix("ms") {
+        let milliseconds = milliseconds.parse::<u64>().map_err(|_| {
+            format!("invalid timeout {value:?}: expected integer milliseconds or seconds")
+        })?;
+        return Ok(Duration::from_millis(milliseconds));
+    }
+
+    let seconds = value.parse::<f64>().map_err(|_| {
+        format!("invalid timeout {value:?}: expected integer milliseconds or seconds")
+    })?;
+    if !seconds.is_finite() || seconds < 0.0 {
+        return Err(format!(
+            "invalid timeout {value:?}: expected non-negative milliseconds or seconds"
+        ));
+    }
+
+    Ok(Duration::from_secs_f64(seconds))
+}
+
+fn deserialize_optional_timeout<'de, D>(deserializer: D) -> Result<Option<Duration>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = Option::<String>::deserialize(deserializer)?;
+    value
+        .map(|value| parse_timeout(&value).map_err(de::Error::custom))
+        .transpose()
 }
 
 fn load_filetypes(dir: &Path) -> Result<Vec<FiletypeConfig>, String> {
@@ -208,8 +394,9 @@ fn validate_lsp_filetypes(filetypes: &[FiletypeConfig], lsps: &[LspConfig]) -> R
 
 #[cfg(test)]
 mod tests {
-    use super::{choose_config_root, default_config_root, load_config_store};
+    use super::{choose_config_root, default_config_root, load_cli_config, load_config_store};
     use crate::test_support::{LOCAL_SHARE_LSP_CLI, TestDir};
+    use std::collections::BTreeMap;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     const EMPTY_FILETYPE_YAML: &str = "extensions: []\npatterns: []\n";
@@ -328,6 +515,103 @@ mod tests {
         assert_eq!(config.lsps[0].id, "clangd");
         assert_eq!(config.lsps[0].name, "clangd");
         assert!(config.lsps[0].wait_for_index);
+        assert_eq!(config.cli, super::CliConfig::default());
+    }
+
+    #[test]
+    fn loads_layered_cli_config_with_user_overrides() {
+        let global = TestDir::new("cli-config-global");
+        let user = TestDir::new("cli-config-user");
+        global.write_file(
+            "lsp-cli.yaml",
+            concat!(
+                "download: true\n",
+                "detach: true\n",
+                "timeout: 1.5\n",
+                "limit: 20\n",
+                "detect:\n",
+                "  quiet: true\n",
+                "daemon:\n",
+                "  idle-timeout: 5\n",
+                "lsp:\n",
+                "  cpp:\n",
+                "    - clangd\n",
+                "  python:\n",
+                "    - pyright\n"
+            ),
+        );
+        user.write_file(
+            "lsp-cli.yaml",
+            concat!(
+                "json: true\n",
+                "debug: true\n",
+                "limit: 50\n",
+                "daemon:\n",
+                "  idle-timeout: 10\n",
+                "lsp:\n",
+                "  python:\n",
+                "    - ty\n",
+                "    - pyright\n"
+            ),
+        );
+
+        let config =
+            load_cli_config(global.path(), Some(user.path())).expect("cli config should load");
+
+        assert_eq!(config.download, Some(true));
+        assert_eq!(config.detach, Some(true));
+        assert_eq!(config.json, Some(true));
+        assert_eq!(config.debug, Some(true));
+        assert_eq!(config.timeout, Some(std::time::Duration::from_millis(1500)));
+        assert_eq!(config.limit, Some(50));
+        assert_eq!(config.detect.quiet, Some(true));
+        assert_eq!(
+            config.daemon.idle_timeout,
+            Some(std::time::Duration::from_secs(10))
+        );
+        assert_eq!(
+            config.lsp_preferences,
+            BTreeMap::from([
+                ("cpp".to_string(), vec!["clangd".to_string()]),
+                (
+                    "python".to_string(),
+                    vec!["ty".to_string(), "pyright".to_string()],
+                ),
+            ])
+        );
+    }
+
+    #[test]
+    fn ignores_missing_cli_config_files() {
+        let global = TestDir::new("cli-config-global-missing");
+        let user = TestDir::new("cli-config-user-missing");
+
+        let config = load_cli_config(global.path(), Some(user.path()))
+            .expect("missing cli config should be ignored");
+
+        assert_eq!(config, super::CliConfig::default());
+    }
+
+    #[test]
+    fn fails_on_invalid_cli_config() {
+        let global = TestDir::new("cli-config-invalid");
+        global.write_file("lsp-cli.yaml", "timeout: nope\n");
+
+        let error =
+            load_cli_config(global.path(), None).expect_err("invalid cli config should fail");
+
+        assert!(error.contains("lsp-cli.yaml"));
+        assert!(error.contains("invalid timeout"));
+    }
+
+    #[test]
+    fn rejects_unknown_cli_config_keys() {
+        let global = TestDir::new("cli-config-unknown");
+        global.write_file("lsp-cli.yaml", "lang: cpp\n");
+
+        let error = load_cli_config(global.path(), None).expect_err("unknown keys should fail");
+
+        assert!(error.contains("unknown field `lang`"));
     }
 
     #[test]

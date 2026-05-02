@@ -3,7 +3,12 @@ use crate::commands::common::{connect_lsp_client, prepare_workspace};
 use crate::config::ConfigStore;
 
 pub(super) fn run(args: &BuildIndexArgs, config: &ConfigStore) -> Result<String, String> {
-    let workspace = prepare_workspace(&args.directory, args.lsp.as_deref(), config)?;
+    let workspace = prepare_workspace(
+        &args.directory,
+        args.lsp.as_deref(),
+        args.lang.as_deref(),
+        config,
+    )?;
 
     let mut client = connect_lsp_client(&workspace, args.detach, args.debug, args.timeout)?;
     client

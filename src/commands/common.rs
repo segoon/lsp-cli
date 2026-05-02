@@ -4,7 +4,8 @@ use crate::detect::{DetectionResult, detect_workspace};
 use crate::lsp::path_to_file_uri;
 use crate::mason::resolve_detect_suggestions;
 use crate::runtime_state::{daemon_socket_path, default_daemon_root};
-use crate::suggest::{SuggestedLanguage, suggestions_for};
+use crate::suggest::{SuggestedLanguage, sort_suggestions, suggestions_for};
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
@@ -15,10 +16,17 @@ use crate::lsp::LspClient;
 pub(super) struct PreparedWorkspace {
     pub detection: DetectionResult,
     pub server: SuggestedLanguage,
+    pub allowed_filetypes: BTreeSet<String>,
     pub root_uri: String,
     pub workspace_name: String,
     pub daemon_socket_path: Option<PathBuf>,
     pub daemon_socket_error: Option<String>,
+}
+
+#[derive(Debug)]
+pub(super) struct ResolvedServer {
+    pub server: SuggestedLanguage,
+    pub allowed_filetypes: BTreeSet<String>,
 }
 
 pub(super) fn analyze_path(
@@ -27,8 +35,9 @@ pub(super) fn analyze_path(
 ) -> Result<(DetectionResult, Vec<SuggestedLanguage>), String> {
     let detection = detect_workspace(path, &config.filetypes)
         .map_err(|error| format!("failed to scan {}: {error}", path.display()))?;
-    let suggestions = suggestions_for(&config.lsps, &detection, path)
+    let mut suggestions = suggestions_for(&config.lsps, &detection, path)
         .map_err(|error| format!("failed to build suggestions: {error}"))?;
+    sort_suggestions(&mut suggestions, &config.cli.lsp_preferences, None);
 
     Ok((detection, suggestions))
 }
@@ -36,10 +45,18 @@ pub(super) fn analyze_path(
 pub(super) fn prepare_workspace(
     path: &Path,
     selected_server: Option<&str>,
+    selected_language: Option<&str>,
     config: &ConfigStore,
 ) -> Result<PreparedWorkspace, String> {
     let (detection, suggestions) = analyze_path(path, config)?;
-    let mut server = resolve_server(&detection, &suggestions, selected_server)?;
+    let resolved = resolve_server(
+        &detection,
+        &suggestions,
+        selected_server,
+        selected_language,
+        &config.cli.lsp_preferences,
+    )?;
+    let mut server = resolved.server;
     server.workspace_root = fs::canonicalize(&server.workspace_root).map_err(|error| {
         format!(
             "failed to resolve {}: {error}",
@@ -64,6 +81,7 @@ pub(super) fn prepare_workspace(
     Ok(PreparedWorkspace {
         detection,
         server,
+        allowed_filetypes: resolved.allowed_filetypes,
         root_uri,
         workspace_name,
         daemon_socket_path,
@@ -115,9 +133,10 @@ pub(super) fn connect_lsp_client(
 
     if detach {
         let socket_path = workspace.daemon_socket_path.as_ref().ok_or_else(|| {
-            let reason = workspace.daemon_socket_error.as_deref().unwrap_or(
-                "daemon socket path could not be prepared for this workspace",
-            );
+            let reason = workspace
+                .daemon_socket_error
+                .as_deref()
+                .unwrap_or("daemon socket path could not be prepared for this workspace");
             format!("cannot use --detach because {reason}")
         })?;
         launch_for_workspace(
@@ -142,69 +161,148 @@ pub(super) fn connect_lsp_client(
     )
 }
 
-pub(super) fn select_server<'a>(
-    detection: &DetectionResult,
-    suggestions: &'a [SuggestedLanguage],
-    selected_server: Option<&str>,
-) -> Result<&'a SuggestedLanguage, String> {
-    if let Some(server) = selected_server {
-        return suggestions.iter().find(|suggestion| suggestion.server == server).ok_or_else(|| {
-            let available = suggestions
-                .iter()
-                .map(|suggestion| suggestion.server.as_str())
-                .collect::<Vec<_>>();
-            if available.is_empty() {
-                format!("Requested LSP server {server:?} is not available because no matching servers were detected")
-            } else {
-                format!(
-                    "Requested LSP server {server:?} is not in the detected server list: {}",
-                    available.join(", ")
-                )
-            }
-        });
-    }
-
-    suggestions.first().ok_or_else(|| {
-        if detection.filetypes.is_empty() {
-            "No supported languages detected".to_string()
-        } else {
-            format!(
-                "No LSP server matches detected filetypes: {}",
-                detection
-                    .filetypes
-                    .iter()
-                    .cloned()
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            )
-        }
-    })
-}
-
 pub(super) fn resolve_server(
     detection: &DetectionResult,
     suggestions: &[SuggestedLanguage],
     selected_server: Option<&str>,
-) -> Result<SuggestedLanguage, String> {
-    let selected = select_server(detection, suggestions, selected_server)?.clone();
+    selected_language: Option<&str>,
+    lsp_preferences: &std::collections::BTreeMap<String, Vec<String>>,
+) -> Result<ResolvedServer, String> {
+    if let Some(server) = selected_server {
+        return resolve_explicit_server(
+            detection,
+            suggestions,
+            server,
+            selected_language,
+            lsp_preferences,
+        );
+    }
+
+    let mut candidates = suggestions.to_vec();
+    if let Some(language) = selected_language {
+        candidates.retain(|suggestion| suggestion.languages.iter().any(|value| value == language));
+        if candidates.is_empty() {
+            return Err(format!(
+                "no LSP server was detected for language {language:?}"
+            ));
+        }
+        sort_suggestions(&mut candidates, lsp_preferences, Some(language));
+        return resolve_candidate(candidates[0].clone(), Some(language));
+    }
+
+    let languages = detected_languages(&candidates);
+    let language_names = languages.iter().cloned().collect::<Vec<_>>();
+    if language_names.len() > 1 {
+        return Err(format!(
+            "multiple languages were detected for this command: {}; pass --lang LANG or --lsp SERVER to choose one",
+            language_names.join(", ")
+        ));
+    }
+
+    let Some(language) = language_names.into_iter().next() else {
+        return Err(no_detected_server_error(detection));
+    };
+
+    sort_suggestions(&mut candidates, lsp_preferences, Some(&language));
+    resolve_candidate(candidates[0].clone(), Some(&language))
+}
+
+fn resolve_explicit_server(
+    _detection: &DetectionResult,
+    suggestions: &[SuggestedLanguage],
+    selected_server: &str,
+    selected_language: Option<&str>,
+    lsp_preferences: &std::collections::BTreeMap<String, Vec<String>>,
+) -> Result<ResolvedServer, String> {
+    let mut candidates = suggestions
+        .iter()
+        .filter(|suggestion| suggestion.server == selected_server)
+        .cloned()
+        .collect::<Vec<_>>();
+
+    if let Some(language) = selected_language {
+        candidates.retain(|suggestion| suggestion.languages.iter().any(|value| value == language));
+        if candidates.is_empty() {
+            return Err(format!(
+                "requested LSP server {selected_server:?} is not available for language {language:?}"
+            ));
+        }
+        sort_suggestions(&mut candidates, lsp_preferences, Some(language));
+        return resolve_candidate(candidates[0].clone(), Some(language));
+    }
+
+    if candidates.is_empty() {
+        let available = suggestions
+            .iter()
+            .map(|suggestion| suggestion.server.as_str())
+            .collect::<Vec<_>>();
+        return Err(if available.is_empty() {
+            format!(
+                "requested LSP server {selected_server:?} is not available because no matching servers were detected"
+            )
+        } else {
+            format!(
+                "requested LSP server {selected_server:?} is not in the detected server list: {}",
+                available.join(", ")
+            )
+        });
+    }
+
+    resolve_candidate(candidates[0].clone(), None)
+}
+
+fn resolve_candidate(
+    selected: SuggestedLanguage,
+    language: Option<&str>,
+) -> Result<ResolvedServer, String> {
     let resolved = resolve_detect_suggestions(std::slice::from_ref(&selected), false)?;
-    Ok(resolved.into_iter().next().unwrap_or(selected))
+    let server = resolved.into_iter().next().unwrap_or(selected);
+    let allowed_filetypes = match language {
+        Some(language) => BTreeSet::from([language.to_string()]),
+        None => server.languages.iter().cloned().collect(),
+    };
+
+    Ok(ResolvedServer {
+        server,
+        allowed_filetypes,
+    })
+}
+
+fn detected_languages(suggestions: &[SuggestedLanguage]) -> BTreeSet<String> {
+    suggestions
+        .iter()
+        .flat_map(|suggestion| suggestion.languages.iter().cloned())
+        .collect()
+}
+
+fn no_detected_server_error(detection: &DetectionResult) -> String {
+    if detection.filetypes.is_empty() {
+        "No supported languages detected".to_string()
+    } else {
+        format!(
+            "No LSP server matches detected filetypes: {}",
+            detection
+                .filetypes
+                .iter()
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        PreparedWorkspace, connect_lsp_client, prepare_workspace, resolve_server, select_server,
-    };
+    use super::{PreparedWorkspace, connect_lsp_client, prepare_workspace, resolve_server};
     use crate::config::load_config_store;
     use crate::detect::DetectionResult;
     use crate::lsp::transport::{read_message, write_message};
     use crate::suggest::SuggestedLanguage;
     use crate::test_support::{
-        TestDir, env_var, make_executable, pyright_package, runtime_state_in_home,
-        with_env_vars, without_env_vars, write_registry,
+        TestDir, env_var, make_executable, pyright_package, runtime_state_in_home, with_env_vars,
+        without_env_vars, write_registry,
     };
-    use std::collections::BTreeSet;
+    use std::collections::{BTreeMap, BTreeSet};
     use std::fs;
     use std::io::BufReader;
     use std::os::unix::net::UnixListener;
@@ -236,34 +334,38 @@ mod tests {
         };
         let suggestions = [primary, secondary.clone()];
 
-        let selected = select_server(
+        let selected = resolve_server(
             &DetectionResult {
                 filetypes: BTreeSet::from(["beta".to_string()]),
                 filenames: BTreeSet::new(),
             },
             &suggestions,
             Some("secondary-lsp"),
+            None,
+            &BTreeMap::new(),
         )
         .expect("requested server should be selected");
 
-        assert_eq!(selected.server, secondary.server);
+        assert_eq!(selected.server.server, secondary.server);
     }
 
     #[test]
     fn errors_when_requested_server_is_not_detected() {
-        let error = select_server(
+        let error = resolve_server(
             &DetectionResult {
                 filetypes: BTreeSet::from(["beta".to_string()]),
                 filenames: BTreeSet::new(),
             },
             &[example_suggestion()],
             Some("missing-lsp"),
+            None,
+            &BTreeMap::new(),
         )
         .expect_err("missing server should error");
 
         assert_eq!(
             error,
-            "Requested LSP server \"missing-lsp\" is not in the detected server list: example-lsp"
+            "requested LSP server \"missing-lsp\" is not in the detected server list: example-lsp"
         );
     }
 
@@ -300,12 +402,53 @@ mod tests {
                         wait_for_index: false,
                     }],
                     None,
+                    None,
+                    &BTreeMap::new(),
                 )
                 .expect("server should resolve")
             },
         );
 
-        assert_eq!(resolved.command[0], cached.display().to_string());
+        assert_eq!(resolved.server.command[0], cached.display().to_string());
+    }
+
+    #[test]
+    fn errors_when_auto_selection_spans_multiple_languages() {
+        let error = resolve_server(
+            &DetectionResult {
+                filetypes: BTreeSet::from(["alpha".to_string(), "beta".to_string()]),
+                filenames: BTreeSet::new(),
+            },
+            &[example_suggestion()],
+            None,
+            None,
+            &BTreeMap::new(),
+        )
+        .expect_err("multiple languages should require disambiguation");
+
+        assert_eq!(
+            error,
+            "multiple languages were detected for this command: alpha, beta; pass --lang LANG or --lsp SERVER to choose one"
+        );
+    }
+
+    #[test]
+    fn allows_auto_selection_with_explicit_language() {
+        let resolved = resolve_server(
+            &DetectionResult {
+                filetypes: BTreeSet::from(["alpha".to_string(), "beta".to_string()]),
+                filenames: BTreeSet::new(),
+            },
+            &[example_suggestion()],
+            None,
+            Some("beta"),
+            &BTreeMap::new(),
+        )
+        .expect("language should disambiguate");
+        assert_eq!(
+            resolved.allowed_filetypes,
+            BTreeSet::from(["beta".to_string()])
+        );
     }
 
     #[cfg(unix)]
@@ -392,6 +535,7 @@ mod tests {
                         workspace_root: workspace_root.clone(),
                         wait_for_index: false,
                     },
+                    allowed_filetypes: BTreeSet::from(["rust".to_string()]),
                     root_uri: crate::lsp::path_to_file_uri(&workspace_root)
                         .expect("root uri should build"),
                     workspace_name: crate::lsp::workspace_name(&workspace_root),
@@ -454,6 +598,7 @@ mod tests {
                         workspace_root: workspace_root.clone(),
                         wait_for_index: false,
                     },
+                    allowed_filetypes: BTreeSet::from(["rust".to_string()]),
                     root_uri: crate::lsp::path_to_file_uri(&workspace_root)
                         .expect("root uri should build"),
                     workspace_name: crate::lsp::workspace_name(&workspace_root),
@@ -475,15 +620,20 @@ mod tests {
         let dir = TestDir::new("common-daemon-root-error");
         let workspace_root = dir.path().join("workspace");
         fs::create_dir_all(workspace_root.join("src")).expect("workspace should exist");
-        fs::write(workspace_root.join("Cargo.toml"), b"[package]\nname = \"demo\"\nversion = \"0.1.0\"\nedition = \"2021\"\n")
-            .expect("cargo manifest should be written");
+        fs::write(
+            workspace_root.join("Cargo.toml"),
+            b"[package]\nname = \"demo\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+        )
+        .expect("cargo manifest should be written");
         fs::write(workspace_root.join("src/main.rs"), b"fn main() {}\n")
             .expect("rust source should be written");
 
-        let config = load_config_store(&std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data"))
-            .expect("repo config should load");
+        let config =
+            load_config_store(&std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data"))
+                .expect("repo config should load");
         let workspace = without_env_vars(&["XDG_RUNTIME_DIR"], || {
-            prepare_workspace(&workspace_root, None, &config).expect("workspace should still prepare")
+            prepare_workspace(&workspace_root, None, None, &config)
+                .expect("workspace should still prepare")
         });
 
         assert!(workspace.daemon_socket_path.is_none());

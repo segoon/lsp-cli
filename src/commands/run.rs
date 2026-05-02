@@ -1,5 +1,5 @@
 use crate::cli::RunArgs;
-use crate::commands::common::{analyze_path, resolve_server};
+use crate::commands::common::prepare_workspace;
 use crate::config::ConfigStore;
 use std::process::Command;
 
@@ -7,8 +7,13 @@ use std::process::Command;
 use std::os::unix::process::CommandExt;
 
 pub(super) fn run(args: &RunArgs, config: &ConfigStore) -> Result<String, String> {
-    let (detection, suggestions) = analyze_path(&args.path, config)?;
-    let server = resolve_server(&detection, &suggestions, args.lsp.as_deref())?;
+    let workspace = prepare_workspace(
+        &args.path,
+        args.lsp.as_deref(),
+        args.lang.as_deref(),
+        config,
+    )?;
+    let server = workspace.server;
     let Some(program) = server.command.first() else {
         return Err(format!(
             "selected LSP server {} has an empty command",

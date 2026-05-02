@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use crate::config::LspConfig;
@@ -22,6 +23,41 @@ pub fn suggestions_for(
         .filter(|lsp| matches_lsp(lsp, detection))
         .map(|lsp| build_suggestion(lsp, detection, workspace))
         .collect()
+}
+
+pub fn sort_suggestions(
+    suggestions: &mut [SuggestedLanguage],
+    preferences: &BTreeMap<String, Vec<String>>,
+    language: Option<&str>,
+) {
+    suggestions.sort_by_key(|suggestion| preference_rank(suggestion, preferences, language));
+}
+
+fn preference_rank(
+    suggestion: &SuggestedLanguage,
+    preferences: &BTreeMap<String, Vec<String>>,
+    language: Option<&str>,
+) -> (usize, usize) {
+    let matched_rank = match language {
+        Some(language) => preference_index(language, &suggestion.server, preferences),
+        None => suggestion
+            .languages
+            .iter()
+            .filter_map(|language| preference_index(language, &suggestion.server, preferences))
+            .min(),
+    };
+
+    matched_rank.map_or((1, usize::MAX), |rank| (0, rank))
+}
+
+fn preference_index(
+    language: &str,
+    server: &str,
+    preferences: &BTreeMap<String, Vec<String>>,
+) -> Option<usize> {
+    preferences
+        .get(language)
+        .and_then(|servers| servers.iter().position(|candidate| candidate == server))
 }
 
 fn matches_lsp(lsp: &LspConfig, detection: &DetectionResult) -> bool {
@@ -115,11 +151,11 @@ fn has_any_root_marker(directory: &Path, root_markers: &[String]) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{SuggestedLanguage, suggestions_for};
+    use super::{SuggestedLanguage, sort_suggestions, suggestions_for};
     use crate::config::LspConfig;
     use crate::detect::DetectionResult;
     use crate::test_support::TestDir;
-    use std::collections::BTreeSet;
+    use std::collections::{BTreeMap, BTreeSet};
     use std::path::Path;
 
     fn example_lsp() -> LspConfig {
@@ -332,5 +368,80 @@ mod tests {
             ]
         );
         assert_eq!(suggestions[0].workspace_root, dir.path().join("src"));
+    }
+
+    #[test]
+    fn sorts_suggestions_by_language_preference() {
+        let mut suggestions = vec![
+            SuggestedLanguage {
+                config_id: "pyright".to_string(),
+                languages: vec!["python".to_string()],
+                server: "pyright".to_string(),
+                command: vec!["pyright".to_string()],
+                workspace_root: Path::new(".").to_path_buf(),
+                wait_for_index: false,
+            },
+            SuggestedLanguage {
+                config_id: "ty".to_string(),
+                languages: vec!["python".to_string()],
+                server: "ty".to_string(),
+                command: vec!["ty".to_string()],
+                workspace_root: Path::new(".").to_path_buf(),
+                wait_for_index: false,
+            },
+        ];
+
+        sort_suggestions(
+            &mut suggestions,
+            &BTreeMap::from([(
+                "python".to_string(),
+                vec!["ty".to_string(), "pyright".to_string()],
+            )]),
+            Some("python"),
+        );
+
+        assert_eq!(
+            suggestions
+                .iter()
+                .map(|suggestion| suggestion.server.as_str())
+                .collect::<Vec<_>>(),
+            vec!["ty", "pyright"]
+        );
+    }
+
+    #[test]
+    fn keeps_unlisted_servers_after_listed_ones() {
+        let mut suggestions = vec![
+            SuggestedLanguage {
+                config_id: "jedi".to_string(),
+                languages: vec!["python".to_string()],
+                server: "jedi-language-server".to_string(),
+                command: vec!["jedi-language-server".to_string()],
+                workspace_root: Path::new(".").to_path_buf(),
+                wait_for_index: false,
+            },
+            SuggestedLanguage {
+                config_id: "pyright".to_string(),
+                languages: vec!["python".to_string()],
+                server: "pyright".to_string(),
+                command: vec!["pyright".to_string()],
+                workspace_root: Path::new(".").to_path_buf(),
+                wait_for_index: false,
+            },
+        ];
+
+        sort_suggestions(
+            &mut suggestions,
+            &BTreeMap::from([("python".to_string(), vec!["pyright".to_string()])]),
+            Some("python"),
+        );
+
+        assert_eq!(
+            suggestions
+                .iter()
+                .map(|suggestion| suggestion.server.as_str())
+                .collect::<Vec<_>>(),
+            vec!["pyright", "jedi-language-server"]
+        );
     }
 }

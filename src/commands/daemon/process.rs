@@ -2,7 +2,7 @@ use super::{
     BACKGROUND_ENV, ClientPhase, ClientSession, Daemon, DaemonArgs, DaemonTarget, POLL_INTERVAL,
     ReaderEvent, UPSTREAM_SHUTDOWN_TIMEOUT, UpstreamServer,
 };
-use crate::commands::common::{analyze_path, resolve_server};
+use crate::commands::common::prepare_workspace;
 use crate::config::ConfigStore;
 use crate::lsp::transport::read_message;
 use crate::lsp::{path_to_file_uri, workspace_name};
@@ -22,8 +22,13 @@ pub(super) fn resolve_target(
     args: &DaemonArgs,
     config: &ConfigStore,
 ) -> Result<DaemonTarget, String> {
-    let (detection, suggestions) = analyze_path(&args.path, config)?;
-    let server = resolve_server(&detection, &suggestions, args.lsp.as_deref())?;
+    let workspace = prepare_workspace(
+        &args.path,
+        args.lsp.as_deref(),
+        args.lang.as_deref(),
+        config,
+    )?;
+    let server = workspace.server;
     let workspace_root = fs::canonicalize(&server.workspace_root).map_err(|error| {
         format!(
             "failed to resolve {}: {error}",

@@ -3,13 +3,7 @@ use crate::lsp::{
     call_hierarchy_matches_from_outgoing_response, ensure_declaration_support,
     ensure_definition_support, ensure_references_support,
 };
-use crate::suggest::SuggestedLanguage;
 use serde_json::Value;
-use std::collections::BTreeSet;
-
-pub(super) fn server_filetypes(server: &SuggestedLanguage) -> BTreeSet<String> {
-    server.languages.iter().cloned().collect()
-}
 
 pub(super) fn zero_based_line(symbol: &SymbolMatch) -> u32 {
     symbol.line.saturating_sub(1)

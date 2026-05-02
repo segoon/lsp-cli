@@ -21,9 +21,7 @@ mod render;
 #[cfg(test)]
 mod tests;
 
-use kinds::{
-    CallHierarchyDirection, LocationQueryKind, server_filetypes, zero_based_col, zero_based_line,
-};
+use kinds::{CallHierarchyDirection, LocationQueryKind, zero_based_col, zero_based_line};
 
 pub(super) use render::{
     render_document_symbol_json, render_file_list_json, render_paths_text,
@@ -51,6 +49,7 @@ pub(super) fn run_workspace_symbol_query(
     let (workspace, matches) = with_initialized_client(
         &args.query.directory,
         args.query.lsp.as_deref(),
+        args.query.lang.as_deref(),
         args.detach,
         args.query.wait_for_index,
         args.query.debug,
@@ -79,6 +78,7 @@ pub(super) fn run_document_symbol_query(
     let (workspace, matches) = with_initialized_client(
         &args.query.directory,
         args.query.lsp.as_deref(),
+        args.query.lang.as_deref(),
         args.detach,
         args.query.wait_for_index,
         args.query.debug,
@@ -90,7 +90,7 @@ pub(super) fn run_document_symbol_query(
             let files = matching_files(
                 &args.query.directory,
                 &config.filetypes,
-                &server_filetypes(&workspace.server),
+                &workspace.allowed_filetypes,
             )
             .map_err(|error| {
                 format!("failed to scan {}: {error}", args.query.directory.display())
@@ -145,6 +145,7 @@ pub(super) fn run_file_symbol_query(
     let (workspace, matches) = with_initialized_client(
         &args.file,
         args.lsp.as_deref(),
+        args.lang.as_deref(),
         args.detach,
         args.wait_for_index,
         args.debug,
@@ -213,11 +214,16 @@ pub(super) fn run_list_files_query(
     args: &WorkspaceQueryArgs,
     config: &ConfigStore,
 ) -> Result<FileListQueryResult, String> {
-    let workspace = prepare_workspace(&args.directory, args.lsp.as_deref(), config)?;
+    let workspace = prepare_workspace(
+        &args.directory,
+        args.lsp.as_deref(),
+        args.lang.as_deref(),
+        config,
+    )?;
     let files = matching_files(
         &args.directory,
         &config.filetypes,
-        &server_filetypes(&workspace.server),
+        &workspace.allowed_filetypes,
     )
     .map_err(|error| format!("failed to scan {}: {error}", args.directory.display()))?;
 
@@ -272,6 +278,7 @@ pub(super) fn run_callees_query(
 fn with_initialized_client<T, F>(
     path: &Path,
     selected_server: Option<&str>,
+    selected_language: Option<&str>,
     detach: bool,
     wait_for_index_requested: bool,
     debug: bool,
@@ -286,7 +293,7 @@ where
         &mut LspClient,
     ) -> Result<T, String>,
 {
-    let workspace = prepare_workspace(path, selected_server, config)?;
+    let workspace = prepare_workspace(path, selected_server, selected_language, config)?;
     let wait_for_index = wait_for_index_requested || workspace.server.wait_for_index;
 
     let mut client = connect_lsp_client(&workspace, detach, debug, timeout)?;
@@ -330,6 +337,7 @@ fn run_named_location_query(
     let (workspace, matches) = with_initialized_client(
         &args.query.directory,
         args.query.lsp.as_deref(),
+        args.query.lang.as_deref(),
         args.detach,
         args.query.wait_for_index,
         args.query.debug,
@@ -405,6 +413,7 @@ fn run_call_hierarchy_query(
     let (workspace, matches) = with_initialized_client(
         &args.query.directory,
         args.query.lsp.as_deref(),
+        args.query.lang.as_deref(),
         args.detach,
         args.query.wait_for_index,
         args.query.debug,
@@ -557,7 +566,7 @@ fn exact_named_document_anchors(
     let files = matching_files(
         request.directory,
         &config.filetypes,
-        &server_filetypes(&workspace.server),
+        &workspace.allowed_filetypes,
     )
     .map_err(|error| format!("failed to scan {}: {error}", request.directory.display()))?;
     let mut source_cache = SourceCache::default();

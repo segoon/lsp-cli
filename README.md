@@ -39,6 +39,43 @@ cargo run
 ```
 
 
+# Config defaults
+
+`lsp-cli` optionally loads `lsp-cli.yaml` in this order:
+
+1. global: `$LSP_DATA/lsp-cli.yaml` if `LSP_DATA` is set, otherwise `data/lsp-cli.yaml`
+2. user: `~/.local/share/lsp-cli/lsp-cli.yaml`
+
+User settings override global settings.
+Command-line flags override both.
+`lsp.<language>` sets server priority for automatic selection when multiple detected servers match the same language.
+
+Example:
+
+```yaml
+download: false
+detach: false
+json: false
+debug: false
+timeout: "10"
+limit: 100
+
+detect:
+  quiet: false
+
+daemon:
+  idle-timeout: "60"
+
+lsp:
+  cpp:
+    - clangd
+  python:
+    - ty
+    - pyright
+    - jedi-language-server
+```
+
+
 # Playground
 
 The repository includes small multi-file sample projects under `playground/` for manual
@@ -76,6 +113,7 @@ lsp-cli detect path/to/project/main.py --json
 
 # Query workspace symbols through the first detected LSP server
 lsp-cli grep MySymbol path/to/project
+lsp-cli grep MySymbol path/to/project --lang python
 lsp-cli grep MySymbol path/to/project --lsp clangd
 lsp-cli grep --json MySymbol path/to/project
 lsp-cli grep --debug MySymbol path/to/project
@@ -93,6 +131,7 @@ lsp-cli list-functions path/to/project --json
 
 # List files handled by the selected server
 lsp-cli list-files path/to/project
+lsp-cli list-files path/to/project --lang cpp
 lsp-cli list-files path/to/project --limit 20
 
 # Resolve symbol locations from fuzzy workspace-symbol matches
@@ -114,9 +153,11 @@ lsp-cli completion zsh > /tmp/_lsp-cli
 
 # Replace lsp-cli with the detected LSP server process
 lsp-cli run path/to/project --lsp rust-analyzer
+lsp-cli run path/to/project --lang rust
 
 # Start a background daemon and print its Unix socket path
 lsp-cli daemon path/to/project --lsp rust-analyzer
+lsp-cli daemon path/to/project --lang rust
 ```
 
 `grep` uses the LSP `workspace/symbol` request. Pattern syntax and matching behavior are server-dependent.
@@ -127,6 +168,7 @@ lsp-cli daemon path/to/project --lsp rust-analyzer
 `--wait-for-index` waits for the same background-work signals as `build-index` before sending `workspace/symbol`.
 `--debug` logs the selected LSP server command line, pid, and raw LSP traffic to stderr.
 `--timeout` controls the per-request LSP timeout. Plain numbers are seconds, and values ending in `ms` are milliseconds.
+`--lang` narrows server selection to one detected language. LSP-backed commands error on mixed-language workspaces unless you pass `--lang` or an explicit `--lsp`.
 `build-index` waits for background-work signals such as `experimental/serverStatus` or work-done progress. If the selected server does not expose such progress, the command fails.
 `completion` writes a shell completion script to stdout. If no shell is passed, it uses the current shell from `$SHELL`.
 `run` performs detection and then replaces `lsp-cli` with the detected LSP server process using `execve`.

@@ -5,9 +5,9 @@ use super::{
     validate_list_symbols_file_path,
 };
 use crate::lsp::SymbolMatch;
-use serde_json::json;
 use crate::test_support::TestDir;
 use lsp_types::SymbolKind;
+use serde_json::json;
 use std::path::PathBuf;
 
 #[test]
@@ -147,7 +147,9 @@ fn rejects_directory_for_list_symbols_file_query() {
     assert!(error.contains("is a directory"));
 }
 
-fn initialize_response(document_symbol_provider: Option<serde_json::Value>) -> crate::lsp::InitializeResponse {
+fn initialize_response(
+    document_symbol_provider: Option<serde_json::Value>,
+) -> crate::lsp::InitializeResponse {
     serde_json::from_value(json!({
         "capabilities": {
             "documentSymbolProvider": document_symbol_provider,

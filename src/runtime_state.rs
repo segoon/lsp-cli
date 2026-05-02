@@ -175,8 +175,7 @@ fn sanitize_daemon_socket_component(value: &str) -> String {
 mod tests {
     use super::{
         RuntimeState, choose_daemon_root, choose_runtime_state_root, daemon_socket_path,
-        daemon_socket_paths,
-        sanitize_daemon_socket_component,
+        daemon_socket_paths, sanitize_daemon_socket_component,
     };
     use crate::test_support::{LOCAL_SHARE_LSP_CLI, TestDir};
     use std::fs;
@@ -250,8 +249,7 @@ mod tests {
         fs::create_dir_all(&daemon_root).expect("daemon root should exist");
         let socket_path = daemon_root.join("alpha.sock");
         let listener = UnixListener::bind(&socket_path).expect("socket should bind");
-        fs::write(daemon_root.join("notes.txt"), b"")
-            .expect("other placeholder should be written");
+        fs::write(daemon_root.join("notes.txt"), b"").expect("other placeholder should be written");
         fs::create_dir_all(daemon_root.join("beta.sock"))
             .expect("directory placeholder should be written");
 

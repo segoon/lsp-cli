@@ -5,10 +5,9 @@ use crate::detect::matching_files;
 use crate::lsp::{
     LspClient, SourceCache, SymbolMatch, document_symbol_matches_from_response,
     document_symbol_supported, ensure_call_hierarchy_support, ensure_workspace_symbol_support,
-    function_matches_from_document_response,
-    is_function_symbol_kind, location_matches_from_response, path_to_file_uri,
-    prepare_call_hierarchy_response, should_skip_document_symbol_error,
-    symbol_matches_from_response,
+    function_matches_from_document_response, is_function_symbol_kind,
+    location_matches_from_response, path_to_file_uri, prepare_call_hierarchy_response,
+    should_skip_document_symbol_error, symbol_matches_from_response,
 };
 use crate::suggest::SuggestedLanguage;
 use std::collections::{BTreeSet, HashSet};

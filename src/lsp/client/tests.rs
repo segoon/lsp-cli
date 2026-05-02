@@ -1,7 +1,7 @@
 use super::{ClientTransport, LspClient, format_spawn_error};
-use crate::test_support::TestDir;
 #[cfg(unix)]
 use crate::lsp::transport::{read_message, write_message};
+use crate::test_support::TestDir;
 #[cfg(unix)]
 use serde_json::json;
 use std::fs;
@@ -131,7 +131,9 @@ fn initialize_replies_to_queued_server_requests_before_next_request() {
             .expect("initialized should parse")
             .expect("initialized should exist");
         assert_eq!(
-            initialized.get("method").and_then(serde_json::Value::as_str),
+            initialized
+                .get("method")
+                .and_then(serde_json::Value::as_str),
             Some("initialized")
         );
 
@@ -139,7 +141,9 @@ fn initialize_replies_to_queued_server_requests_before_next_request() {
             .expect("register response should parse")
             .expect("register response should exist");
         assert_eq!(
-            register_response.get("id").and_then(serde_json::Value::as_str),
+            register_response
+                .get("id")
+                .and_then(serde_json::Value::as_str),
             Some("register-1")
         );
         assert!(register_response.get("result").is_some());
@@ -182,7 +186,9 @@ fn initialize_replies_to_queued_server_requests_before_next_request() {
 
 #[cfg(unix)]
 fn captured_server_stderr(debug: bool) -> String {
-    let _lock = stderr_lock().lock().expect("stderr lock should be available");
+    let _lock = stderr_lock()
+        .lock()
+        .expect("stderr lock should be available");
     let dir = TestDir::new("client-stderr");
     let workspace_root = dir.path().join("workspace");
     fs::create_dir_all(&workspace_root).expect("workspace should be created");

@@ -74,10 +74,7 @@ impl Daemon {
     }
 }
 
-pub(super) fn handle_busy_connection(
-    mut stream: UnixStream,
-    debug: bool,
-) -> Result<bool, String> {
+pub(super) fn handle_busy_connection(mut stream: UnixStream, debug: bool) -> Result<bool, String> {
     let _ = stream.set_read_timeout(Some(BUSY_CLIENT_TIMEOUT));
     let Ok(reader_stream) = stream.try_clone() else {
         return Ok(false);

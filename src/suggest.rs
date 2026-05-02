@@ -153,9 +153,8 @@ fn has_any_root_marker(directory: &Path, root_markers: &[String]) -> bool {
 mod tests {
     use super::{SuggestedLanguage, sort_suggestions, suggestions_for};
     use crate::config::LspConfig;
-    use crate::detect::DetectionResult;
-    use crate::test_support::TestDir;
-    use std::collections::{BTreeMap, BTreeSet};
+    use crate::test_support::{TestDir, detection_result};
+    use std::collections::BTreeMap;
     use std::path::Path;
 
     fn example_lsp() -> LspConfig {
@@ -169,15 +168,23 @@ mod tests {
         }
     }
 
+    fn suggestion(server: &str) -> SuggestedLanguage {
+        SuggestedLanguage {
+            config_id: server.to_string(),
+            languages: vec!["python".to_string()],
+            server: server.to_string(),
+            command: vec![server.to_string()],
+            workspace_root: Path::new(".").to_path_buf(),
+            wait_for_index: false,
+        }
+    }
+
     #[test]
     fn suggests_lsp_from_detected_filetype() {
         let current_dir = std::env::current_dir().expect("current dir should resolve");
         let suggestions = suggestions_for(
             &[example_lsp()],
-            &DetectionResult {
-                filetypes: BTreeSet::from(["beta".to_string()]),
-                filenames: BTreeSet::new(),
-            },
+            &detection_result(&["beta"], &[]),
             Path::new("."),
         )
         .expect("suggestions should succeed");
@@ -204,15 +211,9 @@ mod tests {
         let mut lsp = example_lsp();
         lsp.wait_for_index = true;
 
-        let suggestions = suggestions_for(
-            &[lsp],
-            &DetectionResult {
-                filetypes: BTreeSet::from(["beta".to_string()]),
-                filenames: BTreeSet::new(),
-            },
-            Path::new("."),
-        )
-        .expect("suggestions should succeed");
+        let suggestions =
+            suggestions_for(&[lsp], &detection_result(&["beta"], &[]), Path::new("."))
+                .expect("suggestions should succeed");
 
         assert!(suggestions[0].wait_for_index);
     }
@@ -221,10 +222,7 @@ mod tests {
     fn does_not_suggest_lsp_from_root_marker_alone() {
         let suggestions = suggestions_for(
             &[example_lsp()],
-            &DetectionResult {
-                filetypes: BTreeSet::new(),
-                filenames: BTreeSet::from([".workspace-root".to_string()]),
-            },
+            &detection_result(&[], &[".workspace-root"]),
             Path::new("workspace"),
         )
         .expect("suggestions should succeed");
@@ -236,10 +234,7 @@ mod tests {
     fn includes_all_matching_languages() {
         let suggestions = suggestions_for(
             &[example_lsp()],
-            &DetectionResult {
-                filetypes: BTreeSet::from(["alpha".to_string(), "beta".to_string()]),
-                filenames: BTreeSet::new(),
-            },
+            &detection_result(&["alpha", "beta"], &[]),
             Path::new("."),
         )
         .expect("suggestions should succeed");
@@ -254,10 +249,7 @@ mod tests {
     fn returns_no_suggestions_when_nothing_matches() {
         let suggestions = suggestions_for(
             &[example_lsp()],
-            &DetectionResult {
-                filetypes: BTreeSet::from(["gamma".to_string()]),
-                filenames: BTreeSet::from(["workspace.lock".to_string()]),
-            },
+            &detection_result(&["gamma"], &["workspace.lock"]),
             Path::new("."),
         )
         .expect("suggestions should succeed");
@@ -272,10 +264,7 @@ mod tests {
             .join("/tmp/with spaces");
         let suggestions = suggestions_for(
             &[example_lsp()],
-            &DetectionResult {
-                filetypes: BTreeSet::from(["alpha".to_string()]),
-                filenames: BTreeSet::new(),
-            },
+            &detection_result(&["alpha"], &[]),
             Path::new("/tmp/with spaces"),
         )
         .expect("suggestions should succeed");
@@ -295,10 +284,7 @@ mod tests {
         let current_dir = std::env::current_dir().expect("current dir should resolve");
         let suggestions = suggestions_for(
             &[example_lsp()],
-            &DetectionResult {
-                filetypes: BTreeSet::from(["alpha".to_string()]),
-                filenames: BTreeSet::new(),
-            },
+            &detection_result(&["alpha"], &[]),
             Path::new("playground/c"),
         )
         .expect("suggestions should succeed");
@@ -325,10 +311,7 @@ mod tests {
 
         let suggestions = suggestions_for(
             &[example_lsp()],
-            &DetectionResult {
-                filetypes: BTreeSet::from(["beta".to_string()]),
-                filenames: BTreeSet::from([".workspace-root".to_string(), "main.foo".to_string()]),
-            },
+            &detection_result(&["beta"], &[".workspace-root", "main.foo"]),
             &nested,
         )
         .expect("suggestions should succeed");
@@ -351,10 +334,7 @@ mod tests {
 
         let suggestions = suggestions_for(
             &[example_lsp()],
-            &DetectionResult {
-                filetypes: BTreeSet::from(["beta".to_string()]),
-                filenames: BTreeSet::from(["main.foo".to_string()]),
-            },
+            &detection_result(&["beta"], &["main.foo"]),
             &nested,
         )
         .expect("suggestions should succeed");
@@ -372,24 +352,7 @@ mod tests {
 
     #[test]
     fn sorts_suggestions_by_language_preference() {
-        let mut suggestions = vec![
-            SuggestedLanguage {
-                config_id: "pyright".to_string(),
-                languages: vec!["python".to_string()],
-                server: "pyright".to_string(),
-                command: vec!["pyright".to_string()],
-                workspace_root: Path::new(".").to_path_buf(),
-                wait_for_index: false,
-            },
-            SuggestedLanguage {
-                config_id: "ty".to_string(),
-                languages: vec!["python".to_string()],
-                server: "ty".to_string(),
-                command: vec!["ty".to_string()],
-                workspace_root: Path::new(".").to_path_buf(),
-                wait_for_index: false,
-            },
-        ];
+        let mut suggestions = vec![suggestion("pyright"), suggestion("ty")];
 
         sort_suggestions(
             &mut suggestions,
@@ -411,24 +374,7 @@ mod tests {
 
     #[test]
     fn keeps_unlisted_servers_after_listed_ones() {
-        let mut suggestions = vec![
-            SuggestedLanguage {
-                config_id: "jedi".to_string(),
-                languages: vec!["python".to_string()],
-                server: "jedi-language-server".to_string(),
-                command: vec!["jedi-language-server".to_string()],
-                workspace_root: Path::new(".").to_path_buf(),
-                wait_for_index: false,
-            },
-            SuggestedLanguage {
-                config_id: "pyright".to_string(),
-                languages: vec!["python".to_string()],
-                server: "pyright".to_string(),
-                command: vec!["pyright".to_string()],
-                workspace_root: Path::new(".").to_path_buf(),
-                wait_for_index: false,
-            },
-        ];
+        let mut suggestions = vec![suggestion("jedi-language-server"), suggestion("pyright")];
 
         sort_suggestions(
             &mut suggestions,

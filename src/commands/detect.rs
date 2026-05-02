@@ -122,11 +122,8 @@ mod tests {
 
     #[test]
     fn renders_server_specific_languages_in_text_output() {
-        let detected = BTreeSet::from([
-            "alpha".to_string(),
-            "beta".to_string(),
-            "gamma".to_string(),
-        ]);
+        let detected =
+            BTreeSet::from(["alpha".to_string(), "beta".to_string(), "gamma".to_string()]);
         let suggestion = SuggestedLanguage {
             languages: vec!["beta".to_string()],
             ..example_suggestion()

@@ -31,3 +31,5 @@ generic:
 - cover more initialize capabilities?
 - cover more useful commands?
 - ask GPT itself "how to word the skill file?"
+- maybe use async-lsp?
+- link to LSP spec in README.md?

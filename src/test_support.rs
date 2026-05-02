@@ -1,3 +1,4 @@
+use crate::detect::DetectionResult;
 use crate::mason::registry::{MasonDownload, MasonNeovim, MasonPackage, MasonSource, OneOrMany};
 use crate::runtime_state::RuntimeState;
 use crate::suggest::SuggestedLanguage;
@@ -200,6 +201,19 @@ pub(crate) fn suggested_language(
         command: vec![program.to_string(), "--stdio".to_string()],
         workspace_root: PathBuf::from("."),
         wait_for_index: false,
+    }
+}
+
+pub(crate) fn detection_result(filetypes: &[&str], filenames: &[&str]) -> DetectionResult {
+    DetectionResult {
+        filetypes: filetypes
+            .iter()
+            .map(|filetype| (*filetype).to_string())
+            .collect(),
+        filenames: filenames
+            .iter()
+            .map(|filename| (*filename).to_string())
+            .collect(),
     }
 }
 

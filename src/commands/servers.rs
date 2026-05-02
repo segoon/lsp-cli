@@ -4,7 +4,10 @@ use std::collections::BTreeSet;
 
 pub(super) fn run(args: &ServersArgs, config: &ConfigStore) -> Result<String, String> {
     if let Some(language) = args.lang.as_deref()
-        && !config.filetypes.iter().any(|filetype| filetype.id == language)
+        && !config
+            .filetypes
+            .iter()
+            .any(|filetype| filetype.id == language)
     {
         return Err(format!("unsupported language {language:?}"));
     }

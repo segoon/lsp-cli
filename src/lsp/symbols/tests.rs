@@ -9,6 +9,28 @@ use lsp_types::SymbolKind;
 use serde_json::json;
 use url::Url;
 
+struct SourceFixture {
+    _dir: TestDir,
+    file: std::path::PathBuf,
+    uri: String,
+    cache: SourceCache,
+}
+
+fn source_fixture(contents: &str) -> SourceFixture {
+    let dir = TestDir::new("symbols");
+    let file = dir.write_file("src/lib.rs", contents);
+    let uri = Url::from_file_path(&file)
+        .expect("file path should become URI")
+        .to_string();
+
+    SourceFixture {
+        _dir: dir,
+        file,
+        uri,
+        cache: SourceCache::default(),
+    }
+}
+
 #[test]
 fn returns_placeholder_for_missing_line() {
     let dir = TestDir::new("symbols");
@@ -20,18 +42,14 @@ fn returns_placeholder_for_missing_line() {
 
 #[test]
 fn parses_workspace_symbol_locations() {
-    let dir = TestDir::new("symbols");
-    let file = dir.write_file("src/lib.rs", "first line\nsecond line\n");
-    let uri = Url::from_file_path(&file)
-        .expect("file path should become URI")
-        .to_string();
+    let fixture = source_fixture("first line\nsecond line\n");
 
     let matches = symbol_matches_from_response(&json!([
         {
             "name": "symbol",
             "kind": 12,
             "location": {
-                "uri": uri,
+                "uri": fixture.uri,
                 "range": {
                     "start": { "line": 1, "character": 2 },
                     "end": { "line": 1, "character": 8 }
@@ -46,7 +64,7 @@ fn parses_workspace_symbol_locations() {
         vec![SymbolMatch {
             name: "symbol".to_string(),
             kind: SymbolKind::FUNCTION,
-            path: file,
+            path: fixture.file,
             line: 2,
             col: 3,
             line_content: "second line".to_string(),
@@ -66,12 +84,8 @@ fn identifies_function_like_symbol_kinds() {
 
 #[test]
 fn parses_document_symbols_for_functions() {
-    let dir = TestDir::new("symbols");
-    let file = dir.write_file(
-        "src/lib.rs",
-        "struct S;\nfn first() {}\nimpl S {\n    fn second(&self) {}\n}\n",
-    );
-    let mut cache = SourceCache::default();
+    let mut fixture =
+        source_fixture("struct S;\nfn first() {}\nimpl S {\n    fn second(&self) {}\n}\n");
 
     let matches = function_matches_from_document_response(
         &json!([
@@ -114,8 +128,8 @@ fn parses_document_symbols_for_functions() {
                 }
             }
         ]),
-        &file,
-        &mut cache,
+        &fixture.file,
+        &mut fixture.cache,
     )
     .expect("document symbols should parse");
 
@@ -125,7 +139,7 @@ fn parses_document_symbols_for_functions() {
             SymbolMatch {
                 name: "second".to_string(),
                 kind: SymbolKind::METHOD,
-                path: file.clone(),
+                path: fixture.file.clone(),
                 line: 4,
                 col: 8,
                 line_content: "    fn second(&self) {}".to_string(),
@@ -133,7 +147,7 @@ fn parses_document_symbols_for_functions() {
             SymbolMatch {
                 name: "first".to_string(),
                 kind: SymbolKind::FUNCTION,
-                path: file,
+                path: fixture.file,
                 line: 2,
                 col: 4,
                 line_content: "fn first() {}".to_string(),
@@ -144,9 +158,7 @@ fn parses_document_symbols_for_functions() {
 
 #[test]
 fn parses_document_symbols_for_all_kinds() {
-    let dir = TestDir::new("symbols");
-    let file = dir.write_file("src/lib.rs", "struct S;\nfn first() {}\n");
-    let mut cache = SourceCache::default();
+    let mut fixture = source_fixture("struct S;\nfn first() {}\n");
 
     let matches = document_symbol_matches_from_response(
         &json!([
@@ -175,8 +187,8 @@ fn parses_document_symbols_for_all_kinds() {
                 }
             }
         ]),
-        &file,
-        &mut cache,
+        &fixture.file,
+        &mut fixture.cache,
     )
     .expect("document symbols should parse");
 
@@ -187,17 +199,12 @@ fn parses_document_symbols_for_all_kinds() {
 
 #[test]
 fn parses_location_links() {
-    let dir = TestDir::new("symbols");
-    let file = dir.write_file("src/lib.rs", "first line\nsecond line\n");
-    let uri = Url::from_file_path(&file)
-        .expect("file path should become URI")
-        .to_string();
-    let mut cache = SourceCache::default();
+    let mut fixture = source_fixture("first line\nsecond line\n");
 
     let matches = location_matches_from_response(
         &json!([
             {
-                "targetUri": uri,
+                "targetUri": fixture.uri,
                 "targetRange": {
                     "start": { "line": 1, "character": 0 },
                     "end": { "line": 1, "character": 11 }
@@ -210,7 +217,7 @@ fn parses_location_links() {
         ]),
         "symbol",
         SymbolKind::FUNCTION,
-        &mut cache,
+        &mut fixture.cache,
     )
     .expect("location links should parse");
 
@@ -242,12 +249,7 @@ fn parses_prepare_call_hierarchy_response() {
 
 #[test]
 fn parses_call_hierarchy_incoming_calls() {
-    let dir = TestDir::new("symbols");
-    let file = dir.write_file("src/lib.rs", "fn caller() {}\n");
-    let uri = Url::from_file_path(&file)
-        .expect("file path should become URI")
-        .to_string();
-    let mut cache = SourceCache::default();
+    let mut fixture = source_fixture("fn caller() {}\n");
 
     let matches = call_hierarchy_matches_from_incoming_response(
         &json!([
@@ -255,7 +257,7 @@ fn parses_call_hierarchy_incoming_calls() {
                 "from": {
                     "name": "caller",
                     "kind": 12,
-                    "uri": uri,
+                    "uri": fixture.uri,
                     "range": {
                         "start": { "line": 0, "character": 0 },
                         "end": { "line": 0, "character": 13 }
@@ -268,7 +270,7 @@ fn parses_call_hierarchy_incoming_calls() {
                 "fromRanges": []
             }
         ]),
-        &mut cache,
+        &mut fixture.cache,
     )
     .expect("incoming calls should parse");
 
@@ -277,12 +279,7 @@ fn parses_call_hierarchy_incoming_calls() {
 
 #[test]
 fn parses_call_hierarchy_outgoing_calls() {
-    let dir = TestDir::new("symbols");
-    let file = dir.write_file("src/lib.rs", "fn callee() {}\n");
-    let uri = Url::from_file_path(&file)
-        .expect("file path should become URI")
-        .to_string();
-    let mut cache = SourceCache::default();
+    let mut fixture = source_fixture("fn callee() {}\n");
 
     let matches = call_hierarchy_matches_from_outgoing_response(
         &json!([
@@ -290,7 +287,7 @@ fn parses_call_hierarchy_outgoing_calls() {
                 "to": {
                     "name": "callee",
                     "kind": 12,
-                    "uri": uri,
+                    "uri": fixture.uri,
                     "range": {
                         "start": { "line": 0, "character": 0 },
                         "end": { "line": 0, "character": 13 }
@@ -303,7 +300,7 @@ fn parses_call_hierarchy_outgoing_calls() {
                 "fromRanges": []
             }
         ]),
-        &mut cache,
+        &mut fixture.cache,
     )
     .expect("outgoing calls should parse");
 

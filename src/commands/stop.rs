@@ -158,11 +158,7 @@ pub(super) fn run_all(args: &StopAllArgs) -> Result<String, String> {
 }
 
 fn plural_suffix(count: usize) -> &'static str {
-    if count == 1 {
-        ""
-    } else {
-        "s"
-    }
+    if count == 1 { "" } else { "s" }
 }
 
 #[cfg(test)]
@@ -170,12 +166,10 @@ mod tests {
     use super::{implicit_stop_languages, plural_suffix, run_all};
     use crate::cli::StopAllArgs;
     use crate::config::{CliConfig, ConfigStore};
-    use crate::detect::DetectionResult;
-    use crate::suggest::SuggestedLanguage;
-    use crate::test_support::{TestDir, env_var, with_env_vars};
-    use std::collections::BTreeSet;
+    use crate::test_support::{
+        TestDir, detection_result, env_var, suggested_language, with_env_vars,
+    };
     use std::fs;
-    use std::path::PathBuf;
 
     #[test]
     fn plural_suffix_tracks_plural_forms() {
@@ -203,27 +197,10 @@ mod tests {
             lsps: Vec::new(),
             cli: CliConfig::default(),
         };
-        let detection = DetectionResult {
-            filetypes: BTreeSet::from(["alpha".to_string(), "beta".to_string()]),
-            filenames: BTreeSet::new(),
-        };
+        let detection = detection_result(&["alpha", "beta"], &[]);
         let suggestions = vec![
-            SuggestedLanguage {
-                config_id: "alpha-lsp".to_string(),
-                languages: vec!["alpha".to_string()],
-                server: "alpha-lsp".to_string(),
-                command: vec!["/bin/true".to_string()],
-                workspace_root: PathBuf::from("."),
-                wait_for_index: false,
-            },
-            SuggestedLanguage {
-                config_id: "beta-lsp".to_string(),
-                languages: vec!["beta".to_string()],
-                server: "beta-lsp".to_string(),
-                command: vec!["/bin/true".to_string()],
-                workspace_root: PathBuf::from("."),
-                wait_for_index: false,
-            },
+            suggested_language("/bin/true", "alpha-lsp", "alpha-lsp", "alpha"),
+            suggested_language("/bin/true", "beta-lsp", "beta-lsp", "beta"),
         ];
 
         assert_eq!(

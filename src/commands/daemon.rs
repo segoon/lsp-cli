@@ -123,18 +123,16 @@ fn wait_for_stopped_socket(socket_path: &Path) -> Result<(), String> {
 
         match UnixStream::connect(socket_path) {
             Ok(_) => thread::sleep(POLL_INTERVAL),
-            Err(_) => {
-                match fs::remove_file(socket_path) {
-                    Ok(()) => return Ok(()),
-                    Err(error) if error.kind() == ErrorKind::NotFound => return Ok(()),
-                    Err(error) => {
-                        return Err(format!(
-                            "daemon stopped listening on {} but its socket could not be removed: {error}",
-                            socket_path.display()
-                        ));
-                    }
+            Err(_) => match fs::remove_file(socket_path) {
+                Ok(()) => return Ok(()),
+                Err(error) if error.kind() == ErrorKind::NotFound => return Ok(()),
+                Err(error) => {
+                    return Err(format!(
+                        "daemon stopped listening on {} but its socket could not be removed: {error}",
+                        socket_path.display()
+                    ));
                 }
-            }
+            },
         }
     }
 
@@ -649,9 +647,9 @@ impl Daemon {
 
         if !self.stop_requested
             && self
-            .upstream
-            .as_ref()
-            .is_some_and(|upstream| upstream.restart_required)
+                .upstream
+                .as_ref()
+                .is_some_and(|upstream| upstream.restart_required)
         {
             self.shutdown_upstream()?;
             self.upstream = Some(UpstreamServer::spawn(&self.target, self.debug)?);

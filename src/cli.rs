@@ -22,6 +22,8 @@ pub(crate) enum RawCommand {
     Daemon(RawDaemonArgs),
     Stop(RawStopArgs),
     StopAll(RawStopAllArgs),
+    Languages(RawLanguagesArgs),
+    Servers(RawServersArgs),
     Detect(RawDetectArgs),
     Grep(RawGrepArgs),
     ListSymbols(RawListSymbolsArgs),
@@ -43,6 +45,8 @@ pub enum Command {
     Daemon(DaemonArgs),
     Stop(StopArgs),
     StopAll(StopAllArgs),
+    Languages(LanguagesArgs),
+    Servers(ServersArgs),
     Detect(DetectArgs),
     Grep(GrepArgs),
     ListSymbols(ListSymbolsArgs),
@@ -378,6 +382,23 @@ pub struct StopAllArgs {
     pub debug: bool,
 }
 
+#[derive(Debug, Args, Eq, PartialEq)]
+pub(crate) struct RawLanguagesArgs {}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct LanguagesArgs;
+
+#[derive(Debug, Args, Eq, PartialEq)]
+pub(crate) struct RawServersArgs {
+    #[arg(long)]
+    lang: Option<String>,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct ServersArgs {
+    pub lang: Option<String>,
+}
+
 #[derive(Clone, Copy, Debug, Args, Eq, PartialEq)]
 pub struct CompletionArgs {
     pub shell: Option<Shell>,
@@ -402,6 +423,8 @@ pub(crate) fn resolve_command(command: RawCommand, defaults: &CliConfig) -> Comm
         RawCommand::Daemon(args) => Command::Daemon(args.resolve(defaults)),
         RawCommand::Stop(args) => Command::Stop(args.resolve(defaults)),
         RawCommand::StopAll(args) => Command::StopAll(args.resolve(defaults)),
+        RawCommand::Languages(_) => Command::Languages(RawLanguagesArgs::resolve()),
+        RawCommand::Servers(args) => Command::Servers(args.resolve()),
         RawCommand::Detect(args) => Command::Detect(args.resolve(defaults)),
         RawCommand::Grep(args) => Command::Grep(args.resolve(defaults)),
         RawCommand::ListSymbols(args) => Command::ListSymbols(args.resolve(defaults)),
@@ -621,6 +644,18 @@ impl RawStopAllArgs {
         StopAllArgs {
             debug: resolve_bool(self.debug, self.no_debug, defaults.debug.unwrap_or(false)),
         }
+    }
+}
+
+impl RawLanguagesArgs {
+    fn resolve() -> LanguagesArgs {
+        LanguagesArgs
+    }
+}
+
+impl RawServersArgs {
+    fn resolve(self) -> ServersArgs {
+        ServersArgs { lang: self.lang }
     }
 }
 

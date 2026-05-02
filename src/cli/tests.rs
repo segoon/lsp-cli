@@ -1,7 +1,8 @@
 use super::{
-    BuildIndexArgs, Command, CompletionArgs, DaemonArgs, DetectArgs, GrepArgs, ListFilesArgs,
-    ListFunctionsArgs, ListSymbolsArgs, LspWorkspaceQueryArgs, RunArgs, StopAllArgs, StopArgs,
-    SymbolQueryArgs, WorkspaceQueryArgs, parse_args, parse_raw_args, resolve_command,
+    BuildIndexArgs, Command, CompletionArgs, DaemonArgs, DetectArgs, GrepArgs, LanguagesArgs,
+    ListFilesArgs, ListFunctionsArgs, ListSymbolsArgs, LspWorkspaceQueryArgs, RunArgs,
+    ServersArgs, StopAllArgs, StopArgs, SymbolQueryArgs, WorkspaceQueryArgs, parse_args,
+    parse_raw_args, resolve_command,
 };
 use crate::config::{CliConfig, DaemonCliConfig, DetectCliConfig};
 use clap_complete::Shell;
@@ -604,5 +605,32 @@ fn parses_stop_all_arguments_and_debug_default() {
     assert_eq!(
         parse_with_config(vec!["stop-all"], &config),
         Command::StopAll(StopAllArgs { debug: true })
+    );
+}
+
+#[test]
+fn parses_languages_arguments() {
+    assert_eq!(
+        parse_args(vec!["languages".to_string()]).expect("languages should parse"),
+        Command::Languages(LanguagesArgs)
+    );
+}
+
+#[test]
+fn parses_servers_arguments() {
+    assert_eq!(
+        parse_args(vec!["servers".to_string()]).expect("servers should parse"),
+        Command::Servers(ServersArgs { lang: None })
+    );
+    assert_eq!(
+        parse_args(vec![
+            "servers".to_string(),
+            "--lang".to_string(),
+            "python".to_string(),
+        ])
+        .expect("servers with --lang should parse"),
+        Command::Servers(ServersArgs {
+            lang: Some("python".to_string())
+        })
     );
 }

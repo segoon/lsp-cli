@@ -6,18 +6,14 @@ use std::sync::mpsc::{Receiver, RecvTimeoutError, TryRecvError};
 use std::time::{Duration, Instant};
 
 use lsp_types::notification::{Exit, Initialized, Notification};
-use lsp_types::request::{
-    CallHierarchyIncomingCalls, CallHierarchyOutgoingCalls, CallHierarchyPrepare,
-    DocumentSymbolRequest, GotoDeclaration, GotoDefinition, Initialize, References, Request,
-    Shutdown, WorkspaceSymbolRequest,
-};
+use lsp_types::request::{Initialize, Request, Shutdown};
 use serde_json::{Value, json};
 
-use super::InitializeResponse;
-use super::transport::{log_debug_message, write_message};
+use super::{jsonrpc, transport::{log_debug_message, write_message}};
 
 mod background;
 mod process_io;
+mod requests;
 
 #[cfg(test)]
 mod tests;
@@ -143,144 +139,13 @@ impl LspClient {
         })
     }
 
-    pub fn open_document(&mut self, path: &Path, uri: &str) -> Result<(), String> {
-        if self.opened_documents.contains(uri) {
-            return Ok(());
-        }
-
-        let text = std::fs::read_to_string(path)
-            .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
-        self.send_notification(
-            "textDocument/didOpen",
-            &json!({
-                "textDocument": {
-                    "uri": uri,
-                    "languageId": language_id(path),
-                    "version": 1,
-                    "text": text,
-                }
-            }),
-        )?;
-        self.opened_documents.insert(uri.to_string());
-        Ok(())
-    }
-
-    pub fn initialize(
-        &mut self,
-        root_uri: &str,
-        workspace_name: &str,
-        want_server_status: bool,
-    ) -> Result<InitializeResponse, String> {
-        let params = json!({
-            "processId": std::process::id(),
-            "clientInfo": {
-                "name": env!("CARGO_PKG_NAME"),
-                "version": env!("CARGO_PKG_VERSION"),
-            },
-            "rootUri": root_uri,
-            "capabilities": {
-                "general": {
-                    "positionEncodings": ["utf-16"],
-                },
-                "window": {
-                    "workDoneProgress": want_server_status,
-                },
-                "experimental": {
-                    "serverStatusNotification": want_server_status,
-                },
-            },
-            "workspaceFolders": [{
-                "uri": root_uri,
-                "name": workspace_name,
-            }],
-        });
-        let response = self.send_request(Initialize::METHOD, &params)?;
-        let response: InitializeResponse = serde_json::from_value(response)
-            .map_err(|error| format!("failed to decode initialize response: {error}"))?;
-
-        self.send_notification(Initialized::METHOD, &json!({}))?;
-        self.drain_pending_server_requests()?;
-        Ok(response)
-    }
-
-    pub fn workspace_symbol(&mut self, pattern: &str) -> Result<Value, String> {
-        self.send_request(WorkspaceSymbolRequest::METHOD, &json!({ "query": pattern }))
-    }
-
-    pub fn document_symbol(&mut self, uri: &str) -> Result<Value, String> {
-        self.send_request(
-            DocumentSymbolRequest::METHOD,
-            &json!({ "textDocument": { "uri": uri } }),
-        )
-    }
-
-    pub fn references(
-        &mut self,
-        uri: &str,
-        line: u32,
-        character: u32,
-        include_declaration: bool,
-    ) -> Result<Value, String> {
-        self.send_request(
-            References::METHOD,
-            &json!({
-                "textDocument": { "uri": uri },
-                "position": { "line": line, "character": character },
-                "context": { "includeDeclaration": include_declaration },
-            }),
-        )
-    }
-
-    pub fn definition(&mut self, uri: &str, line: u32, character: u32) -> Result<Value, String> {
-        self.send_request(
-            GotoDefinition::METHOD,
-            &json!({
-                "textDocument": { "uri": uri },
-                "position": { "line": line, "character": character },
-            }),
-        )
-    }
-
-    pub fn declaration(&mut self, uri: &str, line: u32, character: u32) -> Result<Value, String> {
-        self.send_request(
-            GotoDeclaration::METHOD,
-            &json!({
-                "textDocument": { "uri": uri },
-                "position": { "line": line, "character": character },
-            }),
-        )
-    }
-
-    pub fn prepare_call_hierarchy(
-        &mut self,
-        uri: &str,
-        line: u32,
-        character: u32,
-    ) -> Result<Value, String> {
-        self.send_request(
-            CallHierarchyPrepare::METHOD,
-            &json!({
-                "textDocument": { "uri": uri },
-                "position": { "line": line, "character": character },
-            }),
-        )
-    }
-
-    pub fn incoming_calls(&mut self, item: &Value) -> Result<Value, String> {
-        self.send_request(CallHierarchyIncomingCalls::METHOD, &json!({ "item": item }))
-    }
-
-    pub fn outgoing_calls(&mut self, item: &Value) -> Result<Value, String> {
-        self.send_request(CallHierarchyOutgoingCalls::METHOD, &json!({ "item": item }))
-    }
-
     pub fn shutdown(&mut self) -> Result<(), String> {
         if self.shutdown_sent {
             return Ok(());
         }
 
-        let _ = self.send_request(Shutdown::METHOD, &Value::Null)?;
-        self.send_notification(Exit::METHOD, &Value::Null)?;
+        let _ = self.send_request::<Shutdown>(&())?;
+        self.send_notification::<Exit>(&())?;
         self.shutdown_sent = true;
 
         self.wait_for_process_exit()?;
@@ -288,20 +153,18 @@ impl LspClient {
         Ok(())
     }
 
-    fn send_request(&mut self, method: &str, params: &Value) -> Result<Value, String> {
-        if method != Initialize::METHOD {
+    fn send_request<R>(&mut self, params: &R::Params) -> Result<Value, String>
+    where
+        R: Request,
+    {
+        if R::METHOD != Initialize::METHOD {
             self.drain_pending_server_requests()?;
         }
 
         let id = self.next_request_id;
         self.next_request_id += 1;
 
-        let message = json!({
-            "jsonrpc": "2.0",
-            "id": id,
-            "method": method,
-            "params": params,
-        });
+        let message = jsonrpc(Some(id), R::METHOD, params)?;
         log_debug_message(self.debug, "-> ", &message);
         self.write_transport_message(&message)?;
 
@@ -311,7 +174,7 @@ impl LspClient {
                     if let Some(response_id) = response_id(&message) {
                         if response_id == id {
                             if let Some(error) = message.get("error") {
-                                return Err(format_lsp_error(method, error));
+                                return Err(format_lsp_error(R::METHOD, error));
                             }
 
                             return Ok(message.get("result").cloned().unwrap_or(Value::Null));
@@ -326,36 +189,35 @@ impl LspClient {
                 }
                 Ok(IncomingMessage::EndOfStream) => {
                     return Err(self.format_transport_wait_error(
-                        method,
-                        format!("LSP server closed while waiting for {method}"),
+                        R::METHOD,
+                        format!("LSP server closed while waiting for {}", R::METHOD),
                     ));
                 }
                 Ok(IncomingMessage::Error(error)) => {
-                    return Err(format!("failed to read LSP message for {method}: {error}"));
+                    return Err(format!("failed to read LSP message for {}: {error}", R::METHOD));
                 }
                 Err(RecvTimeoutError::Timeout) => {
-                    return Err(format!("timed out waiting for {method}"));
+                    return Err(format!("timed out waiting for {}", R::METHOD));
                 }
                 Err(RecvTimeoutError::Disconnected) => {
                     return Err(self.format_transport_wait_error(
-                        method,
-                        format!("LSP reader stopped while waiting for {method}"),
+                        R::METHOD,
+                        format!("LSP reader stopped while waiting for {}", R::METHOD),
                     ));
                 }
             }
         }
     }
 
-    fn send_notification(&mut self, method: &str, params: &Value) -> Result<(), String> {
-        if method != Initialized::METHOD {
+    fn send_notification<N>(&mut self, params: &N::Params) -> Result<(), String>
+    where
+        N: Notification,
+    {
+        if N::METHOD != Initialized::METHOD {
             self.drain_pending_server_requests()?;
         }
 
-        let message = json!({
-            "jsonrpc": "2.0",
-            "method": method,
-            "params": params,
-        });
+        let message = jsonrpc::<u64, _>(None, N::METHOD, params)?;
         log_debug_message(self.debug, "-> ", &message);
         self.write_transport_message(&message)
     }
@@ -535,21 +397,6 @@ fn format_spawn_error(program: &str, error: &std::io::Error) -> String {
             format!("configured LSP server executable `{program}` was not found")
         }
         _ => format!("failed to start LSP server `{program}`: {error}"),
-    }
-}
-
-fn language_id(path: &Path) -> &'static str {
-    match path.extension().and_then(|value| value.to_str()) {
-        Some("c" | "h") => "c",
-        Some("cc" | "cpp" | "cxx" | "hh" | "hpp" | "hxx") => "cpp",
-        Some("cs") => "csharp",
-        Some("go") => "go",
-        Some("java") => "java",
-        Some("js" | "mjs" | "cjs") => "javascript",
-        Some("py") => "python",
-        Some("rs") => "rust",
-        Some("ts" | "mts" | "cts") => "typescript",
-        _ => "plaintext",
     }
 }
 

@@ -1,5 +1,6 @@
 use super::{BUSY_CLIENT_TIMEOUT, Daemon, DaemonTarget, INVALID_REQUEST, REQUEST_CANCELLED};
-use crate::lsp::ServerStatusParams;
+use crate::lsp::{SERVER_STATUS_METHOD, ServerStatusParams, StopParams, jsonrpc, parse_lsp_uri};
+use lsp_types::{ApplyWorkspaceEditResponse, WorkspaceFolder};
 use crate::lsp::transport::{log_debug_message, read_message, write_message};
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -8,7 +9,7 @@ use std::io::BufReader;
 use std::os::unix::net::UnixStream;
 use std::time::Duration;
 
-pub(super) const STOP_METHOD: &str = "$/lsp-cli/stop";
+pub(super) use crate::lsp::STOP_METHOD;
 
 pub(super) enum ReaderEvent {
     Message(Value),
@@ -124,12 +125,7 @@ pub(super) fn read_control_message(
 }
 
 pub(super) fn stop_request() -> Value {
-    json!({
-        "jsonrpc": "2.0",
-        "id": "lsp-cli/stop",
-        "method": STOP_METHOD,
-        "params": Value::Null,
-    })
+    jsonrpc(Some("lsp-cli/stop"), STOP_METHOD, &StopParams).expect("stop request should encode")
 }
 
 pub(super) fn stop_request_id(message: &Value) -> Option<Value> {
@@ -160,16 +156,23 @@ pub(super) fn local_server_request_response(request_id: &Value, method: &str) ->
         | "client/registerCapability"
         | "client/unregisterCapability"
         | "window/workDoneProgress/create" => success_response(request_id, &Value::Null),
-        "workspace/configuration" | "workspace/workspaceFolders" => {
-            success_response(request_id, &json!([]))
-        }
+        "workspace/configuration" => success_response(request_id, &json!([])),
+        "workspace/workspaceFolders" => success_response(
+            request_id,
+            &serde_json::to_value(Vec::<WorkspaceFolder>::new())
+                .expect("workspace folders should serialize"),
+        ),
         "workspace/applyEdit" => json!({
             "jsonrpc": "2.0",
             "id": request_id,
-            "result": {
-                "applied": false,
-                "failureReason": "no daemon client is connected to apply workspace edits",
-            }
+            "result": serde_json::to_value(ApplyWorkspaceEditResponse {
+                applied: false,
+                failure_reason: Some(
+                    "no daemon client is connected to apply workspace edits".to_string(),
+                ),
+                failed_change: None,
+            })
+            .expect("applyEdit response should serialize")
         }),
         _ => error_response(
             request_id,
@@ -188,10 +191,10 @@ pub(super) fn update_background_work_tracker(
     };
 
     match method {
-        "experimental/serverStatus" => {
+        SERVER_STATUS_METHOD => {
             let params = message.get("params").cloned().unwrap_or(Value::Null);
             let status: ServerStatusParams = serde_json::from_value(params)
-                .map_err(|error| format!("failed to decode experimental/serverStatus: {error}"))?;
+                .map_err(|error| format!("failed to decode {SERVER_STATUS_METHOD}: {error}"))?;
             tracker.state = if status.quiescent {
                 BackgroundWorkState::Quiescent
             } else {
@@ -255,15 +258,13 @@ pub(super) fn wants_background_work(params: &Value) -> bool {
 }
 
 pub(super) fn background_work_ready_notification() -> Value {
-    json!({
-        "jsonrpc": "2.0",
-        "method": "experimental/serverStatus",
-        "params": {
-            "health": "ok",
-            "quiescent": true,
-            "message": Value::Null,
-        }
-    })
+    let params = ServerStatusParams {
+        health: "ok".to_string(),
+        quiescent: true,
+        message: None,
+    };
+    jsonrpc::<u64, _>(None, SERVER_STATUS_METHOD, &params)
+        .expect("server status notification should encode")
 }
 
 pub(super) fn normalize_initialize_params(
@@ -326,10 +327,11 @@ pub(super) fn normalize_initialize_params(
     );
     normalized.insert(
         "workspaceFolders".to_string(),
-        json!([{
-            "uri": target.root_uri,
-            "name": target.workspace_name,
-        }]),
+        serde_json::to_value(vec![WorkspaceFolder {
+            uri: parse_lsp_uri(&target.root_uri, "workspace")?,
+            name: target.workspace_name.clone(),
+        }])
+        .expect("workspace folders should serialize"),
     );
 
     Ok(Value::Object(normalized))

@@ -23,13 +23,6 @@ pub struct ServerCapabilities {
     pub call_hierarchy_provider: Option<Value>,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct ServerStatusParams {
-    pub health: String,
-    pub quiescent: bool,
-    pub message: Option<String>,
-}
-
 pub fn ensure_workspace_symbol_support(initialize: &InitializeResponse) -> Result<(), String> {
     if !supports(initialize.capabilities.workspace_symbol_provider.as_ref()) {
         return Err("selected LSP server does not support workspace/symbol".to_string());

@@ -5,9 +5,11 @@ use super::{
 use crate::commands::common::prepare_workspace;
 use crate::config::ConfigStore;
 use crate::lsp::transport::read_message;
-use crate::lsp::{path_to_file_uri, workspace_name};
+use crate::lsp::{jsonrpc, path_to_file_uri, workspace_name};
+use lsp_types::notification::{Exit, Notification};
+use lsp_types::request::{Request, Shutdown};
 use crate::runtime_state::{daemon_socket_path, default_daemon_root};
-use serde_json::{Value, json};
+use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Write};
@@ -296,12 +298,7 @@ impl UpstreamServer {
     pub(super) fn shutdown(&mut self, debug: bool) -> Result<(), String> {
         if self.initialize_fingerprint.is_some() {
             let shutdown_id = Value::String("lsp-cli/daemon-shutdown".to_string());
-            let shutdown = json!({
-                "jsonrpc": "2.0",
-                "id": shutdown_id,
-                "method": "shutdown",
-                "params": Value::Null,
-            });
+            let shutdown = jsonrpc(Some(shutdown_id.clone()), Shutdown::METHOD, &())?;
             crate::lsp::transport::log_debug_message(debug, "daemon upstream <- ", &shutdown);
             let _ = crate::lsp::transport::write_message(&mut self.stdin, &shutdown);
 
@@ -324,11 +321,7 @@ impl UpstreamServer {
                 }
             }
 
-            let exit = json!({
-                "jsonrpc": "2.0",
-                "method": "exit",
-                "params": Value::Null,
-            });
+            let exit = jsonrpc::<u64, _>(None, Exit::METHOD, &())?;
             crate::lsp::transport::log_debug_message(debug, "daemon upstream <- ", &exit);
             let _ = crate::lsp::transport::write_message(&mut self.stdin, &exit);
         }

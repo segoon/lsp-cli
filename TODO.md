@@ -23,6 +23,7 @@ generic:
 - user-visible messages - more friendly/informative -> into explicit module
 - improve readme (integration with agents/IDE)
 - threads for stderr buffering???
+- lsp-types is not used (json!(...) instead)
 
 
 # Infrastructure

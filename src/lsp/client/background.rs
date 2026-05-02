@@ -1,5 +1,5 @@
 use super::{IncomingMessage, LspClient, request_id};
-use crate::lsp::ServerStatusParams;
+use crate::lsp::{SERVER_STATUS_METHOD, ServerStatusParams};
 use serde::Deserialize;
 use serde_json::Value;
 use std::collections::BTreeSet;
@@ -80,11 +80,11 @@ fn update_build_index_state(
     };
 
     match method {
-        "experimental/serverStatus" => {
+        SERVER_STATUS_METHOD => {
             state.saw_server_status = true;
             let params = message.get("params").cloned().unwrap_or(Value::Null);
             let status: ServerStatusParams = serde_json::from_value(params)
-                .map_err(|error| format!("failed to decode experimental/serverStatus: {error}"))?;
+                .map_err(|error| format!("failed to decode {SERVER_STATUS_METHOD}: {error}"))?;
 
             if status.health == "error" {
                 return Ok(Some(Err(status.message.unwrap_or_else(|| {

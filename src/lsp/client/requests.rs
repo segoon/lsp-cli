@@ -1,0 +1,203 @@
+use super::LspClient;
+use crate::lsp::{InitializeResponse, parse_lsp_uri};
+use lsp_types::notification::{DidOpenTextDocument, Initialized};
+use lsp_types::request::{
+    CallHierarchyIncomingCalls, CallHierarchyOutgoingCalls, CallHierarchyPrepare,
+    DocumentSymbolRequest, GotoDeclaration, GotoDeclarationParams, GotoDefinition, Initialize,
+    References, WorkspaceSymbolRequest,
+};
+use lsp_types::{
+    CallHierarchyIncomingCallsParams, CallHierarchyItem, CallHierarchyOutgoingCallsParams,
+    CallHierarchyPrepareParams, ClientCapabilities, ClientInfo, DidOpenTextDocumentParams,
+    DocumentSymbolParams, GeneralClientCapabilities, GotoDefinitionParams, InitializeParams,
+    InitializedParams, PartialResultParams, Position, PositionEncodingKind, ReferenceContext,
+    ReferenceParams, TextDocumentIdentifier, TextDocumentItem, TextDocumentPositionParams,
+    WindowClientCapabilities, WorkDoneProgressParams, WorkspaceFolder, WorkspaceSymbolParams,
+};
+use serde_json::{Value, json};
+use std::path::Path;
+
+impl LspClient {
+    pub fn open_document(&mut self, path: &Path, uri: &str) -> Result<(), String> {
+        if self.opened_documents.contains(uri) {
+            return Ok(());
+        }
+
+        let text = std::fs::read_to_string(path)
+            .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+        let params = DidOpenTextDocumentParams {
+            text_document: TextDocumentItem::new(
+                parse_lsp_uri(uri, "document")?,
+                language_id(path).to_string(),
+                1,
+                text,
+            ),
+        };
+        self.send_notification::<DidOpenTextDocument>(&params)?;
+        self.opened_documents.insert(uri.to_string());
+        Ok(())
+    }
+
+    #[allow(deprecated)]
+    pub fn initialize(
+        &mut self,
+        root_uri: &str,
+        workspace_name: &str,
+        want_server_status: bool,
+    ) -> Result<InitializeResponse, String> {
+        let root_uri = parse_lsp_uri(root_uri, "workspace")?;
+        let params = InitializeParams {
+            process_id: Some(std::process::id()),
+            root_path: None,
+            root_uri: Some(root_uri.clone()),
+            initialization_options: None,
+            capabilities: ClientCapabilities {
+                workspace: None,
+                text_document: None,
+                notebook_document: None,
+                window: Some(WindowClientCapabilities {
+                    work_done_progress: Some(want_server_status),
+                    show_message: None,
+                    show_document: None,
+                }),
+                general: Some(GeneralClientCapabilities {
+                    position_encodings: Some(vec![PositionEncodingKind::UTF16]),
+                    ..Default::default()
+                }),
+                experimental: Some(json!({ "serverStatusNotification": want_server_status })),
+            },
+            trace: None,
+            workspace_folders: Some(vec![WorkspaceFolder {
+                uri: root_uri,
+                name: workspace_name.to_string(),
+            }]),
+            client_info: Some(ClientInfo {
+                name: env!("CARGO_PKG_NAME").to_string(),
+                version: Some(env!("CARGO_PKG_VERSION").to_string()),
+            }),
+            locale: None,
+            work_done_progress_params: WorkDoneProgressParams::default(),
+        };
+        let response = self.send_request::<Initialize>(&params)?;
+        let response: InitializeResponse = serde_json::from_value(response)
+            .map_err(|error| format!("failed to decode initialize response: {error}"))?;
+        self.send_notification::<Initialized>(&InitializedParams {})?;
+        self.drain_pending_server_requests()?;
+        Ok(response)
+    }
+
+    pub fn workspace_symbol(&mut self, pattern: &str) -> Result<Value, String> {
+        let params = WorkspaceSymbolParams {
+            query: pattern.to_string(),
+            ..Default::default()
+        };
+        self.send_request::<WorkspaceSymbolRequest>(&params)
+    }
+
+    pub fn document_symbol(&mut self, uri: &str) -> Result<Value, String> {
+        let params = DocumentSymbolParams {
+            text_document: TextDocumentIdentifier::new(parse_lsp_uri(uri, "document")?),
+            work_done_progress_params: WorkDoneProgressParams::default(),
+            partial_result_params: PartialResultParams::default(),
+        };
+        self.send_request::<DocumentSymbolRequest>(&params)
+    }
+
+    pub fn references(
+        &mut self,
+        uri: &str,
+        line: u32,
+        character: u32,
+        include_declaration: bool,
+    ) -> Result<Value, String> {
+        let params = ReferenceParams {
+            text_document_position: TextDocumentPositionParams::new(
+                TextDocumentIdentifier::new(parse_lsp_uri(uri, "document")?),
+                Position::new(line, character),
+            ),
+            work_done_progress_params: WorkDoneProgressParams::default(),
+            partial_result_params: PartialResultParams::default(),
+            context: ReferenceContext {
+                include_declaration,
+            },
+        };
+        self.send_request::<References>(&params)
+    }
+
+    pub fn definition(&mut self, uri: &str, line: u32, character: u32) -> Result<Value, String> {
+        let params = GotoDefinitionParams {
+            text_document_position_params: TextDocumentPositionParams::new(
+                TextDocumentIdentifier::new(parse_lsp_uri(uri, "document")?),
+                Position::new(line, character),
+            ),
+            work_done_progress_params: WorkDoneProgressParams::default(),
+            partial_result_params: PartialResultParams::default(),
+        };
+        self.send_request::<GotoDefinition>(&params)
+    }
+
+    pub fn declaration(&mut self, uri: &str, line: u32, character: u32) -> Result<Value, String> {
+        let params = GotoDeclarationParams {
+            text_document_position_params: TextDocumentPositionParams::new(
+                TextDocumentIdentifier::new(parse_lsp_uri(uri, "document")?),
+                Position::new(line, character),
+            ),
+            work_done_progress_params: WorkDoneProgressParams::default(),
+            partial_result_params: PartialResultParams::default(),
+        };
+        self.send_request::<GotoDeclaration>(&params)
+    }
+
+    pub fn prepare_call_hierarchy(
+        &mut self,
+        uri: &str,
+        line: u32,
+        character: u32,
+    ) -> Result<Value, String> {
+        let params = CallHierarchyPrepareParams {
+            text_document_position_params: TextDocumentPositionParams::new(
+                TextDocumentIdentifier::new(parse_lsp_uri(uri, "document")?),
+                Position::new(line, character),
+            ),
+            work_done_progress_params: WorkDoneProgressParams::default(),
+        };
+        self.send_request::<CallHierarchyPrepare>(&params)
+    }
+
+    pub fn incoming_calls(&mut self, item: &Value) -> Result<Value, String> {
+        let item: CallHierarchyItem = serde_json::from_value(item.clone())
+            .map_err(|error| format!("failed to decode call hierarchy item: {error}"))?;
+        let params = CallHierarchyIncomingCallsParams {
+            item,
+            work_done_progress_params: WorkDoneProgressParams::default(),
+            partial_result_params: PartialResultParams::default(),
+        };
+        self.send_request::<CallHierarchyIncomingCalls>(&params)
+    }
+
+    pub fn outgoing_calls(&mut self, item: &Value) -> Result<Value, String> {
+        let item: CallHierarchyItem = serde_json::from_value(item.clone())
+            .map_err(|error| format!("failed to decode call hierarchy item: {error}"))?;
+        let params = CallHierarchyOutgoingCallsParams {
+            item,
+            work_done_progress_params: WorkDoneProgressParams::default(),
+            partial_result_params: PartialResultParams::default(),
+        };
+        self.send_request::<CallHierarchyOutgoingCalls>(&params)
+    }
+}
+
+fn language_id(path: &Path) -> &'static str {
+    match path.extension().and_then(|value| value.to_str()) {
+        Some("c" | "h") => "c",
+        Some("cc" | "cpp" | "cxx" | "hh" | "hpp" | "hxx") => "cpp",
+        Some("cs") => "csharp",
+        Some("go") => "go",
+        Some("java") => "java",
+        Some("js" | "mjs" | "cjs") => "javascript",
+        Some("py") => "python",
+        Some("rs") => "rust",
+        Some("ts" | "mts" | "cts") => "typescript",
+        _ => "plaintext",
+    }
+}

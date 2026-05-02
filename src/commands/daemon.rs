@@ -1,7 +1,11 @@
 use crate::cli::DaemonArgs;
 use crate::config::ConfigStore;
+use crate::lsp::{STOP_METHOD, jsonrpc, parse_lsp_uri};
 use crate::lsp::transport::{log_debug_message, write_message};
-use serde_json::{Value, json};
+use lsp_types::notification::{Cancel, DidCloseTextDocument, Notification};
+use lsp_types::request::{Initialize, Request};
+use lsp_types::{CancelParams, DidCloseTextDocumentParams, NumberOrString, TextDocumentIdentifier};
+use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io::ErrorKind;
@@ -21,7 +25,7 @@ mod tests;
 
 use process::{bind_listener, launch_background, resolve_target, run_background};
 use protocol::{
-    BackgroundWorkTracker, ReaderEvent, STOP_METHOD, error_response, fingerprint_value,
+    BackgroundWorkTracker, ReaderEvent, error_response, fingerprint_value,
     handle_busy_connection, id_key, local_server_request_response, message_method,
     normalize_initialize_params, read_control_message, request_id, request_id_from_key,
     respond_to_stop_request, response_id, stop_request, stop_request_id, success_response,
@@ -473,12 +477,7 @@ impl Daemon {
             .ok_or_else(|| "daemon failed to start LSP server".to_string())?;
         upstream.initialize_fingerprint = Some(fingerprint);
 
-        let forwarded = json!({
-            "jsonrpc": "2.0",
-            "id": request_id,
-            "method": "initialize",
-            "params": normalized,
-        });
+        let forwarded = jsonrpc(Some(request_id.clone()), Initialize::METHOD, &normalized)?;
         self.write_upstream_message(&forwarded)?;
         if let Some(client) = self.active_client.as_mut() {
             client.wants_background_work = wants_background_work;
@@ -612,26 +611,20 @@ impl Daemon {
         };
 
         for uri in client.open_documents {
-            let close = json!({
-                "jsonrpc": "2.0",
-                "method": "textDocument/didClose",
-                "params": {
-                    "textDocument": {
-                        "uri": uri,
-                    }
-                }
-            });
+            let params = DidCloseTextDocumentParams {
+                text_document: TextDocumentIdentifier::new(parse_lsp_uri(&uri, "document")?),
+            };
+            let close = jsonrpc::<u64, _>(None, DidCloseTextDocument::METHOD, &params)?;
             let _ = self.write_upstream_message(&close);
         }
 
         for request_key in client.forwarded_client_requests {
-            let cancel = json!({
-                "jsonrpc": "2.0",
-                "method": "$/cancelRequest",
-                "params": {
-                    "id": request_id_from_key(&request_key),
-                }
-            });
+            let id = serde_json::from_value::<NumberOrString>(request_id_from_key(&request_key))
+                .map_err(|error| format!("invalid cancel request id: {error}"))?;
+            let params = CancelParams {
+                id,
+            };
+            let cancel = jsonrpc::<u64, _>(None, Cancel::METHOD, &params)?;
             let _ = self.write_upstream_message(&cancel);
             self.orphaned_client_requests.insert(request_key);
         }

@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use lsp_types::Uri;
 use url::Url;
 
 pub fn path_to_file_uri(path: &Path) -> Result<String, String> {
@@ -22,6 +23,11 @@ pub fn file_uri_to_path(uri: &str) -> Result<PathBuf, String> {
 
     url.to_file_path()
         .map_err(|()| format!("workspace/symbol returned non-file URI {uri:?}"))
+}
+
+pub fn parse_lsp_uri(uri: &str, context: &str) -> Result<Uri, String> {
+    uri.parse()
+        .map_err(|error| format!("invalid {context} URI {uri:?}: {error}"))
 }
 
 pub fn workspace_name(path: &Path) -> String {

@@ -17,6 +17,10 @@
 - Normal LSP commands opportunistically reuse the daemon socket. If the expected socket path exists
   but no daemon listens on it anymore, lsp-cli treats it as stale runtime state, removes the dead
   socket file, and falls back to starting a direct LSP server for that command.
+- `stop` and `stop-all` use a private daemon control request over the Unix socket instead of normal
+  LSP `shutdown`. This keeps regular client shutdown local to the proxy, but it also means `stop`
+  only finds daemons whose socket path still matches the currently resolved workspace root and LSP
+  command line; use `stop-all` when config changes make the exact match ambiguous.
 - `workspace/applyEdit` only works while a client is actively connected. If no client is connected,
   lsp-cli rejects the request instead of editing files behind the client's back.
 

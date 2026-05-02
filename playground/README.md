@@ -21,6 +21,8 @@ cargo run -- grep Order playground/rust
 cargo run -- list-symbols playground/java/src/main/java/playground/order/Order.java
 cargo run -- definition format_order playground/c
 cargo run -- references OrderFormatter playground/csharp
+cargo run -- daemon playground/python
+cargo run -- stop playground/python
 ```
 
 The projects reuse a similar domain across languages so symbol names are easy to remember

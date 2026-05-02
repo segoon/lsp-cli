@@ -20,6 +20,8 @@ struct RawCli {
 #[derive(Debug, Eq, PartialEq, Subcommand)]
 pub(crate) enum RawCommand {
     Daemon(RawDaemonArgs),
+    Stop(RawStopArgs),
+    StopAll(RawStopAllArgs),
     Detect(RawDetectArgs),
     Grep(RawGrepArgs),
     ListSymbols(RawListSymbolsArgs),
@@ -39,6 +41,8 @@ pub(crate) enum RawCommand {
 #[derive(Debug, Eq, PartialEq)]
 pub enum Command {
     Daemon(DaemonArgs),
+    Stop(StopArgs),
+    StopAll(StopAllArgs),
     Detect(DetectArgs),
     Grep(GrepArgs),
     ListSymbols(ListSymbolsArgs),
@@ -337,6 +341,43 @@ pub struct DaemonArgs {
     pub idle_timeout: Duration,
 }
 
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug, Args, Eq, PartialEq)]
+pub(crate) struct RawStopArgs {
+    #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
+    path: PathBuf,
+    #[arg(long)]
+    lang: Option<String>,
+    #[arg(long)]
+    lsp: Option<String>,
+    #[arg(long, conflicts_with = "no_debug")]
+    debug: bool,
+    #[arg(long = "no-debug", conflicts_with = "debug")]
+    no_debug: bool,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct StopArgs {
+    pub path: PathBuf,
+    pub lang: Option<String>,
+    pub lsp: Option<String>,
+    pub debug: bool,
+}
+
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug, Args, Eq, PartialEq)]
+pub(crate) struct RawStopAllArgs {
+    #[arg(long, conflicts_with = "no_debug")]
+    debug: bool,
+    #[arg(long = "no-debug", conflicts_with = "debug")]
+    no_debug: bool,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct StopAllArgs {
+    pub debug: bool,
+}
+
 #[derive(Clone, Copy, Debug, Args, Eq, PartialEq)]
 pub struct CompletionArgs {
     pub shell: Option<Shell>,
@@ -359,6 +400,8 @@ where
 pub(crate) fn resolve_command(command: RawCommand, defaults: &CliConfig) -> Command {
     match command {
         RawCommand::Daemon(args) => Command::Daemon(args.resolve(defaults)),
+        RawCommand::Stop(args) => Command::Stop(args.resolve(defaults)),
+        RawCommand::StopAll(args) => Command::StopAll(args.resolve(defaults)),
         RawCommand::Detect(args) => Command::Detect(args.resolve(defaults)),
         RawCommand::Grep(args) => Command::Grep(args.resolve(defaults)),
         RawCommand::ListSymbols(args) => Command::ListSymbols(args.resolve(defaults)),
@@ -558,6 +601,25 @@ impl RawDaemonArgs {
             idle_timeout: self
                 .idle_timeout
                 .unwrap_or(defaults.daemon.idle_timeout.unwrap_or(DEFAULT_IDLE_TIMEOUT)),
+        }
+    }
+}
+
+impl RawStopArgs {
+    fn resolve(self, defaults: &CliConfig) -> StopArgs {
+        StopArgs {
+            path: self.path,
+            lang: self.lang,
+            lsp: self.lsp,
+            debug: resolve_bool(self.debug, self.no_debug, defaults.debug.unwrap_or(false)),
+        }
+    }
+}
+
+impl RawStopAllArgs {
+    fn resolve(self, defaults: &CliConfig) -> StopAllArgs {
+        StopAllArgs {
+            debug: resolve_bool(self.debug, self.no_debug, defaults.debug.unwrap_or(false)),
         }
     }
 }

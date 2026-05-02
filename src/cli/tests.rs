@@ -1,7 +1,7 @@
 use super::{
     BuildIndexArgs, Command, CompletionArgs, DaemonArgs, DetectArgs, GrepArgs, ListFilesArgs,
-    ListFunctionsArgs, ListSymbolsArgs, LspWorkspaceQueryArgs, RunArgs, SymbolQueryArgs,
-    WorkspaceQueryArgs, parse_args, parse_raw_args, resolve_command,
+    ListFunctionsArgs, ListSymbolsArgs, LspWorkspaceQueryArgs, RunArgs, StopAllArgs, StopArgs,
+    SymbolQueryArgs, WorkspaceQueryArgs, parse_args, parse_raw_args, resolve_command,
 };
 use crate::config::{CliConfig, DaemonCliConfig, DetectCliConfig};
 use clap_complete::Shell;
@@ -557,5 +557,52 @@ fn parses_daemon_arguments_and_config_idle_timeout() {
             debug: false,
             idle_timeout: Duration::from_secs(5),
         })
+    );
+}
+
+#[test]
+fn parses_stop_arguments() {
+    assert_eq!(
+        parse_args(vec![
+            "stop".to_string(),
+            "workspace".to_string(),
+            "--lang".to_string(),
+            "rust".to_string(),
+            "--lsp".to_string(),
+            "rust-analyzer".to_string(),
+            "--debug".to_string(),
+        ])
+        .expect("stop should parse"),
+        Command::Stop(StopArgs {
+            path: PathBuf::from("workspace"),
+            lang: Some("rust".to_string()),
+            lsp: Some("rust-analyzer".to_string()),
+            debug: true,
+        })
+    );
+}
+
+#[test]
+fn parses_stop_all_arguments_and_debug_default() {
+    assert_eq!(
+        parse_args(vec!["stop-all".to_string()]).expect("stop-all should parse"),
+        Command::StopAll(StopAllArgs { debug: false })
+    );
+
+    let config = CliConfig {
+        download: None,
+        detach: None,
+        json: None,
+        debug: Some(true),
+        timeout: None,
+        limit: None,
+        detect: DetectCliConfig::default(),
+        daemon: DaemonCliConfig::default(),
+        lsp_preferences: BTreeMap::new(),
+    };
+
+    assert_eq!(
+        parse_with_config(vec!["stop-all"], &config),
+        Command::StopAll(StopAllArgs { debug: true })
     );
 }

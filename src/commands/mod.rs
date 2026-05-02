@@ -13,6 +13,7 @@ mod list_functions;
 mod list_symbols;
 mod references;
 mod run;
+mod stop;
 mod symbol_query;
 
 use crate::cli::{Command as CliCommand, CompletionArgs};
@@ -22,6 +23,8 @@ pub(crate) fn run(command: CliCommand, config: &ConfigStore) -> Result<String, S
     match command {
         CliCommand::Detect(args) => detect::run(&args, config),
         CliCommand::Daemon(args) => daemon::run(&args, config),
+        CliCommand::Stop(args) => stop::run(&args, config),
+        CliCommand::StopAll(args) => stop::run_all(&args),
         CliCommand::Grep(args) => grep::run(&args, config),
         CliCommand::ListSymbols(args) => list_symbols::run(&args, config),
         CliCommand::ListFunctions(args) => list_functions::run(&args, config),

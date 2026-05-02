@@ -31,6 +31,7 @@ You may configure:
 - LSP server selection for a specific language
 - LSP server cmdline (e.g. `-jN --background-index` for clangd)
 
+
 # Quick start
 
 ```sh
@@ -158,6 +159,13 @@ lsp-cli run path/to/project --lang rust
 # Start a background daemon and print its Unix socket path
 lsp-cli daemon path/to/project --lsp rust-analyzer
 lsp-cli daemon path/to/project --lang rust
+
+# Stop the matching daemon for one workspace/server selection
+lsp-cli stop path/to/project --lsp rust-analyzer
+lsp-cli stop path/to/project --lang rust
+
+# Stop every active daemon under $XDG_RUNTIME_DIR/lsp-cli
+lsp-cli stop-all
 ```
 
 `grep` uses the LSP `workspace/symbol` request. Pattern syntax and matching behavior are server-dependent.
@@ -174,6 +182,8 @@ lsp-cli daemon path/to/project --lang rust
 `completion` writes a shell completion script to stdout. If no shell is passed, it uses the current shell from `$SHELL`.
 `run` performs detection and then replaces `lsp-cli` with the detected LSP server process using `execve`.
 `daemon` creates a Unix socket under `$XDG_RUNTIME_DIR/lsp-cli/`, starts `lsp-cli run` in the background, and prints the socket path only after the socket is already listening. The daemon accepts one LSP client at a time, keeps the upstream server warm while idle, and shuts it down after `--idle-timeout` (default `60s`). If the next client initializes with different normalized settings, lsp-cli restarts the upstream LSP server before serving that client.
+`stop` resolves the same workspace/server selection as `daemon`, connects to the matching daemon socket, and asks that daemon to stop. If no matching daemon is active, the command succeeds and reports that nothing was running. When a workspace has multiple runnable detected languages and you do not pass `--lang` or `--lsp`, `stop` iterates over every matching language-specific daemon instead of failing on ambiguity.
+`stop-all` scans `$XDG_RUNTIME_DIR/lsp-cli` and stops every active daemon it can reach, removing stale socket files along the way.
 LSP-backed commands such as `grep`, `list-symbols`, `references`, and `build-index` automatically prefer the matching daemon socket when it exists. If the socket file exists but no daemon is listening, lsp-cli removes the dead socket and falls back to starting the LSP server directly.
 
 
@@ -188,18 +198,3 @@ I'd like to say "thank you" to the following opensource projects:
 - [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig) was used to fill LSP servers database
 - [mason](https://github.com/mason-org/mason.nvim) inspired me to implement LSP server autodownload
 - [mason-registry](https://github.com/mason-org/mason-registry/) is used as an LSP server registry
-
-
-# TODO
-
-commands:
-- repl (TODO: name... cli, console, terminal, interactive?)
-- stop
-- stop-all
-
-options:
-- -s|--signature - show the full signature
-- -b|--body - show the full function body
-
-code:
-- duplication (vec![x.to_string(), ...])

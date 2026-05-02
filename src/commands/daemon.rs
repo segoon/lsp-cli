@@ -4,6 +4,7 @@ use crate::lsp::transport::{log_debug_message, write_message};
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
+use std::io::ErrorKind;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::Path;
 use std::path::PathBuf;
@@ -20,16 +21,19 @@ mod tests;
 
 use process::{bind_listener, launch_background, resolve_target, run_background};
 use protocol::{
-    BackgroundWorkTracker, ReaderEvent, error_response, fingerprint_value, id_key,
-    local_server_request_response, message_method, normalize_initialize_params, reject_busy_client,
-    request_id, request_id_from_key, response_id, success_response, update_background_work_tracker,
-    wants_background_work,
+    BackgroundWorkTracker, ReaderEvent, STOP_METHOD, error_response, fingerprint_value,
+    handle_busy_connection, id_key, local_server_request_response, message_method,
+    normalize_initialize_params, read_control_message, request_id, request_id_from_key,
+    respond_to_stop_request, response_id, stop_request, stop_request_id, success_response,
+    update_background_work_tracker, wants_background_work,
 };
 
 const BACKGROUND_ENV: &str = "LSP_CLI_DAEMON_BACKGROUND";
 const POLL_INTERVAL: Duration = Duration::from_millis(25);
 const BUSY_CLIENT_TIMEOUT: Duration = Duration::from_millis(250);
+const CONTROL_TIMEOUT: Duration = Duration::from_secs(2);
 const DETACHED_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
+const STOP_COMPLETION_TIMEOUT: Duration = Duration::from_secs(5);
 const UPSTREAM_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);
 const SERVER_NOT_INITIALIZED: i64 = -32002;
 const INVALID_REQUEST: i64 = -32600;
@@ -60,6 +64,86 @@ pub(super) fn launch_for_workspace(
     )
 }
 
+pub(super) enum StopSocketResult {
+    Stopped,
+    RemovedStaleSocket,
+    NotRunning,
+}
+
+pub(super) fn stop_socket(socket_path: &Path, debug: bool) -> Result<StopSocketResult, String> {
+    if !socket_path.exists() {
+        return Ok(StopSocketResult::NotRunning);
+    }
+
+    let mut stream = match UnixStream::connect(socket_path) {
+        Ok(stream) => stream,
+        Err(connect_error) => match fs::remove_file(socket_path) {
+            Ok(()) => return Ok(StopSocketResult::RemovedStaleSocket),
+            Err(error) if error.kind() == ErrorKind::NotFound => {
+                return Ok(StopSocketResult::NotRunning);
+            }
+            Err(error) => {
+                return Err(format!(
+                    "failed to connect to daemon socket {}: {connect_error}; failed to remove stale socket: {error}",
+                    socket_path.display()
+                ));
+            }
+        },
+    };
+
+    let request = stop_request();
+    log_debug_message(debug, "daemon control <- ", &request);
+    write_message(&mut stream, &request)
+        .map_err(|error| format!("failed to write daemon stop request: {error}"))?;
+    let response = read_control_message(&stream, CONTROL_TIMEOUT, debug)?
+        .ok_or_else(|| "daemon closed the stop control socket without replying".to_string())?;
+
+    if response_id(&response) != stop_request_id(&request) {
+        return Err("daemon returned an unexpected stop response id".to_string());
+    }
+    if let Some(error) = response.get("error") {
+        let message = error
+            .get("message")
+            .and_then(Value::as_str)
+            .unwrap_or("unknown daemon stop error");
+        return Err(message.to_string());
+    }
+
+    wait_for_stopped_socket(socket_path)?;
+
+    Ok(StopSocketResult::Stopped)
+}
+
+fn wait_for_stopped_socket(socket_path: &Path) -> Result<(), String> {
+    let started = Instant::now();
+    while started.elapsed() < STOP_COMPLETION_TIMEOUT {
+        if !socket_path.exists() {
+            return Ok(());
+        }
+
+        match UnixStream::connect(socket_path) {
+            Ok(_) => thread::sleep(POLL_INTERVAL),
+            Err(_) => {
+                match fs::remove_file(socket_path) {
+                    Ok(()) => return Ok(()),
+                    Err(error) if error.kind() == ErrorKind::NotFound => return Ok(()),
+                    Err(error) => {
+                        return Err(format!(
+                            "daemon stopped listening on {} but its socket could not be removed: {error}",
+                            socket_path.display()
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
+    Err(format!(
+        "daemon acknowledged stop on {} but did not exit before the timeout",
+        socket_path.display()
+    ))
+}
+
 struct DaemonTarget {
     path: PathBuf,
     workspace_root_string: String,
@@ -78,6 +162,7 @@ struct Daemon {
     active_client: Option<ClientSession>,
     orphaned_client_requests: BTreeSet<String>,
     idle_since: Instant,
+    stop_requested: bool,
 }
 
 struct UpstreamServer {
@@ -128,6 +213,7 @@ impl Daemon {
             active_client: None,
             orphaned_client_requests: BTreeSet::new(),
             idle_since: Instant::now(),
+            stop_requested: false,
         })
     }
 
@@ -137,15 +223,12 @@ impl Daemon {
             self.drain_upstream_messages()?;
             self.drain_client_messages()?;
 
+            if self.stop_requested {
+                return self.stop();
+            }
+
             if self.active_client.is_none() && self.idle_since.elapsed() >= self.idle_timeout {
-                self.shutdown_upstream()?;
-                fs::remove_file(&self.target.socket_path).map_err(|error| {
-                    format!(
-                        "failed to remove daemon socket {}: {error}",
-                        self.target.socket_path.display()
-                    )
-                })?;
-                return Ok(());
+                return self.stop();
             }
 
             thread::sleep(POLL_INTERVAL);
@@ -157,7 +240,9 @@ impl Daemon {
             match self.listener.accept() {
                 Ok((stream, _)) => {
                     if self.active_client.is_some() {
-                        reject_busy_client(stream, self.debug);
+                        if handle_busy_connection(stream, self.debug)? {
+                            self.stop_requested = true;
+                        }
                         continue;
                     }
 
@@ -249,6 +334,10 @@ impl Daemon {
 
         match self.active_client.as_ref().map(|client| client.phase) {
             Some(ClientPhase::WaitingForInitialize) => {
+                if stop_request_id(message).is_some() {
+                    return self.handle_stop_request(message);
+                }
+
                 if method == Some("initialize") && request_id.is_some() {
                     return self.handle_initialize_request(message);
                 }
@@ -314,6 +403,10 @@ impl Daemon {
         if method == Some("exit") {
             self.disconnect_client()?;
             return Ok(());
+        }
+
+        if method == Some(STOP_METHOD) {
+            return self.handle_stop_request(message);
         }
 
         self.track_client_document_state(method, message.get("params"));
@@ -396,6 +489,16 @@ impl Daemon {
             };
             client.forwarded_client_requests.insert(id_key(&request_id));
         }
+        Ok(())
+    }
+
+    fn handle_stop_request(&mut self, message: &Value) -> Result<(), String> {
+        let Some(client) = self.active_client.as_mut() else {
+            return Ok(());
+        };
+
+        respond_to_stop_request(&mut client.writer, message, self.debug)?;
+        self.stop_requested = true;
         Ok(())
     }
 
@@ -544,7 +647,8 @@ impl Daemon {
             let _ = self.write_upstream_message(&response);
         }
 
-        if self
+        if !self.stop_requested
+            && self
             .upstream
             .as_ref()
             .is_some_and(|upstream| upstream.restart_required)
@@ -581,6 +685,19 @@ impl Daemon {
         }
         self.orphaned_client_requests.clear();
         Ok(())
+    }
+
+    fn stop(&mut self) -> Result<(), String> {
+        self.disconnect_client()?;
+        self.shutdown_upstream()?;
+        match fs::remove_file(&self.target.socket_path) {
+            Ok(()) => Ok(()),
+            Err(error) if error.kind() == ErrorKind::NotFound => Ok(()),
+            Err(error) => Err(format!(
+                "failed to remove daemon socket {}: {error}",
+                self.target.socket_path.display()
+            )),
+        }
     }
 
     fn restart_upstream(&mut self) -> Result<(), String> {

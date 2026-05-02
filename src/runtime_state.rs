@@ -1,5 +1,6 @@
 use std::env;
 use std::fs;
+use std::os::unix::fs::FileTypeExt;
 use std::path::{Path, PathBuf};
 
 use sha2::{Digest, Sha256};
@@ -112,6 +113,34 @@ pub fn daemon_socket_path(
     daemon_root.join(format!("{}-{}.sock", slug, &digest[..24]))
 }
 
+pub fn daemon_socket_paths(daemon_root: &Path) -> Result<Vec<PathBuf>, String> {
+    if !daemon_root.exists() {
+        return Ok(Vec::new());
+    }
+
+    let mut paths = fs::read_dir(daemon_root)
+        .map_err(|error| format!("failed to read {}: {error}", daemon_root.display()))?
+        .filter_map(|entry| {
+            let Ok(entry) = entry else {
+                return None;
+            };
+            let path = entry.path();
+            let Ok(file_type) = entry.file_type() else {
+                return None;
+            };
+            if path.extension().and_then(|value| value.to_str()) == Some("sock")
+                && file_type.is_socket()
+            {
+                Some(path)
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+    paths.sort();
+    Ok(paths)
+}
+
 fn choose_runtime_state_root(home: Option<&Path>) -> Result<PathBuf, String> {
     home.map(|path| path.join(".local/share/lsp-cli"))
         .ok_or_else(|| "could not resolve runtime state root because $HOME is not set".to_string())
@@ -146,9 +175,12 @@ fn sanitize_daemon_socket_component(value: &str) -> String {
 mod tests {
     use super::{
         RuntimeState, choose_daemon_root, choose_runtime_state_root, daemon_socket_path,
+        daemon_socket_paths,
         sanitize_daemon_socket_component,
     };
     use crate::test_support::{LOCAL_SHARE_LSP_CLI, TestDir};
+    use std::fs;
+    use std::os::unix::net::UnixListener;
 
     #[test]
     fn resolves_runtime_state_under_home() {
@@ -209,6 +241,26 @@ mod tests {
 
         assert_ne!(first, second);
         assert_ne!(first, third);
+    }
+
+    #[test]
+    fn lists_only_daemon_socket_paths() {
+        let dir = TestDir::new("daemon-socket-list");
+        let daemon_root = dir.path().join("runtime");
+        fs::create_dir_all(&daemon_root).expect("daemon root should exist");
+        let socket_path = daemon_root.join("alpha.sock");
+        let listener = UnixListener::bind(&socket_path).expect("socket should bind");
+        fs::write(daemon_root.join("notes.txt"), b"")
+            .expect("other placeholder should be written");
+        fs::create_dir_all(daemon_root.join("beta.sock"))
+            .expect("directory placeholder should be written");
+
+        assert_eq!(
+            daemon_socket_paths(&daemon_root).expect("socket listing should succeed"),
+            vec![socket_path]
+        );
+
+        drop(listener);
     }
 
     #[test]

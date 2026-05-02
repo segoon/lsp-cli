@@ -1,10 +1,15 @@
 use super::{
-    BackgroundWorkTracker, fingerprint_value, normalize_initialize_params,
-    update_background_work_tracker, wants_background_work,
+    BackgroundWorkTracker, StopSocketResult, fingerprint_value, normalize_initialize_params,
+    stop_socket, update_background_work_tracker, wants_background_work,
 };
+use crate::lsp::transport::{read_message, write_message};
 use crate::runtime_state::daemon_socket_path;
 use crate::test_support::TestDir;
 use serde_json::json;
+use std::fs;
+use std::io::BufReader;
+use std::os::unix::net::UnixListener;
+use std::thread;
 
 fn daemon_target(dir: &TestDir) -> super::DaemonTarget {
     let workspace_root = dir.path().join("workspace");
@@ -198,4 +203,83 @@ fn emits_quiescent_notification_for_reused_warm_sessions() {
             }
         })
     );
+}
+
+#[test]
+fn stop_socket_sends_private_stop_request() {
+    let dir = TestDir::new("daemon-stop-socket");
+    let socket_path = dir.path().join("daemon.sock");
+    let listener = UnixListener::bind(&socket_path).expect("socket should bind");
+
+    let server = thread::spawn(move || {
+        let (stream, _) = listener.accept().expect("client should connect");
+        let reader_stream = stream.try_clone().expect("stream should clone");
+        let mut reader = BufReader::new(reader_stream);
+        let mut writer = stream;
+        let request = read_message(&mut reader)
+            .expect("request should parse")
+            .expect("request should exist");
+        assert_eq!(
+            request.get("method").and_then(serde_json::Value::as_str),
+            Some(super::protocol::STOP_METHOD)
+        );
+        let response = json!({
+            "jsonrpc": "2.0",
+            "id": request.get("id").cloned().expect("request id should exist"),
+            "result": null,
+        });
+        write_message(&mut writer, &response).expect("response should write");
+    });
+
+    assert!(matches!(
+        stop_socket(&socket_path, false).expect("stop should succeed"),
+        StopSocketResult::Stopped
+    ));
+    server.join().expect("server thread should finish");
+}
+
+#[test]
+fn stop_socket_removes_stale_socket() {
+    let dir = TestDir::new("daemon-stop-stale");
+    let socket_path = dir.path().join("daemon.sock");
+    let listener = UnixListener::bind(&socket_path).expect("socket should bind");
+    drop(listener);
+
+    assert!(matches!(
+        stop_socket(&socket_path, false).expect("stale cleanup should succeed"),
+        StopSocketResult::RemovedStaleSocket
+    ));
+    assert!(!socket_path.exists(), "stale socket should be removed");
+}
+
+#[test]
+fn busy_stop_request_receives_success_response() {
+    let dir = TestDir::new("daemon-stop-busy");
+    let socket_path = dir.path().join("daemon.sock");
+    let listener = UnixListener::bind(&socket_path).expect("socket should bind");
+
+    let server = thread::spawn(move || {
+        let (stream, _) = listener.accept().expect("client should connect");
+        let handled = super::protocol::handle_busy_connection(stream, false)
+            .expect("busy connection should parse");
+        assert!(handled, "stop request should be handled as busy control");
+    });
+
+    assert!(matches!(
+        stop_socket(&socket_path, false).expect("stop should succeed"),
+        StopSocketResult::Stopped
+    ));
+    server.join().expect("server thread should finish");
+}
+
+#[test]
+fn stop_socket_returns_not_running_when_socket_is_missing() {
+    let dir = TestDir::new("daemon-stop-missing");
+    let socket_path = dir.path().join("daemon.sock");
+    fs::create_dir_all(dir.path()).expect("temp dir should exist");
+
+    assert!(matches!(
+        stop_socket(&socket_path, false).expect("missing socket should not fail"),
+        StopSocketResult::NotRunning
+    ));
 }

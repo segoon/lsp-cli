@@ -6,6 +6,9 @@ use serde_json::{Value, json};
 use std::collections::BTreeSet;
 use std::io::BufReader;
 use std::os::unix::net::UnixStream;
+use std::time::Duration;
+
+pub(super) const STOP_METHOD: &str = "$/lsp-cli/stop";
 
 pub(super) enum ReaderEvent {
     Message(Value),
@@ -71,22 +74,30 @@ impl Daemon {
     }
 }
 
-pub(super) fn reject_busy_client(mut stream: UnixStream, debug: bool) {
+pub(super) fn handle_busy_connection(
+    mut stream: UnixStream,
+    debug: bool,
+) -> Result<bool, String> {
     let _ = stream.set_read_timeout(Some(BUSY_CLIENT_TIMEOUT));
     let Ok(reader_stream) = stream.try_clone() else {
-        return;
+        return Ok(false);
     };
     let mut reader = BufReader::new(reader_stream);
     let Ok(Some(message)) = read_message(&mut reader) else {
-        return;
+        return Ok(false);
     };
     log_debug_message(debug, "daemon busy client <- ", &message);
 
+    if stop_request_id(&message).is_some() {
+        respond_to_stop_request(&mut stream, &message, debug)?;
+        return Ok(true);
+    }
+
     let Some(request_id) = request_id(&message) else {
-        return;
+        return Ok(false);
     };
     if message_method(&message) != Some("initialize") {
-        return;
+        return Ok(false);
     }
 
     let response = error_response(
@@ -95,6 +106,55 @@ pub(super) fn reject_busy_client(mut stream: UnixStream, debug: bool) {
         "another daemon client is already connected",
     );
     let _ = write_message(&mut stream, &response);
+    Ok(false)
+}
+
+pub(super) fn read_control_message(
+    stream: &UnixStream,
+    timeout: Duration,
+    debug: bool,
+) -> Result<Option<Value>, String> {
+    let _ = stream.set_read_timeout(Some(timeout));
+    let reader = stream
+        .try_clone()
+        .map_err(|error| format!("failed to clone daemon control socket: {error}"))?;
+    let mut reader = BufReader::new(reader);
+    let message = read_message(&mut reader)?;
+    if let Some(message) = &message {
+        log_debug_message(debug, "daemon control -> ", message);
+    }
+    Ok(message)
+}
+
+pub(super) fn stop_request() -> Value {
+    json!({
+        "jsonrpc": "2.0",
+        "id": "lsp-cli/stop",
+        "method": STOP_METHOD,
+        "params": Value::Null,
+    })
+}
+
+pub(super) fn stop_request_id(message: &Value) -> Option<Value> {
+    if message_method(message) == Some(STOP_METHOD) {
+        request_id(message)
+    } else {
+        None
+    }
+}
+
+pub(super) fn respond_to_stop_request(
+    stream: &mut UnixStream,
+    message: &Value,
+    debug: bool,
+) -> Result<(), String> {
+    let Some(request_id) = stop_request_id(message) else {
+        return Err("daemon stop request is missing an id".to_string());
+    };
+    let response = success_response(&request_id, &Value::Null);
+    log_debug_message(debug, "daemon control <- ", &response);
+    write_message(stream, &response)
+        .map_err(|error| format!("failed to write daemon stop response: {error}"))
 }
 
 pub(super) fn local_server_request_response(request_id: &Value, method: &str) -> Value {

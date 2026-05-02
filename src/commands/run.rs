@@ -1,7 +1,7 @@
 use crate::cli::RunArgs;
 use crate::commands::common::prepare_workspace;
 use crate::config::ConfigStore;
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 #[cfg(unix)]
 use std::os::unix::process::CommandExt;
@@ -28,7 +28,12 @@ pub(super) fn run(args: &RunArgs, config: &ConfigStore) -> Result<String, String
     let mut command = Command::new(program);
     command
         .args(&server.command[1..])
-        .current_dir(&server.workspace_root);
+        .current_dir(&server.workspace_root)
+        .stderr(if args.debug {
+            Stdio::inherit()
+        } else {
+            Stdio::null()
+        });
 
     #[cfg(unix)]
     {

@@ -60,7 +60,11 @@ impl LspClient {
             .current_dir(workspace_root)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::inherit())
+            .stderr(if debug {
+                Stdio::inherit()
+            } else {
+                Stdio::null()
+            })
             .spawn()
             .map_err(|error| format_spawn_error(program, &error))?;
 

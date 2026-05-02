@@ -1,10 +1,8 @@
 use std::collections::{BTreeSet, VecDeque};
-use std::io::BufReader;
 use std::os::unix::net::UnixStream;
 use std::path::Path;
 use std::process::{Child, ChildStdin, Command, Stdio};
-use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender, TryRecvError};
-use std::thread;
+use std::sync::mpsc::{Receiver, RecvTimeoutError, TryRecvError};
 use std::time::{Duration, Instant};
 
 use lsp_types::notification::{Exit, Initialized, Notification};
@@ -16,15 +14,21 @@ use lsp_types::request::{
 use serde_json::{Value, json};
 
 use super::InitializeResponse;
-use super::transport::{log_debug_message, read_message, write_message};
+use super::transport::{log_debug_message, write_message};
 
 mod background;
+mod process_io;
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_initialize_stderr;
+
+use process_io::{CapturedStderr, spawn_reader};
 
 pub struct LspClient {
     transport: ClientTransport,
+    stderr: Option<CapturedStderr>,
     messages: Receiver<IncomingMessage>,
     pending_messages: VecDeque<IncomingMessage>,
     next_request_id: u64,
@@ -64,7 +68,7 @@ impl LspClient {
             .stderr(if debug {
                 Stdio::inherit()
             } else {
-                Stdio::null()
+                Stdio::piped()
             })
             .spawn()
             .map_err(|error| format_spawn_error(program, &error))?;
@@ -77,6 +81,16 @@ impl LspClient {
             .stdout
             .take()
             .ok_or_else(|| format!("failed to open stdout for {program}"))?;
+        let stderr = if debug {
+            None
+        } else {
+            Some(CapturedStderr::spawn(
+                child
+                    .stderr
+                    .take()
+                    .ok_or_else(|| format!("failed to open stderr for {program}"))?,
+            ))
+        };
         let messages = spawn_reader(stdout, debug);
 
         if debug {
@@ -85,6 +99,7 @@ impl LspClient {
 
         Ok(Self {
             transport: ClientTransport::Process { child, stdin },
+            stderr,
             messages,
             pending_messages: VecDeque::new(),
             next_request_id: 1,
@@ -120,6 +135,7 @@ impl LspClient {
 
         Ok(Self {
             transport: ClientTransport::Socket { stream },
+            stderr: None,
             messages,
             pending_messages: VecDeque::new(),
             next_request_id: 1,
@@ -312,7 +328,10 @@ impl LspClient {
                     }
                 }
                 Ok(IncomingMessage::EndOfStream) => {
-                    return Err(format!("LSP server closed while waiting for {method}"));
+                    return Err(self.format_transport_wait_error(
+                        method,
+                        format!("LSP server closed while waiting for {method}"),
+                    ));
                 }
                 Ok(IncomingMessage::Error(error)) => {
                     return Err(format!("failed to read LSP message for {method}: {error}"));
@@ -321,7 +340,10 @@ impl LspClient {
                     return Err(format!("timed out waiting for {method}"));
                 }
                 Err(RecvTimeoutError::Disconnected) => {
-                    return Err(format!("LSP reader stopped while waiting for {method}"));
+                    return Err(self.format_transport_wait_error(
+                        method,
+                        format!("LSP reader stopped while waiting for {method}"),
+                    ));
                 }
             }
         }
@@ -396,6 +418,18 @@ impl LspClient {
 
         self.pending_messages.extend(deferred);
         Ok(())
+    }
+
+    fn format_transport_wait_error(&self, method: &str, error: String) -> String {
+        if method != Initialize::METHOD {
+            return error;
+        }
+
+        let Some(stderr) = self.stderr.as_ref().and_then(CapturedStderr::summary) else {
+            return error;
+        };
+
+        format!("{error}: {stderr}")
     }
 
     fn wait_for_process_exit(&mut self) -> Result<(), String> {
@@ -529,41 +563,6 @@ impl Drop for LspClient {
         {
             let _ = child.kill();
             let _ = child.wait();
-        }
-    }
-}
-
-fn spawn_reader<R>(reader: R, debug: bool) -> Receiver<IncomingMessage>
-where
-    R: std::io::Read + Send + 'static,
-{
-    let (sender, receiver) = mpsc::channel();
-    thread::spawn(move || reader_loop(reader, &sender, debug));
-    receiver
-}
-
-fn reader_loop<R>(reader: R, sender: &Sender<IncomingMessage>, debug: bool)
-where
-    R: std::io::Read,
-{
-    let mut reader = BufReader::new(reader);
-
-    loop {
-        match read_message(&mut reader) {
-            Ok(Some(message)) => {
-                log_debug_message(debug, "<- ", &message);
-                if sender.send(IncomingMessage::Message(message)).is_err() {
-                    return;
-                }
-            }
-            Ok(None) => {
-                let _ = sender.send(IncomingMessage::EndOfStream);
-                return;
-            }
-            Err(error) => {
-                let _ = sender.send(IncomingMessage::Error(error));
-                return;
-            }
         }
     }
 }

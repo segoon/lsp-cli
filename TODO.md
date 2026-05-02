@@ -20,7 +20,6 @@ generic:
 
 # Source code
 
-- duplication (vec![x.to_string(), ...])
 - user-visible messages - more friendly/informative -> into explicit module
 - improve readme (integration with agents/IDE)
 

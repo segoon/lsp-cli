@@ -11,6 +11,7 @@ pub(super) fn run(args: &RunArgs, config: &ConfigStore) -> Result<String, String
         &args.path,
         args.lsp.as_deref(),
         args.lang.as_deref(),
+        args.download,
         config,
     )?;
     let server = workspace.server;

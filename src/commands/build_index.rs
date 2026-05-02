@@ -7,6 +7,7 @@ pub(super) fn run(args: &BuildIndexArgs, config: &ConfigStore) -> Result<String,
         &args.directory,
         args.lsp.as_deref(),
         args.lang.as_deref(),
+        args.download,
         config,
     )?;
 

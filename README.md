@@ -166,6 +166,7 @@ lsp-cli daemon path/to/project --lang rust
 `references`, `definition`, `declaration`, `callers`, and `callees` start from `workspace/symbol` matches and then run the corresponding position-based LSP request for each match.
 `--limit` defaults to `100`. Text output is limited by lines, and JSON output is limited by result items. When the limit is hit, lsp-cli prints a notice to stderr.
 `--wait-for-index` waits for the same background-work signals as `build-index` before sending `workspace/symbol`.
+`--download` on LSP-spawning commands keeps non-installed detected servers in consideration and installs the selected server automatically before launch.
 `--debug` logs the selected LSP server command line, pid, and raw LSP traffic to stderr.
 `--timeout` controls the per-request LSP timeout. Plain numbers are seconds, and values ending in `ms` are milliseconds.
 `--lang` narrows server selection to one detected language. LSP-backed commands error on mixed-language workspaces unless you pass `--lang` or an explicit `--lsp`.
@@ -191,12 +192,14 @@ I'd like to say "thank you" to the following opensource projects:
 
 # TODO
 
-detect:
-- LSP servers priority among server for the same filetype
-
 commands:
 - repl (TODO: name... cli, console, terminal, interactive?)
+- stop
+- stop-all
 
 options:
 - -s|--signature - show the full signature
 - -b|--body - show the full function body
+
+code:
+- duplication (vec![x.to_string(), ...])

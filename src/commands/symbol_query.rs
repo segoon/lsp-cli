@@ -51,6 +51,7 @@ pub(super) fn run_workspace_symbol_query(
         args.query.lsp.as_deref(),
         args.query.lang.as_deref(),
         args.detach,
+        args.download,
         args.query.wait_for_index,
         args.query.debug,
         args.query.timeout,
@@ -80,6 +81,7 @@ pub(super) fn run_document_symbol_query(
         args.query.lsp.as_deref(),
         args.query.lang.as_deref(),
         args.detach,
+        args.download,
         args.query.wait_for_index,
         args.query.debug,
         args.query.timeout,
@@ -147,6 +149,7 @@ pub(super) fn run_file_symbol_query(
         args.lsp.as_deref(),
         args.lang.as_deref(),
         args.detach,
+        args.download,
         args.wait_for_index,
         args.debug,
         args.timeout,
@@ -218,6 +221,7 @@ pub(super) fn run_list_files_query(
         &args.directory,
         args.lsp.as_deref(),
         args.lang.as_deref(),
+        false,
         config,
     )?;
     let files = matching_files(
@@ -274,12 +278,13 @@ pub(super) fn run_callees_query(
     run_call_hierarchy_query(args, name, CallHierarchyDirection::Outgoing, config)
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::fn_params_excessive_bools, clippy::too_many_arguments)]
 fn with_initialized_client<T, F>(
     path: &Path,
     selected_server: Option<&str>,
     selected_language: Option<&str>,
     detach: bool,
+    download: bool,
     wait_for_index_requested: bool,
     debug: bool,
     timeout: Duration,
@@ -293,7 +298,7 @@ where
         &mut LspClient,
     ) -> Result<T, String>,
 {
-    let workspace = prepare_workspace(path, selected_server, selected_language, config)?;
+    let workspace = prepare_workspace(path, selected_server, selected_language, download, config)?;
     let wait_for_index = wait_for_index_requested || workspace.server.wait_for_index;
 
     let mut client = connect_lsp_client(&workspace, detach, debug, timeout)?;
@@ -339,6 +344,7 @@ fn run_named_location_query(
         args.query.lsp.as_deref(),
         args.query.lang.as_deref(),
         args.detach,
+        args.download,
         args.query.wait_for_index,
         args.query.debug,
         args.query.timeout,
@@ -415,6 +421,7 @@ fn run_call_hierarchy_query(
         args.query.lsp.as_deref(),
         args.query.lang.as_deref(),
         args.detach,
+        args.download,
         args.query.wait_for_index,
         args.query.debug,
         args.query.timeout,

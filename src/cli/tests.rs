@@ -25,6 +25,7 @@ fn workspace_query(directory: &str) -> WorkspaceQueryArgs {
 fn lsp_workspace_query(directory: &str) -> LspWorkspaceQueryArgs {
     LspWorkspaceQueryArgs {
         query: workspace_query(directory),
+        download: false,
         detach: false,
     }
 }
@@ -36,6 +37,7 @@ fn list_symbols_args(file: &str) -> ListSymbolsArgs {
         lsp: None,
         detach: false,
         wait_for_index: false,
+        download: false,
         json: false,
         debug: false,
         timeout: Duration::from_secs(10),
@@ -49,6 +51,7 @@ fn build_index_args(directory: &str) -> BuildIndexArgs {
         lang: None,
         lsp: None,
         detach: false,
+        download: false,
         debug: false,
         timeout: Duration::from_secs(10),
     }
@@ -161,6 +164,7 @@ fn parses_grep_arguments() {
     let mut query = lsp_workspace_query("workspace");
     query.query.lsp = Some("clangd".to_string());
     query.query.lang = Some("cpp".to_string());
+    query.download = true;
     query.query.json = true;
     query.query.debug = true;
 
@@ -174,6 +178,7 @@ fn parses_grep_arguments() {
             "clangd".to_string(),
             "--lang".to_string(),
             "cpp".to_string(),
+            "--download".to_string(),
             "--debug".to_string(),
         ])
         .expect("grep should parse"),
@@ -226,7 +231,7 @@ fn parses_grep_timeout_in_seconds_and_milliseconds() {
 #[test]
 fn resolves_query_defaults_from_config() {
     let config = CliConfig {
-        download: None,
+        download: Some(true),
         detach: Some(true),
         json: Some(true),
         debug: Some(true),
@@ -237,6 +242,7 @@ fn resolves_query_defaults_from_config() {
         lsp_preferences: BTreeMap::new(),
     };
     let mut query = lsp_workspace_query("workspace");
+    query.download = true;
     query.detach = true;
     query.query.json = true;
     query.query.debug = true;
@@ -298,6 +304,7 @@ fn parses_build_index_arguments() {
     let mut expected = build_index_args("workspace");
     expected.lang = Some("rust".to_string());
     expected.lsp = Some("rust-analyzer".to_string());
+    expected.download = true;
     expected.debug = true;
     expected.timeout = Duration::from_millis(500);
 
@@ -309,6 +316,7 @@ fn parses_build_index_arguments() {
             "rust".to_string(),
             "--lsp".to_string(),
             "rust-analyzer".to_string(),
+            "--download".to_string(),
             "--debug".to_string(),
             "--timeout".to_string(),
             "500ms".to_string(),
@@ -342,6 +350,7 @@ fn parses_list_symbols_arguments() {
     let mut expected = list_symbols_args("workspace");
     expected.lang = Some("rust".to_string());
     expected.lsp = Some("rust-analyzer".to_string());
+    expected.download = true;
     expected.json = true;
     expected.debug = true;
     expected.timeout = Duration::from_millis(250);
@@ -354,6 +363,7 @@ fn parses_list_symbols_arguments() {
             "rust".to_string(),
             "--lsp".to_string(),
             "rust-analyzer".to_string(),
+            "--download".to_string(),
             "--json".to_string(),
             "--debug".to_string(),
             "--timeout".to_string(),
@@ -483,6 +493,7 @@ fn parses_run_arguments() {
             "rust".to_string(),
             "--lsp".to_string(),
             "rust-analyzer".to_string(),
+            "--download".to_string(),
             "--debug".to_string(),
         ])
         .expect("run should parse"),
@@ -490,6 +501,7 @@ fn parses_run_arguments() {
             path: PathBuf::from("workspace"),
             lang: Some("rust".to_string()),
             lsp: Some("rust-analyzer".to_string()),
+            download: true,
             debug: true,
         })
     );
@@ -505,6 +517,7 @@ fn parses_daemon_arguments_and_config_idle_timeout() {
             "rust".to_string(),
             "--lsp".to_string(),
             "rust-analyzer".to_string(),
+            "--download".to_string(),
             "--debug".to_string(),
             "--idle-timeout".to_string(),
             "1.5".to_string(),
@@ -514,6 +527,7 @@ fn parses_daemon_arguments_and_config_idle_timeout() {
             path: PathBuf::from("workspace"),
             lang: Some("rust".to_string()),
             lsp: Some("rust-analyzer".to_string()),
+            download: true,
             debug: true,
             idle_timeout: Duration::from_millis(1500),
         })
@@ -539,6 +553,7 @@ fn parses_daemon_arguments_and_config_idle_timeout() {
             path: PathBuf::from("workspace"),
             lang: None,
             lsp: None,
+            download: false,
             debug: false,
             idle_timeout: Duration::from_secs(5),
         })

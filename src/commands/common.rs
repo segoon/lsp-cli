@@ -46,6 +46,7 @@ pub(super) fn prepare_workspace(
     path: &Path,
     selected_server: Option<&str>,
     selected_language: Option<&str>,
+    download: bool,
     config: &ConfigStore,
 ) -> Result<PreparedWorkspace, String> {
     let (detection, suggestions) = analyze_path(path, config)?;
@@ -55,6 +56,7 @@ pub(super) fn prepare_workspace(
         selected_server,
         selected_language,
         &config.cli.lsp_preferences,
+        download,
     )?;
     let mut server = resolved.server;
     server.workspace_root = fs::canonicalize(&server.workspace_root).map_err(|error| {
@@ -167,27 +169,36 @@ pub(super) fn resolve_server(
     selected_server: Option<&str>,
     selected_language: Option<&str>,
     lsp_preferences: &std::collections::BTreeMap<String, Vec<String>>,
+    download: bool,
 ) -> Result<ResolvedServer, String> {
+    let mut candidates = selection_candidates(suggestions, download)?;
+
     if let Some(server) = selected_server {
         return resolve_explicit_server(
-            detection,
             suggestions,
+            &mut candidates,
             server,
             selected_language,
             lsp_preferences,
+            download,
         );
     }
 
-    let mut candidates = suggestions.to_vec();
     if let Some(language) = selected_language {
         candidates.retain(|suggestion| suggestion.languages.iter().any(|value| value == language));
         if candidates.is_empty() {
+            if suggestions
+                .iter()
+                .any(|suggestion| suggestion.languages.iter().any(|value| value == language))
+            {
+                return Err(no_runnable_server_for_language_error(language));
+            }
             return Err(format!(
                 "no LSP server was detected for language {language:?}"
             ));
         }
         sort_suggestions(&mut candidates, lsp_preferences, Some(language));
-        return resolve_candidate(candidates[0].clone(), Some(language));
+        return resolve_candidate(candidates[0].clone(), Some(language), download);
     }
 
     let languages = detected_languages(&candidates);
@@ -200,38 +211,56 @@ pub(super) fn resolve_server(
     }
 
     let Some(language) = language_names.into_iter().next() else {
-        return Err(no_detected_server_error(detection));
+        return Err(no_resolved_server_error(detection, download));
     };
 
     sort_suggestions(&mut candidates, lsp_preferences, Some(&language));
-    resolve_candidate(candidates[0].clone(), Some(&language))
+    resolve_candidate(candidates[0].clone(), Some(&language), download)
+}
+
+fn selection_candidates(
+    suggestions: &[SuggestedLanguage],
+    download: bool,
+) -> Result<Vec<SuggestedLanguage>, String> {
+    if download {
+        Ok(suggestions.to_vec())
+    } else {
+        resolve_detect_suggestions(suggestions, false)
+    }
 }
 
 fn resolve_explicit_server(
-    _detection: &DetectionResult,
     suggestions: &[SuggestedLanguage],
+    candidates: &mut Vec<SuggestedLanguage>,
     selected_server: &str,
     selected_language: Option<&str>,
     lsp_preferences: &std::collections::BTreeMap<String, Vec<String>>,
+    download: bool,
 ) -> Result<ResolvedServer, String> {
-    let mut candidates = suggestions
+    let mut detected_candidates = suggestions
         .iter()
         .filter(|suggestion| suggestion.server == selected_server)
         .cloned()
         .collect::<Vec<_>>();
+    candidates.retain(|suggestion| suggestion.server == selected_server);
 
     if let Some(language) = selected_language {
+        detected_candidates
+            .retain(|suggestion| suggestion.languages.iter().any(|value| value == language));
         candidates.retain(|suggestion| suggestion.languages.iter().any(|value| value == language));
-        if candidates.is_empty() {
+        if detected_candidates.is_empty() {
             return Err(format!(
                 "requested LSP server {selected_server:?} is not available for language {language:?}"
             ));
         }
-        sort_suggestions(&mut candidates, lsp_preferences, Some(language));
-        return resolve_candidate(candidates[0].clone(), Some(language));
+        if candidates.is_empty() {
+            return Err(explicit_server_not_runnable_error(selected_server, Some(language)));
+        }
+        sort_suggestions(candidates, lsp_preferences, Some(language));
+        return resolve_candidate(candidates[0].clone(), Some(language), download);
     }
 
-    if candidates.is_empty() {
+    if detected_candidates.is_empty() {
         let available = suggestions
             .iter()
             .map(|suggestion| suggestion.server.as_str())
@@ -248,15 +277,26 @@ fn resolve_explicit_server(
         });
     }
 
-    resolve_candidate(candidates[0].clone(), None)
+    if candidates.is_empty() {
+        return Err(explicit_server_not_runnable_error(selected_server, None));
+    }
+
+    resolve_candidate(candidates[0].clone(), None, download)
 }
 
 fn resolve_candidate(
     selected: SuggestedLanguage,
     language: Option<&str>,
+    download: bool,
 ) -> Result<ResolvedServer, String> {
-    let resolved = resolve_detect_suggestions(std::slice::from_ref(&selected), false)?;
-    let server = resolved.into_iter().next().unwrap_or(selected);
+    let server = if download {
+        resolve_detect_suggestions(std::slice::from_ref(&selected), true)?
+            .into_iter()
+            .next()
+            .unwrap_or(selected)
+    } else {
+        selected
+    };
     let allowed_filetypes = match language {
         Some(language) => BTreeSet::from([language.to_string()]),
         None => server.languages.iter().cloned().collect(),
@@ -266,6 +306,37 @@ fn resolve_candidate(
         server,
         allowed_filetypes,
     })
+}
+
+fn explicit_server_not_runnable_error(selected_server: &str, language: Option<&str>) -> String {
+    match language {
+        Some(language) => format!(
+            "requested LSP server {selected_server:?} is not runnable for language {language:?}"
+        ),
+        None => format!("requested LSP server {selected_server:?} is not runnable"),
+    }
+}
+
+fn no_runnable_server_for_language_error(language: &str) -> String {
+    format!("no runnable LSP server was found for language {language:?}")
+}
+
+fn no_resolved_server_error(detection: &DetectionResult, download: bool) -> String {
+    if download {
+        no_detected_server_error(detection)
+    } else if detection.filetypes.is_empty() {
+        "No supported languages detected".to_string()
+    } else {
+        format!(
+            "No runnable LSP server found for detected filetypes: {}",
+            detection
+                .filetypes
+                .iter()
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    }
 }
 
 fn detected_languages(suggestions: &[SuggestedLanguage]) -> BTreeSet<String> {
@@ -315,7 +386,11 @@ mod tests {
             config_id: "example_lsp".to_string(),
             languages: vec!["alpha".to_string(), "beta".to_string()],
             server: "example-lsp".to_string(),
-            command: vec!["example-lsp".to_string(), "--stdio".to_string()],
+            command: vec![
+                "/bin/sh".to_string(),
+                "-c".to_string(),
+                "exit 0".to_string(),
+            ],
             workspace_root: PathBuf::from("."),
             wait_for_index: false,
         }
@@ -328,7 +403,7 @@ mod tests {
             config_id: "secondary_lsp".to_string(),
             languages: vec!["beta".to_string()],
             server: "secondary-lsp".to_string(),
-            command: vec!["secondary-lsp".to_string()],
+            command: vec!["/bin/true".to_string()],
             workspace_root: PathBuf::from("."),
             wait_for_index: false,
         };
@@ -343,6 +418,7 @@ mod tests {
             Some("secondary-lsp"),
             None,
             &BTreeMap::new(),
+            false,
         )
         .expect("requested server should be selected");
 
@@ -360,6 +436,7 @@ mod tests {
             Some("missing-lsp"),
             None,
             &BTreeMap::new(),
+            false,
         )
         .expect_err("missing server should error");
 
@@ -404,6 +481,7 @@ mod tests {
                     None,
                     None,
                     &BTreeMap::new(),
+                    false,
                 )
                 .expect("server should resolve")
             },
@@ -423,6 +501,7 @@ mod tests {
             None,
             None,
             &BTreeMap::new(),
+            false,
         )
         .expect_err("multiple languages should require disambiguation");
 
@@ -443,12 +522,147 @@ mod tests {
             None,
             Some("beta"),
             &BTreeMap::new(),
+            false,
         )
         .expect("language should disambiguate");
         assert_eq!(
             resolved.allowed_filetypes,
             BTreeSet::from(["beta".to_string()])
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn skips_unrunnable_servers_without_download() {
+        let dir = TestDir::new("common-select-installed");
+        let home = dir.path().join("home");
+        fs::create_dir_all(&home).expect("home dir should be created");
+        let bin_dir = dir.path().join("bin");
+        fs::create_dir_all(&bin_dir).expect("bin dir should be created");
+        let fallback = bin_dir.join("fallback-lsp");
+        fs::write(&fallback, b"#!/bin/sh\nexit 0\n").expect("fallback server should be written");
+        make_executable(&fallback);
+
+        let resolved = with_env_vars(
+            &[
+                env_var("HOME", &home),
+                env_var("PATH", bin_dir.display().to_string()),
+            ],
+            || {
+                resolve_server(
+                    &DetectionResult {
+                        filetypes: BTreeSet::from(["python".to_string()]),
+                        filenames: BTreeSet::new(),
+                    },
+                    &[
+                        SuggestedLanguage {
+                            config_id: "pyright".to_string(),
+                            languages: vec!["python".to_string()],
+                            server: "pyright".to_string(),
+                            command: vec![
+                                "pyright-langserver".to_string(),
+                                "--stdio".to_string(),
+                            ],
+                            workspace_root: PathBuf::from("."),
+                            wait_for_index: false,
+                        },
+                        SuggestedLanguage {
+                            config_id: "fallback".to_string(),
+                            languages: vec!["python".to_string()],
+                            server: "fallback-lsp".to_string(),
+                            command: vec!["fallback-lsp".to_string(), "--stdio".to_string()],
+                            workspace_root: PathBuf::from("."),
+                            wait_for_index: false,
+                        },
+                    ],
+                    None,
+                    None,
+                    &BTreeMap::from([(
+                        "python".to_string(),
+                        vec!["pyright".to_string(), "fallback-lsp".to_string()],
+                    )]),
+                    false,
+                )
+                .expect("fallback server should be selected")
+            },
+        );
+
+        assert_eq!(resolved.server.server, "fallback-lsp");
+        assert_eq!(resolved.server.command[0], "fallback-lsp");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn downloads_selected_server_when_requested() {
+        let dir = TestDir::new("common-download-selected");
+        let home = dir.path().join("home");
+        let state = runtime_state_in_home(&home);
+        state.ensure_dirs().expect("state dirs should be created");
+        write_registry(&state, &[pyright_package()]);
+
+        let bin_dir = dir.path().join("bin");
+        fs::create_dir_all(&bin_dir).expect("bin dir should be created");
+        let fallback = bin_dir.join("fallback-lsp");
+        fs::write(&fallback, b"#!/bin/sh\nexit 0\n").expect("fallback server should be written");
+        make_executable(&fallback);
+        let npm = bin_dir.join("npm");
+        fs::write(
+            &npm,
+            b"#!/bin/sh\nprefix=\nwhile [ \"$#\" -gt 0 ]; do\n  if [ \"$1\" = \"--prefix\" ]; then\n    prefix=\"$2\"\n    shift 2\n    continue\n  fi\n  shift\ndone\n/bin/mkdir -p \"$prefix/node_modules/.bin\"\nprintf '#!/bin/sh\\nexit 0\\n' > \"$prefix/node_modules/.bin/pyright-langserver\"\n/bin/chmod 755 \"$prefix/node_modules/.bin/pyright-langserver\"\n",
+        )
+        .expect("fake npm should be written");
+        make_executable(&npm);
+
+        let resolved = with_env_vars(
+            &[
+                env_var("HOME", &home),
+                env_var("PATH", bin_dir.display().to_string()),
+            ],
+            || {
+                resolve_server(
+                    &DetectionResult {
+                        filetypes: BTreeSet::from(["python".to_string()]),
+                        filenames: BTreeSet::new(),
+                    },
+                    &[
+                        SuggestedLanguage {
+                            config_id: "pyright".to_string(),
+                            languages: vec!["python".to_string()],
+                            server: "pyright".to_string(),
+                            command: vec![
+                                "pyright-langserver".to_string(),
+                                "--stdio".to_string(),
+                            ],
+                            workspace_root: PathBuf::from("."),
+                            wait_for_index: false,
+                        },
+                        SuggestedLanguage {
+                            config_id: "fallback".to_string(),
+                            languages: vec!["python".to_string()],
+                            server: "fallback-lsp".to_string(),
+                            command: vec!["fallback-lsp".to_string(), "--stdio".to_string()],
+                            workspace_root: PathBuf::from("."),
+                            wait_for_index: false,
+                        },
+                    ],
+                    None,
+                    None,
+                    &BTreeMap::from([(
+                        "python".to_string(),
+                        vec!["pyright".to_string(), "fallback-lsp".to_string()],
+                    )]),
+                    true,
+                )
+                .expect("preferred server should install and resolve")
+            },
+        );
+
+        let installed = state
+            .package_dir("pyright")
+            .join("node_modules/.bin/pyright-langserver");
+        assert_eq!(resolved.server.server, "pyright");
+        assert_eq!(resolved.server.command[0], installed.display().to_string());
+        assert!(installed.exists(), "preferred server should be installed");
     }
 
     #[cfg(unix)]
@@ -632,7 +846,7 @@ mod tests {
             load_config_store(&std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data"))
                 .expect("repo config should load");
         let workspace = without_env_vars(&["XDG_RUNTIME_DIR"], || {
-            prepare_workspace(&workspace_root, None, None, &config)
+            prepare_workspace(&workspace_root, None, None, false, &config)
                 .expect("workspace should still prepare")
         });
 

@@ -102,10 +102,15 @@ pub(crate) struct RawWorkspaceQueryArgs {
     limit: Option<usize>,
 }
 
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Args, Eq, PartialEq)]
 pub(crate) struct RawLspWorkspaceQueryArgs {
     #[command(flatten)]
     query: RawWorkspaceQueryArgs,
+    #[arg(long, conflicts_with = "no_download")]
+    download: bool,
+    #[arg(long = "no-download", conflicts_with = "download")]
+    no_download: bool,
     #[arg(long, conflicts_with = "no_detach")]
     detach: bool,
     #[arg(long = "no-detach", conflicts_with = "detach")]
@@ -137,6 +142,7 @@ pub struct WorkspaceQueryArgs {
 #[derive(Debug, Eq, PartialEq)]
 pub struct LspWorkspaceQueryArgs {
     pub query: WorkspaceQueryArgs,
+    pub download: bool,
     pub detach: bool,
 }
 
@@ -168,6 +174,10 @@ pub(crate) struct RawListSymbolsArgs {
     no_detach: bool,
     #[arg(long)]
     wait_for_index: bool,
+    #[arg(long, conflicts_with = "no_download")]
+    download: bool,
+    #[arg(long = "no-download", conflicts_with = "download")]
+    no_download: bool,
     #[arg(long, conflicts_with = "no_json")]
     json: bool,
     #[arg(long = "no-json", conflicts_with = "json")]
@@ -190,6 +200,7 @@ pub struct ListSymbolsArgs {
     pub lsp: Option<String>,
     pub detach: bool,
     pub wait_for_index: bool,
+    pub download: bool,
     pub json: bool,
     pub debug: bool,
     pub timeout: Duration,
@@ -244,6 +255,10 @@ pub(crate) struct RawBuildIndexArgs {
     detach: bool,
     #[arg(long = "no-detach", conflicts_with = "detach")]
     no_detach: bool,
+    #[arg(long, conflicts_with = "no_download")]
+    download: bool,
+    #[arg(long = "no-download", conflicts_with = "download")]
+    no_download: bool,
     #[arg(long, conflicts_with = "no_debug")]
     debug: bool,
     #[arg(long = "no-debug", conflicts_with = "debug")]
@@ -258,10 +273,12 @@ pub struct BuildIndexArgs {
     pub lang: Option<String>,
     pub lsp: Option<String>,
     pub detach: bool,
+    pub download: bool,
     pub debug: bool,
     pub timeout: Duration,
 }
 
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Args, Eq, PartialEq)]
 pub(crate) struct RawRunArgs {
     #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
@@ -270,6 +287,10 @@ pub(crate) struct RawRunArgs {
     lang: Option<String>,
     #[arg(long)]
     lsp: Option<String>,
+    #[arg(long, conflicts_with = "no_download")]
+    download: bool,
+    #[arg(long = "no-download", conflicts_with = "download")]
+    no_download: bool,
     #[arg(long, conflicts_with = "no_debug")]
     debug: bool,
     #[arg(long = "no-debug", conflicts_with = "debug")]
@@ -281,9 +302,11 @@ pub struct RunArgs {
     pub path: PathBuf,
     pub lang: Option<String>,
     pub lsp: Option<String>,
+    pub download: bool,
     pub debug: bool,
 }
 
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Args, Eq, PartialEq)]
 pub(crate) struct RawDaemonArgs {
     #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
@@ -292,6 +315,10 @@ pub(crate) struct RawDaemonArgs {
     lang: Option<String>,
     #[arg(long)]
     lsp: Option<String>,
+    #[arg(long, conflicts_with = "no_download")]
+    download: bool,
+    #[arg(long = "no-download", conflicts_with = "download")]
+    no_download: bool,
     #[arg(long, conflicts_with = "no_debug")]
     debug: bool,
     #[arg(long = "no-debug", conflicts_with = "debug")]
@@ -305,6 +332,7 @@ pub struct DaemonArgs {
     pub path: PathBuf,
     pub lang: Option<String>,
     pub lsp: Option<String>,
+    pub download: bool,
     pub debug: bool,
     pub idle_timeout: Duration,
 }
@@ -398,6 +426,11 @@ impl RawLspWorkspaceQueryArgs {
     fn resolve(self, defaults: &CliConfig) -> LspWorkspaceQueryArgs {
         LspWorkspaceQueryArgs {
             query: self.query.resolve(defaults),
+            download: resolve_bool(
+                self.download,
+                self.no_download,
+                defaults.download.unwrap_or(false),
+            ),
             detach: resolve_bool(
                 self.detach,
                 self.no_detach,
@@ -428,6 +461,11 @@ impl RawListSymbolsArgs {
                 defaults.detach.unwrap_or(false),
             ),
             wait_for_index: self.wait_for_index,
+            download: resolve_bool(
+                self.download,
+                self.no_download,
+                defaults.download.unwrap_or(false),
+            ),
             json: resolve_bool(self.json, self.no_json, defaults.json.unwrap_or(false)),
             debug: resolve_bool(self.debug, self.no_debug, defaults.debug.unwrap_or(false)),
             timeout: self
@@ -476,6 +514,11 @@ impl RawBuildIndexArgs {
                 self.no_detach,
                 defaults.detach.unwrap_or(false),
             ),
+            download: resolve_bool(
+                self.download,
+                self.no_download,
+                defaults.download.unwrap_or(false),
+            ),
             debug: resolve_bool(self.debug, self.no_debug, defaults.debug.unwrap_or(false)),
             timeout: self
                 .timeout
@@ -490,6 +533,11 @@ impl RawRunArgs {
             path: self.path,
             lang: self.lang,
             lsp: self.lsp,
+            download: resolve_bool(
+                self.download,
+                self.no_download,
+                defaults.download.unwrap_or(false),
+            ),
             debug: resolve_bool(self.debug, self.no_debug, defaults.debug.unwrap_or(false)),
         }
     }
@@ -501,6 +549,11 @@ impl RawDaemonArgs {
             path: self.path,
             lang: self.lang,
             lsp: self.lsp,
+            download: resolve_bool(
+                self.download,
+                self.no_download,
+                defaults.download.unwrap_or(false),
+            ),
             debug: resolve_bool(self.debug, self.no_debug, defaults.debug.unwrap_or(false)),
             idle_timeout: self
                 .idle_timeout

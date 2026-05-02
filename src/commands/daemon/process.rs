@@ -26,6 +26,7 @@ pub(super) fn resolve_target(
         &args.path,
         args.lsp.as_deref(),
         args.lang.as_deref(),
+        args.download,
         config,
     )?;
     let server = workspace.server;

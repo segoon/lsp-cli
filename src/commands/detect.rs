@@ -46,22 +46,13 @@ pub(super) fn render_text(
         };
     }
 
-    let detected = if detected_filetypes.is_empty() {
-        "none".to_string()
-    } else {
-        detected_filetypes
-            .iter()
-            .cloned()
-            .collect::<Vec<_>>()
-            .join(", ")
-    };
-
     suggestions
         .iter()
         .map(|suggestion| {
+            let languages = suggestion.languages.join(", ");
             format!(
-                "Detected: {}\nSuggested command: {}",
-                detected,
+                "Language: {}\nSuggested command: {}",
+                languages,
                 suggestion.command.join(" ")
             )
         })
@@ -125,7 +116,25 @@ mod tests {
 
         assert_eq!(
             render_text(&detected, &[example_suggestion()]),
-            "Detected: alpha, beta\nSuggested command: example-lsp --stdio"
+            "Language: alpha, beta\nSuggested command: example-lsp --stdio"
+        );
+    }
+
+    #[test]
+    fn renders_server_specific_languages_in_text_output() {
+        let detected = BTreeSet::from([
+            "alpha".to_string(),
+            "beta".to_string(),
+            "gamma".to_string(),
+        ]);
+        let suggestion = SuggestedLanguage {
+            languages: vec!["beta".to_string()],
+            ..example_suggestion()
+        };
+
+        assert_eq!(
+            render_text(&detected, &[suggestion]),
+            "Language: beta\nSuggested command: example-lsp --stdio"
         );
     }
 

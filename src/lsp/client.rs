@@ -5,6 +5,7 @@ use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, TryRecvError};
 use std::time::{Duration, Instant};
 
+use lsp_types::WorkspaceFolder;
 use lsp_types::notification::{Exit, Initialized, Notification};
 use lsp_types::request::{Initialize, Request, Shutdown};
 use serde_json::{Value, json};
@@ -30,6 +31,7 @@ pub struct LspClient {
     next_request_id: u64,
     shutdown_sent: bool,
     opened_documents: BTreeSet<String>,
+    workspace_folders: Option<Vec<WorkspaceFolder>>,
     debug: bool,
     timeout: Duration,
 }
@@ -98,6 +100,7 @@ impl LspClient {
             next_request_id: 1,
             shutdown_sent: false,
             opened_documents: BTreeSet::new(),
+            workspace_folders: None,
             debug,
             timeout,
         })
@@ -134,6 +137,7 @@ impl LspClient {
             next_request_id: 1,
             shutdown_sent: false,
             opened_documents: BTreeSet::new(),
+            workspace_folders: None,
             debug,
             timeout,
         })
@@ -359,10 +363,16 @@ impl LspClient {
                 "id": request_id,
                 "result": Value::Null,
             }),
-            "workspace/configuration" | "workspace/workspaceFolders" => json!({
+            "workspace/configuration" => json!({
                 "jsonrpc": "2.0",
                 "id": request_id,
                 "result": [],
+            }),
+            "workspace/workspaceFolders" => json!({
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "result": serde_json::to_value(self.workspace_folders.clone())
+                    .expect("workspace folders should serialize"),
             }),
             "client/registerCapability"
             | "client/unregisterCapability"

@@ -12,7 +12,8 @@ use lsp_types::{
     DocumentSymbolParams, GeneralClientCapabilities, GotoDefinitionParams, InitializeParams,
     InitializedParams, PartialResultParams, Position, PositionEncodingKind, ReferenceContext,
     ReferenceParams, TextDocumentIdentifier, TextDocumentItem, TextDocumentPositionParams,
-    WindowClientCapabilities, WorkDoneProgressParams, WorkspaceFolder, WorkspaceSymbolParams,
+    WindowClientCapabilities, WorkDoneProgressParams, WorkspaceClientCapabilities,
+    WorkspaceFolder, WorkspaceSymbolParams,
 };
 use serde_json::{Value, json};
 use std::path::Path;
@@ -46,13 +47,22 @@ impl LspClient {
         want_server_status: bool,
     ) -> Result<InitializeResponse, String> {
         let root_uri = parse_lsp_uri(root_uri, "workspace")?;
+        let workspace_folders = vec![WorkspaceFolder {
+            uri: root_uri.clone(),
+            name: workspace_name.to_string(),
+        }];
+        // Keep the advertised workspace-folder support aligned with the folder list we send.
+        self.workspace_folders = Some(workspace_folders.clone());
         let params = InitializeParams {
             process_id: Some(std::process::id()),
             root_path: None,
             root_uri: Some(root_uri.clone()),
             initialization_options: None,
             capabilities: ClientCapabilities {
-                workspace: None,
+                workspace: Some(WorkspaceClientCapabilities {
+                    workspace_folders: Some(true),
+                    ..Default::default()
+                }),
                 text_document: None,
                 notebook_document: None,
                 window: Some(WindowClientCapabilities {
@@ -67,10 +77,7 @@ impl LspClient {
                 experimental: Some(json!({ "serverStatusNotification": want_server_status })),
             },
             trace: None,
-            workspace_folders: Some(vec![WorkspaceFolder {
-                uri: root_uri,
-                name: workspace_name.to_string(),
-            }]),
+            workspace_folders: Some(workspace_folders),
             client_info: Some(ClientInfo {
                 name: env!("CARGO_PKG_NAME").to_string(),
                 version: Some(env!("CARGO_PKG_VERSION").to_string()),

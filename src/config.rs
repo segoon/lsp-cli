@@ -128,8 +128,19 @@ pub fn default_cli_config_roots() -> (PathBuf, Option<PathBuf>) {
         || PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data"),
         PathBuf::from,
     );
-    let user = env::var_os("HOME").map(|home| PathBuf::from(home).join(".local/share/lsp-cli"));
+    let xdg_config_home = env::var_os("XDG_CONFIG_HOME").map(PathBuf::from);
+    let home = env::var_os("HOME").map(PathBuf::from);
+    let user = choose_cli_config_user_root(xdg_config_home.as_deref(), home.as_deref());
     (global, user)
+}
+
+fn choose_cli_config_user_root(
+    xdg_config_home: Option<&Path>,
+    home: Option<&Path>,
+) -> Option<PathBuf> {
+    xdg_config_home
+        .map(|path| path.join("lsp-cli"))
+        .or_else(|| home.map(|path| path.join(".config/lsp-cli")))
 }
 
 fn choose_config_root(
@@ -394,7 +405,10 @@ fn validate_lsp_filetypes(filetypes: &[FiletypeConfig], lsps: &[LspConfig]) -> R
 
 #[cfg(test)]
 mod tests {
-    use super::{choose_config_root, default_config_root, load_cli_config, load_config_store};
+    use super::{
+        choose_cli_config_user_root, choose_config_root, default_config_root,
+        load_cli_config, load_config_store,
+    };
     use crate::test_support::{LOCAL_SHARE_LSP_CLI, TestDir};
     use std::collections::BTreeMap;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -483,6 +497,32 @@ mod tests {
         let root = default_config_root().expect("root should resolve");
 
         assert!(root.ends_with(".local/share/lsp-cli") || root.ends_with("data"));
+    }
+
+    #[test]
+    fn resolves_cli_user_root_from_xdg_config_home() {
+        let xdg_config_home = TestDir::new("cli-config-root");
+        let home = TestDir::new("cli-config-root");
+
+        assert_eq!(
+            choose_cli_config_user_root(Some(xdg_config_home.path()), Some(home.path())),
+            Some(xdg_config_home.path().join("lsp-cli"))
+        );
+    }
+
+    #[test]
+    fn falls_back_to_home_dot_config_for_cli_user_root() {
+        let home = TestDir::new("cli-config-root");
+
+        assert_eq!(
+            choose_cli_config_user_root(None, Some(home.path())),
+            Some(home.path().join(".config/lsp-cli"))
+        );
+    }
+
+    #[test]
+    fn returns_no_cli_user_root_without_xdg_config_home_or_home() {
+        assert_eq!(choose_cli_config_user_root(None, None), None);
     }
 
     #[test]

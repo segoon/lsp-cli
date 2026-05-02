@@ -44,7 +44,7 @@ cargo run
 `lsp-cli` optionally loads `lsp-cli.yaml` in this order:
 
 1. global: `$LSP_DATA/lsp-cli.yaml` if `LSP_DATA` is set, otherwise `data/lsp-cli.yaml`
-2. user: `~/.local/share/lsp-cli/lsp-cli.yaml`
+2. user: `$XDG_CONFIG_HOME/lsp-cli/lsp-cli.yaml`, or `~/.config/lsp-cli/lsp-cli.yaml` when `XDG_CONFIG_HOME` is unset
 
 User settings override global settings.
 Command-line flags override both.

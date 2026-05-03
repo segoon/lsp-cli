@@ -2,14 +2,15 @@
 
 commands:
 - repl (TODO: name... cli, console, terminal, interactive?)
-- moniker??
 - type hierarchy??
 - semantic tokens??
 - color?? pretty
-- code-lens??
-- hover??
-- inlay-hint??
-- executeCommand??
+
+- NO: hover?? - too noisy, doesn't make much sense
+- NO: moniker?? - not usable outside of LSIF
+- NO: code-lens?? - No, not very usable (trivial 'references', run go tidy, et.c)
+- NO: inlay-hint?? - No, not useful
+- NO: executeCommand?? - No, require edits from the client, mainly for refactoring
 
 options:
 - -s|--signature - show the full signature
@@ -54,4 +55,3 @@ generic:
 - cover more useful commands?
 - ask GPT itself "how to word the skill file?"
 - maybe use async-lsp?
-- link to LSP spec in README.md?

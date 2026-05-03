@@ -3,8 +3,8 @@ use crate::lsp::{InitializeResponse, parse_lsp_uri};
 use lsp_types::notification::{DidOpenTextDocument, Initialized};
 use lsp_types::request::{
     CallHierarchyIncomingCalls, CallHierarchyOutgoingCalls, CallHierarchyPrepare,
-    DocumentDiagnosticRequest, DocumentSymbolRequest, GotoDeclaration, GotoDeclarationParams,
-    GotoDefinition, Initialize, References, Formatting, WorkspaceSymbolRequest,
+    DocumentDiagnosticRequest, DocumentSymbolRequest, Formatting, GotoDeclaration,
+    GotoDeclarationParams, GotoDefinition, Initialize, References, WorkspaceSymbolRequest,
 };
 use lsp_types::{
     CallHierarchyIncomingCallsParams, CallHierarchyItem, CallHierarchyOutgoingCallsParams,
@@ -12,9 +12,8 @@ use lsp_types::{
     DocumentDiagnosticParams, DocumentFormattingParams, DocumentSymbolParams, FormattingOptions,
     GeneralClientCapabilities, GotoDefinitionParams, InitializeParams, InitializedParams,
     PartialResultParams, Position, PositionEncodingKind, ReferenceContext, ReferenceParams,
-    TextDocumentIdentifier, TextDocumentItem, TextDocumentPositionParams,
-    WindowClientCapabilities, WorkDoneProgressParams, WorkspaceClientCapabilities,
-    WorkspaceFolder, WorkspaceSymbolParams,
+    TextDocumentIdentifier, TextDocumentItem, TextDocumentPositionParams, WindowClientCapabilities,
+    WorkDoneProgressParams, WorkspaceClientCapabilities, WorkspaceFolder, WorkspaceSymbolParams,
 };
 use serde_json::{Value, json};
 use std::path::Path;

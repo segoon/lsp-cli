@@ -11,9 +11,8 @@ mod uri;
 
 pub use capabilities::{
     InitializeResponse, diagnostics_supported, document_symbol_supported,
-    ensure_call_hierarchy_support, ensure_formatting_support,
-    ensure_declaration_support, ensure_definition_support, ensure_references_support,
-    ensure_workspace_symbol_support,
+    ensure_call_hierarchy_support, ensure_declaration_support, ensure_definition_support,
+    ensure_formatting_support, ensure_references_support, ensure_workspace_symbol_support,
 };
 pub use client::LspClient;
 pub use custom_types::{SERVER_STATUS_METHOD, STOP_METHOD, ServerStatusParams, StopParams};

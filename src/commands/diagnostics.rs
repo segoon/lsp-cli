@@ -24,7 +24,11 @@ pub(super) fn run(args: &DiagnosticsArgs, config: &ConfigStore) -> Result<String
     let diagnostics = truncate_items(
         result.diagnostics,
         args.query.query.limit,
-        if args.query.query.json { "items" } else { "lines" },
+        if args.query.query.json {
+            "items"
+        } else {
+            "lines"
+        },
     );
 
     Ok(if args.query.query.json {
@@ -63,7 +67,12 @@ fn run_diagnostics_query(
         &config.filetypes,
         &workspace.allowed_filetypes,
     )
-    .map_err(|error| format!("failed to scan {}: {error}", args.query.query.directory.display()))?;
+    .map_err(|error| {
+        format!(
+            "failed to scan {}: {error}",
+            args.query.query.directory.display()
+        )
+    })?;
 
     let mut client = connect_lsp_client(
         &workspace,
@@ -100,7 +109,10 @@ fn run_diagnostics_query(
             .then(left.message.cmp(&right.message))
     });
     client.shutdown().map_err(|error| {
-        format!("failed to stop {} cleanly: {error}", workspace.server.server)
+        format!(
+            "failed to stop {} cleanly: {error}",
+            workspace.server.server
+        )
     })?;
 
     Ok(DiagnosticsQueryResult {
@@ -121,7 +133,11 @@ fn collect_pull_diagnostics(
     for file in files {
         let uri = path_to_file_uri(file)?;
         client.open_document(file, &uri).map_err(|error| {
-            format!("failed to open {} with {}: {error}", file.display(), server_name)
+            format!(
+                "failed to open {} with {}: {error}",
+                file.display(),
+                server_name
+            )
         })?;
         let response = client.document_diagnostic(&uri).map_err(|error| {
             format!(
@@ -150,7 +166,11 @@ fn collect_push_diagnostics(
     for file in files {
         let uri = path_to_file_uri(file)?;
         client.open_document(file, &uri).map_err(|error| {
-            format!("failed to open {} with {}: {error}", file.display(), server_name)
+            format!(
+                "failed to open {} with {}: {error}",
+                file.display(),
+                server_name
+            )
         })?;
     }
 

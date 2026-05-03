@@ -9,7 +9,14 @@ use std::path::{Path, PathBuf};
 fn renders_diagnostics_text_output() {
     assert_eq!(
         render_diagnostics_text(&[
-            diagnostic("src/main.rs", 3, 5, "error", Some("parse-error"), "expected ;"),
+            diagnostic(
+                "src/main.rs",
+                3,
+                5,
+                "error",
+                Some("parse-error"),
+                "expected ;"
+            ),
             diagnostic("src/lib.rs", 9, 1, "warning", None, "unused import"),
         ]),
         "src/main.rs:3:5: error[parse-error]: expected ;\nsrc/lib.rs:9:1: warning: unused import"

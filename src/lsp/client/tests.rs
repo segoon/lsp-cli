@@ -330,7 +330,9 @@ fn collects_latest_publish_diagnostics_notifications() {
             .expect("initialized should parse")
             .expect("initialized should exist");
         assert_eq!(
-            initialized.get("method").and_then(serde_json::Value::as_str),
+            initialized
+                .get("method")
+                .and_then(serde_json::Value::as_str),
             Some("initialized")
         );
 
@@ -452,7 +454,9 @@ fn sends_document_diagnostic_request() {
             .expect("initialized should parse")
             .expect("initialized should exist");
         assert_eq!(
-            initialized.get("method").and_then(serde_json::Value::as_str),
+            initialized
+                .get("method")
+                .and_then(serde_json::Value::as_str),
             Some("initialized")
         );
 
@@ -550,7 +554,9 @@ fn sends_document_formatting_request() {
             .expect("initialized should parse")
             .expect("initialized should exist");
         assert_eq!(
-            initialized.get("method").and_then(serde_json::Value::as_str),
+            initialized
+                .get("method")
+                .and_then(serde_json::Value::as_str),
             Some("initialized")
         );
 

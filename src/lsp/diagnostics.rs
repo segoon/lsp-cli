@@ -155,31 +155,32 @@ fn render_severity(value: Option<u32>) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        diagnostic_matches_from_document_response, diagnostic_matches_from_notification,
-    };
+    use super::{diagnostic_matches_from_document_response, diagnostic_matches_from_notification};
     use serde_json::json;
     use std::path::Path;
 
     #[test]
     fn decodes_publish_diagnostics_notification() {
-        let diagnostics = diagnostic_matches_from_notification(&json!({
-            "method": "textDocument/publishDiagnostics",
-            "params": {
-                "uri": "file:///workspace/src/main.rs",
-                "diagnostics": [{
-                    "range": {
-                        "start": {"line": 1, "character": 2},
-                        "end": {"line": 1, "character": 4}
-                    },
-                    "severity": 2,
-                    "code": "unused-import",
-                    "source": "rust-analyzer",
-                    "message": "unused import"
-                }]
-            }
-        }), Path::new("/workspace"))
-            .expect("diagnostics should convert");
+        let diagnostics = diagnostic_matches_from_notification(
+            &json!({
+                "method": "textDocument/publishDiagnostics",
+                "params": {
+                    "uri": "file:///workspace/src/main.rs",
+                    "diagnostics": [{
+                        "range": {
+                            "start": {"line": 1, "character": 2},
+                            "end": {"line": 1, "character": 4}
+                        },
+                        "severity": 2,
+                        "code": "unused-import",
+                        "source": "rust-analyzer",
+                        "message": "unused import"
+                    }]
+                }
+            }),
+            Path::new("/workspace"),
+        )
+        .expect("diagnostics should convert");
 
         assert_eq!(diagnostics.len(), 1);
         assert_eq!(diagnostics[0].path, Path::new("src/main.rs"));
@@ -191,20 +192,23 @@ mod tests {
 
     #[test]
     fn keeps_absolute_path_when_outside_workspace() {
-        let diagnostics = diagnostic_matches_from_notification(&json!({
-            "method": "textDocument/publishDiagnostics",
-            "params": {
-                "uri": "file:///tmp/external.rs",
-                "diagnostics": [{
-                    "range": {
-                        "start": {"line": 0, "character": 0},
-                        "end": {"line": 0, "character": 1}
-                    },
-                    "message": "oops"
-                }]
-            }
-        }), Path::new("/workspace"))
-            .expect("diagnostics should convert");
+        let diagnostics = diagnostic_matches_from_notification(
+            &json!({
+                "method": "textDocument/publishDiagnostics",
+                "params": {
+                    "uri": "file:///tmp/external.rs",
+                    "diagnostics": [{
+                        "range": {
+                            "start": {"line": 0, "character": 0},
+                            "end": {"line": 0, "character": 1}
+                        },
+                        "message": "oops"
+                    }]
+                }
+            }),
+            Path::new("/workspace"),
+        )
+        .expect("diagnostics should convert");
 
         assert_eq!(diagnostics[0].path, Path::new("/tmp/external.rs"));
         assert_eq!(diagnostics[0].severity, "unknown");

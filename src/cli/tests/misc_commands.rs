@@ -141,7 +141,10 @@ fn parses_servers_arguments() {
 
 #[test]
 fn parses_update_arguments() {
-    assert_eq!(parse(&["update"]).expect("update should parse"), Command::Update(UpdateArgs));
+    assert_eq!(
+        parse(&["update"]).expect("update should parse"),
+        Command::Update(UpdateArgs)
+    );
 }
 
 #[test]
@@ -183,7 +186,5 @@ fn rejects_format_check_with_stdout() {
     let error = parse(&["format", "src/main.rs", "--check", "--stdout"])
         .expect_err("format should reject --check --stdout");
 
-    assert!(
-        error.contains("`format` does not support using `--check` together with `--stdout`")
-    );
+    assert!(error.contains("`format` does not support using `--check` together with `--stdout`"));
 }

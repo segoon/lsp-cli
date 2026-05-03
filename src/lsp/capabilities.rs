@@ -76,7 +76,12 @@ pub fn diagnostics_supported(initialize: &InitializeResponse) -> bool {
 }
 
 pub fn ensure_formatting_support(initialize: &InitializeResponse) -> Result<(), String> {
-    if !supports(initialize.capabilities.document_formatting_provider.as_ref()) {
+    if !supports(
+        initialize
+            .capabilities
+            .document_formatting_provider
+            .as_ref(),
+    ) {
         return Err("selected LSP server does not support textDocument/formatting".to_string());
     }
 

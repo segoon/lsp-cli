@@ -59,7 +59,12 @@ fn install_downloaded_data(state: &RuntimeState, archive: &[u8]) -> Result<(), S
     let temp_dir = tempfile::Builder::new()
         .prefix("lsp-cli-data-")
         .tempdir_in(root)
-        .map_err(|error| format!("failed to create temporary directory in {}: {error}", root.display()))?;
+        .map_err(|error| {
+            format!(
+                "failed to create temporary directory in {}: {error}",
+                root.display()
+            )
+        })?;
     extract_archive(temp_dir.path(), archive)?;
     let extracted_root = locate_data_root(temp_dir.path())?;
 
@@ -103,8 +108,10 @@ fn locate_data_root(root: &Path) -> Result<PathBuf, String> {
         }
     }
 
-    Err("downloaded lsp-cli-data archive does not contain filetypes/ and lsp/ directories"
-        .to_string())
+    Err(
+        "downloaded lsp-cli-data archive does not contain filetypes/ and lsp/ directories"
+            .to_string(),
+    )
 }
 
 fn has_config_dirs(root: &Path) -> bool {
@@ -246,10 +253,9 @@ fn fetch_release(client: &Client, version: &str) -> Result<ReleaseDownload, Stri
         .map_err(|error| format!("failed to query lsp-cli-data releases: {error}"))?
         .json()
         .map_err(|error| format!("failed to parse lsp-cli-data release metadata: {error}"))?;
-    let archive_url = release
-        .tarball_url
-        .or(release.zipball_url)
-        .ok_or_else(|| "lsp-cli-data release does not provide a downloadable archive".to_string())?;
+    let archive_url = release.tarball_url.or(release.zipball_url).ok_or_else(|| {
+        "lsp-cli-data release does not provide a downloadable archive".to_string()
+    })?;
     Ok(ReleaseDownload {
         version: release.tag_name,
         archive_url,

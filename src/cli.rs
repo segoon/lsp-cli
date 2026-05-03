@@ -651,7 +651,11 @@ impl RawFormatArgs {
                 self.no_download,
                 defaults.download.unwrap_or(false),
             ),
-            detach: resolve_bool(self.detach, self.no_detach, defaults.detach.unwrap_or(false)),
+            detach: resolve_bool(
+                self.detach,
+                self.no_detach,
+                defaults.detach.unwrap_or(false),
+            ),
             json: resolve_bool(self.json, self.no_json, defaults.json.unwrap_or(false)),
             debug: resolve_bool(self.debug, self.no_debug, defaults.debug.unwrap_or(false)),
             timeout: self

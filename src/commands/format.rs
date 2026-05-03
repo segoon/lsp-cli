@@ -58,7 +58,10 @@ pub(super) fn run(args: &FormatArgs, config: &ConfigStore) -> Result<String, Str
     }
 
     client.shutdown().map_err(|error| {
-        format!("failed to stop {} cleanly: {error}", workspace.server.server)
+        format!(
+            "failed to stop {} cleanly: {error}",
+            workspace.server.server
+        )
     })?;
 
     if args.check && changed {
@@ -87,7 +90,10 @@ pub(super) fn run(args: &FormatArgs, config: &ConfigStore) -> Result<String, Str
 fn ensure_regular_file(path: &Path) -> Result<(), String> {
     let metadata = fs::metadata(path).map_err(|error| {
         if error.kind() == std::io::ErrorKind::NotFound {
-            format!("format expected a file path, but {} does not exist", path.display())
+            format!(
+                "format expected a file path, but {} does not exist",
+                path.display()
+            )
         } else {
             format!("failed to inspect {}: {error}", path.display())
         }
@@ -103,7 +109,11 @@ fn ensure_regular_file(path: &Path) -> Result<(), String> {
     ))
 }
 
-fn apply_formatting_response(response: &serde_json::Value, source: &str, path: &Path) -> Result<String, String> {
+fn apply_formatting_response(
+    response: &serde_json::Value,
+    source: &str,
+    path: &Path,
+) -> Result<String, String> {
     let edits: Option<Vec<TextEdit>> = serde_json::from_value(response.clone())
         .map_err(|error| format!("failed to decode textDocument/formatting response: {error}"))?;
     apply_text_edits(source, edits.unwrap_or_default(), path)

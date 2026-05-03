@@ -314,12 +314,15 @@ impl LspClient {
                     if self.handle_server_notification(&message)? {
                         continue;
                     }
-                    self.pending_messages.push_back(IncomingMessage::Message(message));
+                    self.pending_messages
+                        .push_back(IncomingMessage::Message(message));
                     return Ok(());
                 }
                 Ok(IncomingMessage::EndOfStream) | Err(RecvTimeoutError::Timeout) => return Ok(()),
                 Ok(IncomingMessage::Error(error)) => {
-                    return Err(format!("failed to read LSP diagnostics notification: {error}"));
+                    return Err(format!(
+                        "failed to read LSP diagnostics notification: {error}"
+                    ));
                 }
                 Err(RecvTimeoutError::Disconnected) => {
                     return Ok(());

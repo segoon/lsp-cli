@@ -1,6 +1,6 @@
 use super::super::{
-    Command, DaemonArgs, FormatArgs, LanguagesArgs, RunArgs, ServersArgs, StopAllArgs, StopArgs,
-    UpdateArgs,
+    Command, DaemonArgs, FormatArgs, LanguagesArgs, RunArgs, ServerCapabilitiesArgs,
+    ServersArgs, StopAllArgs, StopArgs, UpdateArgs,
 };
 use super::{parse, parse_with_config};
 use crate::config::{CliConfig, DaemonCliConfig};
@@ -135,6 +135,35 @@ fn parses_servers_arguments() {
         parse(&["servers", "--lang", "python"]).expect("servers with --lang should parse"),
         Command::Servers(ServersArgs {
             lang: Some("python".to_string())
+        })
+    );
+}
+
+#[test]
+fn parses_server_capabilities_arguments() {
+    assert_eq!(
+        parse(&[
+            "server-capabilities",
+            "workspace",
+            "--lang",
+            "rust",
+            "--lsp",
+            "rust-analyzer",
+            "--download",
+            "--detach",
+            "--debug",
+            "--timeout",
+            "250ms",
+        ])
+        .expect("server-capabilities should parse"),
+        Command::ServerCapabilities(ServerCapabilitiesArgs {
+            directory: PathBuf::from("workspace"),
+            lang: Some("rust".to_string()),
+            lsp: Some("rust-analyzer".to_string()),
+            detach: true,
+            download: true,
+            debug: true,
+            timeout: Duration::from_millis(250),
         })
     );
 }

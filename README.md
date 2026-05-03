@@ -157,6 +157,10 @@ lsp-cli callees MyFunction path/to/project
 lsp-cli build-index path/to/project --lsp rust-analyzer
 lsp-cli build-index path/to/project --lsp clangd
 
+# Show the selected server command line and initialize capabilities
+lsp-cli server-capabilities path/to/project
+lsp-cli server-capabilities path/to/project --lsp clangd
+
 # Generate shell completion script to stdout
 lsp-cli completion > /tmp/lsp-cli.bash
 lsp-cli completion bash > /tmp/lsp-cli.bash
@@ -196,6 +200,7 @@ lsp-cli servers --lang rust
 `--debug` logs the selected LSP server command line, pid, and raw LSP traffic to stderr.
 `--timeout` controls the per-request LSP timeout. Plain numbers are seconds, and values ending in `ms` are milliseconds.
 `--lang` narrows server selection to one detected language. LSP-backed commands error on mixed-language workspaces unless you pass `--lang` or an explicit `--lsp`.
+`server-capabilities` runs the normal LSP initialize handshake, prints the selected server command line and server version when available, then renders the initialize result capabilities as a YAML-like tree. Known standard capabilities use human-readable labels; unknown and experimental capabilities fall back to raw capability names. The output reflects what the server advertises during initialize, so later dynamic capability registration is not included.
 `build-index` waits for background-work signals such as `experimental/serverStatus` or work-done progress. If the selected server does not expose such progress, the command fails.
 `completion` writes a shell completion script to stdout. If no shell is passed, it uses the current shell from `$SHELL`.
 `run` performs detection and then replaces `lsp-cli` with the detected LSP server process using `execve`.

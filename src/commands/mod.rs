@@ -16,6 +16,7 @@ mod list_functions;
 mod list_symbols;
 mod references;
 mod run;
+mod server_capabilities;
 mod servers;
 mod stop;
 mod symbol_query;
@@ -34,6 +35,7 @@ pub(crate) fn run(command: CliCommand, config: &ConfigStore) -> Result<String, S
         CliCommand::StopAll(args) => stop::run_all(&args),
         CliCommand::Languages(args) => languages::run(&args, config),
         CliCommand::Servers(args) => servers::run(&args, config),
+        CliCommand::ServerCapabilities(args) => server_capabilities::run(&args, config),
         CliCommand::Grep(args) => grep::run(&args, config),
         CliCommand::ListSymbols(args) => list_symbols::run(&args, config),
         CliCommand::ListFunctions(args) => list_functions::run(&args, config),

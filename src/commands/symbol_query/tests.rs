@@ -298,7 +298,7 @@ fn rejects_missing_list_symbols_path() {
 fn initialize_response(
     document_symbol_provider: Option<&serde_json::Value>,
 ) -> crate::lsp::InitializeResponse {
-    serde_json::from_value(json!({
+    crate::lsp::InitializeResponse::from_raw_value(json!({
         "capabilities": {
             "documentSymbolProvider": document_symbol_provider,
         }

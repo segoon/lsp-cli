@@ -24,6 +24,7 @@ pub(crate) enum RawCommand {
     StopAll(RawStopAllArgs),
     Languages(RawLanguagesArgs),
     Servers(RawServersArgs),
+    ServerCapabilities(RawServerCapabilitiesArgs),
     Detect(RawDetectArgs),
     #[command(alias = "diag")]
     Diagnostics(RawDiagnosticsArgs),
@@ -52,6 +53,7 @@ pub enum Command {
     StopAll(StopAllArgs),
     Languages(LanguagesArgs),
     Servers(ServersArgs),
+    ServerCapabilities(ServerCapabilitiesArgs),
     Detect(DetectArgs),
     Diagnostics(DiagnosticsArgs),
     Format(FormatArgs),
@@ -501,6 +503,42 @@ pub struct ServersArgs {
     pub lang: Option<String>,
 }
 
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug, Args, Eq, PartialEq)]
+pub(crate) struct RawServerCapabilitiesArgs {
+    #[arg(value_hint = ValueHint::DirPath)]
+    directory: PathBuf,
+    #[arg(long)]
+    lang: Option<String>,
+    #[arg(long)]
+    lsp: Option<String>,
+    #[arg(long, conflicts_with = "no_detach")]
+    detach: bool,
+    #[arg(long = "no-detach", conflicts_with = "detach")]
+    no_detach: bool,
+    #[arg(long, conflicts_with = "no_download")]
+    download: bool,
+    #[arg(long = "no-download", conflicts_with = "download")]
+    no_download: bool,
+    #[arg(long, conflicts_with = "no_debug")]
+    debug: bool,
+    #[arg(long = "no-debug", conflicts_with = "debug")]
+    no_debug: bool,
+    #[arg(long, value_name = "T", value_parser = parse_timeout)]
+    timeout: Option<Duration>,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct ServerCapabilitiesArgs {
+    pub directory: PathBuf,
+    pub lang: Option<String>,
+    pub lsp: Option<String>,
+    pub detach: bool,
+    pub download: bool,
+    pub debug: bool,
+    pub timeout: Duration,
+}
+
 #[derive(Debug, Args, Eq, PartialEq)]
 pub(crate) struct RawUpdateArgs {}
 
@@ -536,6 +574,7 @@ pub(crate) fn resolve_command(
         RawCommand::StopAll(args) => Command::StopAll(args.resolve(defaults)),
         RawCommand::Languages(_) => Command::Languages(RawLanguagesArgs::resolve()),
         RawCommand::Servers(args) => Command::Servers(args.resolve()),
+        RawCommand::ServerCapabilities(args) => Command::ServerCapabilities(args.resolve(defaults)),
         RawCommand::Detect(args) => Command::Detect(args.resolve(defaults)),
         RawCommand::Diagnostics(args) => Command::Diagnostics(args.resolve(defaults)),
         RawCommand::Format(args) => Command::Format(args.resolve(defaults)),
@@ -828,6 +867,30 @@ impl RawLanguagesArgs {
 impl RawServersArgs {
     fn resolve(self) -> ServersArgs {
         ServersArgs { lang: self.lang }
+    }
+}
+
+impl RawServerCapabilitiesArgs {
+    fn resolve(self, defaults: &CliConfig) -> ServerCapabilitiesArgs {
+        ServerCapabilitiesArgs {
+            directory: self.directory,
+            lang: self.lang,
+            lsp: self.lsp,
+            detach: resolve_bool(
+                self.detach,
+                self.no_detach,
+                defaults.detach.unwrap_or(false),
+            ),
+            download: resolve_bool(
+                self.download,
+                self.no_download,
+                defaults.download.unwrap_or(false),
+            ),
+            debug: resolve_bool(self.debug, self.no_debug, defaults.debug.unwrap_or(false)),
+            timeout: self
+                .timeout
+                .unwrap_or(defaults.timeout.unwrap_or(DEFAULT_TIMEOUT)),
+        }
     }
 }
 

@@ -42,6 +42,9 @@ generic:
 - examples
 - how to use with AI code agents
 
+man:
+https://www.w3tutorials.net/blog/what-is-the-idiomatic-way-of-writing-man-pages-for-rust-cli-tools/
+
 
 # Infrastructure
 

@@ -22,6 +22,7 @@ cargo run -- list-symbols playground/c
 cargo run -- list-symbols playground/java/src/main/java/playground/order/Order.java
 cargo run -- definition format_order playground/c
 cargo run -- references OrderFormatter playground/csharp
+cargo run -- server-capabilities playground/rust --lsp rust-analyzer
 cargo run -- daemon playground/python
 cargo run -- stop playground/python
 ```

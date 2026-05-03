@@ -86,7 +86,7 @@ impl LspClient {
             work_done_progress_params: WorkDoneProgressParams::default(),
         };
         let response = self.send_request::<Initialize>(&params)?;
-        let response: InitializeResponse = serde_json::from_value(response)
+        let response = InitializeResponse::from_raw_value(response)
             .map_err(|error| format!("failed to decode initialize response: {error}"))?;
         self.send_notification::<Initialized>(&InitializedParams {})?;
         self.drain_pending_server_requests()?;

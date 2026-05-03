@@ -11,6 +11,7 @@ class OrderItem:
         return self.quantity * self.price
 
 
+# some class
 @dataclass(slots=True)
 class Order:
     customer: str

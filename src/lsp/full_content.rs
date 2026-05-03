@@ -29,7 +29,10 @@ pub fn symbol_full_content_from_document_response(
                 if line_col.is_some_and(|(line, col, _)| line == target.line && col == target.col)
                     || range_contains_match(&range, target)
                 {
-                    Some((range_size(&range), source_cache.range_content(path, &range)))
+                    Some((
+                        range_size(&range),
+                        source_cache.range_content_with_leading_comments(path, &range),
+                    ))
                 } else {
                     None
                 }
@@ -60,7 +63,7 @@ fn matching_document_symbol_content(
     let direct = direct_match.then(|| {
         (
             range_size(&symbol.range),
-            source_cache.range_content(path, &symbol.range),
+            source_cache.range_content_with_leading_comments(path, &symbol.range),
         )
     });
 

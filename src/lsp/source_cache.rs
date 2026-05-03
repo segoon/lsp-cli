@@ -61,6 +61,23 @@ impl SourceCache {
         chunks.join("\n")
     }
 
+    pub fn range_content_with_leading_comments(&mut self, path: &Path, range: &Range) -> String {
+        let Some(start_line) = usize::try_from(range.start.line).ok() else {
+            return "<line unavailable>".to_string();
+        };
+        let adjusted_start_line = comment_start_line(self.lines(path), start_line);
+        let mut range = *range;
+        if adjusted_start_line != start_line {
+            let Some(line) = u32::try_from(adjusted_start_line).ok() else {
+                return "<line unavailable>".to_string();
+            };
+            range.start.line = line;
+            range.start.character = 0;
+        }
+
+        self.range_content(path, &range)
+    }
+
     fn lines(&mut self, path: &Path) -> &Vec<String> {
         self.lines.entry(path.to_path_buf()).or_insert_with(|| {
             fs::read_to_string(path)
@@ -76,4 +93,46 @@ fn byte_index_for_character(line: &str, character: usize) -> Option<usize> {
     }
 
     line.char_indices().nth(character).map(|(index, _)| index)
+}
+
+fn comment_start_line(lines: &[String], start_line: usize) -> usize {
+    let mut line_index = start_line;
+
+    while line_index > 0 {
+        let previous_line = lines[line_index - 1].trim();
+        if previous_line.is_empty() {
+            break;
+        }
+        if is_line_comment(previous_line) {
+            line_index -= 1;
+            continue;
+        }
+        if previous_line.ends_with("*/") {
+            line_index = block_comment_start_line(lines, line_index - 1);
+            continue;
+        }
+        break;
+    }
+
+    line_index
+}
+
+fn is_line_comment(line: &str) -> bool {
+    line.starts_with("//")
+        || (line.starts_with('#') && !line.starts_with("#!["))
+        || line.starts_with("--")
+}
+
+fn block_comment_start_line(lines: &[String], end_line: usize) -> usize {
+    let mut line_index = end_line;
+
+    loop {
+        if lines[line_index].contains("/*") {
+            return line_index;
+        }
+        if line_index == 0 {
+            return 0;
+        }
+        line_index -= 1;
+    }
 }

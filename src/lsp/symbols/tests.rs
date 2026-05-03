@@ -311,15 +311,16 @@ fn parses_location_links() {
 
 #[test]
 fn keeps_full_content_from_definition_ranges() {
-    let mut fixture = source_fixture("def build_sample_order():\n    return 1\n");
+    let mut fixture =
+        source_fixture("# attached comment\ndef build_sample_order():\n    return 1\n");
 
     let matches = location_matches_from_response_with_full_content(
         &json!([
             {
                 "uri": fixture.uri,
                 "range": {
-                    "start": { "line": 0, "character": 0 },
-                    "end": { "line": 1, "character": 12 }
+                    "start": { "line": 1, "character": 0 },
+                    "end": { "line": 2, "character": 12 }
                 }
             }
         ]),
@@ -331,7 +332,7 @@ fn keeps_full_content_from_definition_ranges() {
 
     assert_eq!(
         matches[0].full_content.as_deref(),
-        Some("def build_sample_order():\n    return 1")
+        Some("# attached comment\ndef build_sample_order():\n    return 1")
     );
 }
 
@@ -377,12 +378,12 @@ fn extracts_function_body_from_nested_document_symbols() {
 #[test]
 fn extracts_class_body_with_attributes_from_nested_document_symbols() {
     let mut fixture = source_fixture(
-        "class Order:\n    customer: str\n    items: list[str]\n\n    def total(self) -> int:\n        return len(self.items)\n",
+        "# some class\n@dataclass(slots=True)\nclass Order:\n    customer: str\n    items: list[str]\n\n    def total(self) -> int:\n        return len(self.items)\n",
     );
     let target = matched(
         &fixture.file,
-        1,
-        1,
+        3,
+        7,
         "Order",
         SymbolKind::CLASS,
         "class Order:",
@@ -394,24 +395,24 @@ fn extracts_class_body_with_attributes_from_nested_document_symbols() {
                 "name": "Order",
                 "kind": 5,
                 "range": {
-                    "start": { "line": 0, "character": 0 },
-                    "end": { "line": 5, "character": 30 }
+                    "start": { "line": 1, "character": 0 },
+                    "end": { "line": 7, "character": 30 }
                 },
                 "selectionRange": {
-                    "start": { "line": 0, "character": 6 },
-                    "end": { "line": 0, "character": 11 }
+                    "start": { "line": 2, "character": 6 },
+                    "end": { "line": 2, "character": 11 }
                 },
                 "children": [
                     {
                         "name": "customer",
                         "kind": 8,
                         "range": {
-                            "start": { "line": 1, "character": 4 },
-                            "end": { "line": 1, "character": 17 }
+                            "start": { "line": 3, "character": 4 },
+                            "end": { "line": 3, "character": 17 }
                         },
                         "selectionRange": {
-                            "start": { "line": 1, "character": 4 },
-                            "end": { "line": 1, "character": 12 }
+                            "start": { "line": 3, "character": 4 },
+                            "end": { "line": 3, "character": 12 }
                         }
                     }
                 ]
@@ -426,7 +427,7 @@ fn extracts_class_body_with_attributes_from_nested_document_symbols() {
     assert_eq!(
         content.as_deref(),
         Some(
-            "class Order:\n    customer: str\n    items: list[str]\n\n    def total(self) -> int:\n        return len(self.items)"
+            "# some class\n@dataclass(slots=True)\nclass Order:\n    customer: str\n    items: list[str]\n\n    def total(self) -> int:\n        return len(self.items)"
         )
     );
 }

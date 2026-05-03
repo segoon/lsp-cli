@@ -369,8 +369,8 @@ fn location_to_symbol_match(
         &path,
     )?;
     let line_content = source_cache.line_content(&path, line_index);
-    let full_content =
-        include_full_content.then(|| source_cache.range_content(&path, &location.range));
+    let full_content = include_full_content
+        .then(|| source_cache.range_content_with_leading_comments(&path, &location.range));
 
     Ok(SymbolMatch {
         name,
@@ -397,8 +397,8 @@ fn location_link_to_symbol_match(
         &path,
     )?;
     let line_content = source_cache.line_content(&path, line_index);
-    let full_content =
-        include_full_content.then(|| source_cache.range_content(&path, &location.target_range));
+    let full_content = include_full_content
+        .then(|| source_cache.range_content_with_leading_comments(&path, &location.target_range));
 
     Ok(SymbolMatch {
         name,

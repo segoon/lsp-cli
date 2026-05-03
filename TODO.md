@@ -2,8 +2,6 @@
 
 commands:
 - repl (TODO: name... cli, console, terminal, interactive?)
-- diagnostics
-- format
 - moniker??
 - type hierarchy??
 - semantic tokens??
@@ -49,4 +47,3 @@ generic:
 - ask GPT itself "how to word the skill file?"
 - maybe use async-lsp?
 - link to LSP spec in README.md?
-

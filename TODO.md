@@ -23,7 +23,6 @@ generic:
 
 - review lspconfig database
 - review mason database
-- global log
 
 - declaration for clangd drops std (e.g. `declaration f` drops `fgetc`)
 
@@ -57,4 +56,3 @@ https://www.w3tutorials.net/blog/what-is-the-idiomatic-way-of-writing-man-pages-
 - cover more initialize capabilities?
 - cover more useful commands?
 - ask GPT itself "how to word the skill file?"
-- maybe use async-lsp?

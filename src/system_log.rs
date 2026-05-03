@@ -1,8 +1,11 @@
 use crate::runtime_state::{RuntimeState, default_runtime_state_root};
+use humantime::format_rfc3339_millis;
+use shlex::try_join as shell_try_join;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{self, ExitStatus};
+use std::time::SystemTime;
 
 const MAX_LOG_FILE_SIZE: u64 = 10 * 1024 * 1024;
 
@@ -25,6 +28,14 @@ pub(crate) fn log_lsp_server_starting() {
 
 pub(crate) fn log_lsp_server_started(server_pid: u32) {
     append_system_log_line(&format!("LSP server has started (pid {server_pid})"));
+}
+
+pub(crate) fn log_lsp_server_cmdline(command: &[String]) {
+    append_system_log_line(&format!("LSP server cmdline: {}", format_command(command)));
+}
+
+pub(crate) fn log_lsp_server_cwd(cwd: &Path) {
+    append_system_log_line(&format!("LSP server cwd: {}", cwd.display()));
 }
 
 pub(crate) fn log_lsp_server_exit(status: ExitStatus) {
@@ -57,12 +68,22 @@ pub(crate) fn append_system_log_line(message: &str) {
     let Ok(mut file) = LockedLogFile::open(&log_path) else {
         return;
     };
+    let timestamp = current_log_timestamp();
+    let pid = process::id();
 
     for line in message.lines() {
-        if writeln!(file, "{}: {line}", process::id()).is_err() {
+        if writeln!(file, "{timestamp} pid={pid} {line}").is_err() {
             break;
         }
     }
+}
+
+fn current_log_timestamp() -> String {
+    format_rfc3339_millis(SystemTime::now()).to_string()
+}
+
+fn format_command(command: &[String]) -> String {
+    shell_try_join(command.iter().map(String::as_str)).unwrap_or_else(|_| command.join(" "))
 }
 
 struct LockedLogFile {
@@ -94,9 +115,14 @@ impl Drop for LockedLogFile {
 }
 
 #[cfg(test)]
-pub(crate) fn append_system_log_line_to_file(file: &mut std::fs::File, pid: u32, message: &str) {
+pub(crate) fn append_system_log_line_to_file(
+    file: &mut std::fs::File,
+    timestamp: &str,
+    pid: u32,
+    message: &str,
+) {
     for line in message.lines() {
-        writeln!(file, "{pid}: {line}").expect("log line should write");
+        writeln!(file, "{timestamp} pid={pid} {line}").expect("log line should write");
     }
 }
 
@@ -134,23 +160,60 @@ fn default_log_path() -> Option<PathBuf> {
 
 #[cfg(test)]
 mod tests {
-    use super::{append_system_log_line_to_file, format_exit_status, log_size_warning_message};
+    use super::{
+        append_system_log_line_to_file, current_log_timestamp, format_command, format_exit_status,
+        log_size_warning_message,
+    };
     use crate::test_support::TestDir;
+    use shlex::split as shell_split;
     use std::fs::{self, File};
     use std::os::unix::process::ExitStatusExt;
     use std::process::ExitStatus;
 
     #[test]
-    fn prefixes_each_log_line_with_pid() {
+    fn prefixes_each_log_line_with_timestamp_and_pid() {
         let dir = TestDir::new("system-log");
         let path = dir.path().join("system.log");
         let mut file = File::create(&path).expect("log file should be created");
 
-        append_system_log_line_to_file(&mut file, 1345, "first line\nsecond line");
+        append_system_log_line_to_file(
+            &mut file,
+            "2026-02-22T15:02:01.123Z",
+            1345,
+            "first line\nsecond line",
+        );
 
         assert_eq!(
             fs::read_to_string(path).expect("log file should be readable"),
-            "1345: first line\n1345: second line\n"
+            "2026-02-22T15:02:01.123Z pid=1345 first line\n2026-02-22T15:02:01.123Z pid=1345 second line\n"
+        );
+    }
+
+    #[test]
+    fn formats_current_log_timestamp_as_utc_rfc3339_milliseconds() {
+        let timestamp = current_log_timestamp();
+
+        assert!(timestamp.ends_with('Z'));
+        assert_eq!(timestamp.len(), "2026-02-22T15:02:01.123Z".len());
+        assert_eq!(&timestamp[4..5], "-");
+        assert_eq!(&timestamp[7..8], "-");
+        assert_eq!(&timestamp[10..11], "T");
+        assert_eq!(&timestamp[13..14], ":");
+        assert_eq!(&timestamp[16..17], ":");
+        assert_eq!(&timestamp[19..20], ".");
+    }
+
+    #[test]
+    fn formats_command_with_shell_quoting() {
+        let command = vec![
+            "/bin/sh".to_string(),
+            "-c".to_string(),
+            "printf 'hello world'\n".to_string(),
+        ];
+
+        assert_eq!(
+            shell_split(&format_command(&command)).expect("command should parse"),
+            command
         );
     }
 

@@ -1,6 +1,7 @@
 use crate::cli::RunArgs;
 use crate::commands::common::prepare_workspace;
 use crate::config::ConfigStore;
+use crate::system_log::{log_lsp_server_cmdline, log_lsp_server_cwd, log_lsp_server_starting};
 use std::process::{Command, Stdio};
 
 #[cfg(unix)]
@@ -25,6 +26,10 @@ pub(super) fn run(args: &RunArgs, config: &ConfigStore) -> Result<String, String
     if args.debug {
         eprintln!("LSP server: {}", server.command.join(" "));
     }
+
+    log_lsp_server_starting();
+    log_lsp_server_cmdline(&server.command);
+    log_lsp_server_cwd(&server.workspace_root);
 
     let mut command = Command::new(program);
     command

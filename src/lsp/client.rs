@@ -16,7 +16,8 @@ use super::{
 };
 use crate::server_stderr::CapturedStderr;
 use crate::system_log::{
-    log_lsp_server_exit, log_lsp_server_started, log_lsp_server_starting, log_unexpected_error,
+    log_lsp_server_cmdline, log_lsp_server_cwd, log_lsp_server_exit, log_lsp_server_started,
+    log_lsp_server_starting, log_unexpected_error,
 };
 
 mod background;
@@ -70,6 +71,8 @@ impl LspClient {
         };
 
         log_lsp_server_starting();
+        log_lsp_server_cmdline(command);
+        log_lsp_server_cwd(workspace_root);
         let mut child = Command::new(program)
             .args(&command[1..])
             .current_dir(workspace_root)

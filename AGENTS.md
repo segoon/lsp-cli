@@ -27,6 +27,8 @@ lsp-cli is a high-level commandline tool that makes it possible to query LSP ser
 * If the implementation can be extendable for non-existing but possible features/changes,
   it should be extendable. Even if some feature is not yet planned, it might be planned soon.
 * Do not use unsafe. If you cannot avoid unsafe, ask the user.
+* Do not hardcode generic algorithm if it exists in crate.
+  Suggest to reuse a crate instead.
 
 
 # Architecture

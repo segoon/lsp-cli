@@ -7,6 +7,7 @@ edition = "2024"
 clap = { version = "4.5.38", features = ["derive"] }
 clap_complete = "4.5.54"
 flate2 = "1.1.5"
+humantime = "2.3.0"
 lsp-types = "0.97.0"
 regex = "1.11.1"
 reqwest = { version = "0.12.24", default-features = false, features = ["blocking", "json", "rustls-tls"] }

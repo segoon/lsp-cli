@@ -29,6 +29,8 @@ fn logs_server_start_stderr_and_exit_to_global_log() {
 
     let log = fs::read_to_string(log_path).expect("global log should be readable");
     assert!(log.contains("starting LSP server..."));
+    assert!(log.contains("LSP server cmdline: /bin/sh -c "));
+    assert!(log.contains(&format!("LSP server cwd: {}", workspace_root.display())));
     assert!(log.contains("LSP server has started (pid "));
     assert!(log.contains("stderr: clangd (1.2.3)"));
     assert!(log.contains("LSP server exited with exit code 1"));

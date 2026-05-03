@@ -1,6 +1,0 @@
-filetypes:
-  - "cs"
-  - "vb"
-root_markers: []
-name: "OmniSharp"
-cmdline: "OmniSharp OmniSharp omnisharp -z --hostPID DotNet:enablePackageRestore=false --encoding utf-8 --languageserver"

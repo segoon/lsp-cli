@@ -1,7 +1,0 @@
-filetypes:
-  - "bash"
-  - "sh"
-root_markers:
-  - ".git"
-name: "bash-language-server"
-cmdline: "bash-language-server start"

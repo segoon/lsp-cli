@@ -1,6 +1,0 @@
-filetypes:
-  - "raku"
-root_markers:
-  - ".git"
-name: "node"
-cmdline: "node '<path_to_repo>/server/out/server.js' --stdio"

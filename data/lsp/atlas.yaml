@@ -1,6 +1,0 @@
-filetypes:
-  - "atlas-*"
-root_markers:
-  - "atlas.hcl"
-name: "atlas"
-cmdline: "atlas tool lsp --stdio"

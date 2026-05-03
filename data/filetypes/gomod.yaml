@@ -1,3 +1,0 @@
-extensions: []
-patterns:
-  - "^go\\.mod$"

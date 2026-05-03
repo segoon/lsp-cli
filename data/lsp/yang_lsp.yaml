@@ -1,6 +1,0 @@
-filetypes:
-  - "yang"
-root_markers:
-  - ".git"
-name: "yang-language-server"
-cmdline: "yang-language-server"

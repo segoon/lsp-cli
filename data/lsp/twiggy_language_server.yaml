@@ -1,7 +1,0 @@
-filetypes:
-  - "twig"
-root_markers:
-  - "composer.json"
-  - ".git"
-name: "twiggy-language-server"
-cmdline: "twiggy-language-server --stdio"

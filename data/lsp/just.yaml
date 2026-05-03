@@ -1,6 +1,0 @@
-filetypes:
-  - "just"
-root_markers:
-  - ".git"
-name: "just-lsp"
-cmdline: "just-lsp"

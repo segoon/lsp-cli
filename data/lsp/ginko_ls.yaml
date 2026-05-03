@@ -1,6 +1,0 @@
-filetypes:
-  - "dts"
-root_markers:
-  - ".git"
-name: "ginko_ls"
-cmdline: "ginko_ls"

@@ -1,8 +1,0 @@
-filetypes:
-  - "markdown"
-root_markers:
-  - ".git"
-  - ".obsidian"
-  - ".moxide.toml"
-name: "markdown-oxide"
-cmdline: "markdown-oxide"

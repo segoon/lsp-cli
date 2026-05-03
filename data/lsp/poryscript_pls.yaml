@@ -1,6 +1,0 @@
-filetypes:
-  - "pory"
-root_markers:
-  - ".git"
-name: "poryscript-pls"
-cmdline: "poryscript-pls"

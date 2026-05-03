@@ -1,9 +1,0 @@
-filetypes:
-  - "fortran"
-root_markers:
-  - "fpm.toml"
-  - "fortitude.toml"
-  - ".fortitude.toml"
-  - ".git"
-name: "fortitude"
-cmdline: "fortitude server"

@@ -1,8 +1,0 @@
-filetypes:
-  - "cds"
-root_markers:
-  - "package.json"
-  - "db"
-  - "srv"
-name: "cds-lsp"
-cmdline: "cds-lsp --stdio"

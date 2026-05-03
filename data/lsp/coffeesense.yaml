@@ -1,6 +1,0 @@
-filetypes:
-  - "coffee"
-root_markers:
-  - "package.json"
-name: "coffeesense-language-server"
-cmdline: "coffeesense-language-server --stdio"

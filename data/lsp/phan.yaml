@@ -1,7 +1,0 @@
-filetypes:
-  - "php"
-root_markers:
-  - "composer.json"
-  - ".git"
-name: "phan"
-cmdline: "phan -m json --no-color --no-progress-bar -x -u -S --language-server-on-stdin --allow-polyfill-parser"

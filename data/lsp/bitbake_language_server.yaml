@@ -1,6 +1,0 @@
-filetypes:
-  - "bitbake"
-root_markers:
-  - ".git"
-name: "bitbake-language-server"
-cmdline: "bitbake-language-server"

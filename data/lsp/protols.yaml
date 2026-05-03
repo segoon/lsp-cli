@@ -1,6 +1,0 @@
-filetypes:
-  - "proto"
-root_markers:
-  - ".git"
-name: "protols"
-cmdline: "protols"

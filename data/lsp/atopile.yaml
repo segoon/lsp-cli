@@ -1,8 +1,0 @@
-filetypes:
-  - "ato"
-root_markers:
-  - "ato.yaml"
-  - ".ato"
-  - ".git"
-name: "ato"
-cmdline: "ato lsp start"

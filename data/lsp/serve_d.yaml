@@ -1,8 +1,0 @@
-filetypes:
-  - "d"
-root_markers:
-  - "dub.json"
-  - "dub.sdl"
-  - ".git"
-name: "serve-d"
-cmdline: "serve-d"

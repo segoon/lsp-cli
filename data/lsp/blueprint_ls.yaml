@@ -1,6 +1,0 @@
-filetypes:
-  - "blueprint"
-root_markers:
-  - ".git"
-name: "blueprint-compiler"
-cmdline: "blueprint-compiler lsp"

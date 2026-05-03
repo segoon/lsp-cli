@@ -1,6 +1,0 @@
-filetypes:
-  - "move"
-root_markers:
-  - "Move.toml"
-name: "move-analyzer"
-cmdline: "move-analyzer"

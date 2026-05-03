@@ -1,6 +1,0 @@
-filetypes:
-  - "marko"
-root_markers:
-  - ".git"
-name: "marko-language-server"
-cmdline: "marko-language-server --stdio"

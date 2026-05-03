@@ -1,9 +1,0 @@
-filetypes:
-  - "fsharp"
-root_markers:
-  - "*.sln"
-  - "*.slnx"
-  - "*.fsproj"
-  - ".git"
-name: "fsautocomplete"
-cmdline: "fsautocomplete --adaptive-lsp-server-enabled"

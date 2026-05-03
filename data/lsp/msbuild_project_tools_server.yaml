@@ -1,9 +1,0 @@
-filetypes:
-  - "msbuild"
-root_markers:
-  - "*.sln"
-  - "*.slnx"
-  - "*.*proj"
-  - ".git"
-name: "dotnet"
-cmdline: "dotnet /path/to/server/MSBuildProjectTools.LanguageServer.Host.dll"

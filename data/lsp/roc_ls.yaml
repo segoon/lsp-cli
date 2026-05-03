@@ -1,6 +1,0 @@
-filetypes:
-  - "roc"
-root_markers:
-  - ".git"
-name: "roc_language_server"
-cmdline: "roc_language_server"

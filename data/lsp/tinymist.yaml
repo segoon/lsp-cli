@@ -1,6 +1,0 @@
-filetypes:
-  - "typst"
-root_markers:
-  - ".git"
-name: "tinymist"
-cmdline: "tinymist"

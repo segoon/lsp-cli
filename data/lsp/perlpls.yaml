@@ -1,6 +1,0 @@
-filetypes:
-  - "perl"
-root_markers:
-  - ".git"
-name: "pls"
-cmdline: "pls"

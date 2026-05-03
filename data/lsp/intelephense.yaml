@@ -1,7 +1,0 @@
-filetypes:
-  - "php"
-root_markers:
-  - ".git"
-  - "composer.json"
-name: "intelephense"
-cmdline: "intelephense --stdio"

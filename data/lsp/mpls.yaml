@@ -1,7 +1,0 @@
-filetypes:
-  - "markdown"
-root_markers:
-  - ".marksman.toml"
-  - ".git"
-name: "mpls"
-cmdline: "mpls --theme dark --enable-emoji --enable-footnotes --no-auto"

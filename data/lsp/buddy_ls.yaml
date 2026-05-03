@@ -1,6 +1,0 @@
-filetypes:
-  - "mlir"
-root_markers:
-  - ".git"
-name: "buddy-lsp-server"
-cmdline: "buddy-lsp-server"

@@ -1,6 +1,0 @@
-filetypes:
-  - "arduino"
-root_markers:
-  - "*.ino"
-name: "arduino-language-server"
-cmdline: "arduino-language-server"

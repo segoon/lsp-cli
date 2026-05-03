@@ -1,7 +1,0 @@
-filetypes:
-  - "html"
-  - "htmldjango"
-root_markers:
-  - ".git"
-name: "djlsp"
-cmdline: "djlsp"

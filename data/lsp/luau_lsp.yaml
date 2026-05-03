@@ -1,6 +1,0 @@
-filetypes:
-  - "luau"
-root_markers:
-  - ".git"
-name: "luau-lsp"
-cmdline: "luau-lsp lsp"

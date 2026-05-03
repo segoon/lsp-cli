@@ -1,7 +1,0 @@
-filetypes:
-  - "asm68k"
-root_markers:
-  - "Makefile"
-  - ".git"
-name: "m68k-lsp-server"
-cmdline: "m68k-lsp-server --stdio"

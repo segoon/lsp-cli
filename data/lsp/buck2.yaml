@@ -1,6 +1,0 @@
-filetypes:
-  - "bzl"
-root_markers:
-  - ".buckconfig"
-name: "buck2"
-cmdline: "buck2 lsp"

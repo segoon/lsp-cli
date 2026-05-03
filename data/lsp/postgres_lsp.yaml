@@ -1,6 +1,0 @@
-filetypes:
-  - "sql"
-root_markers:
-  - "postgres-language-server.jsonc"
-name: "postgres-language-server"
-cmdline: "postgres-language-server lsp-proxy"

@@ -1,9 +1,0 @@
-filetypes:
-  - "yaml"
-  - "yaml.docker-compose"
-  - "yaml.gitlab"
-  - "yaml.helm-values"
-root_markers:
-  - ".git"
-name: "yaml-language-server"
-cmdline: "yaml-language-server --stdio"

@@ -1,6 +1,0 @@
-filetypes:
-  - "teal"
-root_markers:
-  - "tlconfig.lua"
-name: "teal-language-server"
-cmdline: "teal-language-server"

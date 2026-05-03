@@ -1,9 +1,0 @@
-filetypes:
-  - "liquid"
-root_markers:
-  - ".shopifyignore"
-  - ".theme-check.yml"
-  - ".theme-check.yaml"
-  - "shopify.theme.toml"
-name: "shopify"
-cmdline: "shopify theme language-server"

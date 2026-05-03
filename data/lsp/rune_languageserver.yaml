@@ -1,6 +1,0 @@
-filetypes:
-  - "rune"
-root_markers:
-  - ".git"
-name: "rune-languageserver"
-cmdline: "rune-languageserver"

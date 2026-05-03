@@ -1,7 +1,0 @@
-filetypes:
-  - "nginx"
-root_markers:
-  - "nginx.conf"
-  - ".git"
-name: "nginx-language-server"
-cmdline: "nginx-language-server"

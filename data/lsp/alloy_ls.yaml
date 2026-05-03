@@ -1,6 +1,0 @@
-filetypes:
-  - "alloy"
-root_markers:
-  - ".git"
-name: "alloy"
-cmdline: "alloy lsp"

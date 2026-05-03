@@ -1,6 +1,0 @@
-filetypes:
-  - "cypher"
-root_markers:
-  - ".git"
-name: "cypher-language-server"
-cmdline: "cypher-language-server --stdio"

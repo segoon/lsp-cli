@@ -1,5 +1,0 @@
-filetypes:
-  - "polar"
-root_markers: []
-name: "oso-cloud"
-cmdline: "oso-cloud lsp"

@@ -1,7 +1,0 @@
-filetypes:
-  - "gn"
-root_markers:
-  - ".gn"
-  - ".git"
-name: "gnls"
-cmdline: "gnls --stdio"

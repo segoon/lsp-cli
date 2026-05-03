@@ -1,7 +1,0 @@
-filetypes:
-  - "pdll"
-root_markers:
-  - "pdll_compile_commands.yml"
-  - ".git"
-name: "mlir-pdll-lsp-server"
-cmdline: "mlir-pdll-lsp-server"

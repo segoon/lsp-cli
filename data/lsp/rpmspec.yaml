@@ -1,6 +1,0 @@
-filetypes:
-  - "spec"
-root_markers:
-  - ".git"
-name: "rpm_lsp_server"
-cmdline: "rpm_lsp_server --stdio"

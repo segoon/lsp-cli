@@ -1,7 +1,0 @@
-filetypes:
-  - "php"
-  - "blade"
-root_markers:
-  - "artisan"
-name: "laravel-ls"
-cmdline: "laravel-ls"

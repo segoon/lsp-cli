@@ -1,9 +1,0 @@
-filetypes:
-  - "cmake"
-root_markers:
-  - ".neocmake.toml"
-  - ".git"
-  - "build"
-  - "cmake"
-name: "neocmakelsp"
-cmdline: "neocmakelsp stdio"

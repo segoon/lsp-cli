@@ -1,7 +1,0 @@
-filetypes:
-  - "query"
-root_markers:
-  - ".tsqueryrc.json"
-  - ".git"
-name: "ts_query_ls"
-cmdline: "ts_query_ls"

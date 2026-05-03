@@ -1,8 +1,0 @@
-filetypes:
-  - "asm"
-  - "vmasm"
-root_markers:
-  - ".asm-lsp.toml"
-  - ".git"
-name: "asm-lsp"
-cmdline: "asm-lsp"

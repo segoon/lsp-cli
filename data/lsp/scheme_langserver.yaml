@@ -1,7 +1,0 @@
-filetypes:
-  - "scheme"
-root_markers:
-  - "Akku.manifest"
-  - ".git"
-name: "scheme-langserver"
-cmdline: "scheme-langserver '~/.scheme-langserver.log' enable disable"

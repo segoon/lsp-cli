@@ -1,7 +1,0 @@
-filetypes:
-  - "html"
-root_markers:
-  - "package.json"
-  - ".git"
-name: "vscode-html-language-server"
-cmdline: "vscode-html-language-server --stdio"

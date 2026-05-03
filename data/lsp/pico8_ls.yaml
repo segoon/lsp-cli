@@ -1,6 +1,0 @@
-filetypes:
-  - "p8"
-root_markers:
-  - "*.p8"
-name: "pico8-ls"
-cmdline: "pico8-ls --stdio"

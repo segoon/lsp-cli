@@ -1,8 +1,0 @@
-filetypes:
-  - "v"
-  - "vlang"
-root_markers:
-  - "v.mod"
-  - ".git"
-name: "v"
-cmdline: "v ls"

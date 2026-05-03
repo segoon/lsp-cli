@@ -1,7 +1,0 @@
-filetypes:
-  - "css"
-root_markers:
-  - "package.json"
-  - ".git"
-name: "csskit"
-cmdline: "csskit lsp"

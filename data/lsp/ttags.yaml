@@ -1,9 +1,0 @@
-filetypes:
-  - "ruby"
-  - "rust"
-  - "javascript"
-  - "haskell"
-root_markers:
-  - ".git"
-name: "ttags"
-cmdline: "ttags lsp"

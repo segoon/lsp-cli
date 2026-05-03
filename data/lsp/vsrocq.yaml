@@ -1,8 +1,0 @@
-filetypes:
-  - "coq"
-root_markers:
-  - "_RocqProject"
-  - "_CoqProject"
-  - ".git"
-name: "vsrocqtop"
-cmdline: "vsrocqtop"

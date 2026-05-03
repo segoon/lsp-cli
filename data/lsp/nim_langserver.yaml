@@ -1,6 +1,0 @@
-filetypes:
-  - "nim"
-root_markers:
-  - ".git"
-name: "nimlangserver"
-cmdline: "nimlangserver"

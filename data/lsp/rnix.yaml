@@ -1,5 +1,0 @@
-filetypes:
-  - "nix"
-root_markers: []
-name: "rnix-lsp"
-cmdline: "rnix-lsp"

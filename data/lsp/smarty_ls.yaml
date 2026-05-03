@@ -1,7 +1,0 @@
-filetypes:
-  - "smarty"
-root_markers:
-  - "composer.json"
-  - ".git"
-name: "smarty-language-server"
-cmdline: "smarty-language-server --stdio"

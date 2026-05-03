@@ -1,7 +1,0 @@
-filetypes:
-  - "ruby"
-root_markers:
-  - "Gemfile"
-  - ".git"
-name: "srb"
-cmdline: "srb tc --lsp"

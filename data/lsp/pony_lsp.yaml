@@ -1,7 +1,0 @@
-filetypes:
-  - "pony"
-root_markers:
-  - "corral.json"
-  - ".git"
-name: "pony-lsp"
-cmdline: "pony-lsp"

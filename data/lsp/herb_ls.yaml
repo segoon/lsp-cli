@@ -1,8 +1,0 @@
-filetypes:
-  - "html"
-  - "eruby"
-root_markers:
-  - "Gemfile"
-  - ".git"
-name: "herb-language-server"
-cmdline: "herb-language-server --stdio"

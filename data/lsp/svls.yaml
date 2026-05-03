@@ -1,7 +1,0 @@
-filetypes:
-  - "verilog"
-  - "systemverilog"
-root_markers:
-  - ".git"
-name: "svls"
-cmdline: "svls"

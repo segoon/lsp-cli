@@ -1,6 +1,0 @@
-filetypes:
-  - "pug"
-root_markers:
-  - "package.json"
-name: "pug-lsp"
-cmdline: "pug-lsp"

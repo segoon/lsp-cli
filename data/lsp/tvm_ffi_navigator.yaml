@@ -1,8 +1,0 @@
-filetypes:
-  - "python"
-  - "cpp"
-root_markers:
-  - "pyproject.toml"
-  - ".git"
-name: "python"
-cmdline: "python -m ffi_navigator.langserver"

@@ -1,6 +1,0 @@
-filetypes:
-  - "hylo"
-root_markers:
-  - ".git"
-name: "hylo-language-server"
-cmdline: "hylo-language-server --stdio"

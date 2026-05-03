@@ -1,8 +1,0 @@
-filetypes:
-  - "jsonnet"
-  - "libsonnet"
-root_markers:
-  - "jsonnetfile.json"
-  - ".git"
-name: "jsonnet-language-server"
-cmdline: "jsonnet-language-server"

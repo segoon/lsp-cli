@@ -1,5 +1,0 @@
-filetypes:
-  - "meson"
-root_markers: []
-name: "muon"
-cmdline: "muon analyze lsp"

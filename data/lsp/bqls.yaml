@@ -1,6 +1,0 @@
-filetypes:
-  - "sql"
-root_markers:
-  - ".git"
-name: "bqls"
-cmdline: "bqls"

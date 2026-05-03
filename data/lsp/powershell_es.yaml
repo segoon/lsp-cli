@@ -1,7 +1,0 @@
-filetypes:
-  - "ps1"
-root_markers:
-  - "PSScriptAnalyzerSettings.psd1"
-  - ".git"
-name: "pwsh"
-cmdline: "pwsh -NoLogo -NoProfile -Command 'c:/PSES/Start-EditorServices.ps1 ...'"

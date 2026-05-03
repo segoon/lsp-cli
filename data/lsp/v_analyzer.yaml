@@ -1,9 +1,0 @@
-filetypes:
-  - "v"
-  - "vsh"
-  - "vv"
-root_markers:
-  - "v.mod"
-  - ".git"
-name: "v-analyzer"
-cmdline: "v-analyzer"

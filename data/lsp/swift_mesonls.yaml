@@ -1,9 +1,0 @@
-filetypes:
-  - "meson"
-root_markers:
-  - "meson.build"
-  - "meson_options.txt"
-  - "meson.options"
-  - ".git"
-name: "Swift-MesonLSP"
-cmdline: "Swift-MesonLSP --lsp"

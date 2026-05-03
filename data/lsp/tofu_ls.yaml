@@ -1,9 +1,0 @@
-filetypes:
-  - "opentofu"
-  - "opentofu-vars"
-  - "terraform"
-root_markers:
-  - ".terraform"
-  - ".git"
-name: "tofu-ls"
-cmdline: "tofu-ls serve"

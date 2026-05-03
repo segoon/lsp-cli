@@ -1,7 +1,0 @@
-filetypes:
-  - "racket"
-  - "scheme"
-root_markers:
-  - ".git"
-name: "racket"
-cmdline: "racket --lib racket-langserver"

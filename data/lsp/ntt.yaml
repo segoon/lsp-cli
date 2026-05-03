@@ -1,6 +1,0 @@
-filetypes:
-  - "ttcn"
-root_markers:
-  - ".git"
-name: "ntt"
-cmdline: "ntt langserver"

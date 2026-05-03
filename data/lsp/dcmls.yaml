@@ -1,6 +1,0 @@
-filetypes:
-  - "dart"
-root_markers:
-  - "pubspec.yaml"
-name: "dcm"
-cmdline: "dcm start-server --client=neovim"

@@ -1,6 +1,0 @@
-filetypes:
-  - "yaml"
-root_markers:
-  - "azure-pipelines.yml"
-name: "azure-pipelines-language-server"
-cmdline: "azure-pipelines-language-server --stdio"

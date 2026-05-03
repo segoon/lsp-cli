@@ -1,7 +1,0 @@
-filetypes:
-  - "agda"
-root_markers:
-  - ".git"
-  - "*.agda-lib"
-name: "als"
-cmdline: "als"

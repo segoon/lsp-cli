@@ -1,7 +1,0 @@
-filetypes:
-  - "gdshader"
-  - "gdshaderinc"
-root_markers:
-  - "project.godot"
-name: "gdshader-lsp"
-cmdline: "gdshader-lsp --stdio"

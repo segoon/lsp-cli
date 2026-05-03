@@ -1,8 +1,0 @@
-filetypes:
-  - "scss"
-  - "sass"
-root_markers:
-  - ".git"
-  - ".package.json"
-name: "some-sass-language-server"
-cmdline: "some-sass-language-server --stdio"

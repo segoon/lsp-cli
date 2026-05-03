@@ -1,6 +1,0 @@
-filetypes:
-  - "wgsl"
-root_markers:
-  - ".git"
-name: "glasgow"
-cmdline: "glasgow"

@@ -1,9 +1,0 @@
-filetypes:
-  - "puppet"
-root_markers:
-  - "manifests"
-  - ".puppet-lint.rc"
-  - "hiera.yaml"
-  - ".git"
-name: "puppet-languageserver"
-cmdline: "puppet-languageserver --stdio"

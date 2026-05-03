@@ -1,7 +1,0 @@
-filetypes:
-  - "javascript"
-  - "javascriptreact"
-root_markers:
-  - ".flowconfig"
-name: "flow"
-cmdline: "flow lsp"

@@ -1,8 +1,0 @@
-filetypes:
-  - "vhdl"
-  - "verilog"
-  - "systemverilog"
-root_markers:
-  - ".git"
-name: "hdl_checker"
-cmdline: "hdl_checker --lsp"

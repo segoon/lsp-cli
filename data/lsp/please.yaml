@@ -1,6 +1,0 @@
-filetypes:
-  - "bzl"
-root_markers:
-  - ".plzconfig"
-name: "plz"
-cmdline: "plz tool lps"

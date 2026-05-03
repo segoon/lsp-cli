@@ -1,6 +1,0 @@
-filetypes:
-  - "visualforce"
-root_markers:
-  - "sfdx-project.json"
-name: "node"
-cmdline: "node /path/to/unpacked/archive/extension/node_modules/@salesforce/salesforcedx-visualforce-language-server/out/src/visualforceServer.js --stdio"

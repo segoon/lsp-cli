@@ -1,9 +1,0 @@
-filetypes:
-  - "lua"
-root_markers:
-  - ".luarc.json"
-  - ".emmyrc.json"
-  - ".luacheckrc"
-  - ".git"
-name: "emmylua_ls"
-cmdline: "emmylua_ls"

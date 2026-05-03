@@ -1,9 +1,0 @@
-filetypes:
-  - "elixir"
-  - "eelixir"
-  - "heex"
-  - "surface"
-root_markers:
-  - "mix.exs"
-name: "language_server.sh"
-cmdline: "/path/to/elixir-ls/language_server.sh"

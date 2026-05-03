@@ -1,8 +1,0 @@
-filetypes:
-  - "markdown"
-  - "markdown.mdx"
-root_markers:
-  - ".marksman.toml"
-  - ".git"
-name: "marksman"
-cmdline: "marksman server"

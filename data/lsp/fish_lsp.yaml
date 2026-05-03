@@ -1,7 +1,0 @@
-filetypes:
-  - "fish"
-root_markers:
-  - "config.fish"
-  - ".git"
-name: "fish-lsp"
-cmdline: "fish-lsp start"

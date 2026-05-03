@@ -1,7 +1,0 @@
-filetypes:
-  - "groovy"
-root_markers:
-  - "Jenkinsfile"
-  - ".git"
-name: "java"
-cmdline: "java -jar path/to/groovyls/groovy-language-server-all.jar"

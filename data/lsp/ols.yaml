@@ -1,8 +1,0 @@
-filetypes:
-  - "odin"
-root_markers:
-  - "ols.json"
-  - ".git"
-  - "*.odin"
-name: "ols"
-cmdline: "ols"

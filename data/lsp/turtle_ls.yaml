@@ -1,7 +1,0 @@
-filetypes:
-  - "turtle"
-  - "ttl"
-root_markers:
-  - ".git"
-name: "node"
-cmdline: "node --stdio"

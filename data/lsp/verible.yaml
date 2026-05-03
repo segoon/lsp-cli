@@ -1,7 +1,0 @@
-filetypes:
-  - "systemverilog"
-  - "verilog"
-root_markers:
-  - ".git"
-name: "verible-verilog-ls"
-cmdline: "verible-verilog-ls"

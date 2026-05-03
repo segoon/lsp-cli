@@ -1,5 +1,0 @@
-filetypes:
-  - "fennel"
-root_markers: []
-name: "fennel-ls"
-cmdline: "fennel-ls"

@@ -1,6 +1,0 @@
-filetypes:
-  - "autohotkey"
-root_markers:
-  - "package.json"
-name: "autohotkey_lsp"
-cmdline: "autohotkey_lsp --stdio"

@@ -1,6 +1,0 @@
-filetypes:
-  - "circom"
-root_markers:
-  - ".git"
-name: "circom-lsp"
-cmdline: "circom-lsp"

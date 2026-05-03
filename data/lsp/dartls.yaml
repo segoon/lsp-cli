@@ -1,6 +1,0 @@
-filetypes:
-  - "dart"
-root_markers:
-  - "pubspec.yaml"
-name: "dart"
-cmdline: "dart language-server --protocol=lsp"

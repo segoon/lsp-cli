@@ -1,9 +1,0 @@
-filetypes:
-  - "python"
-root_markers:
-  - "pyproject.toml"
-  - "ruff.toml"
-  - ".ruff.toml"
-  - ".git"
-name: "ruff"
-cmdline: "ruff server"

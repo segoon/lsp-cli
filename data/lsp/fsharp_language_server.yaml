@@ -1,8 +1,0 @@
-filetypes:
-  - "fsharp"
-root_markers:
-  - "*.sln"
-  - "*.fsproj"
-  - ".git"
-name: "dotnet"
-cmdline: "dotnet FSharpLanguageServer.dll"

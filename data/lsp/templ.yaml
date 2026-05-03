@@ -1,8 +1,0 @@
-filetypes:
-  - "templ"
-root_markers:
-  - "go.work"
-  - "go.mod"
-  - ".git"
-name: "templ"
-cmdline: "templ lsp"

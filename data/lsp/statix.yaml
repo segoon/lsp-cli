@@ -1,7 +1,0 @@
-filetypes:
-  - "nix"
-root_markers:
-  - "flake.nix"
-  - ".git"
-name: "statix"
-cmdline: "statix check --stdin"

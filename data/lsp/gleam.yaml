@@ -1,7 +1,0 @@
-filetypes:
-  - "gleam"
-root_markers:
-  - "gleam.toml"
-  - ".git"
-name: "gleam"
-cmdline: "gleam lsp"

@@ -1,6 +1,0 @@
-filetypes:
-  - "hyprlang"
-root_markers:
-  - ".git"
-name: "hyprls"
-cmdline: "hyprls --stdio"

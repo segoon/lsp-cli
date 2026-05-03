@@ -1,7 +1,0 @@
-filetypes:
-  - "sql"
-  - "mysql"
-root_markers:
-  - "config.yml"
-name: "command"
-cmdline: "path/to/command -config path/to/config.yml"

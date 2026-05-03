@@ -1,6 +1,0 @@
-filetypes:
-  - "metamath-zero"
-root_markers:
-  - ".git"
-name: "mm0-rs"
-cmdline: "mm0-rs server"

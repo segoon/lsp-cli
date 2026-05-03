@@ -1,7 +1,0 @@
-filetypes:
-  - "futhark"
-  - "fut"
-root_markers:
-  - ".git"
-name: "futhark"
-cmdline: "futhark lsp"

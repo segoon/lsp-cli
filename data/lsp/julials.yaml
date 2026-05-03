@@ -1,5 +1,0 @@
-filetypes:
-  - "julia"
-root_markers: []
-name: "julia"
-cmdline: "julia --startup-file=no --history-file=no -e .julia environments nvim-lspconfig JULIA_DEPOT_PATH '' JULIA_PROJECT '@v#.#' 'Running language server'"

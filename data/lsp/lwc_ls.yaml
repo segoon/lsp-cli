@@ -1,7 +1,0 @@
-filetypes:
-  - "javascript"
-  - "html"
-root_markers:
-  - "sfdx-project.json"
-name: "node"
-cmdline: "node /path/to/node_modules/@salesforce/lwc-language-server/bin/lwc-language-server.js --stdio"

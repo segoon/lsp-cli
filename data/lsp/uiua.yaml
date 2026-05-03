@@ -1,8 +1,0 @@
-filetypes:
-  - "uiua"
-root_markers:
-  - "main.ua"
-  - ".fmt.ua"
-  - ".git"
-name: "uiua"
-cmdline: "uiua lsp"

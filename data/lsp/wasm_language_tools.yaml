@@ -1,5 +1,0 @@
-filetypes:
-  - "wat"
-root_markers: []
-name: "wat_server"
-cmdline: "wat_server"

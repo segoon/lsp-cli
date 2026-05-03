@@ -1,6 +1,0 @@
-filetypes:
-  - "ziggy"
-root_markers:
-  - ".git"
-name: "ziggy"
-cmdline: "ziggy lsp"

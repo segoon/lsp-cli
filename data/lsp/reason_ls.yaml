@@ -1,7 +1,0 @@
-filetypes:
-  - "reason"
-root_markers:
-  - "bsconfig.json"
-  - ".git"
-name: "reason-language-server"
-cmdline: "reason-language-server"

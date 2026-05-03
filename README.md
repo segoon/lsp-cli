@@ -35,8 +35,15 @@ You may configure:
 # Quick start
 
 ```sh
-git clone blablabla
+git clone --recurse-submodules https://github.com/segoon/lsp-cli.git
+cd lsp-cli
 cargo run
+```
+
+If you already cloned the repository before `data/` became a submodule, run:
+
+```sh
+git submodule update --init --recursive
 ```
 
 
@@ -44,7 +51,7 @@ cargo run
 
 `lsp-cli` optionally loads `lsp-cli.yaml` in this order:
 
-1. global: `$LSP_DATA/lsp-cli.yaml` if `LSP_DATA` is set, otherwise `~/.local/share/lsp-cli/data/lsp-cli.yaml` when downloaded data exists, otherwise `data/lsp-cli.yaml`
+1. global: `$LSP_DATA/lsp-cli.yaml` if `LSP_DATA` is set, otherwise `~/.local/share/lsp-cli/data/lsp-cli.yaml` when downloaded data exists, otherwise `data/lsp-cli.yaml` from the checked-out `data/` submodule
 2. user: `$XDG_CONFIG_HOME/lsp-cli/lsp-cli.yaml`, or `~/.config/lsp-cli/lsp-cli.yaml` when `XDG_CONFIG_HOME` is unset
 
 User settings override global settings.

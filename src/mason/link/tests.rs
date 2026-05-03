@@ -329,15 +329,23 @@ fn detects_runnable_wrapper_with_generated_launcher() {
     let target = package_dir.join("jdtls");
     fs::write(&target, b"print('ok')\n").expect("target should be written");
     let launcher = state.bin_dir().join("jdtls");
-    fs::write(&launcher, b"#!/bin/sh\nexec python3 \"$@\"\n").expect("launcher should be written");
+    fs::write(&launcher, b"stub\n").expect("launcher should be written");
     make_executable(&launcher);
+    let runtime_dir = dir.path().join("bin");
+    fs::create_dir_all(&runtime_dir).expect("runtime dir should be created");
+    let python = runtime_dir.join("python3");
+    fs::write(&python, b"stub\n").expect("runtime should be written");
+    make_executable(&python);
 
-    let runnable = with_env_vars(&[env_var("PATH", "/usr/bin")], || {
-        let resolved =
-            resolve_program(&jdtls_package(), "jdtls", &state, &TemplateContext::empty())
-                .expect("wrapper should resolve");
-        is_resolved_program_runnable(&resolved)
-    });
+    let runnable = with_env_vars(
+        &[env_var("PATH", runtime_dir.display().to_string())],
+        || {
+            let resolved =
+                resolve_program(&jdtls_package(), "jdtls", &state, &TemplateContext::empty())
+                    .expect("wrapper should resolve");
+            is_resolved_program_runnable(&resolved)
+        },
+    );
 
     assert!(runnable);
 }
@@ -435,7 +443,7 @@ fn rewrites_detect_command_program() {
 fn detects_runnable_command_on_path() {
     let dir = TestDir::new("mason-link");
     let executable = dir.path().join("pyright-langserver");
-    fs::write(&executable, b"#!/bin/sh\nexit 0\n").expect("file should be written");
+    fs::write(&executable, b"stub\n").expect("file should be written");
     make_executable(&executable);
 
     let detected = with_env_vars(&[env_var("PATH", dir.path())], || {

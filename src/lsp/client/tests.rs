@@ -1,7 +1,11 @@
 use super::{ClientTransport, LspClient, format_spawn_error};
 #[cfg(unix)]
 use crate::lsp::transport::{read_message, write_message};
-use crate::test_support::TestDir;
+use crate::test_support::{
+    SUBPROCESS_HELPER_EXIT_CODE_ENV, SUBPROCESS_HELPER_OUTPUT_PATH_ENV,
+    SUBPROCESS_HELPER_STDERR_ENV, TestDir, env_var, subprocess_helper_command,
+    subprocess_helper_env, with_env_vars,
+};
 #[cfg(unix)]
 use serde_json::Value;
 #[cfg(unix)]
@@ -96,16 +100,18 @@ fn starts_server_in_workspace_root() {
     let workspace_root = dir.path().join("workspace");
     fs::create_dir_all(&workspace_root).expect("workspace should be created");
     let cwd_file = dir.path().join("cwd.txt");
-    let command = vec![
-        "/bin/sh".to_string(),
-        "-c".to_string(),
-        "pwd > \"$1\"".to_string(),
-        "sh".to_string(),
-        cwd_file.display().to_string(),
-    ];
+    let command = subprocess_helper_command();
 
-    let mut client = LspClient::new(&command, &workspace_root, false, Duration::from_secs(1))
-        .expect("helper process should start");
+    let mut client = with_env_vars(
+        &subprocess_helper_env(
+            "write-cwd",
+            &[env_var(SUBPROCESS_HELPER_OUTPUT_PATH_ENV, &cwd_file)],
+        ),
+        || {
+            LspClient::new(&command, &workspace_root, false, Duration::from_secs(1))
+                .expect("helper process should start")
+        },
+    );
     let status = match &mut client.transport {
         ClientTransport::Process { child, .. } => child.wait().expect("helper process should exit"),
         ClientTransport::Socket { .. } => panic!("expected process transport"),
@@ -658,17 +664,24 @@ fn captured_server_stderr(debug: bool) -> String {
     let workspace_root = dir.path().join("workspace");
     fs::create_dir_all(&workspace_root).expect("workspace should be created");
     let stderr_file = dir.path().join("stderr.txt");
-    let command = vec![
-        "/bin/sh".to_string(),
-        "-c".to_string(),
-        "printf 'server stderr\\n' >&2".to_string(),
-    ];
+    let command = subprocess_helper_command();
 
     let mut client;
     {
         let _capture = StderrCapture::new(&stderr_file);
-        client = LspClient::new(&command, &workspace_root, debug, Duration::from_secs(1))
-            .expect("helper process should start");
+        client = with_env_vars(
+            &subprocess_helper_env(
+                "stderr-and-exit",
+                &[
+                    env_var(SUBPROCESS_HELPER_STDERR_ENV, "server stderr\n"),
+                    env_var(SUBPROCESS_HELPER_EXIT_CODE_ENV, "0"),
+                ],
+            ),
+            || {
+                LspClient::new(&command, &workspace_root, debug, Duration::from_secs(1))
+                    .expect("helper process should start")
+            },
+        );
         let status = match &mut client.transport {
             ClientTransport::Process { child, .. } => {
                 child.wait().expect("helper process should exit")

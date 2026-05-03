@@ -9,6 +9,9 @@ use crate::runtime_state::RuntimeState;
 use std::fs;
 use std::process::Command;
 
+#[cfg(all(test, unix))]
+use std::os::unix::fs::PermissionsExt;
+
 mod artifacts;
 
 #[cfg(test)]
@@ -101,6 +104,18 @@ fn install_npm_package(
     fs::create_dir_all(&install_dir)
         .map_err(|error| format!("failed to create {}: {error}", install_dir.display()))?;
 
+    #[cfg(test)]
+    if fake_npm_install(&install_dir, program)? {
+        return finalize_install(
+            state,
+            package,
+            program,
+            &resolved_program,
+            &TemplateContext::empty(),
+            "npm did not produce a runnable",
+        );
+    }
+
     let install_spec = format!("{package_name}@{version}");
     let output = Command::new("npm")
         .arg("install")
@@ -126,6 +141,56 @@ fn install_npm_package(
         &TemplateContext::empty(),
         "npm did not produce a runnable",
     )
+}
+
+#[cfg(test)]
+fn fake_npm_install(install_dir: &std::path::Path, program: &str) -> Result<bool, String> {
+    let Some(fake_program) = std::env::var_os("LSP_CLI_TEST_FAKE_NPM_PROGRAM") else {
+        return Ok(false);
+    };
+    if fake_program != program {
+        return Ok(false);
+    }
+
+    let executable = install_dir.join("node_modules/.bin").join(program);
+    fs::create_dir_all(
+        executable
+            .parent()
+            .expect("fake npm executable should have a parent"),
+    )
+    .map_err(|error| {
+        format!(
+            "failed to create fake npm output {}: {error}",
+            executable.display()
+        )
+    })?;
+    fs::write(&executable, b"stub\n").map_err(|error| {
+        format!(
+            "failed to write fake npm output {}: {error}",
+            executable.display()
+        )
+    })?;
+
+    #[cfg(unix)]
+    {
+        let mut permissions = fs::metadata(&executable)
+            .map_err(|error| {
+                format!(
+                    "failed to inspect fake npm output {}: {error}",
+                    executable.display()
+                )
+            })?
+            .permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&executable, permissions).map_err(|error| {
+            format!(
+                "failed to mark fake npm output {} executable: {error}",
+                executable.display()
+            )
+        })?;
+    }
+
+    Ok(true)
 }
 
 fn install_pypi_package(

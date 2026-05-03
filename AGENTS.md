@@ -68,6 +68,9 @@ Similar initialization may use parametrized helpers with distinct arguments.
 
 Limit each file to 600 lines (including the tests).
 
+All clap arguments MUST have an informative human-readable help.
+It must describe user-visible behaviour, not implementation details.
+
 
 # Commands
 

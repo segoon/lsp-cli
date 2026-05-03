@@ -167,7 +167,8 @@ mod tests {
     use crate::cli::StopAllArgs;
     use crate::config::{CliConfig, ConfigStore};
     use crate::test_support::{
-        TestDir, detection_result, env_var, suggested_language, with_env_vars,
+        TestDir, current_test_executable, detection_result, env_var, suggested_language,
+        with_env_vars,
     };
     use std::fs;
 
@@ -198,9 +199,10 @@ mod tests {
             cli: CliConfig::default(),
         };
         let detection = detection_result(&["alpha", "beta"], &[]);
+        let executable = current_test_executable().display().to_string();
         let suggestions = vec![
-            suggested_language("/bin/true", "alpha-lsp", "alpha-lsp", "alpha"),
-            suggested_language("/bin/true", "beta-lsp", "beta-lsp", "beta"),
+            suggested_language(&executable, "alpha-lsp", "alpha-lsp", "alpha"),
+            suggested_language(&executable, "beta-lsp", "beta-lsp", "beta"),
         ];
 
         assert_eq!(

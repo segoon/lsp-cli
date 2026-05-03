@@ -3,8 +3,10 @@ use crate::config::load_config_store;
 use crate::lsp::transport::{read_message, write_message};
 use crate::suggest::SuggestedLanguage;
 use crate::test_support::{
-    TestDir, detection_result, env_var, make_executable, pyright_package, runtime_state_in_home,
-    with_env_vars, without_env_vars, write_registry,
+    SUBPROCESS_HELPER_EXIT_CODE_ENV, SUBPROCESS_HELPER_OUTPUT_PATH_ENV, TestDir,
+    current_test_executable, detection_result, env_var, make_executable, pyright_package,
+    runtime_state_in_home, subprocess_helper_command, subprocess_helper_env, with_env_vars,
+    without_env_vars, write_registry,
 };
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -22,6 +24,20 @@ fn server(
     languages: &[&str],
     command: &[&str],
 ) -> SuggestedLanguage {
+    server_with_command(
+        config_id,
+        server,
+        languages,
+        command.iter().map(|part| (*part).to_string()).collect(),
+    )
+}
+
+fn server_with_command(
+    config_id: &str,
+    server: &str,
+    languages: &[&str],
+    command: Vec<String>,
+) -> SuggestedLanguage {
     SuggestedLanguage {
         config_id: config_id.to_string(),
         languages: languages
@@ -29,18 +45,18 @@ fn server(
             .map(|language| (*language).to_string())
             .collect(),
         server: server.to_string(),
-        command: command.iter().map(|part| (*part).to_string()).collect(),
+        command,
         workspace_root: PathBuf::from("."),
         wait_for_index: false,
     }
 }
 
 fn example_suggestion() -> SuggestedLanguage {
-    server(
+    server_with_command(
         "example_lsp",
         "example-lsp",
         &["alpha", "beta"],
-        &["/bin/sh", "-c", "exit 0"],
+        vec![current_test_executable().display().to_string()],
     )
 }
 
@@ -70,7 +86,12 @@ fn daemon_workspace(
 #[test]
 fn selects_requested_server_for_grep() {
     let primary = example_suggestion();
-    let secondary = server("secondary_lsp", "secondary-lsp", &["beta"], &["/bin/true"]);
+    let secondary = server_with_command(
+        "secondary_lsp",
+        "secondary-lsp",
+        &["beta"],
+        vec![current_test_executable().display().to_string()],
+    );
     let suggestions = [primary, secondary.clone()];
 
     let selected = resolve_server(
@@ -117,7 +138,7 @@ fn resolves_server_from_managed_install() {
         .join("node_modules/.bin/pyright-langserver");
     fs::create_dir_all(cached.parent().expect("parent should exist"))
         .expect("parent dirs should be created");
-    fs::write(&cached, b"#!/bin/sh\nexit 0\n").expect("cached binary should be written");
+    fs::write(&cached, b"stub\n").expect("cached binary should be written");
     make_executable(&cached);
 
     let resolved = with_env_vars(
@@ -188,7 +209,7 @@ fn skips_unrunnable_servers_without_download() {
     let bin_dir = dir.path().join("bin");
     fs::create_dir_all(&bin_dir).expect("bin dir should be created");
     let fallback = bin_dir.join("fallback-lsp");
-    fs::write(&fallback, b"#!/bin/sh\nexit 0\n").expect("fallback server should be written");
+    fs::write(&fallback, b"stub\n").expect("fallback server should be written");
     make_executable(&fallback);
 
     let resolved = with_env_vars(
@@ -241,49 +262,45 @@ fn downloads_selected_server_when_requested() {
     let bin_dir = dir.path().join("bin");
     fs::create_dir_all(&bin_dir).expect("bin dir should be created");
     let fallback = bin_dir.join("fallback-lsp");
-    fs::write(&fallback, b"#!/bin/sh\nexit 0\n").expect("fallback server should be written");
+    fs::write(&fallback, b"stub\n").expect("fallback server should be written");
     make_executable(&fallback);
     let npm = bin_dir.join("npm");
-    fs::write(
-        &npm,
-        b"#!/bin/sh\nprefix=\nwhile [ \"$#\" -gt 0 ]; do\n  if [ \"$1\" = \"--prefix\" ]; then\n    prefix=\"$2\"\n    shift 2\n    continue\n  fi\n  shift\ndone\n/bin/mkdir -p \"$prefix/node_modules/.bin\"\nprintf '#!/bin/sh\\nexit 0\\n' > \"$prefix/node_modules/.bin/pyright-langserver\"\n/bin/chmod 755 \"$prefix/node_modules/.bin/pyright-langserver\"\n",
-    )
-    .expect("fake npm should be written");
+    fs::write(&npm, b"stub\n").expect("fake npm should be written");
     make_executable(&npm);
 
-    let resolved = with_env_vars(
-        &[
-            env_var("HOME", &home),
-            env_var("PATH", bin_dir.display().to_string()),
-        ],
-        || {
-            resolve_server(
-                &detection_result(&["python"], &[]),
-                &[
-                    server(
-                        "pyright",
-                        "pyright",
-                        &["python"],
-                        &["pyright-langserver", "--stdio"],
-                    ),
-                    server(
-                        "fallback",
-                        "fallback-lsp",
-                        &["python"],
-                        &["fallback-lsp", "--stdio"],
-                    ),
-                ],
-                None,
-                None,
-                &BTreeMap::from([(
-                    "python".to_string(),
-                    vec!["pyright".to_string(), "fallback-lsp".to_string()],
-                )]),
-                true,
-            )
-            .expect("preferred server should install and resolve")
-        },
-    );
+    let envs = vec![
+        env_var("HOME", &home),
+        env_var("PATH", bin_dir.display().to_string()),
+        env_var("LSP_CLI_TEST_FAKE_NPM_PROGRAM", "pyright-langserver"),
+    ];
+
+    let resolved = with_env_vars(&envs, || {
+        resolve_server(
+            &detection_result(&["python"], &[]),
+            &[
+                server(
+                    "pyright",
+                    "pyright",
+                    &["python"],
+                    &["pyright-langserver", "--stdio"],
+                ),
+                server(
+                    "fallback",
+                    "fallback-lsp",
+                    &["python"],
+                    &["fallback-lsp", "--stdio"],
+                ),
+            ],
+            None,
+            None,
+            &BTreeMap::from([(
+                "python".to_string(),
+                vec!["pyright".to_string(), "fallback-lsp".to_string()],
+            )]),
+            true,
+        )
+        .expect("preferred server should install and resolve")
+    });
 
     let installed = state
         .package_dir("pyright")
@@ -304,6 +321,7 @@ fn prefers_live_daemon_socket_before_spawning_server() {
     let cwd_file = dir.path().join("cwd.txt");
     let workspace_root = dir.path().join("workspace");
     fs::create_dir_all(&workspace_root).expect("workspace should exist");
+    let command = subprocess_helper_command();
 
     let server = thread::spawn(move || {
         let (stream, _) = listener.accept().expect("client should connect");
@@ -364,17 +382,15 @@ fn prefers_live_daemon_socket_before_spawning_server() {
         );
     });
 
-    with_env_vars(&[env_var("XDG_RUNTIME_DIR", &runtime_dir)], || {
+    let mut envs = vec![env_var("XDG_RUNTIME_DIR", &runtime_dir)];
+    envs.extend(subprocess_helper_env(
+        "write-cwd",
+        &[env_var(SUBPROCESS_HELPER_OUTPUT_PATH_ENV, &cwd_file)],
+    ));
+
+    with_env_vars(&envs, || {
         let mut client = connect_lsp_client(
-            &daemon_workspace(
-                &workspace_root,
-                vec![
-                    "/bin/sh".to_string(),
-                    "-c".to_string(),
-                    format!("pwd > {}", cwd_file.display()),
-                ],
-                Some(socket_path.clone()),
-            ),
+            &daemon_workspace(&workspace_root, command.clone(), Some(socket_path.clone())),
             false,
             false,
             Duration::from_secs(1),
@@ -410,18 +426,17 @@ fn removes_dead_daemon_socket_and_falls_back_to_server_process() {
 
     let workspace_root = dir.path().join("workspace");
     fs::create_dir_all(&workspace_root).expect("workspace should exist");
+    let command = subprocess_helper_command();
 
-    with_env_vars(&[env_var("XDG_RUNTIME_DIR", &runtime_dir)], || {
+    let mut envs = vec![env_var("XDG_RUNTIME_DIR", &runtime_dir)];
+    envs.extend(subprocess_helper_env(
+        "stderr-and-exit",
+        &[env_var(SUBPROCESS_HELPER_EXIT_CODE_ENV, "0")],
+    ));
+
+    with_env_vars(&envs, || {
         let _client = connect_lsp_client(
-            &daemon_workspace(
-                &workspace_root,
-                vec![
-                    "/bin/sh".to_string(),
-                    "-c".to_string(),
-                    "exit 0".to_string(),
-                ],
-                Some(socket_path.clone()),
-            ),
+            &daemon_workspace(&workspace_root, command.clone(), Some(socket_path.clone())),
             false,
             false,
             Duration::from_secs(1),

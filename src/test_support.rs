@@ -10,6 +10,16 @@ use std::sync::{Mutex, OnceLock};
 use tempfile::TempDir;
 
 pub(crate) const LOCAL_SHARE_LSP_CLI: &str = ".local/share/lsp-cli";
+#[cfg(test)]
+pub(crate) const SUBPROCESS_HELPER_MODE_ENV: &str = "LSP_CLI_TEST_HELPER_MODE";
+#[cfg(test)]
+pub(crate) const SUBPROCESS_HELPER_OUTPUT_PATH_ENV: &str = "LSP_CLI_TEST_HELPER_OUTPUT_PATH";
+#[cfg(test)]
+pub(crate) const SUBPROCESS_HELPER_STDERR_ENV: &str = "LSP_CLI_TEST_HELPER_STDERR";
+#[cfg(test)]
+pub(crate) const SUBPROCESS_HELPER_EXIT_CODE_ENV: &str = "LSP_CLI_TEST_HELPER_EXIT_CODE";
+#[cfg(test)]
+pub(crate) const SUBPROCESS_HELPER_TEST_NAME: &str = "test_support::tests::subprocess_helper";
 
 pub(crate) struct TestDir {
     dir: TempDir,
@@ -206,6 +216,34 @@ pub(crate) fn detection_result(filetypes: &[&str], filenames: &[&str]) -> Detect
     }
 }
 
+#[cfg(test)]
+pub(crate) fn current_test_executable() -> PathBuf {
+    std::env::current_exe().expect("current test executable should resolve")
+}
+
+#[cfg(test)]
+pub(crate) fn subprocess_helper_command() -> Vec<String> {
+    vec![
+        current_test_executable().display().to_string(),
+        "--quiet".to_string(),
+        "--ignored".to_string(),
+        "--exact".to_string(),
+        SUBPROCESS_HELPER_TEST_NAME.to_string(),
+        "--nocapture".to_string(),
+    ]
+}
+
+#[cfg(test)]
+pub(crate) fn subprocess_helper_env(
+    mode: &str,
+    extra: &[(&'static str, OsString)],
+) -> Vec<(&'static str, OsString)> {
+    let mut vars = Vec::with_capacity(extra.len() + 1);
+    vars.push(env_var(SUBPROCESS_HELPER_MODE_ENV, mode));
+    vars.extend(extra.iter().cloned());
+    vars
+}
+
 #[cfg(unix)]
 pub(crate) fn make_executable(path: &Path) {
     use std::os::unix::fs::PermissionsExt;
@@ -215,4 +253,46 @@ pub(crate) fn make_executable(path: &Path) {
         .permissions();
     permissions.set_mode(0o755);
     fs::set_permissions(path, permissions).expect("permissions should be updated");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        SUBPROCESS_HELPER_EXIT_CODE_ENV, SUBPROCESS_HELPER_MODE_ENV,
+        SUBPROCESS_HELPER_OUTPUT_PATH_ENV, SUBPROCESS_HELPER_STDERR_ENV,
+    };
+    use std::fs;
+    use std::io::Write as _;
+
+    #[test]
+    #[ignore = "subprocess helper"]
+    fn subprocess_helper() {
+        let Some(mode) = std::env::var_os(SUBPROCESS_HELPER_MODE_ENV) else {
+            return;
+        };
+
+        match mode.to_string_lossy().as_ref() {
+            "write-cwd" => {
+                let output = std::env::var_os(SUBPROCESS_HELPER_OUTPUT_PATH_ENV)
+                    .expect("helper output path should be configured");
+                let cwd = std::env::current_dir().expect("helper cwd should resolve");
+                fs::write(output, cwd.display().to_string()).expect("helper cwd should be written");
+                std::process::exit(0);
+            }
+            "stderr-and-exit" => {
+                let stderr = std::env::var(SUBPROCESS_HELPER_STDERR_ENV).unwrap_or_default();
+                let code = std::env::var(SUBPROCESS_HELPER_EXIT_CODE_ENV)
+                    .ok()
+                    .and_then(|value| value.parse::<i32>().ok())
+                    .unwrap_or(0);
+                let mut handle = std::io::stderr().lock();
+                handle
+                    .write_all(stderr.as_bytes())
+                    .expect("helper stderr should write");
+                handle.flush().expect("helper stderr should flush");
+                std::process::exit(code);
+            }
+            other => panic!("unknown subprocess helper mode {other:?}"),
+        }
+    }
 }

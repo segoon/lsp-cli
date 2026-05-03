@@ -142,7 +142,7 @@ mod tests {
             .join("node_modules/.bin/pyright-langserver");
         fs::create_dir_all(cached.parent().expect("parent should exist"))
             .expect("parent dirs should be created");
-        fs::write(&cached, b"#!/bin/sh\nexit 0\n").expect("cached binary should be written");
+        fs::write(&cached, b"stub\n").expect("cached binary should be written");
         make_executable(&cached);
 
         let resolved = with_env_vars(
@@ -178,12 +178,19 @@ mod tests {
             .expect("parent dirs should be created");
         fs::write(&target, b"print('ok')\n").expect("target should be written");
         let launcher = state.bin_dir().join("jdtls");
-        fs::write(&launcher, b"#!/bin/sh\nexec python3 /tmp/fake \"$@\"\n")
-            .expect("launcher should be written");
+        fs::write(&launcher, b"stub\n").expect("launcher should be written");
         make_executable(&launcher);
+        let runtime_dir = dir.path().join("bin");
+        fs::create_dir_all(&runtime_dir).expect("runtime dir should be created");
+        let python = runtime_dir.join("python3");
+        fs::write(&python, b"stub\n").expect("runtime should be written");
+        make_executable(&python);
 
         let resolved = with_env_vars(
-            &[env_var("HOME", &home), env_var("PATH", "/usr/bin")],
+            &[
+                env_var("HOME", &home),
+                env_var("PATH", runtime_dir.display().to_string()),
+            ],
             || {
                 resolve_detect_suggestions(
                     &[suggested_language("jdtls", "jdtls", "jdtls", "python")],

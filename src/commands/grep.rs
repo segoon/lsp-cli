@@ -1,7 +1,7 @@
 use crate::cli::GrepArgs;
 use crate::commands::symbol_query::{
-    render_symbol_matches_text, render_workspace_symbol_json, run_workspace_symbol_query,
-    truncate_items,
+    render_symbol_match_paths_text, render_symbol_matches_text, render_workspace_symbol_json,
+    run_workspace_symbol_query, truncate_items,
 };
 use crate::config::ConfigStore;
 
@@ -22,6 +22,8 @@ pub(super) fn run(args: &GrepArgs, config: &ConfigStore) -> Result<String, Strin
             &result.server,
             &matches,
         )
+    } else if args.query.files_with_matches {
+        render_symbol_match_paths_text(&matches)
     } else {
         render_symbol_matches_text(&matches)
     })

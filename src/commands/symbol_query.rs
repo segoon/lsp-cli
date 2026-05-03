@@ -24,9 +24,10 @@ mod tests;
 use kinds::{CallHierarchyDirection, LocationQueryKind, zero_based_col, zero_based_line};
 
 pub(super) use render::{
-    render_file_list_json, render_list_symbols_json, render_paths_text, render_symbol_matches_text,
-    render_symbol_matches_text_full, render_symbol_names_text, render_workspace_symbol_json,
-    render_workspace_symbol_json_full, truncate_items,
+    render_file_list_json, render_list_symbols_json, render_paths_text,
+    render_symbol_match_paths_text, render_symbol_matches_text, render_symbol_matches_text_full,
+    render_symbol_names_text, render_workspace_symbol_json, render_workspace_symbol_json_full,
+    truncate_items,
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

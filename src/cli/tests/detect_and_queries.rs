@@ -186,6 +186,20 @@ fn parses_grep_detach() {
 }
 
 #[test]
+fn parses_grep_files_with_matches() {
+    let mut query = lsp_workspace_query("workspace");
+    query.files_with_matches = true;
+
+    assert_eq!(
+        parse(&["grep", "needle", "workspace", "-l"]).expect("grep should parse"),
+        Command::Grep(GrepArgs {
+            pattern: "needle".to_string(),
+            query,
+        })
+    );
+}
+
+#[test]
 fn rejects_invalid_timeout_value() {
     assert_eq!(
         parse(&["grep", "needle", "workspace", "--timeout", "nope"]),

@@ -28,6 +28,7 @@ pub(super) fn lsp_workspace_query(directory: &str) -> LspWorkspaceQueryArgs {
         query: workspace_query(directory),
         download: false,
         detach: false,
+        files_with_matches: false,
     }
 }
 
@@ -64,7 +65,7 @@ pub(super) fn parse(args: &[&str]) -> Result<Command, String> {
 
 pub(super) fn parse_with_config(args: &[&str], config: &CliConfig) -> Command {
     let raw = parse_raw_args(raw_args(args)).expect("raw parse should succeed");
-    resolve_command(raw, config)
+    resolve_command(raw, config).expect("resolved command should validate")
 }
 
 fn raw_args(args: &[&str]) -> Vec<String> {

@@ -1,7 +1,7 @@
 use super::SymbolMatch;
 use crate::suggest::SuggestedLanguage;
 use serde_json::{Value, json};
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashSet};
 use std::path::{Path, PathBuf};
 
 pub(crate) fn truncate_items<T>(mut items: Vec<T>, limit: usize, unit: &str) -> Vec<T> {
@@ -27,6 +27,17 @@ pub(crate) fn render_symbol_matches_text(matches: &[SymbolMatch]) -> String {
         })
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+pub(crate) fn render_symbol_match_paths_text(matches: &[SymbolMatch]) -> String {
+    let mut seen = HashSet::new();
+    let paths = matches
+        .iter()
+        .filter(|matched| seen.insert(matched.path.clone()))
+        .map(|matched| matched.path.clone())
+        .collect::<Vec<_>>();
+
+    render_paths_text(&paths)
 }
 
 pub(crate) fn render_symbol_matches_text_full(matches: &[SymbolMatch]) -> String {

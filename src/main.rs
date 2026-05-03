@@ -60,7 +60,13 @@ fn main() {
                 }
             };
 
-            let command = resolve_command(raw_command, &config.cli);
+            let command = match resolve_command(raw_command, &config.cli) {
+                Ok(command) => command,
+                Err(error) => {
+                    eprintln!("{error}");
+                    process::exit(2);
+                }
+            };
 
             run(command, &config)
         }

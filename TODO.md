@@ -5,7 +5,6 @@ commands:
 
 options:
 - -s|--signature - show the full signature
-- -b|--body - show the full function body
 
 generic:
 - lsp commands should spawn ALL discovered LSP servers in case of multiple languages

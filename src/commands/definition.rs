@@ -1,7 +1,8 @@
 use crate::cli::DefinitionArgs;
 use crate::commands::symbol_query::{
-    render_symbol_matches_text, render_symbol_matches_text_full, render_workspace_symbol_json,
-    render_workspace_symbol_json_full, run_definition_query, truncate_items,
+    render_symbol_match_paths_text, render_symbol_matches_text, render_symbol_matches_text_full,
+    render_workspace_symbol_json, render_workspace_symbol_json_full, run_definition_query,
+    truncate_items,
 };
 use crate::config::ConfigStore;
 
@@ -32,6 +33,8 @@ pub(super) fn run(args: &DefinitionArgs, config: &ConfigStore) -> Result<String,
                 &matches,
             )
         }
+    } else if args.query.files_with_matches {
+        render_symbol_match_paths_text(&matches)
     } else if args.full {
         render_symbol_matches_text_full(&matches)
     } else {

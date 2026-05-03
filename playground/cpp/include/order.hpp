@@ -7,31 +7,36 @@
 namespace playground {
 
 struct OrderItem {
-    std::string name;
-    int quantity;
-    double price;
+  std::string name;
+  int quantity;
+  double price;
 
-    double total() const;
+  double total() const;
 };
 
 class Order {
 public:
-    explicit Order(std::string customer);
+  explicit Order(std::string customer);
 
-    void add_item(OrderItem item);
-    double total() const;
-    const std::string &customer() const;
-    const std::vector<OrderItem> &items() const;
+  void add_item(OrderItem item);
+  double total() const;
+  const std::string &customer() const;
+  const std::vector<OrderItem> &items() const;
 
 private:
-    std::string customer_;
-    std::vector<OrderItem> items_;
+  std::string customer_;
+  std::vector<OrderItem> items_;
 };
+
+int
+f(
+int arg
+);
 
 namespace report {
 std::string format_order(const Order &order);
 }
 
-}  // namespace playground
+} // namespace playground
 
 #endif

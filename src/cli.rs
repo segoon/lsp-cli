@@ -123,6 +123,8 @@ pub(crate) struct RawLspWorkspaceQueryArgs {
     detach: bool,
     #[arg(long = "no-detach", conflicts_with = "detach")]
     no_detach: bool,
+    #[arg(short = 'l', long = "files-with-matches")]
+    files_with_matches: bool,
 }
 
 #[allow(clippy::struct_excessive_bools)]
@@ -152,6 +154,7 @@ pub struct LspWorkspaceQueryArgs {
     pub query: WorkspaceQueryArgs,
     pub download: bool,
     pub detach: bool,
+    pub files_with_matches: bool,
 }
 
 #[derive(Debug, Args, Eq, PartialEq)]
@@ -434,8 +437,11 @@ where
         .map_err(|error| error.to_string())
 }
 
-pub(crate) fn resolve_command(command: RawCommand, defaults: &CliConfig) -> Command {
-    match command {
+pub(crate) fn resolve_command(
+    command: RawCommand,
+    defaults: &CliConfig,
+) -> Result<Command, String> {
+    let command = match command {
         RawCommand::Daemon(args) => Command::Daemon(args.resolve(defaults)),
         RawCommand::Stop(args) => Command::Stop(args.resolve(defaults)),
         RawCommand::StopAll(args) => Command::StopAll(args.resolve(defaults)),
@@ -454,7 +460,9 @@ pub(crate) fn resolve_command(command: RawCommand, defaults: &CliConfig) -> Comm
         RawCommand::BuildIndex(args) => Command::BuildIndex(args.resolve(defaults)),
         RawCommand::Completion(args) => Command::Completion(args),
         RawCommand::Run(args) => Command::Run(args.resolve(defaults)),
-    }
+    };
+    validate_command(&command)?;
+    Ok(command)
 }
 
 #[cfg(test)]
@@ -462,7 +470,7 @@ pub fn parse_args<I>(args: I) -> Result<Command, String>
 where
     I: IntoIterator<Item = String>,
 {
-    parse_raw_args(args).map(|command| resolve_command(command, &CliConfig::default()))
+    parse_raw_args(args).and_then(|command| resolve_command(command, &CliConfig::default()))
 }
 
 impl RawDetectArgs {
@@ -518,6 +526,7 @@ impl RawLspWorkspaceQueryArgs {
                 self.no_detach,
                 defaults.detach.unwrap_or(false),
             ),
+            files_with_matches: self.files_with_matches,
         }
     }
 }
@@ -692,6 +701,19 @@ fn resolve_bool(enabled: bool, disabled: bool, default: bool) -> bool {
         false
     } else {
         default
+    }
+}
+
+fn validate_command(command: &Command) -> Result<(), String> {
+    match command {
+        Command::ListFunctions(args) if args.query.files_with_matches => Err(
+            "`--files-with-matches` is only supported by grep, references, definition, declaration, callers, and callees".to_string(),
+        ),
+        Command::Definition(args) if args.full && args.query.files_with_matches => Err(
+            "`definition` does not support using `--full` together with `--files-with-matches`"
+                .to_string(),
+        ),
+        _ => Ok(()),
     }
 }
 

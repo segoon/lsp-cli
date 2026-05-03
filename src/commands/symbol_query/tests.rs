@@ -1,9 +1,9 @@
 use super::{
     ListSymbolsTarget, dedupe_symbol_matches, ensure_list_functions_support,
     ensure_list_symbols_support, list_symbols_target, preferred_function_name_matches,
-    preferred_name_matches, render_paths_text, render_symbol_matches_text,
-    render_symbol_matches_text_full, render_symbol_names_text, render_workspace_symbol_json_full,
-    truncate_items,
+    preferred_name_matches, render_paths_text, render_symbol_match_paths_text,
+    render_symbol_matches_text, render_symbol_matches_text_full, render_symbol_names_text,
+    render_workspace_symbol_json_full, truncate_items,
 };
 use crate::lsp::SymbolMatch;
 use crate::suggest::SuggestedLanguage;
@@ -103,6 +103,39 @@ fn renders_full_definition_text_output() {
     assert_eq!(
         render_symbol_matches_text_full(&[matched]),
         "src/main.rs:3:14:\nfn main() {\n    helper();\n}"
+    );
+}
+
+#[test]
+fn renders_files_with_matches_text_output() {
+    assert_eq!(
+        render_symbol_match_paths_text(&[
+            matched(
+                "src/main.rs",
+                3,
+                14,
+                "main",
+                SymbolKind::FUNCTION,
+                "fn main() {"
+            ),
+            matched(
+                "src/main.rs",
+                8,
+                1,
+                "helper",
+                SymbolKind::METHOD,
+                "fn helper() {}"
+            ),
+            matched(
+                "src/lib.rs",
+                2,
+                5,
+                "lib",
+                SymbolKind::FUNCTION,
+                "fn lib() {}"
+            ),
+        ]),
+        "src/main.rs\nsrc/lib.rs"
     );
 }
 

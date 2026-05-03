@@ -26,6 +26,12 @@ lsp-cli is a high-level commandline tool that makes it possible to query LSP ser
   you have to inform the user.
 
 
+# Architecture
+
+lsp-cli must not use any language-specific details (e.g. comment structure or hardcoded character set).
+It may still use LSP-specific requests (e.g. experimental/serverStatus) if it makes user experience better.
+
+
 # Documentation
 
 * `README.md` contains information easily readable by newbies who don't know anything about

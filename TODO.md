@@ -30,8 +30,16 @@ generic:
 # Source code
 
 - user-visible messages - more friendly/informative -> into explicit module
-- improve readme (integration with agents/IDE)
 - threads for stderr buffering???
+
+
+# Readme
+
+- getting started
+- configs location
+- lsp-cli.yaml format
+- examples
+- how to use with AI code agents
 
 
 # Infrastructure

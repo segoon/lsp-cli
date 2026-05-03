@@ -2,9 +2,8 @@ use super::{
     choose_cli_config_user_root, choose_config_root, default_config_root, load_cli_config,
     load_config_store,
 };
-use crate::test_support::{LOCAL_SHARE_LSP_CLI, TestDir};
+use crate::test_support::{LOCAL_SHARE_LSP_CLI, TestDir, env_var, with_env_vars};
 use std::collections::BTreeMap;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 const EMPTY_FILETYPE_YAML: &str = "extensions: []\npatterns: []\n";
 const MINIMAL_LSP_YAML: &str =
@@ -83,10 +82,22 @@ fn errors_when_no_root_can_be_resolved() {
 }
 
 #[test]
-fn default_config_root_resolves_in_real_environment() {
-    let root = default_config_root().expect("root should resolve");
+fn default_config_root_respects_config_env() {
+    let lsp_data = TestDir::new("config-default-root");
+    let home = TestDir::new("config-default-root");
+    write_config_dirs(&lsp_data);
+    write_local_share_config(&home, "ignored", "ignored");
 
-    assert!(root.ends_with(".local/share/lsp-cli/data") || root.ends_with("data"));
+    let root = with_env_vars(
+        &[
+            env_var("LSP_DATA", lsp_data.path()),
+            env_var("HOME", home.path()),
+        ],
+        default_config_root,
+    )
+    .expect("root should resolve");
+
+    assert_eq!(root, lsp_data.path());
 }
 
 #[test]
@@ -257,14 +268,8 @@ fn rejects_unknown_cli_config_keys() {
 
 #[test]
 fn fails_when_config_root_is_missing() {
-    let missing = std::env::temp_dir().join(format!(
-        "lsp-cli-config-missing-{}-{}",
-        std::process::id(),
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("time should move forward")
-            .as_nanos()
-    ));
+    let dir = TestDir::new("config-missing");
+    let missing = dir.path().join("missing");
 
     let error = load_config_store(&missing).expect_err("config load should fail");
 

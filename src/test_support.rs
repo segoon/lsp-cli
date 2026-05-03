@@ -7,46 +7,35 @@ use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
-use std::time::{SystemTime, UNIX_EPOCH};
+use tempfile::TempDir;
 
 pub(crate) const LOCAL_SHARE_LSP_CLI: &str = ".local/share/lsp-cli";
 
 pub(crate) struct TestDir {
-    path: PathBuf,
+    dir: TempDir,
 }
 
 impl TestDir {
     pub(crate) fn new(prefix: &str) -> Self {
-        let unique = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("time should move forward")
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!(
-            "lsp-cli-{prefix}-test-{}-{unique}",
-            std::process::id()
-        ));
-        fs::create_dir_all(&path).expect("temp dir should be created");
-        Self { path }
+        let dir = tempfile::Builder::new()
+            .prefix(&format!("lsp-cli-{prefix}-test-"))
+            .tempdir()
+            .expect("temp dir should be created");
+        Self { dir }
     }
 
     pub(crate) fn path(&self) -> &Path {
-        &self.path
+        self.dir.path()
     }
 
     pub(crate) fn write_file(&self, relative: &str, contents: impl AsRef<[u8]>) -> PathBuf {
-        let path = self.path.join(relative);
+        let path = self.path().join(relative);
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).expect("parent dirs should be created");
         }
 
         fs::write(&path, contents).expect("file should be written");
         path
-    }
-}
-
-impl Drop for TestDir {
-    fn drop(&mut self) {
-        let _ = fs::remove_dir_all(&self.path);
     }
 }
 

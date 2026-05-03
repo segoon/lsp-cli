@@ -1,4 +1,5 @@
 use super::{apply_text_edits, ensure_regular_file, utf16_column_to_byte};
+use crate::test_support::TestDir;
 use lsp_types::{Position, Range, TextEdit};
 use std::path::Path;
 
@@ -84,8 +85,12 @@ fn converts_utf16_columns_to_bytes() {
 
 #[test]
 fn rejects_directory_for_format_file() {
-    let error = ensure_regular_file(Path::new("/tmp"))
-        .expect_err("directory should be rejected as format target");
+    let dir = TestDir::new("format");
+    let directory = dir.path().join("workspace");
+    std::fs::create_dir_all(&directory).expect("workspace directory should be created");
+
+    let error =
+        ensure_regular_file(&directory).expect_err("directory should be rejected as format target");
 
     assert!(error.contains("expected a regular file path"));
 }

@@ -167,7 +167,6 @@ mod tests {
     use regex::Regex;
     use std::collections::BTreeSet;
     use std::io;
-    use std::time::{SystemTime, UNIX_EPOCH};
 
     #[cfg(unix)]
     use std::fs;
@@ -314,14 +313,8 @@ mod tests {
 
     #[test]
     fn returns_error_for_missing_root_path() {
-        let missing = std::env::temp_dir().join(format!(
-            "lsp-cli-missing-{}-{}",
-            std::process::id(),
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .expect("time should move forward")
-                .as_nanos()
-        ));
+        let dir = TestDir::new("detect-missing");
+        let missing = dir.path().join("missing");
 
         let error = detect_workspace(&missing, &[]).expect_err("scan should fail");
 

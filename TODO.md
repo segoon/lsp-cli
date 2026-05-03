@@ -54,5 +54,4 @@ https://www.w3tutorials.net/blog/what-is-the-idiomatic-way-of-writing-man-pages-
 
 # Infrastructure
 
-- search for useful BCPs among rust projects at github
 - upload to crates.io

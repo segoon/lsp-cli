@@ -27,7 +27,6 @@ generic:
 # Infrastructure
 
 - search for useful BCPs among rust projects at github
-- github actions
 - upload to crates.io
 
 

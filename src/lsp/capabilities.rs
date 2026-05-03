@@ -21,6 +21,8 @@ pub struct ServerCapabilities {
     pub declaration_provider: Option<Value>,
     #[serde(rename = "callHierarchyProvider")]
     pub call_hierarchy_provider: Option<Value>,
+    #[serde(rename = "diagnosticProvider")]
+    pub diagnostic_provider: Option<Value>,
 }
 
 pub fn ensure_workspace_symbol_support(initialize: &InitializeResponse) -> Result<(), String> {
@@ -65,6 +67,10 @@ pub fn ensure_call_hierarchy_support(initialize: &InitializeResponse) -> Result<
     }
 
     Ok(())
+}
+
+pub fn diagnostics_supported(initialize: &InitializeResponse) -> bool {
+    supports(initialize.capabilities.diagnostic_provider.as_ref())
 }
 
 fn supports(value: Option<&Value>) -> bool {

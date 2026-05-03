@@ -4,6 +4,7 @@ mod callers;
 mod common;
 mod completion;
 mod daemon;
+mod diagnostics;
 mod declaration;
 mod definition;
 mod detect;
@@ -24,6 +25,7 @@ use crate::config::ConfigStore;
 pub(crate) fn run(command: CliCommand, config: &ConfigStore) -> Result<String, String> {
     match command {
         CliCommand::Detect(args) => detect::run(&args, config),
+        CliCommand::Diagnostics(args) => diagnostics::run(&args, config),
         CliCommand::Daemon(args) => daemon::run(&args, config),
         CliCommand::Stop(args) => stop::run(&args, config),
         CliCommand::StopAll(args) => stop::run_all(&args),

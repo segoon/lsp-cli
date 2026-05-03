@@ -2,6 +2,16 @@
 
 commands:
 - repl (TODO: name... cli, console, terminal, interactive?)
+- diagnostics
+- format
+- moniker??
+- type hierarchy??
+- semantic tokens??
+- color?? pretty
+- code-lens??
+- hover??
+- inlay-hint??
+- executeCommand??
 
 options:
 - -s|--signature - show the full signature
@@ -15,6 +25,8 @@ generic:
 - review lspconfig database
 - review mason database
 - global log
+
+- declaration for clangd drops std (e.g. `declaration f` drops `fgetc`)
 
 
 # Source code

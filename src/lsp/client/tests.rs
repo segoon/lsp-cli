@@ -301,6 +301,222 @@ fn initialize_advertises_and_returns_workspace_folders() {
 }
 
 #[cfg(unix)]
+#[test]
+fn collects_latest_publish_diagnostics_notifications() {
+    let dir = TestDir::new("client-diagnostics");
+    let socket_path = dir.path().join("server.sock");
+    let listener = UnixListener::bind(&socket_path).expect("socket should bind");
+
+    let server = thread::spawn(move || {
+        let (stream, _) = listener.accept().expect("client should connect");
+        let reader_stream = stream.try_clone().expect("stream should clone");
+        let mut reader = BufReader::new(reader_stream);
+        let mut writer = stream;
+
+        let initialize = read_message(&mut reader)
+            .expect("initialize should parse")
+            .expect("initialize should exist");
+        write_message(
+            &mut writer,
+            &json!({
+                "jsonrpc": "2.0",
+                "id": initialize.get("id").cloned().expect("initialize id should exist"),
+                "result": { "capabilities": {} },
+            }),
+        )
+        .expect("initialize response should write");
+
+        let initialized = read_message(&mut reader)
+            .expect("initialized should parse")
+            .expect("initialized should exist");
+        assert_eq!(
+            initialized.get("method").and_then(serde_json::Value::as_str),
+            Some("initialized")
+        );
+
+        write_message(
+            &mut writer,
+            &json!({
+                "jsonrpc": "2.0",
+                "method": "textDocument/publishDiagnostics",
+                "params": {
+                    "uri": "file:///workspace/src/main.rs",
+                    "diagnostics": [{
+                        "range": {
+                            "start": {"line": 0, "character": 1},
+                            "end": {"line": 0, "character": 2}
+                        },
+                        "message": "first"
+                    }]
+                }
+            }),
+        )
+        .expect("first diagnostics should write");
+        write_message(
+            &mut writer,
+            &json!({
+                "jsonrpc": "2.0",
+                "method": "textDocument/publishDiagnostics",
+                "params": {
+                    "uri": "file:///workspace/src/main.rs",
+                    "diagnostics": [{
+                        "range": {
+                            "start": {"line": 1, "character": 1},
+                            "end": {"line": 1, "character": 2}
+                        },
+                        "message": "second"
+                    }]
+                }
+            }),
+        )
+        .expect("second diagnostics should write");
+
+        let shutdown = read_message(&mut reader)
+            .expect("shutdown should parse")
+            .expect("shutdown should exist");
+        write_message(
+            &mut writer,
+            &json!({
+                "jsonrpc": "2.0",
+                "id": shutdown.get("id").cloned().expect("shutdown id should exist"),
+                "result": null,
+            }),
+        )
+        .expect("shutdown response should write");
+
+        let exit = read_message(&mut reader)
+            .expect("exit should parse")
+            .expect("exit should exist");
+        assert_eq!(
+            exit.get("method").and_then(serde_json::Value::as_str),
+            Some("exit")
+        );
+    });
+
+    let mut client =
+        LspClient::connect_unix(&socket_path, false, Duration::from_secs(1)).expect("connect");
+    client
+        .initialize("file:///workspace", "workspace", false)
+        .expect("initialize should succeed");
+    client
+        .collect_diagnostics(Duration::from_millis(100))
+        .expect("collect should succeed");
+
+    let diagnostics = client.take_published_diagnostics();
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(
+        diagnostics[0]
+            .get("params")
+            .and_then(|value| value.get("diagnostics"))
+            .and_then(|value| value.get(0))
+            .and_then(|value| value.get("message"))
+            .and_then(serde_json::Value::as_str),
+        Some("second")
+    );
+
+    client.shutdown().expect("shutdown should succeed");
+    server.join().expect("server thread should finish");
+}
+
+#[cfg(unix)]
+#[test]
+fn sends_document_diagnostic_request() {
+    let dir = TestDir::new("client-document-diagnostic");
+    let socket_path = dir.path().join("server.sock");
+    let listener = UnixListener::bind(&socket_path).expect("socket should bind");
+
+    let server = thread::spawn(move || {
+        let (stream, _) = listener.accept().expect("client should connect");
+        let reader_stream = stream.try_clone().expect("stream should clone");
+        let mut reader = BufReader::new(reader_stream);
+        let mut writer = stream;
+
+        let initialize = read_message(&mut reader)
+            .expect("initialize should parse")
+            .expect("initialize should exist");
+        write_message(
+            &mut writer,
+            &json!({
+                "jsonrpc": "2.0",
+                "id": initialize.get("id").cloned().expect("initialize id should exist"),
+                "result": {
+                    "capabilities": {
+                        "diagnosticProvider": {"interFileDependencies": false, "workspaceDiagnostics": false}
+                    }
+                },
+            }),
+        )
+        .expect("initialize response should write");
+
+        let initialized = read_message(&mut reader)
+            .expect("initialized should parse")
+            .expect("initialized should exist");
+        assert_eq!(
+            initialized.get("method").and_then(serde_json::Value::as_str),
+            Some("initialized")
+        );
+
+        let request = read_message(&mut reader)
+            .expect("document diagnostic should parse")
+            .expect("document diagnostic should exist");
+        assert_eq!(
+            request.get("method").and_then(serde_json::Value::as_str),
+            Some("textDocument/diagnostic")
+        );
+        assert_eq!(
+            request
+                .get("params")
+                .and_then(|value| value.get("textDocument"))
+                .and_then(|value| value.get("uri"))
+                .and_then(serde_json::Value::as_str),
+            Some("file:///workspace/src/main.rs")
+        );
+        write_message(
+            &mut writer,
+            &json!({
+                "jsonrpc": "2.0",
+                "id": request.get("id").cloned().expect("request id should exist"),
+                "result": {"kind": "full", "items": []},
+            }),
+        )
+        .expect("document diagnostic response should write");
+
+        let shutdown = read_message(&mut reader)
+            .expect("shutdown should parse")
+            .expect("shutdown should exist");
+        write_message(
+            &mut writer,
+            &json!({
+                "jsonrpc": "2.0",
+                "id": shutdown.get("id").cloned().expect("shutdown id should exist"),
+                "result": null,
+            }),
+        )
+        .expect("shutdown response should write");
+
+        let exit = read_message(&mut reader)
+            .expect("exit should parse")
+            .expect("exit should exist");
+        assert_eq!(
+            exit.get("method").and_then(serde_json::Value::as_str),
+            Some("exit")
+        );
+    });
+
+    let mut client =
+        LspClient::connect_unix(&socket_path, false, Duration::from_secs(1)).expect("connect");
+    client
+        .initialize("file:///workspace", "workspace", false)
+        .expect("initialize should succeed");
+    client
+        .document_diagnostic("file:///workspace/src/main.rs")
+        .expect("document diagnostic should succeed");
+    client.shutdown().expect("shutdown should succeed");
+
+    server.join().expect("server thread should finish");
+}
+
+#[cfg(unix)]
 fn captured_server_stderr(debug: bool) -> String {
     let _lock = stderr_lock()
         .lock()

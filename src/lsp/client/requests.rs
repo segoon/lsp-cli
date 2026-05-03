@@ -3,17 +3,18 @@ use crate::lsp::{InitializeResponse, parse_lsp_uri};
 use lsp_types::notification::{DidOpenTextDocument, Initialized};
 use lsp_types::request::{
     CallHierarchyIncomingCalls, CallHierarchyOutgoingCalls, CallHierarchyPrepare,
-    DocumentSymbolRequest, GotoDeclaration, GotoDeclarationParams, GotoDefinition, Initialize,
-    References, WorkspaceSymbolRequest,
+    DocumentDiagnosticRequest, DocumentSymbolRequest, GotoDeclaration, GotoDeclarationParams,
+    GotoDefinition, Initialize, References, WorkspaceSymbolRequest,
 };
 use lsp_types::{
     CallHierarchyIncomingCallsParams, CallHierarchyItem, CallHierarchyOutgoingCallsParams,
     CallHierarchyPrepareParams, ClientCapabilities, ClientInfo, DidOpenTextDocumentParams,
-    DocumentSymbolParams, GeneralClientCapabilities, GotoDefinitionParams, InitializeParams,
-    InitializedParams, PartialResultParams, Position, PositionEncodingKind, ReferenceContext,
-    ReferenceParams, TextDocumentIdentifier, TextDocumentItem, TextDocumentPositionParams,
-    WindowClientCapabilities, WorkDoneProgressParams, WorkspaceClientCapabilities, WorkspaceFolder,
-    WorkspaceSymbolParams,
+    DocumentDiagnosticParams, DocumentSymbolParams, GeneralClientCapabilities,
+    GotoDefinitionParams, InitializeParams, InitializedParams, PartialResultParams, Position,
+    PositionEncodingKind, ReferenceContext, ReferenceParams, TextDocumentIdentifier,
+    TextDocumentItem, TextDocumentPositionParams,
+    WindowClientCapabilities, WorkDoneProgressParams, WorkspaceClientCapabilities,
+    WorkspaceFolder, WorkspaceSymbolParams,
 };
 use serde_json::{Value, json};
 use std::path::Path;
@@ -108,6 +109,17 @@ impl LspClient {
             partial_result_params: PartialResultParams::default(),
         };
         self.send_request::<DocumentSymbolRequest>(&params)
+    }
+
+    pub fn document_diagnostic(&mut self, uri: &str) -> Result<Value, String> {
+        let params = DocumentDiagnosticParams {
+            text_document: TextDocumentIdentifier::new(parse_lsp_uri(uri, "document")?),
+            identifier: None,
+            previous_result_id: None,
+            work_done_progress_params: WorkDoneProgressParams::default(),
+            partial_result_params: PartialResultParams::default(),
+        };
+        self.send_request::<DocumentDiagnosticRequest>(&params)
     }
 
     pub fn references(

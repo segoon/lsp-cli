@@ -1,4 +1,4 @@
-use super::super::{Command, DetectArgs, GrepArgs};
+use super::super::{Command, DetectArgs, DiagnosticsArgs, GrepArgs};
 use super::{lsp_workspace_query, parse, parse_with_config};
 use crate::config::{CliConfig, DetectCliConfig};
 use std::collections::BTreeMap;
@@ -114,6 +114,34 @@ fn parses_grep_arguments() {
             pattern: "needle".to_string(),
             query,
         })
+    );
+}
+
+#[test]
+fn parses_diagnostics_arguments() {
+    let mut query = lsp_workspace_query("workspace");
+    query.query.lsp = Some("clangd".to_string());
+    query.query.lang = Some("cpp".to_string());
+    query.download = true;
+    query.query.json = true;
+    query.query.debug = true;
+    query.files_with_matches = true;
+
+    assert_eq!(
+        parse(&[
+            "diagnostics",
+            "workspace",
+            "--json",
+            "--lsp",
+            "clangd",
+            "--lang",
+            "cpp",
+            "--download",
+            "--debug",
+            "-l",
+        ])
+        .expect("diagnostics should parse"),
+        Command::Diagnostics(DiagnosticsArgs { query })
     );
 }
 

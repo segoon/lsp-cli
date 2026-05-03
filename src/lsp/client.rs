@@ -1,4 +1,4 @@
-use std::collections::{BTreeSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::os::unix::net::UnixStream;
 use std::path::Path;
 use std::process::{Child, ChildStdin, Command, Stdio};
@@ -6,7 +6,7 @@ use std::sync::mpsc::{Receiver, RecvTimeoutError, TryRecvError};
 use std::time::{Duration, Instant};
 
 use lsp_types::WorkspaceFolder;
-use lsp_types::notification::{Exit, Initialized, Notification};
+use lsp_types::notification::{Exit, Initialized, Notification, PublishDiagnostics};
 use lsp_types::request::{Initialize, Request, Shutdown};
 use serde_json::{Value, json};
 
@@ -35,6 +35,7 @@ pub struct LspClient {
     shutdown_sent: bool,
     opened_documents: BTreeSet<String>,
     workspace_folders: Option<Vec<WorkspaceFolder>>,
+    published_diagnostics: BTreeMap<String, Value>,
     debug: bool,
     timeout: Duration,
 }
@@ -104,6 +105,7 @@ impl LspClient {
             shutdown_sent: false,
             opened_documents: BTreeSet::new(),
             workspace_folders: None,
+            published_diagnostics: BTreeMap::new(),
             debug,
             timeout,
         })
@@ -141,6 +143,7 @@ impl LspClient {
             shutdown_sent: false,
             opened_documents: BTreeSet::new(),
             workspace_folders: None,
+            published_diagnostics: BTreeMap::new(),
             debug,
             timeout,
         })
@@ -267,6 +270,7 @@ impl LspClient {
                 Ok(Some(IncomingMessage::Message(message))) => {
                     if let Some(request_id) = request_id(&message) {
                         self.handle_server_request(&request_id, &message)?;
+                    } else if self.handle_server_notification(&message)? {
                     } else {
                         deferred.push_back(IncomingMessage::Message(message));
                     }
@@ -287,6 +291,45 @@ impl LspClient {
 
         self.pending_messages.extend(deferred);
         Ok(())
+    }
+
+    pub fn take_published_diagnostics(&mut self) -> Vec<Value> {
+        std::mem::take(&mut self.published_diagnostics)
+            .into_values()
+            .collect()
+    }
+
+    pub fn published_diagnostics_len(&self) -> usize {
+        self.published_diagnostics.len()
+    }
+
+    pub fn collect_diagnostics(&mut self, timeout: Duration) -> Result<(), String> {
+        loop {
+            match self.recv_message(timeout) {
+                Ok(IncomingMessage::Message(message)) => {
+                    if let Some(request_id) = request_id(&message) {
+                        self.handle_server_request(&request_id, &message)?;
+                        continue;
+                    }
+                    if self.handle_server_notification(&message)? {
+                        continue;
+                    }
+                    self.pending_messages.push_back(IncomingMessage::Message(message));
+                    return Ok(());
+                }
+                Ok(IncomingMessage::EndOfStream) | Err(RecvTimeoutError::Timeout) => return Ok(()),
+                Ok(IncomingMessage::Error(error)) => {
+                    return Err(format!("failed to read LSP diagnostics notification: {error}"));
+                }
+                Err(RecvTimeoutError::Disconnected) => {
+                    return Ok(());
+                }
+            }
+        }
+    }
+
+    pub fn drain_server_notifications(&mut self) -> Result<(), String> {
+        self.drain_pending_server_requests()
     }
 
     fn format_transport_wait_error(&self, method: &str, error: String) -> String {
@@ -401,6 +444,27 @@ impl LspClient {
 
         log_debug_message(self.debug, "-> ", &response);
         self.write_transport_message(&response)
+    }
+
+    fn handle_server_notification(&mut self, message: &Value) -> Result<bool, String> {
+        let Some(method) = message.get("method").and_then(Value::as_str) else {
+            return Ok(false);
+        };
+
+        if method != PublishDiagnostics::METHOD {
+            return Ok(false);
+        }
+
+        let Some(params) = message.get("params") else {
+            return Err("publishDiagnostics notification missing params".to_string());
+        };
+        let Some(uri) = params.get("uri").and_then(Value::as_str) else {
+            return Err("publishDiagnostics notification missing uri".to_string());
+        };
+
+        self.published_diagnostics
+            .insert(uri.to_string(), message.clone());
+        Ok(true)
     }
 }
 

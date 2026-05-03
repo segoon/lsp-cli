@@ -1,6 +1,7 @@
 mod capabilities;
 mod client;
 mod custom_types;
+mod diagnostics;
 mod full_content;
 mod jsonrpc;
 mod source_cache;
@@ -9,12 +10,17 @@ pub(crate) mod transport;
 mod uri;
 
 pub use capabilities::{
-    InitializeResponse, document_symbol_supported, ensure_call_hierarchy_support,
+    InitializeResponse, diagnostics_supported, document_symbol_supported,
+    ensure_call_hierarchy_support,
     ensure_declaration_support, ensure_definition_support, ensure_references_support,
     ensure_workspace_symbol_support,
 };
 pub use client::LspClient;
 pub use custom_types::{SERVER_STATUS_METHOD, STOP_METHOD, ServerStatusParams, StopParams};
+pub use diagnostics::{
+    DiagnosticMatch, diagnostic_matches_from_document_response,
+    diagnostic_matches_from_notification,
+};
 pub use full_content::symbol_full_content_from_document_response;
 pub use jsonrpc::jsonrpc;
 pub use source_cache::SourceCache;

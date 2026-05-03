@@ -25,6 +25,8 @@ pub(crate) enum RawCommand {
     Languages(RawLanguagesArgs),
     Servers(RawServersArgs),
     Detect(RawDetectArgs),
+    #[command(alias = "diag")]
+    Diagnostics(RawDiagnosticsArgs),
     Grep(RawGrepArgs),
     ListSymbols(RawListSymbolsArgs),
     ListFunctions(RawListFunctionsArgs),
@@ -48,6 +50,7 @@ pub enum Command {
     Languages(LanguagesArgs),
     Servers(ServersArgs),
     Detect(DetectArgs),
+    Diagnostics(DiagnosticsArgs),
     Grep(GrepArgs),
     ListSymbols(ListSymbolsArgs),
     ListFunctions(ListFunctionsArgs),
@@ -167,6 +170,17 @@ pub(crate) struct RawGrepArgs {
 #[derive(Debug, Eq, PartialEq)]
 pub struct GrepArgs {
     pub pattern: String,
+    pub query: LspWorkspaceQueryArgs,
+}
+
+#[derive(Debug, Args, Eq, PartialEq)]
+pub(crate) struct RawDiagnosticsArgs {
+    #[command(flatten)]
+    query: RawLspWorkspaceQueryArgs,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct DiagnosticsArgs {
     pub query: LspWorkspaceQueryArgs,
 }
 
@@ -464,6 +478,7 @@ pub(crate) fn resolve_command(
         RawCommand::Languages(_) => Command::Languages(RawLanguagesArgs::resolve()),
         RawCommand::Servers(args) => Command::Servers(args.resolve()),
         RawCommand::Detect(args) => Command::Detect(args.resolve(defaults)),
+        RawCommand::Diagnostics(args) => Command::Diagnostics(args.resolve(defaults)),
         RawCommand::Grep(args) => Command::Grep(args.resolve(defaults)),
         RawCommand::ListSymbols(args) => Command::ListSymbols(args.resolve(defaults)),
         RawCommand::ListFunctions(args) => Command::ListFunctions(args.resolve(defaults)),
@@ -551,6 +566,14 @@ impl RawGrepArgs {
     fn resolve(self, defaults: &CliConfig) -> GrepArgs {
         GrepArgs {
             pattern: self.pattern,
+            query: self.query.resolve(defaults),
+        }
+    }
+}
+
+impl RawDiagnosticsArgs {
+    fn resolve(self, defaults: &CliConfig) -> DiagnosticsArgs {
+        DiagnosticsArgs {
             query: self.query.resolve(defaults),
         }
     }

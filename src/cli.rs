@@ -8,7 +8,7 @@ use crate::config::{CliConfig, parse_timeout};
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(10);
 const DEFAULT_LIMIT: usize = 100;
-const DEFAULT_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
+const DEFAULT_IDLE_TIMEOUT: Duration = Duration::from_mins(1);
 
 #[derive(Debug, Parser)]
 #[command(name = "lsp-cli")]

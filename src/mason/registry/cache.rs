@@ -13,7 +13,7 @@ use zip::ZipArchive;
 const GITHUB_API_URL: &str =
     "https://api.github.com/repos/mason-org/mason-registry/releases/latest";
 const REGISTRY_ASSET_NAME: &str = "registry.json.zip";
-const REGISTRY_FRESHNESS_THRESHOLD: Duration = Duration::from_secs(30 * 24 * 60 * 60);
+const REGISTRY_FRESHNESS_THRESHOLD: Duration = Duration::from_hours(24 * 30);
 const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]

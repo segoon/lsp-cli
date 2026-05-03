@@ -392,7 +392,7 @@ pub(super) fn fingerprint_value(value: &Value) -> String {
         ),
         Value::Object(object) => {
             let mut pairs = object.iter().collect::<Vec<_>>();
-            pairs.sort_by(|(left, _), (right, _)| left.cmp(right));
+            pairs.sort_by_key(|(left, _)| *left);
             format!(
                 "{{{}}}",
                 pairs

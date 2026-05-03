@@ -184,10 +184,7 @@ fn wait_for_push_diagnostics(client: &mut LspClient, timeout: Duration) -> Resul
     let mut last_activity = started;
     let mut previous_diagnostic_count = client.published_diagnostics_len();
 
-    loop {
-        let Some(remaining) = timeout.checked_sub(started.elapsed()) else {
-            break;
-        };
+    while let Some(remaining) = timeout.checked_sub(started.elapsed()) {
         let poll = remaining.min(DIAGNOSTIC_POLL_INTERVAL);
 
         client.collect_diagnostics(poll)?;

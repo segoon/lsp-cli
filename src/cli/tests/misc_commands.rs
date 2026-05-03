@@ -1,6 +1,6 @@
 use super::super::{
-    Command, DaemonArgs, FormatArgs, LanguagesArgs, RunArgs, ServerCapabilitiesArgs,
-    ServersArgs, StopAllArgs, StopArgs, UpdateArgs,
+    Command, DaemonArgs, FormatArgs, LanguagesArgs, RunArgs, ServerCapabilitiesArgs, ServersArgs,
+    StopAllArgs, StopArgs, UpdateArgs,
 };
 use super::{parse, parse_with_config};
 use crate::config::{CliConfig, DaemonCliConfig};

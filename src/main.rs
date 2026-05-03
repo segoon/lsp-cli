@@ -8,7 +8,9 @@ mod hash;
 mod lsp;
 mod mason;
 mod runtime_state;
+mod server_stderr;
 mod suggest;
+mod system_log;
 mod update;
 
 #[cfg(test)]
@@ -20,8 +22,10 @@ use std::process;
 use cli::{RawCommand as CliRawCommand, parse_raw_args, resolve_command};
 use commands::{run, run_completion};
 use config::{default_cli_config_roots, default_config_root, load_cli_config, load_config_store};
+use system_log::{log_unexpected_error, warn_if_log_file_is_large};
 
 fn main() {
+    warn_if_log_file_is_large();
     let cli_argv = env::args().skip(1).collect::<Vec<_>>();
     let raw_command = match parse_raw_args(cli_argv.clone()) {
         Ok(command) => command,
@@ -37,6 +41,7 @@ fn main() {
             let cli = match update::load_cli_defaults_for_update() {
                 Ok(cli) => cli,
                 Err(error) => {
+                    log_unexpected_error(&format!("failed to load lsp-cli defaults: {error}"));
                     eprintln!("failed to load lsp-cli defaults: {error}");
                     process::exit(1);
                 }
@@ -57,12 +62,16 @@ fn main() {
         }
         raw_command => {
             if let Err(error) = update::ensure_data_available() {
+                log_unexpected_error(&format!(
+                    "failed to install lsp-cli data automatically: {error}"
+                ));
                 eprintln!("failed to install lsp-cli data automatically: {error}");
                 process::exit(1);
             }
             let config_root = match default_config_root() {
                 Ok(path) => path,
                 Err(error) => {
+                    log_unexpected_error(&format!("failed to resolve config root: {error}"));
                     eprintln!("failed to resolve config root: {error}");
                     process::exit(1);
                 }
@@ -71,6 +80,10 @@ fn main() {
             let mut config = match load_config_store(&config_root) {
                 Ok(config) => config,
                 Err(error) => {
+                    log_unexpected_error(&format!(
+                        "failed to load config from {}: {error}",
+                        config_root.display()
+                    ));
                     eprintln!(
                         "failed to load config from {}: {error}",
                         config_root.display()
@@ -83,6 +96,7 @@ fn main() {
             config.cli = match load_cli_config(&global_cli_root, user_cli_root.as_deref()) {
                 Ok(cli) => cli,
                 Err(error) => {
+                    log_unexpected_error(&format!("failed to load lsp-cli defaults: {error}"));
                     eprintln!("failed to load lsp-cli defaults: {error}");
                     process::exit(1);
                 }
@@ -107,6 +121,7 @@ fn main() {
             }
         }
         Err(error) => {
+            log_unexpected_error(&error);
             eprintln!("{error}");
             process::exit(1);
         }

@@ -14,6 +14,10 @@ use super::{
     jsonrpc,
     transport::{log_debug_message, write_message},
 };
+use crate::server_stderr::CapturedStderr;
+use crate::system_log::{
+    log_lsp_server_exit, log_lsp_server_started, log_lsp_server_starting, log_unexpected_error,
+};
 
 mod background;
 mod process_io;
@@ -23,8 +27,10 @@ mod requests;
 mod tests;
 #[cfg(test)]
 mod tests_initialize_stderr;
+#[cfg(test)]
+mod tests_logging;
 
-use process_io::{CapturedStderr, spawn_reader};
+use process_io::spawn_reader;
 
 pub struct LspClient {
     transport: ClientTransport,
@@ -36,6 +42,7 @@ pub struct LspClient {
     opened_documents: BTreeSet<String>,
     workspace_folders: Option<Vec<WorkspaceFolder>>,
     published_diagnostics: BTreeMap<String, Value>,
+    process_exit_logged: bool,
     debug: bool,
     timeout: Duration,
 }
@@ -62,34 +69,40 @@ impl LspClient {
             return Err("cannot start LSP server from empty command".to_string());
         };
 
+        log_lsp_server_starting();
         let mut child = Command::new(program)
             .args(&command[1..])
             .current_dir(workspace_root)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(if debug {
-                Stdio::inherit()
-            } else {
-                Stdio::piped()
-            })
+            .stderr(Stdio::piped())
             .spawn()
-            .map_err(|error| format_spawn_error(program, &error))?;
+            .map_err(|error| {
+                let error = format_spawn_error(program, &error);
+                log_unexpected_error(&error);
+                error
+            })?;
 
-        let stdin = child
-            .stdin
-            .take()
-            .ok_or_else(|| format!("failed to open stdin for {program}"))?;
-        let stdout = child
-            .stdout
-            .take()
-            .ok_or_else(|| format!("failed to open stdout for {program}"))?;
-        let stderr = if debug {
-            None
-        } else {
-            Some(CapturedStderr::spawn(child.stderr.take().ok_or_else(
-                || format!("failed to open stderr for {program}"),
-            )?))
-        };
+        log_lsp_server_started(child.id());
+
+        let stdin = child.stdin.take().ok_or_else(|| {
+            let error = format!("failed to open stdin for {program}");
+            log_unexpected_error(&error);
+            error
+        })?;
+        let stdout = child.stdout.take().ok_or_else(|| {
+            let error = format!("failed to open stdout for {program}");
+            log_unexpected_error(&error);
+            error
+        })?;
+        let stderr = Some(CapturedStderr::spawn(
+            child.stderr.take().ok_or_else(|| {
+                let error = format!("failed to open stderr for {program}");
+                log_unexpected_error(&error);
+                error
+            })?,
+            debug,
+        ));
         let messages = spawn_reader(stdout, debug);
 
         if debug {
@@ -106,6 +119,7 @@ impl LspClient {
             opened_documents: BTreeSet::new(),
             workspace_folders: None,
             published_diagnostics: BTreeMap::new(),
+            process_exit_logged: false,
             debug,
             timeout,
         })
@@ -144,6 +158,7 @@ impl LspClient {
             opened_documents: BTreeSet::new(),
             workspace_folders: None,
             published_diagnostics: BTreeMap::new(),
+            process_exit_logged: true,
             debug,
             timeout,
         })
@@ -204,10 +219,9 @@ impl LspClient {
                     ));
                 }
                 Ok(IncomingMessage::Error(error)) => {
-                    return Err(format!(
-                        "failed to read LSP message for {}: {error}",
-                        R::METHOD
-                    ));
+                    let error = format!("failed to read LSP message for {}: {error}", R::METHOD);
+                    log_unexpected_error(&error);
+                    return Err(error);
                 }
                 Err(RecvTimeoutError::Timeout) => {
                     return Err(format!("timed out waiting for {}", R::METHOD));
@@ -320,9 +334,9 @@ impl LspClient {
                 }
                 Ok(IncomingMessage::EndOfStream) | Err(RecvTimeoutError::Timeout) => return Ok(()),
                 Ok(IncomingMessage::Error(error)) => {
-                    return Err(format!(
-                        "failed to read LSP diagnostics notification: {error}"
-                    ));
+                    let error = format!("failed to read LSP diagnostics notification: {error}");
+                    log_unexpected_error(&error);
+                    return Err(error);
                 }
                 Err(RecvTimeoutError::Disconnected) => {
                     return Ok(());
@@ -335,7 +349,9 @@ impl LspClient {
         self.drain_pending_server_requests()
     }
 
-    fn format_transport_wait_error(&self, method: &str, error: String) -> String {
+    fn format_transport_wait_error(&mut self, method: &str, error: String) -> String {
+        self.try_log_process_exit();
+
         if method != Initialize::METHOD {
             return error;
         }
@@ -347,6 +363,16 @@ impl LspClient {
         format!("{error}: {stderr}")
     }
 
+    fn try_log_process_exit(&mut self) {
+        let ClientTransport::Process { child, .. } = &mut self.transport else {
+            return;
+        };
+        let Ok(Some(status)) = child.try_wait() else {
+            return;
+        };
+        self.log_process_exit(status);
+    }
+
     fn wait_for_process_exit(&mut self) -> Result<(), String> {
         const PROCESS_EXIT_POLL_INTERVAL: Duration = Duration::from_millis(50);
 
@@ -354,10 +380,15 @@ impl LspClient {
         loop {
             match &mut self.transport {
                 ClientTransport::Process { child, .. } => match child.try_wait() {
-                    Ok(Some(_)) => return Ok(()),
+                    Ok(Some(status)) => {
+                        self.log_process_exit(status);
+                        return Ok(());
+                    }
                     Ok(None) => {}
                     Err(error) => {
-                        return Err(format!("failed to wait for LSP server exit: {error}"));
+                        let error = format!("failed to wait for LSP server exit: {error}");
+                        log_unexpected_error(&error);
+                        return Err(error);
                     }
                 },
                 ClientTransport::Socket { .. } => return Ok(()),
@@ -382,9 +413,11 @@ impl LspClient {
                 Ok(IncomingMessage::EndOfStream)
                 | Err(RecvTimeoutError::Timeout | RecvTimeoutError::Disconnected) => {}
                 Ok(IncomingMessage::Error(error)) => {
-                    return Err(format!(
+                    let error = format!(
                         "failed to read LSP message while waiting for server exit: {error}"
-                    ));
+                    );
+                    log_unexpected_error(&error);
+                    return Err(error);
                 }
             }
         }
@@ -395,13 +428,26 @@ impl LspClient {
             return Ok(());
         };
 
-        child
-            .kill()
-            .map_err(|error| format!("failed to stop LSP server process: {error}"))?;
-        child
-            .wait()
-            .map_err(|error| format!("failed to wait for LSP server exit: {error}"))?;
+        child.kill().map_err(|error| {
+            let error = format!("failed to stop LSP server process: {error}");
+            log_unexpected_error(&error);
+            error
+        })?;
+        let status = child.wait().map_err(|error| {
+            let error = format!("failed to wait for LSP server exit: {error}");
+            log_unexpected_error(&error);
+            error
+        })?;
+        self.log_process_exit(status);
         Ok(())
+    }
+
+    fn log_process_exit(&mut self, status: std::process::ExitStatus) {
+        if self.process_exit_logged {
+            return;
+        }
+        log_lsp_server_exit(status);
+        self.process_exit_logged = true;
     }
 
     fn handle_server_request(&mut self, request_id: &Value, message: &Value) -> Result<(), String> {
@@ -488,8 +534,35 @@ impl Drop for LspClient {
         if !self.shutdown_sent
             && let ClientTransport::Process { child, .. } = &mut self.transport
         {
-            let _ = child.kill();
-            let _ = child.wait();
+            match child.try_wait() {
+                Ok(Some(status)) => {
+                    if !self.process_exit_logged {
+                        log_lsp_server_exit(status);
+                        self.process_exit_logged = true;
+                    }
+                    return;
+                }
+                Ok(None) => {}
+                Err(error) => {
+                    log_unexpected_error(&format!("failed to inspect LSP server process: {error}"));
+                    return;
+                }
+            }
+
+            if let Err(error) = child.kill() {
+                log_unexpected_error(&format!("failed to stop LSP server process: {error}"));
+                return;
+            }
+            match child.wait() {
+                Ok(status) if !self.process_exit_logged => {
+                    log_lsp_server_exit(status);
+                    self.process_exit_logged = true;
+                }
+                Ok(_) => {}
+                Err(error) => {
+                    log_unexpected_error(&format!("failed to wait for LSP server exit: {error}"));
+                }
+            }
         }
     }
 }

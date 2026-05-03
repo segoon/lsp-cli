@@ -124,15 +124,15 @@ fn defaults_position_encoding_and_omits_missing_server_version() {
         }
     }));
 
-    assert!(render_for_tests(&["test-lsp".to_string()], "fallback", &initialize).contains(
-        &lines(&[
+    assert!(
+        render_for_tests(&["test-lsp".to_string()], "fallback", &initialize).contains(&lines(&[
             "server: test-lsp",
             "capabilities:",
             "  position encoding: utf-16",
             "  text document sync: yes",
             "    change: full",
-        ])
-    ));
+        ]))
+    );
 }
 
 #[test]
@@ -146,11 +146,13 @@ fn renders_unknown_raw_capabilities() {
         }
     }));
 
-    assert!(render_for_tests(&["custom-lsp".to_string()], "custom-lsp", &initialize).contains(
-        &lines(&[
-            "  customProvider: yes",
-            "    enabled: yes",
-            "    mode: fast",
-        ])
-    ));
+    assert!(
+        render_for_tests(&["custom-lsp".to_string()], "custom-lsp", &initialize).contains(&lines(
+            &[
+                "  customProvider: yes",
+                "    enabled: yes",
+                "    mode: fast",
+            ]
+        ))
+    );
 }

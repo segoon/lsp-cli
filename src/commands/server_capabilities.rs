@@ -316,7 +316,11 @@ pub(super) fn run(args: &ServerCapabilitiesArgs, config: &ConfigStore) -> Result
     let initialize = client
         .initialize(&workspace.root_uri, &workspace.workspace_name, false)
         .map_err(|error| format!("failed to initialize {}: {error}", workspace.server.server))?;
-    let output = render_output(&workspace.server.command, &workspace.server.server, &initialize);
+    let output = render_output(
+        &workspace.server.command,
+        &workspace.server.server,
+        &initialize,
+    );
     client.shutdown().map_err(|error| {
         format!(
             "failed to stop {} cleanly: {error}",
@@ -326,7 +330,11 @@ pub(super) fn run(args: &ServerCapabilitiesArgs, config: &ConfigStore) -> Result
     Ok(output)
 }
 
-fn render_output(command: &[String], fallback_server_name: &str, initialize: &InitializeResponse) -> String {
+fn render_output(
+    command: &[String],
+    fallback_server_name: &str,
+    initialize: &InitializeResponse,
+) -> String {
     let server_name = initialize
         .server_info()
         .map_or(fallback_server_name, |info| info.name.as_str());
@@ -416,8 +424,14 @@ fn render_text_document_sync(value: Option<&Value>, indent: usize, lines: &mut V
             }
 
             for key in sorted_keys(map) {
-                if ["openClose", "change", "willSave", "willSaveWaitUntil", "save"]
-                    .contains(&key.as_str())
+                if [
+                    "openClose",
+                    "change",
+                    "willSave",
+                    "willSaveWaitUntil",
+                    "save",
+                ]
+                .contains(&key.as_str())
                 {
                     continue;
                 }
@@ -573,8 +587,16 @@ fn push_line(lines: &mut Vec<String>, indent: usize, name: &str, value: &str) {
 fn format_scalar(value: &Value) -> String {
     match value {
         Value::String(text) => text.clone(),
-        Value::Array(items) if items.iter().all(|item| !item.is_object() && !item.is_array()) => {
-            items.iter().map(format_scalar).collect::<Vec<_>>().join(", ")
+        Value::Array(items)
+            if items
+                .iter()
+                .all(|item| !item.is_object() && !item.is_array()) =>
+        {
+            items
+                .iter()
+                .map(format_scalar)
+                .collect::<Vec<_>>()
+                .join(", ")
         }
         _ => value.to_string(),
     }

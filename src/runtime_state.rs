@@ -68,6 +68,11 @@ impl RuntimeState {
     }
 
     #[must_use]
+    pub fn log_path(&self) -> PathBuf {
+        self.root.join("lsp-cli.log")
+    }
+
+    #[must_use]
     pub fn receipt_path(&self, package: &str) -> PathBuf {
         self.receipts_dir().join(format!("{package}.json"))
     }
@@ -247,6 +252,14 @@ mod tests {
 
         assert_ne!(first, second);
         assert_ne!(first, third);
+    }
+
+    #[test]
+    fn stores_global_log_file_under_runtime_root() {
+        let dir = TestDir::new("runtime-log-path");
+        let state = RuntimeState::new(dir.path().join("state"));
+
+        assert_eq!(state.log_path(), dir.path().join("state/lsp-cli.log"));
     }
 
     #[test]

@@ -2,6 +2,8 @@ use crate::cli::DaemonArgs;
 use crate::config::ConfigStore;
 use crate::lsp::transport::{log_debug_message, write_message};
 use crate::lsp::{STOP_METHOD, jsonrpc, parse_lsp_uri};
+use crate::server_stderr::CapturedStderr;
+use crate::system_log::{log_lsp_server_exit, log_unexpected_error};
 use lsp_types::notification::{Cancel, DidCloseTextDocument, Notification};
 use lsp_types::request::{Initialize, Request};
 use lsp_types::{CancelParams, DidCloseTextDocumentParams, NumberOrString, TextDocumentIdentifier};
@@ -170,6 +172,7 @@ struct Daemon {
 struct UpstreamServer {
     child: Child,
     stdin: ChildStdin,
+    stderr: CapturedStderr,
     messages: Receiver<ReaderEvent>,
     initialize_fingerprint: Option<String>,
     initialize_result: Option<Value>,
@@ -283,7 +286,9 @@ impl Daemon {
                 }
                 ReaderEvent::Error(error) => {
                     self.upstream_died();
-                    return Err(format!("failed to read LSP server message: {error}"));
+                    let error = format!("failed to read LSP server message: {error}");
+                    log_unexpected_error(&error);
+                    return Err(error);
                 }
             }
         }
@@ -696,6 +701,16 @@ impl Daemon {
     }
 
     fn upstream_died(&mut self) {
+        if let Some(mut upstream) = self.upstream.take() {
+            let _ = upstream.stderr.summary();
+            match upstream.child.try_wait() {
+                Ok(Some(status)) => log_lsp_server_exit(status),
+                Ok(None) => {}
+                Err(error) => {
+                    log_unexpected_error(&format!("failed to inspect LSP server process: {error}"));
+                }
+            }
+        }
         self.upstream = None;
         self.active_client = None;
         self.orphaned_client_requests.clear();

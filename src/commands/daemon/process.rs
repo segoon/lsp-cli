@@ -7,6 +7,10 @@ use crate::config::ConfigStore;
 use crate::lsp::transport::read_message;
 use crate::lsp::{jsonrpc, path_to_file_uri, workspace_name};
 use crate::runtime_state::{daemon_socket_path, default_daemon_root};
+use crate::server_stderr::CapturedStderr;
+use crate::system_log::{
+    log_lsp_server_exit, log_lsp_server_started, log_lsp_server_starting, log_unexpected_error,
+};
 use lsp_types::notification::{Exit, Notification};
 use lsp_types::request::{Request, Shutdown};
 use serde_json::Value;
@@ -261,7 +265,7 @@ impl UpstreamServer {
             .arg(&target.path)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::null());
+            .stderr(Stdio::piped());
 
         if debug {
             command.arg("--debug");
@@ -269,24 +273,39 @@ impl UpstreamServer {
 
         command.arg("--lsp").arg(&target.server_name);
 
+        log_lsp_server_starting();
         let mut child = command.spawn().map_err(|error| {
-            format!(
+            let error = format!(
                 "failed to start lsp-cli run for {}: {error}",
                 target.server_name
-            )
+            );
+            log_unexpected_error(&error);
+            error
         })?;
-        let stdin = child
-            .stdin
-            .take()
-            .ok_or_else(|| "failed to open LSP server stdin".to_string())?;
-        let stdout = child
-            .stdout
-            .take()
-            .ok_or_else(|| "failed to open LSP server stdout".to_string())?;
+        log_lsp_server_started(child.id());
+        let stdin = child.stdin.take().ok_or_else(|| {
+            let error = "failed to open LSP server stdin".to_string();
+            log_unexpected_error(&error);
+            error
+        })?;
+        let stdout = child.stdout.take().ok_or_else(|| {
+            let error = "failed to open LSP server stdout".to_string();
+            log_unexpected_error(&error);
+            error
+        })?;
+        let stderr = CapturedStderr::spawn(
+            child.stderr.take().ok_or_else(|| {
+                let error = "failed to open LSP server stderr".to_string();
+                log_unexpected_error(&error);
+                error
+            })?,
+            debug,
+        );
 
         Ok(Self {
             child,
             stdin,
+            stderr,
             messages: spawn_reader(stdout),
             initialize_fingerprint: None,
             initialize_result: None,
@@ -296,6 +315,7 @@ impl UpstreamServer {
     }
 
     pub(super) fn shutdown(&mut self, debug: bool) -> Result<(), String> {
+        let _ = self.stderr.summary();
         if self.initialize_fingerprint.is_some() {
             let shutdown_id = Value::String("lsp-cli/daemon-shutdown".to_string());
             let shutdown = jsonrpc(Some(shutdown_id.clone()), Shutdown::METHOD, &())?;
@@ -327,30 +347,45 @@ impl UpstreamServer {
         }
 
         match self.child.try_wait() {
-            Ok(Some(_)) => return Ok(()),
+            Ok(Some(status)) => {
+                log_lsp_server_exit(status);
+                return Ok(());
+            }
             Ok(None) => {}
             Err(error) => {
-                return Err(format!("failed to inspect LSP server process: {error}"));
+                let error = format!("failed to inspect LSP server process: {error}");
+                log_unexpected_error(&error);
+                return Err(error);
             }
         }
 
         let started = Instant::now();
         while started.elapsed() < UPSTREAM_SHUTDOWN_TIMEOUT {
             match self.child.try_wait() {
-                Ok(Some(_)) => return Ok(()),
+                Ok(Some(status)) => {
+                    log_lsp_server_exit(status);
+                    return Ok(());
+                }
                 Ok(None) => thread::sleep(POLL_INTERVAL),
                 Err(error) => {
-                    return Err(format!("failed to wait for LSP server exit: {error}"));
+                    let error = format!("failed to wait for LSP server exit: {error}");
+                    log_unexpected_error(&error);
+                    return Err(error);
                 }
             }
         }
 
-        self.child
-            .kill()
-            .map_err(|error| format!("failed to stop LSP server process: {error}"))?;
-        self.child
-            .wait()
-            .map_err(|error| format!("failed to reap LSP server process: {error}"))?;
+        self.child.kill().map_err(|error| {
+            let error = format!("failed to stop LSP server process: {error}");
+            log_unexpected_error(&error);
+            error
+        })?;
+        let status = self.child.wait().map_err(|error| {
+            let error = format!("failed to reap LSP server process: {error}");
+            log_unexpected_error(&error);
+            error
+        })?;
+        log_lsp_server_exit(status);
         Ok(())
     }
 }

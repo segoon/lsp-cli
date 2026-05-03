@@ -34,6 +34,7 @@ options:
 generic:
 - lsp commands should spawn ALL discovered LSP servers in case of multiple languages
 
+--help subcommand grouping
 
 # Bugs
 

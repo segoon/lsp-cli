@@ -29,6 +29,8 @@ lsp-cli is a high-level commandline tool that makes it possible to query LSP ser
 * Do not use unsafe. If you cannot avoid unsafe, ask the user.
 * Do not hardcode generic algorithm if it exists in crate.
   Suggest to reuse a crate instead.
+* Do not switch from external crate to manual algorithm if it doesn't fit well unless explicitly
+  allowed by the user.
 
 
 # Architecture

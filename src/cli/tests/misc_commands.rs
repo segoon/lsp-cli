@@ -1,5 +1,6 @@
 use super::super::{
     Command, DaemonArgs, FormatArgs, LanguagesArgs, RunArgs, ServersArgs, StopAllArgs, StopArgs,
+    UpdateArgs,
 };
 use super::{parse, parse_with_config};
 use crate::config::{CliConfig, DaemonCliConfig};
@@ -136,6 +137,11 @@ fn parses_servers_arguments() {
             lang: Some("python".to_string())
         })
     );
+}
+
+#[test]
+fn parses_update_arguments() {
+    assert_eq!(parse(&["update"]).expect("update should parse"), Command::Update(UpdateArgs));
 }
 
 #[test]

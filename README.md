@@ -44,7 +44,7 @@ cargo run
 
 `lsp-cli` optionally loads `lsp-cli.yaml` in this order:
 
-1. global: `$LSP_DATA/lsp-cli.yaml` if `LSP_DATA` is set, otherwise `data/lsp-cli.yaml`
+1. global: `$LSP_DATA/lsp-cli.yaml` if `LSP_DATA` is set, otherwise `~/.local/share/lsp-cli/data/lsp-cli.yaml` when downloaded data exists, otherwise `data/lsp-cli.yaml`
 2. user: `$XDG_CONFIG_HOME/lsp-cli/lsp-cli.yaml`, or `~/.config/lsp-cli/lsp-cli.yaml` when `XDG_CONFIG_HOME` is unset
 
 User settings override global settings.
@@ -55,6 +55,7 @@ Example:
 
 ```yaml
 download: false
+download-version: latest
 detach: false
 json: false
 debug: false
@@ -169,6 +170,9 @@ lsp-cli stop path/to/project --lang rust
 # Stop every active daemon under $XDG_RUNTIME_DIR/lsp-cli
 lsp-cli stop-all
 
+# Download or refresh the external lsp-cli data bundle
+lsp-cli update
+
 # List configured languages and servers from the loaded config root
 lsp-cli languages
 lsp-cli servers
@@ -191,8 +195,10 @@ lsp-cli servers --lang rust
 `daemon` creates a Unix socket under `$XDG_RUNTIME_DIR/lsp-cli/`, starts `lsp-cli run` in the background, and prints the socket path only after the socket is already listening. The daemon accepts one LSP client at a time, keeps the upstream server warm while idle, and shuts it down after `--idle-timeout` (default `60s`). If the next client initializes with different normalized settings, lsp-cli restarts the upstream LSP server before serving that client.
 `stop` resolves the same workspace/server selection as `daemon`, connects to the matching daemon socket, and asks that daemon to stop. If no matching daemon is active, the command succeeds and reports that nothing was running. When a workspace has multiple runnable detected languages and you do not pass `--lang` or `--lsp`, `stop` iterates over every matching language-specific daemon instead of failing on ambiguity.
 `stop-all` scans `$XDG_RUNTIME_DIR/lsp-cli` and stops every active daemon it can reach, removing stale socket files along the way.
+`update` downloads the `lsp-cli-data` GitHub release selected by `download-version` and installs it into `~/.local/share/lsp-cli/data/`. The archive is extracted into a temporary directory first, then all downloaded configs are validated before the installed data tree is replaced.
 `languages` lists the configured language ids from the loaded `filetypes/` config. `servers` lists configured LSP server names from the loaded `lsp/` config, and `servers --lang LANG` narrows that list to one configured language.
 LSP-backed commands such as `grep`, `list-symbols`, `references`, and `build-index` automatically prefer the matching daemon socket when it exists. If the socket file exists but no daemon is listening, lsp-cli removes the dead socket and falls back to starting the LSP server directly.
+When no config data is available, lsp-cli automatically runs the same update flow once before the requested command. If that first automatic download or validation fails, the command fails too.
 
 
 # References

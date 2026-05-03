@@ -16,6 +16,7 @@ pub struct ConfigStore {
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct CliConfig {
+    pub download_version: Option<String>,
     pub download: Option<bool>,
     pub detach: Option<bool>,
     pub json: Option<bool>,
@@ -77,6 +78,8 @@ struct LspFile {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct CliConfigFile {
+    #[serde(default, rename = "download-version")]
+    download_version: Option<String>,
     #[serde(default)]
     download: Option<bool>,
     #[serde(default)]
@@ -125,7 +128,19 @@ pub fn default_config_root() -> Result<PathBuf, String> {
 
 pub fn default_cli_config_roots() -> (PathBuf, Option<PathBuf>) {
     let global = env::var_os("LSP_DATA").map_or_else(
-        || PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data"),
+        || {
+            env::var_os("HOME").map_or_else(
+                || PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data"),
+                |home| {
+                    let user_data = PathBuf::from(home).join(".local/share/lsp-cli/data");
+                    if has_config_dirs(&user_data) {
+                        user_data
+                    } else {
+                        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data")
+                    }
+                },
+            )
+        },
         PathBuf::from,
     );
     let xdg_config_home = env::var_os("XDG_CONFIG_HOME").map(PathBuf::from);
@@ -154,8 +169,9 @@ fn choose_config_root(
 
     if let Some(home) = home {
         let home_root = home.join(".local/share/lsp-cli");
-        if has_config_dirs(&home_root) {
-            return Ok(home_root);
+        let downloaded_root = home_root.join("data");
+        if has_config_dirs(&downloaded_root) {
+            return Ok(downloaded_root);
         }
     }
 
@@ -164,7 +180,7 @@ fn choose_config_root(
     }
 
     Err(
-        "could not resolve config root from LSP_DATA, ~/.local/share/lsp-cli, or repo data/"
+        "could not resolve config root from LSP_DATA, ~/.local/share/lsp-cli/data, or repo data/"
             .to_string(),
     )
 }
@@ -238,6 +254,9 @@ impl CliConfig {
         if other.daemon.idle_timeout.is_some() {
             self.daemon.idle_timeout = other.daemon.idle_timeout;
         }
+        if other.download_version.is_some() {
+            self.download_version = other.download_version;
+        }
         self.lsp_preferences.extend(other.lsp_preferences);
     }
 }
@@ -245,6 +264,7 @@ impl CliConfig {
 impl From<CliConfigFile> for CliConfig {
     fn from(file: CliConfigFile) -> Self {
         Self {
+            download_version: file.download_version,
             download: file.download,
             detach: file.detach,
             json: file.json,

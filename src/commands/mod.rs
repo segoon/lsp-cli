@@ -19,6 +19,7 @@ mod run;
 mod servers;
 mod stop;
 mod symbol_query;
+mod update;
 
 use crate::cli::{Command as CliCommand, CompletionArgs};
 use crate::config::ConfigStore;
@@ -43,6 +44,7 @@ pub(crate) fn run(command: CliCommand, config: &ConfigStore) -> Result<String, S
         CliCommand::Definition(args) => definition::run(&args, config),
         CliCommand::Declaration(args) => declaration::run(&args, config),
         CliCommand::BuildIndex(args) => build_index::run(&args, config),
+        CliCommand::Update(args) => update::run(&args, config),
         CliCommand::Completion(_) => unreachable!("completion handled before config loading"),
         CliCommand::Run(args) => run::run(&args, config),
     }

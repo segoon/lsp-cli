@@ -40,6 +40,7 @@ pub(crate) enum RawCommand {
     Definition(RawDefinitionArgs),
     Declaration(RawDeclarationArgs),
     BuildIndex(RawBuildIndexArgs),
+    Update(RawUpdateArgs),
     Completion(CompletionArgs),
     Run(RawRunArgs),
 }
@@ -64,6 +65,7 @@ pub enum Command {
     Definition(DefinitionArgs),
     Declaration(DeclarationArgs),
     BuildIndex(BuildIndexArgs),
+    Update(UpdateArgs),
     Completion(CompletionArgs),
     Run(RunArgs),
 }
@@ -499,6 +501,12 @@ pub struct ServersArgs {
     pub lang: Option<String>,
 }
 
+#[derive(Debug, Args, Eq, PartialEq)]
+pub(crate) struct RawUpdateArgs {}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct UpdateArgs;
+
 #[derive(Clone, Copy, Debug, Args, Eq, PartialEq)]
 pub struct CompletionArgs {
     pub shell: Option<Shell>,
@@ -541,6 +549,7 @@ pub(crate) fn resolve_command(
         RawCommand::Definition(args) => Command::Definition(args.resolve(defaults)),
         RawCommand::Declaration(args) => Command::Declaration(args.resolve(defaults)),
         RawCommand::BuildIndex(args) => Command::BuildIndex(args.resolve(defaults)),
+        RawCommand::Update(_) => Command::Update(RawUpdateArgs::resolve()),
         RawCommand::Completion(args) => Command::Completion(args),
         RawCommand::Run(args) => Command::Run(args.resolve(defaults)),
     };
@@ -815,6 +824,12 @@ impl RawLanguagesArgs {
 impl RawServersArgs {
     fn resolve(self) -> ServersArgs {
         ServersArgs { lang: self.lang }
+    }
+}
+
+impl RawUpdateArgs {
+    fn resolve() -> UpdateArgs {
+        UpdateArgs
     }
 }
 

@@ -17,11 +17,11 @@ fn write_config_dirs(dir: &TestDir) {
 
 fn write_local_share_config(home: &TestDir, filetype: &str, lsp: &str) {
     home.write_file(
-        &format!("{LOCAL_SHARE_LSP_CLI}/filetypes/{filetype}.yaml"),
+        &format!("{LOCAL_SHARE_LSP_CLI}/data/filetypes/{filetype}.yaml"),
         EMPTY_FILETYPE_YAML,
     );
     home.write_file(
-        &format!("{LOCAL_SHARE_LSP_CLI}/lsp/{lsp}.yaml"),
+        &format!("{LOCAL_SHARE_LSP_CLI}/data/lsp/{lsp}.yaml"),
         format!("filetypes: []\nroot_markers: []\nname: {lsp}\ncmdline: {lsp}\n"),
     );
 }
@@ -55,7 +55,7 @@ fn falls_back_to_home_local_share() {
 
     assert_eq!(
         choose_config_root(None, Some(home.path()), repo.path()).expect("root should resolve"),
-        home.path().join(LOCAL_SHARE_LSP_CLI)
+        home.path().join(format!("{LOCAL_SHARE_LSP_CLI}/data"))
     );
 }
 
@@ -86,7 +86,7 @@ fn errors_when_no_root_can_be_resolved() {
 fn default_config_root_resolves_in_real_environment() {
     let root = default_config_root().expect("root should resolve");
 
-    assert!(root.ends_with(".local/share/lsp-cli") || root.ends_with("data"));
+    assert!(root.ends_with(".local/share/lsp-cli/data") || root.ends_with("data"));
 }
 
 #[test]
@@ -187,6 +187,7 @@ fn loads_layered_cli_config_with_user_overrides() {
 
     let config = load_cli_config(global.path(), Some(user.path())).expect("cli config should load");
 
+    assert_eq!(config.download_version, None);
     assert_eq!(config.download, Some(true));
     assert_eq!(config.detach, Some(true));
     assert_eq!(config.json, Some(true));
@@ -219,6 +220,18 @@ fn ignores_missing_cli_config_files() {
         .expect("missing cli config should be ignored");
 
     assert_eq!(config, super::CliConfig::default());
+}
+
+#[test]
+fn loads_download_version_with_user_override() {
+    let global = TestDir::new("cli-config-download-version-global");
+    let user = TestDir::new("cli-config-download-version-user");
+    global.write_file("lsp-cli.yaml", "download-version: stable\n");
+    user.write_file("lsp-cli.yaml", "download-version: latest\n");
+
+    let config = load_cli_config(global.path(), Some(user.path())).expect("cli config should load");
+
+    assert_eq!(config.download_version.as_deref(), Some("latest"));
 }
 
 #[test]

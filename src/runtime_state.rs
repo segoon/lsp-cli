@@ -62,6 +62,11 @@ impl RuntimeState {
     }
 
     #[must_use]
+    pub fn data_dir(&self) -> PathBuf {
+        self.root.join("data")
+    }
+
+    #[must_use]
     pub fn receipt_path(&self, package: &str) -> PathBuf {
         self.receipts_dir().join(format!("{package}.json"))
     }
@@ -74,6 +79,7 @@ impl RuntimeState {
             self.bin_dir(),
             self.share_dir(),
             self.receipts_dir(),
+            self.data_dir(),
         ] {
             fs::create_dir_all(&path)
                 .map_err(|error| format!("failed to create {}: {error}", path.display()))?;

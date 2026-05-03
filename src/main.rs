@@ -8,6 +8,7 @@ mod lsp;
 mod mason;
 mod runtime_state;
 mod suggest;
+mod update;
 
 #[cfg(test)]
 mod test_support;
@@ -31,7 +32,33 @@ fn main() {
 
     let output = match raw_command {
         CliRawCommand::Completion(completion_args) => run_completion(completion_args),
+        CliRawCommand::Update(_) => {
+            let cli = match update::load_cli_defaults_for_update() {
+                Ok(cli) => cli,
+                Err(error) => {
+                    eprintln!("failed to load lsp-cli defaults: {error}");
+                    process::exit(1);
+                }
+            };
+            let command = match resolve_command(raw_command, &cli) {
+                Ok(command) => command,
+                Err(error) => {
+                    eprintln!("{error}");
+                    process::exit(2);
+                }
+            };
+            let config = config::ConfigStore {
+                filetypes: Vec::new(),
+                lsps: Vec::new(),
+                cli,
+            };
+            run(command, &config)
+        }
         raw_command => {
+            if let Err(error) = update::ensure_data_available() {
+                eprintln!("failed to install lsp-cli data automatically: {error}");
+                process::exit(1);
+            }
             let config_root = match default_config_root() {
                 Ok(path) => path,
                 Err(error) => {

@@ -24,6 +24,8 @@ lsp-cli is a high-level commandline tool that makes it possible to query LSP ser
   Only the user may make important architectural desicions.
   If you have any ideas, remarks, suggestions, or you see extra problems with the user choise,
   you have to inform the user.
+* If the implementation can be extendable for non-existing but possible features/changes,
+  it should be extendable. Even if some feature is not yet planned, it might be planned soon.
 
 
 # Architecture

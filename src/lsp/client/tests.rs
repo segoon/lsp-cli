@@ -517,6 +517,104 @@ fn sends_document_diagnostic_request() {
 }
 
 #[cfg(unix)]
+#[test]
+fn sends_document_formatting_request() {
+    let dir = TestDir::new("client-document-formatting");
+    let socket_path = dir.path().join("server.sock");
+    let listener = UnixListener::bind(&socket_path).expect("socket should bind");
+
+    let server = thread::spawn(move || {
+        let (stream, _) = listener.accept().expect("client should connect");
+        let reader_stream = stream.try_clone().expect("stream should clone");
+        let mut reader = BufReader::new(reader_stream);
+        let mut writer = stream;
+
+        let initialize = read_message(&mut reader)
+            .expect("initialize should parse")
+            .expect("initialize should exist");
+        write_message(
+            &mut writer,
+            &json!({
+                "jsonrpc": "2.0",
+                "id": initialize.get("id").cloned().expect("initialize id should exist"),
+                "result": {
+                    "capabilities": {
+                        "documentFormattingProvider": true
+                    }
+                },
+            }),
+        )
+        .expect("initialize response should write");
+
+        let initialized = read_message(&mut reader)
+            .expect("initialized should parse")
+            .expect("initialized should exist");
+        assert_eq!(
+            initialized.get("method").and_then(serde_json::Value::as_str),
+            Some("initialized")
+        );
+
+        let request = read_message(&mut reader)
+            .expect("format request should parse")
+            .expect("format request should exist");
+        assert_eq!(
+            request.get("method").and_then(serde_json::Value::as_str),
+            Some("textDocument/formatting")
+        );
+        assert_eq!(
+            request
+                .get("params")
+                .and_then(|value| value.get("options"))
+                .and_then(|value| value.get("tabSize"))
+                .and_then(serde_json::Value::as_u64),
+            Some(4)
+        );
+        write_message(
+            &mut writer,
+            &json!({
+                "jsonrpc": "2.0",
+                "id": request.get("id").cloned().expect("request id should exist"),
+                "result": [],
+            }),
+        )
+        .expect("format response should write");
+
+        let shutdown = read_message(&mut reader)
+            .expect("shutdown should parse")
+            .expect("shutdown should exist");
+        write_message(
+            &mut writer,
+            &json!({
+                "jsonrpc": "2.0",
+                "id": shutdown.get("id").cloned().expect("shutdown id should exist"),
+                "result": null,
+            }),
+        )
+        .expect("shutdown response should write");
+
+        let exit = read_message(&mut reader)
+            .expect("exit should parse")
+            .expect("exit should exist");
+        assert_eq!(
+            exit.get("method").and_then(serde_json::Value::as_str),
+            Some("exit")
+        );
+    });
+
+    let mut client =
+        LspClient::connect_unix(&socket_path, false, Duration::from_secs(1)).expect("connect");
+    client
+        .initialize("file:///workspace", "workspace", false)
+        .expect("initialize should succeed");
+    client
+        .format_document("file:///workspace/src/main.rs")
+        .expect("format request should succeed");
+    client.shutdown().expect("shutdown should succeed");
+
+    server.join().expect("server thread should finish");
+}
+
+#[cfg(unix)]
 fn captured_server_stderr(debug: bool) -> String {
     let _lock = stderr_lock()
         .lock()

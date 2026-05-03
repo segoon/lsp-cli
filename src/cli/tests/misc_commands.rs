@@ -1,5 +1,5 @@
 use super::super::{
-    Command, DaemonArgs, LanguagesArgs, RunArgs, ServersArgs, StopAllArgs, StopArgs,
+    Command, DaemonArgs, FormatArgs, LanguagesArgs, RunArgs, ServersArgs, StopAllArgs, StopArgs,
 };
 use super::{parse, parse_with_config};
 use crate::config::{CliConfig, DaemonCliConfig};
@@ -135,5 +135,49 @@ fn parses_servers_arguments() {
         Command::Servers(ServersArgs {
             lang: Some("python".to_string())
         })
+    );
+}
+
+#[test]
+fn parses_format_arguments() {
+    assert_eq!(
+        parse(&[
+            "fmt",
+            "src/main.rs",
+            "--lang",
+            "rust",
+            "--lsp",
+            "rust-analyzer",
+            "--download",
+            "--detach",
+            "--json",
+            "--debug",
+            "--timeout",
+            "250ms",
+            "--check",
+        ])
+        .expect("format should parse"),
+        Command::Format(FormatArgs {
+            path: PathBuf::from("src/main.rs"),
+            lang: Some("rust".to_string()),
+            lsp: Some("rust-analyzer".to_string()),
+            download: true,
+            detach: true,
+            json: true,
+            debug: true,
+            timeout: Duration::from_millis(250),
+            check: true,
+            stdout: false,
+        })
+    );
+}
+
+#[test]
+fn rejects_format_check_with_stdout() {
+    let error = parse(&["format", "src/main.rs", "--check", "--stdout"])
+        .expect_err("format should reject --check --stdout");
+
+    assert!(
+        error.contains("`format` does not support using `--check` together with `--stdout`")
     );
 }

@@ -28,10 +28,7 @@ private:
   std::vector<OrderItem> items_;
 };
 
-int
-f(
-int arg
-);
+int f(int arg);
 
 namespace report {
 std::string format_order(const Order &order);

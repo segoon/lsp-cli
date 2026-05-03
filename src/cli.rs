@@ -27,6 +27,8 @@ pub(crate) enum RawCommand {
     Detect(RawDetectArgs),
     #[command(alias = "diag")]
     Diagnostics(RawDiagnosticsArgs),
+    #[command(alias = "fmt")]
+    Format(RawFormatArgs),
     Grep(RawGrepArgs),
     ListSymbols(RawListSymbolsArgs),
     ListFunctions(RawListFunctionsArgs),
@@ -51,6 +53,7 @@ pub enum Command {
     Servers(ServersArgs),
     Detect(DetectArgs),
     Diagnostics(DiagnosticsArgs),
+    Format(FormatArgs),
     Grep(GrepArgs),
     ListSymbols(ListSymbolsArgs),
     ListFunctions(ListFunctionsArgs),
@@ -182,6 +185,54 @@ pub(crate) struct RawDiagnosticsArgs {
 #[derive(Debug, Eq, PartialEq)]
 pub struct DiagnosticsArgs {
     pub query: LspWorkspaceQueryArgs,
+}
+
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug, Args, Eq, PartialEq)]
+pub(crate) struct RawFormatArgs {
+    #[arg(value_hint = ValueHint::FilePath)]
+    path: PathBuf,
+    #[arg(long)]
+    lang: Option<String>,
+    #[arg(long)]
+    lsp: Option<String>,
+    #[arg(long, conflicts_with = "no_download")]
+    download: bool,
+    #[arg(long = "no-download", conflicts_with = "download")]
+    no_download: bool,
+    #[arg(long, conflicts_with = "no_detach")]
+    detach: bool,
+    #[arg(long = "no-detach", conflicts_with = "detach")]
+    no_detach: bool,
+    #[arg(long, conflicts_with = "no_json")]
+    json: bool,
+    #[arg(long = "no-json", conflicts_with = "json")]
+    no_json: bool,
+    #[arg(long, conflicts_with = "no_debug")]
+    debug: bool,
+    #[arg(long = "no-debug", conflicts_with = "debug")]
+    no_debug: bool,
+    #[arg(long, value_name = "T", value_parser = parse_timeout)]
+    timeout: Option<Duration>,
+    #[arg(long)]
+    check: bool,
+    #[arg(long)]
+    stdout: bool,
+}
+
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug, Eq, PartialEq)]
+pub struct FormatArgs {
+    pub path: PathBuf,
+    pub lang: Option<String>,
+    pub lsp: Option<String>,
+    pub download: bool,
+    pub detach: bool,
+    pub json: bool,
+    pub debug: bool,
+    pub timeout: Duration,
+    pub check: bool,
+    pub stdout: bool,
 }
 
 #[allow(clippy::struct_excessive_bools)]
@@ -479,6 +530,7 @@ pub(crate) fn resolve_command(
         RawCommand::Servers(args) => Command::Servers(args.resolve()),
         RawCommand::Detect(args) => Command::Detect(args.resolve(defaults)),
         RawCommand::Diagnostics(args) => Command::Diagnostics(args.resolve(defaults)),
+        RawCommand::Format(args) => Command::Format(args.resolve(defaults)),
         RawCommand::Grep(args) => Command::Grep(args.resolve(defaults)),
         RawCommand::ListSymbols(args) => Command::ListSymbols(args.resolve(defaults)),
         RawCommand::ListFunctions(args) => Command::ListFunctions(args.resolve(defaults)),
@@ -575,6 +627,29 @@ impl RawDiagnosticsArgs {
     fn resolve(self, defaults: &CliConfig) -> DiagnosticsArgs {
         DiagnosticsArgs {
             query: self.query.resolve(defaults),
+        }
+    }
+}
+
+impl RawFormatArgs {
+    fn resolve(self, defaults: &CliConfig) -> FormatArgs {
+        FormatArgs {
+            path: self.path,
+            lang: self.lang,
+            lsp: self.lsp,
+            download: resolve_bool(
+                self.download,
+                self.no_download,
+                defaults.download.unwrap_or(false),
+            ),
+            detach: resolve_bool(self.detach, self.no_detach, defaults.detach.unwrap_or(false)),
+            json: resolve_bool(self.json, self.no_json, defaults.json.unwrap_or(false)),
+            debug: resolve_bool(self.debug, self.no_debug, defaults.debug.unwrap_or(false)),
+            timeout: self
+                .timeout
+                .unwrap_or(defaults.timeout.unwrap_or(DEFAULT_TIMEOUT)),
+            check: self.check,
+            stdout: self.stdout,
         }
     }
 }
@@ -765,6 +840,9 @@ fn validate_command(command: &Command) -> Result<(), String> {
         Command::Declaration(args) if args.full && args.query.files_with_matches => Err(
             "`declaration` does not support using `--full` together with `--files-with-matches`"
                 .to_string(),
+        ),
+        Command::Format(args) if args.check && args.stdout => Err(
+            "`format` does not support using `--check` together with `--stdout`".to_string(),
         ),
         _ => Ok(()),
     }

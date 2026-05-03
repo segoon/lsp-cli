@@ -4,15 +4,15 @@ use lsp_types::notification::{DidOpenTextDocument, Initialized};
 use lsp_types::request::{
     CallHierarchyIncomingCalls, CallHierarchyOutgoingCalls, CallHierarchyPrepare,
     DocumentDiagnosticRequest, DocumentSymbolRequest, GotoDeclaration, GotoDeclarationParams,
-    GotoDefinition, Initialize, References, WorkspaceSymbolRequest,
+    GotoDefinition, Initialize, References, Formatting, WorkspaceSymbolRequest,
 };
 use lsp_types::{
     CallHierarchyIncomingCallsParams, CallHierarchyItem, CallHierarchyOutgoingCallsParams,
     CallHierarchyPrepareParams, ClientCapabilities, ClientInfo, DidOpenTextDocumentParams,
-    DocumentDiagnosticParams, DocumentSymbolParams, GeneralClientCapabilities,
-    GotoDefinitionParams, InitializeParams, InitializedParams, PartialResultParams, Position,
-    PositionEncodingKind, ReferenceContext, ReferenceParams, TextDocumentIdentifier,
-    TextDocumentItem, TextDocumentPositionParams,
+    DocumentDiagnosticParams, DocumentFormattingParams, DocumentSymbolParams, FormattingOptions,
+    GeneralClientCapabilities, GotoDefinitionParams, InitializeParams, InitializedParams,
+    PartialResultParams, Position, PositionEncodingKind, ReferenceContext, ReferenceParams,
+    TextDocumentIdentifier, TextDocumentItem, TextDocumentPositionParams,
     WindowClientCapabilities, WorkDoneProgressParams, WorkspaceClientCapabilities,
     WorkspaceFolder, WorkspaceSymbolParams,
 };
@@ -120,6 +120,19 @@ impl LspClient {
             partial_result_params: PartialResultParams::default(),
         };
         self.send_request::<DocumentDiagnosticRequest>(&params)
+    }
+
+    pub fn format_document(&mut self, uri: &str) -> Result<Value, String> {
+        let params = DocumentFormattingParams {
+            text_document: TextDocumentIdentifier::new(parse_lsp_uri(uri, "document")?),
+            options: FormattingOptions {
+                tab_size: 4,
+                insert_spaces: true,
+                ..Default::default()
+            },
+            work_done_progress_params: WorkDoneProgressParams::default(),
+        };
+        self.send_request::<Formatting>(&params)
     }
 
     pub fn references(

@@ -9,6 +9,7 @@ mod declaration;
 mod definition;
 mod detect;
 mod grep;
+mod format;
 mod languages;
 mod list_files;
 mod list_functions;
@@ -26,6 +27,7 @@ pub(crate) fn run(command: CliCommand, config: &ConfigStore) -> Result<String, S
     match command {
         CliCommand::Detect(args) => detect::run(&args, config),
         CliCommand::Diagnostics(args) => diagnostics::run(&args, config),
+        CliCommand::Format(args) => format::run(&args, config),
         CliCommand::Daemon(args) => daemon::run(&args, config),
         CliCommand::Stop(args) => stop::run(&args, config),
         CliCommand::StopAll(args) => stop::run_all(&args),

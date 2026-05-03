@@ -1,12 +1,35 @@
 # LSP protocol
 
+## Capabilities
+
 - Some servers send client requests such as `client/registerCapability` immediately after the
   `initialize` response and expect those requests to be answered before later client traffic.
   lsp-cli therefore drains and replies to queued server requests right after `initialized` and
   before sending later requests, instead of assuming request-response traffic is strictly
   one-directional.
 
-# daemon gotchas
+
+## Diagnostics
+
+- Diagnostics are not uniformly query-shaped across servers.
+  Some servers support client-initiated `textDocument/diagnostic`, while others only publish
+  `textDocument/publishDiagnostics` asynchronously after `didOpen` or background analysis.
+  A CLI diagnostics command therefore cannot rely on only one path if it wants broad coverage.
+- `textDocument/publishDiagnostics` is latest-state data, not an append-only stream.
+  Servers may replace older diagnostics for the same URI with a newer notification, including an
+  empty list to clear prior errors. Keep only the latest notification per URI instead of treating
+  each publish as an independent result item.
+- A diagnostics command that only opens files and waits a short fixed delay is fragile.
+  Some servers publish diagnostics only after preamble building, indexing, or other async work, so
+  the client may need to wait through a bounded timeout budget instead of assuming diagnostics are
+  available immediately after `didOpen`.
+- Background-work progress such as `$/progress` is useful for diagnostics timing, but it is not a
+  diagnostics result by itself. A server can report indexing activity without publishing any
+  diagnostics yet, and some servers expose progress inconsistently, so progress should be treated as
+  a hint rather than as the sole completion signal for `diag`.
+
+
+# Daemon gotchas
 
 - LSP 3.17 assumes one server serves one tool. `lsp-cli daemon` therefore implements a
   conservative proxy policy instead of transparent multi-client sharing: only one client may be
@@ -46,3 +69,7 @@
   `lsp-cli` currently expects for `wait-for-index`/`build-index` flows. Keep normal symbol-query
   configs on `wait-for-index: false` unless that progress reporting is confirmed for the target
   `clangd` setup.
+- `clangd` may expose diagnostics only through delayed `textDocument/publishDiagnostics` even when
+  it does send `$/progress`, and in some setups it does not advertise `diagnosticProvider` for
+  pull diagnostics at all. For `lsp-cli diag`, prefer pull diagnostics when the capability is
+  advertised, but keep a timeout-bounded push fallback for `clangd`-style behavior.

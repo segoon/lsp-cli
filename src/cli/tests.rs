@@ -1,8 +1,9 @@
 use super::{
     BuildIndexArgs, Command, ListSymbolsArgs, LspWorkspaceQueryArgs, WorkspaceQueryArgs,
-    parse_args, parse_raw_args, resolve_command,
+    clap_command, parse_args, parse_raw_args, resolve_command,
 };
 use crate::config::CliConfig;
+use clap::Command as ClapCommand;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -70,4 +71,37 @@ pub(super) fn parse_with_config(args: &[&str], config: &CliConfig) -> Command {
 
 fn raw_args(args: &[&str]) -> Vec<String> {
     args.iter().map(|arg| (*arg).to_string()).collect()
+}
+
+#[test]
+fn every_clap_command_and_argument_has_help() {
+    assert_command_help(&clap_command(), "lsp-cli");
+}
+
+fn assert_command_help(command: &ClapCommand, path: &str) {
+    assert!(
+        command.get_about().is_some() || command.get_long_about().is_some(),
+        "command `{path}` is missing help text"
+    );
+
+    for argument in command.get_arguments() {
+        if argument.get_id().as_str() == "help" || argument.is_hide_set() {
+            continue;
+        }
+
+        assert!(
+            argument.get_help().is_some() || argument.get_long_help().is_some(),
+            "argument `{path} {}` is missing help text",
+            argument.get_id().as_str()
+        );
+    }
+
+    for subcommand in command.get_subcommands() {
+        if subcommand.get_name() == "help" {
+            continue;
+        }
+
+        let subcommand_path = format!("{path} {}", subcommand.get_name());
+        assert_command_help(subcommand, &subcommand_path);
+    }
 }

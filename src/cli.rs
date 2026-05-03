@@ -1,50 +1,22 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use clap::{Args, CommandFactory, Parser, Subcommand, ValueHint};
-use clap_complete::Shell;
+mod raw;
 
-use crate::config::{CliConfig, parse_timeout};
+pub use raw::{CompletionArgs, clap_command};
+pub(crate) use raw::{
+    RawBuildIndexArgs, RawCommand, RawDaemonArgs, RawDeclarationArgs, RawDefinitionArgs,
+    RawDetectArgs, RawDiagnosticsArgs, RawFormatArgs, RawGrepArgs, RawLanguagesArgs,
+    RawListFilesArgs, RawListFunctionsArgs, RawListSymbolsArgs, RawLspWorkspaceQueryArgs,
+    RawRunArgs, RawServerCapabilitiesArgs, RawServersArgs, RawStopAllArgs, RawStopArgs,
+    RawSymbolQueryArgs, RawUpdateArgs, RawWorkspaceQueryArgs, parse_raw_args,
+};
+
+use crate::config::CliConfig;
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(10);
 const DEFAULT_LIMIT: usize = 100;
 const DEFAULT_IDLE_TIMEOUT: Duration = Duration::from_mins(1);
-
-#[derive(Debug, Parser)]
-#[command(name = "lsp-cli")]
-struct RawCli {
-    #[command(subcommand)]
-    command: RawCommand,
-}
-
-#[derive(Debug, Eq, PartialEq, Subcommand)]
-pub(crate) enum RawCommand {
-    Daemon(RawDaemonArgs),
-    Stop(RawStopArgs),
-    StopAll(RawStopAllArgs),
-    Languages(RawLanguagesArgs),
-    Servers(RawServersArgs),
-    ServerCapabilities(RawServerCapabilitiesArgs),
-    Detect(RawDetectArgs),
-    #[command(alias = "diag")]
-    Diagnostics(RawDiagnosticsArgs),
-    #[command(alias = "fmt")]
-    Format(RawFormatArgs),
-    Grep(RawGrepArgs),
-    ListSymbols(RawListSymbolsArgs),
-    ListFunctions(RawListFunctionsArgs),
-    ListFiles(RawListFilesArgs),
-    #[command(alias = "ref")]
-    References(RawSymbolQueryArgs),
-    Callers(RawSymbolQueryArgs),
-    Callees(RawSymbolQueryArgs),
-    Definition(RawDefinitionArgs),
-    Declaration(RawDeclarationArgs),
-    BuildIndex(RawBuildIndexArgs),
-    Update(RawUpdateArgs),
-    Completion(CompletionArgs),
-    Run(RawRunArgs),
-}
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Command {
@@ -70,71 +42,6 @@ pub enum Command {
     Update(UpdateArgs),
     Completion(CompletionArgs),
     Run(RunArgs),
-}
-
-#[allow(clippy::struct_excessive_bools)]
-#[derive(Debug, Args, Eq, PartialEq)]
-pub(crate) struct RawDetectArgs {
-    #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
-    path: PathBuf,
-    #[arg(long, conflicts_with = "no_download")]
-    download: bool,
-    #[arg(long = "no-download", conflicts_with = "download")]
-    no_download: bool,
-    #[arg(long, conflicts_with = "no_json")]
-    json: bool,
-    #[arg(long = "no-json", conflicts_with = "json")]
-    no_json: bool,
-    #[arg(short = 'q', conflicts_with = "no_quiet")]
-    quiet: bool,
-    #[arg(long = "no-quiet", conflicts_with = "quiet")]
-    no_quiet: bool,
-    #[arg(long, conflicts_with = "no_debug")]
-    debug: bool,
-    #[arg(long = "no-debug", conflicts_with = "debug")]
-    no_debug: bool,
-}
-
-#[allow(clippy::struct_excessive_bools)]
-#[derive(Debug, Args, Eq, PartialEq)]
-pub(crate) struct RawWorkspaceQueryArgs {
-    #[arg(value_hint = ValueHint::DirPath)]
-    directory: PathBuf,
-    #[arg(long)]
-    lang: Option<String>,
-    #[arg(long)]
-    lsp: Option<String>,
-    #[arg(long)]
-    wait_for_index: bool,
-    #[arg(long, conflicts_with = "no_json")]
-    json: bool,
-    #[arg(long = "no-json", conflicts_with = "json")]
-    no_json: bool,
-    #[arg(long, conflicts_with = "no_debug")]
-    debug: bool,
-    #[arg(long = "no-debug", conflicts_with = "debug")]
-    no_debug: bool,
-    #[arg(long, value_name = "T", value_parser = parse_timeout)]
-    timeout: Option<Duration>,
-    #[arg(long, value_name = "N")]
-    limit: Option<usize>,
-}
-
-#[allow(clippy::struct_excessive_bools)]
-#[derive(Debug, Args, Eq, PartialEq)]
-pub(crate) struct RawLspWorkspaceQueryArgs {
-    #[command(flatten)]
-    query: RawWorkspaceQueryArgs,
-    #[arg(long, conflicts_with = "no_download")]
-    download: bool,
-    #[arg(long = "no-download", conflicts_with = "download")]
-    no_download: bool,
-    #[arg(long, conflicts_with = "no_detach")]
-    detach: bool,
-    #[arg(long = "no-detach", conflicts_with = "detach")]
-    no_detach: bool,
-    #[arg(short = 'l', long = "files-with-matches")]
-    files_with_matches: bool,
 }
 
 #[allow(clippy::struct_excessive_bools)]
@@ -167,61 +74,15 @@ pub struct LspWorkspaceQueryArgs {
     pub files_with_matches: bool,
 }
 
-#[derive(Debug, Args, Eq, PartialEq)]
-pub(crate) struct RawGrepArgs {
-    pattern: String,
-    #[command(flatten)]
-    query: RawLspWorkspaceQueryArgs,
-}
-
 #[derive(Debug, Eq, PartialEq)]
 pub struct GrepArgs {
     pub pattern: String,
     pub query: LspWorkspaceQueryArgs,
 }
 
-#[derive(Debug, Args, Eq, PartialEq)]
-pub(crate) struct RawDiagnosticsArgs {
-    #[command(flatten)]
-    query: RawLspWorkspaceQueryArgs,
-}
-
 #[derive(Debug, Eq, PartialEq)]
 pub struct DiagnosticsArgs {
     pub query: LspWorkspaceQueryArgs,
-}
-
-#[allow(clippy::struct_excessive_bools)]
-#[derive(Debug, Args, Eq, PartialEq)]
-pub(crate) struct RawFormatArgs {
-    #[arg(value_hint = ValueHint::FilePath)]
-    path: PathBuf,
-    #[arg(long)]
-    lang: Option<String>,
-    #[arg(long)]
-    lsp: Option<String>,
-    #[arg(long, conflicts_with = "no_download")]
-    download: bool,
-    #[arg(long = "no-download", conflicts_with = "download")]
-    no_download: bool,
-    #[arg(long, conflicts_with = "no_detach")]
-    detach: bool,
-    #[arg(long = "no-detach", conflicts_with = "detach")]
-    no_detach: bool,
-    #[arg(long, conflicts_with = "no_json")]
-    json: bool,
-    #[arg(long = "no-json", conflicts_with = "json")]
-    no_json: bool,
-    #[arg(long, conflicts_with = "no_debug")]
-    debug: bool,
-    #[arg(long = "no-debug", conflicts_with = "debug")]
-    no_debug: bool,
-    #[arg(long, value_name = "T", value_parser = parse_timeout)]
-    timeout: Option<Duration>,
-    #[arg(long)]
-    check: bool,
-    #[arg(long)]
-    stdout: bool,
 }
 
 #[allow(clippy::struct_excessive_bools)]
@@ -240,39 +101,6 @@ pub struct FormatArgs {
 }
 
 #[allow(clippy::struct_excessive_bools)]
-#[derive(Debug, Args, Eq, PartialEq)]
-pub(crate) struct RawListSymbolsArgs {
-    #[arg(value_hint = ValueHint::AnyPath)]
-    path: PathBuf,
-    #[arg(long)]
-    lang: Option<String>,
-    #[arg(long)]
-    lsp: Option<String>,
-    #[arg(long, conflicts_with = "no_detach")]
-    detach: bool,
-    #[arg(long = "no-detach", conflicts_with = "detach")]
-    no_detach: bool,
-    #[arg(long)]
-    wait_for_index: bool,
-    #[arg(long, conflicts_with = "no_download")]
-    download: bool,
-    #[arg(long = "no-download", conflicts_with = "download")]
-    no_download: bool,
-    #[arg(long, conflicts_with = "no_json")]
-    json: bool,
-    #[arg(long = "no-json", conflicts_with = "json")]
-    no_json: bool,
-    #[arg(long, conflicts_with = "no_debug")]
-    debug: bool,
-    #[arg(long = "no-debug", conflicts_with = "debug")]
-    no_debug: bool,
-    #[arg(long, value_name = "T", value_parser = parse_timeout)]
-    timeout: Option<Duration>,
-    #[arg(long, value_name = "N")]
-    limit: Option<usize>,
-}
-
-#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Eq, PartialEq)]
 pub struct ListSymbolsArgs {
     pub path: PathBuf,
@@ -287,21 +115,9 @@ pub struct ListSymbolsArgs {
     pub limit: usize,
 }
 
-#[derive(Debug, Args, Eq, PartialEq)]
-pub(crate) struct RawListFilesArgs {
-    #[command(flatten)]
-    query: RawWorkspaceQueryArgs,
-}
-
 #[derive(Debug, Eq, PartialEq)]
 pub struct ListFilesArgs {
     pub query: WorkspaceQueryArgs,
-}
-
-#[derive(Debug, Args, Eq, PartialEq)]
-pub(crate) struct RawListFunctionsArgs {
-    #[command(flatten)]
-    query: RawLspWorkspaceQueryArgs,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -309,26 +125,10 @@ pub struct ListFunctionsArgs {
     pub query: LspWorkspaceQueryArgs,
 }
 
-#[derive(Debug, Args, Eq, PartialEq)]
-pub(crate) struct RawSymbolQueryArgs {
-    name: String,
-    #[command(flatten)]
-    query: RawLspWorkspaceQueryArgs,
-}
-
 #[derive(Debug, Eq, PartialEq)]
 pub struct SymbolQueryArgs {
     pub name: String,
     pub query: LspWorkspaceQueryArgs,
-}
-
-#[derive(Debug, Args, Eq, PartialEq)]
-pub(crate) struct RawDefinitionArgs {
-    name: String,
-    #[command(flatten)]
-    query: RawLspWorkspaceQueryArgs,
-    #[arg(long)]
-    full: bool,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -338,45 +138,11 @@ pub struct DefinitionArgs {
     pub full: bool,
 }
 
-#[derive(Debug, Args, Eq, PartialEq)]
-pub(crate) struct RawDeclarationArgs {
-    name: String,
-    #[command(flatten)]
-    query: RawLspWorkspaceQueryArgs,
-    #[arg(long)]
-    full: bool,
-}
-
 #[derive(Debug, Eq, PartialEq)]
 pub struct DeclarationArgs {
     pub name: String,
     pub query: LspWorkspaceQueryArgs,
     pub full: bool,
-}
-
-#[allow(clippy::struct_excessive_bools)]
-#[derive(Debug, Args, Eq, PartialEq)]
-pub(crate) struct RawBuildIndexArgs {
-    #[arg(value_hint = ValueHint::DirPath)]
-    directory: PathBuf,
-    #[arg(long)]
-    lang: Option<String>,
-    #[arg(long)]
-    lsp: Option<String>,
-    #[arg(long, conflicts_with = "no_detach")]
-    detach: bool,
-    #[arg(long = "no-detach", conflicts_with = "detach")]
-    no_detach: bool,
-    #[arg(long, conflicts_with = "no_download")]
-    download: bool,
-    #[arg(long = "no-download", conflicts_with = "download")]
-    no_download: bool,
-    #[arg(long, conflicts_with = "no_debug")]
-    debug: bool,
-    #[arg(long = "no-debug", conflicts_with = "debug")]
-    no_debug: bool,
-    #[arg(long, value_name = "T", value_parser = parse_timeout)]
-    timeout: Option<Duration>,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -390,25 +156,6 @@ pub struct BuildIndexArgs {
     pub timeout: Duration,
 }
 
-#[allow(clippy::struct_excessive_bools)]
-#[derive(Debug, Args, Eq, PartialEq)]
-pub(crate) struct RawRunArgs {
-    #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
-    path: PathBuf,
-    #[arg(long)]
-    lang: Option<String>,
-    #[arg(long)]
-    lsp: Option<String>,
-    #[arg(long, conflicts_with = "no_download")]
-    download: bool,
-    #[arg(long = "no-download", conflicts_with = "download")]
-    no_download: bool,
-    #[arg(long, conflicts_with = "no_debug")]
-    debug: bool,
-    #[arg(long = "no-debug", conflicts_with = "debug")]
-    no_debug: bool,
-}
-
 #[derive(Debug, Eq, PartialEq)]
 pub struct RunArgs {
     pub path: PathBuf,
@@ -416,27 +163,6 @@ pub struct RunArgs {
     pub lsp: Option<String>,
     pub download: bool,
     pub debug: bool,
-}
-
-#[allow(clippy::struct_excessive_bools)]
-#[derive(Debug, Args, Eq, PartialEq)]
-pub(crate) struct RawDaemonArgs {
-    #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
-    path: PathBuf,
-    #[arg(long)]
-    lang: Option<String>,
-    #[arg(long)]
-    lsp: Option<String>,
-    #[arg(long, conflicts_with = "no_download")]
-    download: bool,
-    #[arg(long = "no-download", conflicts_with = "download")]
-    no_download: bool,
-    #[arg(long, conflicts_with = "no_debug")]
-    debug: bool,
-    #[arg(long = "no-debug", conflicts_with = "debug")]
-    no_debug: bool,
-    #[arg(long, value_name = "T", value_parser = parse_timeout)]
-    idle_timeout: Option<Duration>,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -449,21 +175,6 @@ pub struct DaemonArgs {
     pub idle_timeout: Duration,
 }
 
-#[allow(clippy::struct_excessive_bools)]
-#[derive(Debug, Args, Eq, PartialEq)]
-pub(crate) struct RawStopArgs {
-    #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
-    path: PathBuf,
-    #[arg(long)]
-    lang: Option<String>,
-    #[arg(long)]
-    lsp: Option<String>,
-    #[arg(long, conflicts_with = "no_debug")]
-    debug: bool,
-    #[arg(long = "no-debug", conflicts_with = "debug")]
-    no_debug: bool,
-}
-
 #[derive(Debug, Eq, PartialEq)]
 pub struct StopArgs {
     pub path: PathBuf,
@@ -472,60 +183,17 @@ pub struct StopArgs {
     pub debug: bool,
 }
 
-#[allow(clippy::struct_excessive_bools)]
-#[derive(Debug, Args, Eq, PartialEq)]
-pub(crate) struct RawStopAllArgs {
-    #[arg(long, conflicts_with = "no_debug")]
-    debug: bool,
-    #[arg(long = "no-debug", conflicts_with = "debug")]
-    no_debug: bool,
-}
-
 #[derive(Debug, Eq, PartialEq)]
 pub struct StopAllArgs {
     pub debug: bool,
 }
 
-#[derive(Debug, Args, Eq, PartialEq)]
-pub(crate) struct RawLanguagesArgs {}
-
 #[derive(Debug, Eq, PartialEq)]
 pub struct LanguagesArgs;
-
-#[derive(Debug, Args, Eq, PartialEq)]
-pub(crate) struct RawServersArgs {
-    #[arg(long)]
-    lang: Option<String>,
-}
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct ServersArgs {
     pub lang: Option<String>,
-}
-
-#[allow(clippy::struct_excessive_bools)]
-#[derive(Debug, Args, Eq, PartialEq)]
-pub(crate) struct RawServerCapabilitiesArgs {
-    #[arg(value_hint = ValueHint::DirPath)]
-    directory: PathBuf,
-    #[arg(long)]
-    lang: Option<String>,
-    #[arg(long)]
-    lsp: Option<String>,
-    #[arg(long, conflicts_with = "no_detach")]
-    detach: bool,
-    #[arg(long = "no-detach", conflicts_with = "detach")]
-    no_detach: bool,
-    #[arg(long, conflicts_with = "no_download")]
-    download: bool,
-    #[arg(long = "no-download", conflicts_with = "download")]
-    no_download: bool,
-    #[arg(long, conflicts_with = "no_debug")]
-    debug: bool,
-    #[arg(long = "no-debug", conflicts_with = "debug")]
-    no_debug: bool,
-    #[arg(long, value_name = "T", value_parser = parse_timeout)]
-    timeout: Option<Duration>,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -539,31 +207,8 @@ pub struct ServerCapabilitiesArgs {
     pub timeout: Duration,
 }
 
-#[derive(Debug, Args, Eq, PartialEq)]
-pub(crate) struct RawUpdateArgs {}
-
 #[derive(Debug, Eq, PartialEq)]
 pub struct UpdateArgs;
-
-#[derive(Clone, Copy, Debug, Args, Eq, PartialEq)]
-pub struct CompletionArgs {
-    pub shell: Option<Shell>,
-}
-
-pub fn clap_command() -> clap::Command {
-    RawCli::command()
-}
-
-pub(crate) fn parse_raw_args<I>(args: I) -> Result<RawCommand, String>
-where
-    I: IntoIterator<Item = String>,
-{
-    let args = std::iter::once("lsp-cli".to_string()).chain(args);
-    RawCli::try_parse_from(args)
-        .map(|cli| cli.command)
-        .map_err(|error| error.to_string())
-}
-
 pub(crate) fn resolve_command(
     command: RawCommand,
     defaults: &CliConfig,

@@ -1,10 +1,24 @@
+# v0.2
+
+- repl (TODO: name... cli, console, terminal, interactive?)
+- color?? pretty
+
+- review lspconfig database
+- review mason database
+- user-visible messages - more friendly/informative -> into explicit module
+
+- readme
+- man
+- informative --help
+- better completion (--lsp, --lang)
+- agent-skill
+
+
 # Features
 
 commands:
-- repl (TODO: name... cli, console, terminal, interactive?)
 - type hierarchy??
 - semantic tokens??
-- color?? pretty
 
 - NO: hover?? - too noisy, doesn't make much sense
 - NO: moniker?? - not usable outside of LSIF
@@ -21,16 +35,7 @@ generic:
 
 # Bugs
 
-- review lspconfig database
-- review mason database
-
 - declaration for clangd drops std (e.g. `declaration f` drops `fgetc`)
-
-
-# Source code
-
-- user-visible messages - more friendly/informative -> into explicit module
-- threads for stderr buffering???
 
 
 # Readme
@@ -49,10 +54,3 @@ https://www.w3tutorials.net/blog/what-is-the-idiomatic-way-of-writing-man-pages-
 
 - search for useful BCPs among rust projects at github
 - upload to crates.io
-
-
-# Raw thoughts
-
-- cover more initialize capabilities?
-- cover more useful commands?
-- ask GPT itself "how to word the skill file?"

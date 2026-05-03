@@ -13,6 +13,8 @@
 - better completion (--lsp, --lang)
 - agent-skill
 
+- test on multiple rust versions
+
 
 # Features
 

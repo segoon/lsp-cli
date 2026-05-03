@@ -34,7 +34,7 @@ pub(crate) enum RawCommand {
     Callers(RawSymbolQueryArgs),
     Callees(RawSymbolQueryArgs),
     Definition(RawDefinitionArgs),
-    Declaration(RawSymbolQueryArgs),
+    Declaration(RawDeclarationArgs),
     BuildIndex(RawBuildIndexArgs),
     Completion(CompletionArgs),
     Run(RawRunArgs),
@@ -56,7 +56,7 @@ pub enum Command {
     Callers(SymbolQueryArgs),
     Callees(SymbolQueryArgs),
     Definition(DefinitionArgs),
-    Declaration(SymbolQueryArgs),
+    Declaration(DeclarationArgs),
     BuildIndex(BuildIndexArgs),
     Completion(CompletionArgs),
     Run(RunArgs),
@@ -264,6 +264,22 @@ pub(crate) struct RawDefinitionArgs {
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct DefinitionArgs {
+    pub name: String,
+    pub query: LspWorkspaceQueryArgs,
+    pub full: bool,
+}
+
+#[derive(Debug, Args, Eq, PartialEq)]
+pub(crate) struct RawDeclarationArgs {
+    name: String,
+    #[command(flatten)]
+    query: RawLspWorkspaceQueryArgs,
+    #[arg(long)]
+    full: bool,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct DeclarationArgs {
     pub name: String,
     pub query: LspWorkspaceQueryArgs,
     pub full: bool,
@@ -604,6 +620,16 @@ impl RawDefinitionArgs {
     }
 }
 
+impl RawDeclarationArgs {
+    fn resolve(self, defaults: &CliConfig) -> DeclarationArgs {
+        DeclarationArgs {
+            name: self.name,
+            query: self.query.resolve(defaults),
+            full: self.full,
+        }
+    }
+}
+
 impl RawBuildIndexArgs {
     fn resolve(self, defaults: &CliConfig) -> BuildIndexArgs {
         BuildIndexArgs {
@@ -711,6 +737,10 @@ fn validate_command(command: &Command) -> Result<(), String> {
         ),
         Command::Definition(args) if args.full && args.query.files_with_matches => Err(
             "`definition` does not support using `--full` together with `--files-with-matches`"
+                .to_string(),
+        ),
+        Command::Declaration(args) if args.full && args.query.files_with_matches => Err(
+            "`declaration` does not support using `--full` together with `--files-with-matches`"
                 .to_string(),
         ),
         _ => Ok(()),

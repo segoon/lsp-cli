@@ -317,9 +317,10 @@ pub(super) fn run_definition_query(
 pub(super) fn run_declaration_query(
     args: &LspWorkspaceQueryArgs,
     name: &str,
+    full: bool,
     config: &ConfigStore,
 ) -> Result<WorkspaceSymbolQueryResult, String> {
-    run_named_location_query(args, name, LocationQueryKind::Declaration, false, config)
+    run_named_location_query(args, name, LocationQueryKind::Declaration, full, config)
 }
 
 pub(super) fn run_callers_query(

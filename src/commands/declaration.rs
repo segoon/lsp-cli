@@ -1,13 +1,14 @@
-use crate::cli::SymbolQueryArgs;
+use crate::cli::DeclarationArgs;
 use crate::commands::symbol_query::{
-    render_symbol_match_paths_text, render_symbol_matches_text, render_workspace_symbol_json,
-    run_declaration_query, truncate_items,
+    render_symbol_match_paths_text, render_symbol_matches_text, render_symbol_matches_text_full,
+    render_workspace_symbol_json, render_workspace_symbol_json_full, run_declaration_query,
+    truncate_items,
 };
 use crate::config::ConfigStore;
 
-pub(super) fn run(args: &SymbolQueryArgs, config: &ConfigStore) -> Result<String, String> {
+pub(super) fn run(args: &DeclarationArgs, config: &ConfigStore) -> Result<String, String> {
     let query = &args.query.query;
-    let result = run_declaration_query(&args.query, &args.name, config)?;
+    let result = run_declaration_query(&args.query, &args.name, args.full, config)?;
     let matches = truncate_items(
         result.matches,
         query.limit,
@@ -15,15 +16,27 @@ pub(super) fn run(args: &SymbolQueryArgs, config: &ConfigStore) -> Result<String
     );
 
     Ok(if query.json {
-        render_workspace_symbol_json(
-            &args.name,
-            &query.directory,
-            &result.detected_filetypes,
-            &result.server,
-            &matches,
-        )
+        if args.full {
+            render_workspace_symbol_json_full(
+                &args.name,
+                &query.directory,
+                &result.detected_filetypes,
+                &result.server,
+                &matches,
+            )
+        } else {
+            render_workspace_symbol_json(
+                &args.name,
+                &query.directory,
+                &result.detected_filetypes,
+                &result.server,
+                &matches,
+            )
+        }
     } else if args.query.files_with_matches {
         render_symbol_match_paths_text(&matches)
+    } else if args.full {
+        render_symbol_matches_text_full(&matches)
     } else {
         render_symbol_matches_text(&matches)
     })

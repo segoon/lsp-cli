@@ -1,5 +1,6 @@
 use super::super::{
-    Command, CompletionArgs, DefinitionArgs, ListFilesArgs, ListFunctionsArgs, SymbolQueryArgs,
+    Command, CompletionArgs, DeclarationArgs, DefinitionArgs, ListFilesArgs, ListFunctionsArgs,
+    SymbolQueryArgs,
 };
 use super::{build_index_args, list_symbols_args, lsp_workspace_query, parse, workspace_query};
 use clap_complete::Shell;
@@ -231,6 +232,22 @@ fn parses_definition_files_with_matches_arguments() {
 }
 
 #[test]
+fn parses_declaration_full_arguments() {
+    let mut query = lsp_workspace_query("workspace");
+    query.query.lang = Some("cpp".to_string());
+
+    assert_eq!(
+        parse(&["declaration", "f", "workspace", "--lang", "cpp", "--full"])
+            .expect("declaration should parse"),
+        Command::Declaration(DeclarationArgs {
+            name: "f".to_string(),
+            query,
+            full: true,
+        })
+    );
+}
+
+#[test]
 fn rejects_full_for_references() {
     let error = parse(&["references", "main", "workspace", "--full"])
         .expect_err("references should reject --full");
@@ -253,5 +270,15 @@ fn rejects_full_with_files_with_matches_for_definition() {
 
     assert!(error.contains(
         "`definition` does not support using `--full` together with `--files-with-matches`"
+    ));
+}
+
+#[test]
+fn rejects_full_with_files_with_matches_for_declaration() {
+    let error = parse(&["declaration", "f", "workspace", "--full", "-l"])
+        .expect_err("declaration should reject --full -l");
+
+    assert!(error.contains(
+        "`declaration` does not support using `--full` together with `--files-with-matches`"
     ));
 }

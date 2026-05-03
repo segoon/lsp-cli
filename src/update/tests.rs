@@ -4,6 +4,7 @@ use crate::test_support::TestDir;
 use flate2::Compression;
 use flate2::write::GzEncoder;
 use std::fs;
+use std::io::Write as _;
 use tar::Builder;
 
 fn archive_with_files(files: &[(&str, &[u8])]) -> Vec<u8> {
@@ -22,7 +23,6 @@ fn archive_with_files(files: &[(&str, &[u8])]) -> Vec<u8> {
         builder.finish().expect("tar should finish");
     }
     let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
-    use std::io::Write as _;
     encoder
         .write_all(&tar_bytes)
         .expect("gzip should accept tar bytes");

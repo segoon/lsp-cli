@@ -3,6 +3,8 @@ use super::{ClientTransport, LspClient, format_spawn_error};
 use crate::lsp::transport::{read_message, write_message};
 use crate::test_support::TestDir;
 #[cfg(unix)]
+use serde_json::Value;
+#[cfg(unix)]
 use serde_json::json;
 use std::fs;
 use std::time::Duration;
@@ -10,9 +12,9 @@ use std::time::Duration;
 #[cfg(unix)]
 use std::fs::File;
 #[cfg(unix)]
-use std::io::BufReader;
-#[cfg(unix)]
 use std::io::Write;
+#[cfg(unix)]
+use std::io::{BufReader, Read};
 #[cfg(unix)]
 use std::os::fd::AsRawFd;
 #[cfg(unix)]
@@ -30,6 +32,61 @@ fn formats_missing_binary_error() {
         format_spawn_error("ast-grep", &error),
         "LSP server executable `ast-grep` is not installed or not in $PATH"
     );
+}
+
+#[cfg(unix)]
+fn read_existing_message<R: Read>(
+    reader: &mut BufReader<R>,
+    parse_context: &str,
+    missing_context: &str,
+) -> Value {
+    read_message(reader)
+        .expect(parse_context)
+        .expect(missing_context)
+}
+
+#[cfg(unix)]
+fn expect_method(message: &Value, expected: &str) {
+    assert_eq!(
+        message.get("method").and_then(serde_json::Value::as_str),
+        Some(expected)
+    );
+}
+
+#[cfg(unix)]
+fn expect_id(message: &Value, expected: &str) {
+    assert_eq!(
+        message.get("id").and_then(serde_json::Value::as_str),
+        Some(expected)
+    );
+}
+
+#[cfg(unix)]
+fn write_publish_diagnostics<W: Write>(
+    writer: &mut W,
+    uri: &str,
+    line: u64,
+    message: &str,
+    context: &str,
+) {
+    write_message(
+        writer,
+        &json!({
+            "jsonrpc": "2.0",
+            "method": "textDocument/publishDiagnostics",
+            "params": {
+                "uri": uri,
+                "diagnostics": [{
+                    "range": {
+                        "start": {"line": line, "character": 1},
+                        "end": {"line": line, "character": 2}
+                    },
+                    "message": message
+                }]
+            }
+        }),
+    )
+    .expect(context);
 }
 
 #[cfg(unix)]
@@ -88,9 +145,11 @@ fn initialize_replies_to_queued_server_requests_before_next_request() {
         let mut reader = BufReader::new(reader_stream);
         let mut writer = stream;
 
-        let initialize = read_message(&mut reader)
-            .expect("initialize should parse")
-            .expect("initialize should exist");
+        let initialize = read_existing_message(
+            &mut reader,
+            "initialize should parse",
+            "initialize should exist",
+        );
         assert_eq!(
             initialize.get("method").and_then(serde_json::Value::as_str),
             Some("initialize")
@@ -240,37 +299,32 @@ fn initialize_advertises_and_returns_workspace_folders() {
         )
         .expect("workspaceFolders request should write");
 
-        let initialized = read_message(&mut reader)
-            .expect("initialized should parse")
-            .expect("initialized should exist");
-        assert_eq!(
-            initialized
-                .get("method")
-                .and_then(serde_json::Value::as_str),
-            Some("initialized")
+        expect_method(
+            &read_existing_message(
+                &mut reader,
+                "initialized should parse",
+                "initialized should exist",
+            ),
+            "initialized",
         );
 
-        let workspace_folders_response = read_message(&mut reader)
-            .expect("workspaceFolders response should parse")
-            .expect("workspaceFolders response should exist");
-        assert_eq!(
-            workspace_folders_response
-                .get("id")
-                .and_then(serde_json::Value::as_str),
-            Some("folders-1")
+        let workspace_folders_response = read_existing_message(
+            &mut reader,
+            "workspaceFolders response should parse",
+            "workspaceFolders response should exist",
         );
+        expect_id(&workspace_folders_response, "folders-1");
         assert_eq!(
             workspace_folders_response.get("result").cloned(),
             Some(workspace_folders)
         );
 
-        let shutdown = read_message(&mut reader)
-            .expect("shutdown should parse")
-            .expect("shutdown should exist");
-        assert_eq!(
-            shutdown.get("method").and_then(serde_json::Value::as_str),
-            Some("shutdown")
+        let shutdown = read_existing_message(
+            &mut reader,
+            "shutdown should parse",
+            "shutdown should exist",
         );
+        expect_method(&shutdown, "shutdown");
         write_message(
             &mut writer,
             &json!({
@@ -281,12 +335,9 @@ fn initialize_advertises_and_returns_workspace_folders() {
         )
         .expect("shutdown response should write");
 
-        let exit = read_message(&mut reader)
-            .expect("exit should parse")
-            .expect("exit should exist");
-        assert_eq!(
-            exit.get("method").and_then(serde_json::Value::as_str),
-            Some("exit")
+        expect_method(
+            &read_existing_message(&mut reader, "exit should parse", "exit should exist"),
+            "exit",
         );
     });
 
@@ -313,9 +364,11 @@ fn collects_latest_publish_diagnostics_notifications() {
         let mut reader = BufReader::new(reader_stream);
         let mut writer = stream;
 
-        let initialize = read_message(&mut reader)
-            .expect("initialize should parse")
-            .expect("initialize should exist");
+        let initialize = read_existing_message(
+            &mut reader,
+            "initialize should parse",
+            "initialize should exist",
+        );
         write_message(
             &mut writer,
             &json!({
@@ -326,56 +379,35 @@ fn collects_latest_publish_diagnostics_notifications() {
         )
         .expect("initialize response should write");
 
-        let initialized = read_message(&mut reader)
-            .expect("initialized should parse")
-            .expect("initialized should exist");
-        assert_eq!(
-            initialized
-                .get("method")
-                .and_then(serde_json::Value::as_str),
-            Some("initialized")
+        expect_method(
+            &read_existing_message(
+                &mut reader,
+                "initialized should parse",
+                "initialized should exist",
+            ),
+            "initialized",
         );
 
-        write_message(
+        write_publish_diagnostics(
             &mut writer,
-            &json!({
-                "jsonrpc": "2.0",
-                "method": "textDocument/publishDiagnostics",
-                "params": {
-                    "uri": "file:///workspace/src/main.rs",
-                    "diagnostics": [{
-                        "range": {
-                            "start": {"line": 0, "character": 1},
-                            "end": {"line": 0, "character": 2}
-                        },
-                        "message": "first"
-                    }]
-                }
-            }),
-        )
-        .expect("first diagnostics should write");
-        write_message(
+            "file:///workspace/src/main.rs",
+            0,
+            "first",
+            "first diagnostics should write",
+        );
+        write_publish_diagnostics(
             &mut writer,
-            &json!({
-                "jsonrpc": "2.0",
-                "method": "textDocument/publishDiagnostics",
-                "params": {
-                    "uri": "file:///workspace/src/main.rs",
-                    "diagnostics": [{
-                        "range": {
-                            "start": {"line": 1, "character": 1},
-                            "end": {"line": 1, "character": 2}
-                        },
-                        "message": "second"
-                    }]
-                }
-            }),
-        )
-        .expect("second diagnostics should write");
+            "file:///workspace/src/main.rs",
+            1,
+            "second",
+            "second diagnostics should write",
+        );
 
-        let shutdown = read_message(&mut reader)
-            .expect("shutdown should parse")
-            .expect("shutdown should exist");
+        let shutdown = read_existing_message(
+            &mut reader,
+            "shutdown should parse",
+            "shutdown should exist",
+        );
         write_message(
             &mut writer,
             &json!({
@@ -386,12 +418,9 @@ fn collects_latest_publish_diagnostics_notifications() {
         )
         .expect("shutdown response should write");
 
-        let exit = read_message(&mut reader)
-            .expect("exit should parse")
-            .expect("exit should exist");
-        assert_eq!(
-            exit.get("method").and_then(serde_json::Value::as_str),
-            Some("exit")
+        expect_method(
+            &read_existing_message(&mut reader, "exit should parse", "exit should exist"),
+            "exit",
         );
     });
 

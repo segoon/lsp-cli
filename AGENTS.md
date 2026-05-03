@@ -72,5 +72,5 @@ Test the code with the following commands:
 
 ```sh
 cargo test -q
-cargo clippy
+cargo clippy --all-targets --all-features -- -D warnings
 ```

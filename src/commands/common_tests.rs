@@ -458,9 +458,8 @@ fn preserves_daemon_root_error_for_strict_detach_mode() {
         workspace.daemon_socket_error.as_deref(),
         Some("could not resolve daemon socket root because $XDG_RUNTIME_DIR is not set")
     );
-    let error = match connect_lsp_client(&workspace, true, false, Duration::from_secs(1)) {
-        Ok(_) => panic!("strict detach should fail"),
-        Err(error) => error,
+    let Err(error) = connect_lsp_client(&workspace, true, false, Duration::from_secs(1)) else {
+        panic!("strict detach should fail");
     };
 
     assert_eq!(

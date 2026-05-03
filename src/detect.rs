@@ -191,7 +191,10 @@ mod tests {
     fn filetype(id: &str, extensions: &[&str], patterns: &[&str]) -> FiletypeConfig {
         FiletypeConfig {
             id: id.to_string(),
-            extensions: extensions.iter().map(|value| value.to_string()).collect(),
+            extensions: extensions
+                .iter()
+                .map(std::string::ToString::to_string)
+                .collect(),
             patterns: patterns
                 .iter()
                 .map(|value| Regex::new(value).expect("pattern should compile"))

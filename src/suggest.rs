@@ -155,7 +155,7 @@ mod tests {
     use crate::config::LspConfig;
     use crate::test_support::{TestDir, detection_result};
     use std::collections::BTreeMap;
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
 
     fn example_lsp() -> LspConfig {
         LspConfig {
@@ -259,9 +259,7 @@ mod tests {
 
     #[test]
     fn substitutes_workspace_without_splitting_spaces() {
-        let workspace = std::env::current_dir()
-            .expect("current dir should resolve")
-            .join("/tmp/with spaces");
+        let workspace = PathBuf::from("/tmp/with spaces");
         let suggestions = suggestions_for(
             &[example_lsp()],
             &detection_result(&["alpha"], &[]),

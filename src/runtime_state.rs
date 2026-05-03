@@ -1,3 +1,4 @@
+use crate::hash::encode_hex;
 use std::env;
 use std::fs;
 use std::os::unix::fs::FileTypeExt;
@@ -114,7 +115,7 @@ pub fn daemon_socket_path(
         hasher.update([0]);
     }
 
-    let digest = format!("{:x}", hasher.finalize());
+    let digest = encode_hex(&hasher.finalize());
     let slug = sanitize_daemon_socket_component(server_name);
     daemon_root.join(format!("{}-{}.sock", slug, &digest[..24]))
 }

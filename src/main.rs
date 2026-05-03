@@ -4,6 +4,7 @@ mod cli;
 mod commands;
 mod config;
 mod detect;
+mod hash;
 mod lsp;
 mod mason;
 mod runtime_state;

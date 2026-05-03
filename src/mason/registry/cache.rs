@@ -1,3 +1,4 @@
+use crate::hash::encode_hex;
 use crate::runtime_state::RuntimeState;
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
@@ -136,7 +137,7 @@ fn verify_sha256(bytes: &[u8], digest: Option<&str>) -> Result<(), String> {
     let expected = digest
         .strip_prefix("sha256:")
         .ok_or_else(|| format!("unsupported Mason registry digest format: {digest}"))?;
-    let actual = format!("{:x}", Sha256::digest(bytes));
+    let actual = encode_hex(&Sha256::digest(bytes));
 
     if actual == expected {
         Ok(())

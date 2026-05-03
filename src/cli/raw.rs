@@ -6,9 +6,9 @@ use clap_complete::Shell;
 
 use crate::config::parse_timeout;
 
-const HELP_LANG: &str = "Restrict server selection to one detected language.";
+const HELP_LANG: &str = "Select this language.";
 const HELP_LSP: &str = "Use a specific configured LSP server.";
-const HELP_DOWNLOAD: &str = "Allow installing a missing selected server before launch.";
+const HELP_DOWNLOAD: &str = "Download LSP server if not found in PATH.";
 const HELP_NO_DOWNLOAD: &str = "Do not install missing servers automatically.";
 const HELP_JSON: &str = "Print results as JSON.";
 const HELP_NO_JSON: &str = "Print human-readable output instead of JSON.";
@@ -16,7 +16,7 @@ const HELP_DEBUG: &str = "Print verbose debug logs to stderr.";
 const HELP_NO_DEBUG: &str = "Disable verbose debug logs.";
 const HELP_TIMEOUT: &str =
     "Per-request LSP timeout. Plain numbers are seconds; values ending in `ms` are milliseconds.";
-const HELP_LIMIT: &str = "Maximum number of results to print.";
+const HELP_LIMIT: &str = "Maximum number of results to print. Mainly usable for code agents.";
 const HELP_WAIT_FOR_INDEX: &str =
     "Wait for background indexing before sending the workspace query.";
 const HELP_DETACH: &str = "Use a background daemon socket when available, starting one if needed.";
@@ -38,13 +38,13 @@ struct RawCli {
 pub(crate) enum RawCommand {
     #[command(about = "Start a background daemon for the selected workspace and server")]
     Daemon(RawDaemonArgs),
-    #[command(about = "Stop the matching background daemon")]
+    #[command(about = "Stop the matching background daemon (same cmdline and cwd)")]
     Stop(RawStopArgs),
-    #[command(about = "Stop every active lsp-cli daemon")]
+    #[command(about = "Stop every active lsp-cli daemon (any cmdline, any cwd)")]
     StopAll(RawStopAllArgs),
-    #[command(about = "List configured language ids")]
+    #[command(about = "List known languages")]
     Languages(RawLanguagesArgs),
-    #[command(about = "List configured LSP servers")]
+    #[command(about = "List known LSP servers")]
     Servers(RawServersArgs),
     #[command(about = "Show the selected server's advertised capabilities")]
     ServerCapabilities(RawServerCapabilitiesArgs),
@@ -52,16 +52,13 @@ pub(crate) enum RawCommand {
     Detect(RawDetectArgs),
     #[command(alias = "diag", about = "Print workspace diagnostics")]
     Diagnostics(RawDiagnosticsArgs),
-    #[command(
-        alias = "fmt",
-        about = "Format a file through the selected language server"
-    )]
+    #[command(alias = "fmt", about = "Format a file")]
     Format(RawFormatArgs),
-    #[command(about = "Search workspace symbols through the language server")]
+    #[command(about = "Search workspace symbols (regex syntax is server-dependent)")]
     Grep(RawGrepArgs),
     #[command(about = "List symbols from a file or workspace")]
     ListSymbols(RawListSymbolsArgs),
-    #[command(about = "List functions, methods, constructors, and operators in a workspace")]
+    #[command(about = "List functions, methods, constructors, and operators")]
     ListFunctions(RawListFunctionsArgs),
     #[command(about = "List files that match the selected workspace filters")]
     ListFiles(RawListFilesArgs),
@@ -77,9 +74,9 @@ pub(crate) enum RawCommand {
     Declaration(RawDeclarationArgs),
     #[command(about = "Wait for the server to finish indexing a workspace")]
     BuildIndex(RawBuildIndexArgs),
-    #[command(about = "Download and install lsp-cli data files")]
+    #[command(about = "Force update langages/servers database")]
     Update(RawUpdateArgs),
-    #[command(about = "Generate a shell completion script")]
+    #[command(about = "Generate a shell completion script, write it to stdout")]
     Completion(CompletionArgs),
     #[command(about = "Replace lsp-cli with the selected language server process")]
     Run(RawRunArgs),

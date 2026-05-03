@@ -29,6 +29,25 @@ pub(crate) fn render_symbol_matches_text(matches: &[SymbolMatch]) -> String {
         .join("\n")
 }
 
+pub(crate) fn render_symbol_matches_text_full(matches: &[SymbolMatch]) -> String {
+    matches
+        .iter()
+        .map(|matched| {
+            format!(
+                "{}:{}:{}:\n{}",
+                matched.path.display(),
+                matched.line,
+                matched.col,
+                matched
+                    .full_content
+                    .clone()
+                    .unwrap_or_else(|| matched.line_content.clone())
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n\n")
+}
+
 pub(crate) fn render_symbol_names_text(matches: &[SymbolMatch]) -> String {
     matches
         .iter()
@@ -57,7 +76,24 @@ pub(crate) fn render_workspace_symbol_json(
         "directory": directory,
         "detected": detected_filetypes,
         "server": render_server_json(server),
-        "matches": render_symbol_matches_json(matches),
+        "matches": render_symbol_matches_json(matches, false),
+    })
+    .to_string()
+}
+
+pub(crate) fn render_workspace_symbol_json_full(
+    query: &str,
+    directory: &Path,
+    detected_filetypes: &BTreeSet<String>,
+    server: &SuggestedLanguage,
+    matches: &[SymbolMatch],
+) -> String {
+    json!({
+        "query": query,
+        "directory": directory,
+        "detected": detected_filetypes,
+        "server": render_server_json(server),
+        "matches": render_symbol_matches_json(matches, true),
     })
     .to_string()
 }
@@ -72,7 +108,7 @@ pub(crate) fn render_document_symbol_json(
         "file": file,
         "detected": detected_filetypes,
         "server": render_server_json(server),
-        "matches": render_symbol_matches_json(matches),
+        "matches": render_symbol_matches_json(matches, false),
     })
     .to_string()
 }
@@ -92,7 +128,7 @@ pub(crate) fn render_list_symbols_json(
         "directory": path,
         "detected": detected_filetypes,
         "server": render_server_json(server),
-        "matches": render_symbol_matches_json(matches),
+        "matches": render_symbol_matches_json(matches, false),
     })
     .to_string()
 }
@@ -121,18 +157,27 @@ fn render_server_json(server: &SuggestedLanguage) -> Value {
     })
 }
 
-fn render_symbol_matches_json(matches: &[SymbolMatch]) -> Vec<Value> {
+fn render_symbol_matches_json(matches: &[SymbolMatch], include_full_content: bool) -> Vec<Value> {
     matches
         .iter()
         .map(|matched| {
-            json!({
+            let mut value = json!({
                 "name": matched.name,
                 "kind": matched.kind,
                 "path": matched.path,
                 "line": matched.line,
                 "col": matched.col,
                 "line_content": matched.line_content,
-            })
+            });
+            if include_full_content {
+                value["full_content"] = json!(
+                    matched
+                        .full_content
+                        .clone()
+                        .unwrap_or_else(|| matched.line_content.clone())
+                );
+            }
+            value
         })
         .collect()
 }

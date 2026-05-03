@@ -1,9 +1,11 @@
 use super::{
-    SourceCache, SymbolMatch, call_hierarchy_matches_from_incoming_response,
+    SymbolMatch, call_hierarchy_matches_from_incoming_response,
     call_hierarchy_matches_from_outgoing_response, document_symbol_matches_from_response,
     function_matches_from_document_response, is_function_symbol_kind,
-    location_matches_from_response, prepare_call_hierarchy_response, symbol_matches_from_response,
+    location_matches_from_response, location_matches_from_response_with_full_content,
+    prepare_call_hierarchy_response, symbol_matches_from_response,
 };
+use crate::lsp::{SourceCache, symbol_full_content_from_document_response};
 use crate::test_support::TestDir;
 use lsp_types::SymbolKind;
 use serde_json::json;
@@ -14,6 +16,25 @@ struct SourceFixture {
     file: std::path::PathBuf,
     uri: String,
     cache: SourceCache,
+}
+
+fn matched(
+    path: &std::path::Path,
+    line: u32,
+    col: u32,
+    name: &str,
+    kind: SymbolKind,
+    line_content: &str,
+) -> SymbolMatch {
+    SymbolMatch {
+        name: name.to_string(),
+        kind,
+        path: path.to_path_buf(),
+        line,
+        col,
+        line_content: line_content.to_string(),
+        full_content: None,
+    }
 }
 
 fn source_fixture(contents: &str) -> SourceFixture {
@@ -68,6 +89,7 @@ fn parses_workspace_symbol_locations() {
             line: 2,
             col: 3,
             line_content: "second line".to_string(),
+            full_content: None,
         }]
     );
 }
@@ -143,6 +165,7 @@ fn parses_document_symbols_for_functions() {
                 line: 4,
                 col: 8,
                 line_content: "    fn second(&self) {}".to_string(),
+                full_content: None,
             },
             SymbolMatch {
                 name: "first".to_string(),
@@ -151,6 +174,7 @@ fn parses_document_symbols_for_functions() {
                 line: 2,
                 col: 4,
                 line_content: "fn first() {}".to_string(),
+                full_content: None,
             },
         ]
     );
@@ -283,6 +307,128 @@ fn parses_location_links() {
 
     assert_eq!(matches[0].line, 2);
     assert_eq!(matches[0].col, 3);
+}
+
+#[test]
+fn keeps_full_content_from_definition_ranges() {
+    let mut fixture = source_fixture("def build_sample_order():\n    return 1\n");
+
+    let matches = location_matches_from_response_with_full_content(
+        &json!([
+            {
+                "uri": fixture.uri,
+                "range": {
+                    "start": { "line": 0, "character": 0 },
+                    "end": { "line": 1, "character": 12 }
+                }
+            }
+        ]),
+        "build_sample_order",
+        SymbolKind::FUNCTION,
+        &mut fixture.cache,
+    )
+    .expect("location response should parse");
+
+    assert_eq!(
+        matches[0].full_content.as_deref(),
+        Some("def build_sample_order():\n    return 1")
+    );
+}
+
+#[test]
+fn extracts_function_body_from_nested_document_symbols() {
+    let mut fixture = source_fixture("def build_sample_order() -> int:\n    return 1\n");
+    let target = matched(
+        &fixture.file,
+        1,
+        1,
+        "build_sample_order",
+        SymbolKind::FUNCTION,
+        "def build_sample_order() -> int:",
+    );
+
+    let content = symbol_full_content_from_document_response(
+        &json!([
+            {
+                "name": "build_sample_order",
+                "kind": 12,
+                "range": {
+                    "start": { "line": 0, "character": 0 },
+                    "end": { "line": 1, "character": 12 }
+                },
+                "selectionRange": {
+                    "start": { "line": 0, "character": 4 },
+                    "end": { "line": 0, "character": 22 }
+                }
+            }
+        ]),
+        &fixture.file,
+        &target,
+        &mut fixture.cache,
+    )
+    .expect("document symbols should parse");
+
+    assert_eq!(
+        content.as_deref(),
+        Some("def build_sample_order() -> int:\n    return 1")
+    );
+}
+
+#[test]
+fn extracts_class_body_with_attributes_from_nested_document_symbols() {
+    let mut fixture = source_fixture(
+        "class Order:\n    customer: str\n    items: list[str]\n\n    def total(self) -> int:\n        return len(self.items)\n",
+    );
+    let target = matched(
+        &fixture.file,
+        1,
+        1,
+        "Order",
+        SymbolKind::CLASS,
+        "class Order:",
+    );
+
+    let content = symbol_full_content_from_document_response(
+        &json!([
+            {
+                "name": "Order",
+                "kind": 5,
+                "range": {
+                    "start": { "line": 0, "character": 0 },
+                    "end": { "line": 5, "character": 30 }
+                },
+                "selectionRange": {
+                    "start": { "line": 0, "character": 6 },
+                    "end": { "line": 0, "character": 11 }
+                },
+                "children": [
+                    {
+                        "name": "customer",
+                        "kind": 8,
+                        "range": {
+                            "start": { "line": 1, "character": 4 },
+                            "end": { "line": 1, "character": 17 }
+                        },
+                        "selectionRange": {
+                            "start": { "line": 1, "character": 4 },
+                            "end": { "line": 1, "character": 12 }
+                        }
+                    }
+                ]
+            }
+        ]),
+        &fixture.file,
+        &target,
+        &mut fixture.cache,
+    )
+    .expect("document symbols should parse");
+
+    assert_eq!(
+        content.as_deref(),
+        Some(
+            "class Order:\n    customer: str\n    items: list[str]\n\n    def total(self) -> int:\n        return len(self.items)"
+        )
+    );
 }
 
 #[test]

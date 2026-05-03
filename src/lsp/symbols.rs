@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -9,7 +8,7 @@ use lsp_types::{
 use serde::Deserialize;
 use serde_json::Value;
 
-use super::file_uri_to_path;
+use super::{SourceCache, file_uri_to_path};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SymbolMatch {
@@ -19,6 +18,7 @@ pub struct SymbolMatch {
     pub line: u32,
     pub col: u32,
     pub line_content: String,
+    pub full_content: Option<String>,
 }
 
 pub fn is_function_symbol_kind(kind: SymbolKind) -> bool {
@@ -74,6 +74,25 @@ pub fn location_matches_from_response(
     fallback_kind: SymbolKind,
     source_cache: &mut SourceCache,
 ) -> Result<Vec<SymbolMatch>, String> {
+    location_matches_from_response_with(response, fallback_name, fallback_kind, false, source_cache)
+}
+
+pub fn location_matches_from_response_with_full_content(
+    response: &Value,
+    fallback_name: &str,
+    fallback_kind: SymbolKind,
+    source_cache: &mut SourceCache,
+) -> Result<Vec<SymbolMatch>, String> {
+    location_matches_from_response_with(response, fallback_name, fallback_kind, true, source_cache)
+}
+
+fn location_matches_from_response_with(
+    response: &Value,
+    fallback_name: &str,
+    fallback_kind: SymbolKind,
+    include_full_content: bool,
+    source_cache: &mut SourceCache,
+) -> Result<Vec<SymbolMatch>, String> {
     if response.is_null() {
         return Ok(Vec::new());
     }
@@ -86,6 +105,7 @@ pub fn location_matches_from_response(
             &location,
             fallback_name.to_string(),
             fallback_kind,
+            include_full_content,
             source_cache,
         )?]),
         LocationResponse::Array(locations) => locations
@@ -95,6 +115,7 @@ pub fn location_matches_from_response(
                     &location,
                     fallback_name.to_string(),
                     fallback_kind,
+                    include_full_content,
                     source_cache,
                 )
             })
@@ -106,6 +127,7 @@ pub fn location_matches_from_response(
                     &link,
                     fallback_name.to_string(),
                     fallback_kind,
+                    include_full_content,
                     source_cache,
                 )
             })
@@ -212,10 +234,11 @@ fn symbol_information_to_match(
         line,
         col,
         line_content,
+        full_content: None,
     })
 }
 
-fn symbol_information_anchor(
+pub(crate) fn symbol_information_anchor(
     location: &Location,
     name: &str,
     path: &Path,
@@ -319,6 +342,7 @@ where
             line,
             col,
             line_content,
+            full_content: None,
         });
     }
 
@@ -335,6 +359,7 @@ fn location_to_symbol_match(
     location: &Location,
     name: String,
     kind: SymbolKind,
+    include_full_content: bool,
     source_cache: &mut SourceCache,
 ) -> Result<SymbolMatch, String> {
     let path = file_uri_to_path(&location.uri.to_string())?;
@@ -344,6 +369,8 @@ fn location_to_symbol_match(
         &path,
     )?;
     let line_content = source_cache.line_content(&path, line_index);
+    let full_content =
+        include_full_content.then(|| source_cache.range_content(&path, &location.range));
 
     Ok(SymbolMatch {
         name,
@@ -352,6 +379,7 @@ fn location_to_symbol_match(
         line,
         col,
         line_content,
+        full_content,
     })
 }
 
@@ -359,6 +387,7 @@ fn location_link_to_symbol_match(
     location: &LocationLink,
     name: String,
     kind: SymbolKind,
+    include_full_content: bool,
     source_cache: &mut SourceCache,
 ) -> Result<SymbolMatch, String> {
     let path = file_uri_to_path(&location.target_uri.to_string())?;
@@ -368,6 +397,8 @@ fn location_link_to_symbol_match(
         &path,
     )?;
     let line_content = source_cache.line_content(&path, line_index);
+    let full_content =
+        include_full_content.then(|| source_cache.range_content(&path, &location.target_range));
 
     Ok(SymbolMatch {
         name,
@@ -376,6 +407,9 @@ fn location_link_to_symbol_match(
         line,
         col,
         line_content,
+        // Prefer the wider target range when --full is requested because the selection range only
+        // points at the symbol name.
+        full_content,
     })
 }
 
@@ -398,6 +432,7 @@ fn call_hierarchy_item_to_match(
         line,
         col,
         line_content,
+        full_content: None,
     })
 }
 
@@ -405,26 +440,6 @@ fn line_col_and_index(line: u32, character: u32, path: &Path) -> Result<(u32, u3
     let line_index =
         usize::try_from(line).map_err(|_| format!("line index overflow for {}", path.display()))?;
     Ok((line + 1, character + 1, line_index))
-}
-
-#[derive(Debug, Default)]
-pub struct SourceCache {
-    lines: HashMap<PathBuf, Vec<String>>,
-}
-
-impl SourceCache {
-    pub fn line_content(&mut self, path: &Path, line_index: usize) -> String {
-        let entry = self.lines.entry(path.to_path_buf()).or_insert_with(|| {
-            fs::read_to_string(path)
-                .map(|contents| contents.lines().map(ToString::to_string).collect())
-                .unwrap_or_default()
-        });
-
-        entry
-            .get(line_index)
-            .cloned()
-            .unwrap_or_else(|| "<line unavailable>".to_string())
-    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -444,6 +459,7 @@ impl WorkspaceSymbolItem {
                 &symbol.location,
                 symbol.name,
                 symbol.kind,
+                false,
                 source_cache,
             )),
             Self::WorkspaceSymbol(symbol) => {
@@ -491,6 +507,7 @@ impl WorkspaceSymbolLocation {
                 &location,
                 name,
                 kind,
+                false,
                 source_cache,
             )),
             Self::UriOnly { .. } => None,

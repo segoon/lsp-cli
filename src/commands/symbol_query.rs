@@ -6,8 +6,9 @@ use crate::lsp::{
     LspClient, SourceCache, SymbolMatch, document_symbol_matches_from_response,
     document_symbol_supported, ensure_call_hierarchy_support, ensure_workspace_symbol_support,
     function_matches_from_document_response, is_function_symbol_kind,
-    location_matches_from_response, path_to_file_uri, prepare_call_hierarchy_response,
-    should_skip_document_symbol_error, symbol_matches_from_response,
+    location_matches_from_response, location_matches_from_response_with_full_content,
+    path_to_file_uri, prepare_call_hierarchy_response, should_skip_document_symbol_error,
+    symbol_full_content_from_document_response, symbol_matches_from_response,
 };
 use crate::suggest::SuggestedLanguage;
 use std::collections::{BTreeSet, HashSet};
@@ -24,7 +25,8 @@ use kinds::{CallHierarchyDirection, LocationQueryKind, zero_based_col, zero_base
 
 pub(super) use render::{
     render_file_list_json, render_list_symbols_json, render_paths_text, render_symbol_matches_text,
-    render_symbol_names_text, render_workspace_symbol_json, truncate_items,
+    render_symbol_matches_text_full, render_symbol_names_text, render_workspace_symbol_json,
+    render_workspace_symbol_json_full, truncate_items,
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -299,15 +301,16 @@ pub(super) fn run_references_query(
     name: &str,
     config: &ConfigStore,
 ) -> Result<WorkspaceSymbolQueryResult, String> {
-    run_named_location_query(args, name, LocationQueryKind::References, config)
+    run_named_location_query(args, name, LocationQueryKind::References, false, config)
 }
 
 pub(super) fn run_definition_query(
     args: &LspWorkspaceQueryArgs,
     name: &str,
+    full: bool,
     config: &ConfigStore,
 ) -> Result<WorkspaceSymbolQueryResult, String> {
-    run_named_location_query(args, name, LocationQueryKind::Definition, config)
+    run_named_location_query(args, name, LocationQueryKind::Definition, full, config)
 }
 
 pub(super) fn run_declaration_query(
@@ -315,7 +318,7 @@ pub(super) fn run_declaration_query(
     name: &str,
     config: &ConfigStore,
 ) -> Result<WorkspaceSymbolQueryResult, String> {
-    run_named_location_query(args, name, LocationQueryKind::Declaration, config)
+    run_named_location_query(args, name, LocationQueryKind::Declaration, false, config)
 }
 
 pub(super) fn run_callers_query(
@@ -393,6 +396,7 @@ fn run_named_location_query(
     args: &LspWorkspaceQueryArgs,
     name: &str,
     kind: LocationQueryKind,
+    include_full_content: bool,
     config: &ConfigStore,
 ) -> Result<WorkspaceSymbolQueryResult, String> {
     let (workspace, matches) = with_initialized_client(
@@ -447,15 +451,29 @@ fn run_named_location_query(
                         kind.label()
                     )
                 })?;
-                matches.extend(location_matches_from_response(
-                    &response,
-                    &anchor.name,
-                    anchor.kind,
-                    &mut source_cache,
-                )?);
+                matches.extend(if include_full_content {
+                    location_matches_from_response_with_full_content(
+                        &response,
+                        &anchor.name,
+                        anchor.kind,
+                        &mut source_cache,
+                    )?
+                } else {
+                    location_matches_from_response(
+                        &response,
+                        &anchor.name,
+                        anchor.kind,
+                        &mut source_cache,
+                    )?
+                });
             }
 
-            Ok(dedupe_symbol_matches(matches))
+            let mut matches = dedupe_symbol_matches(matches);
+            if include_full_content && document_symbol_supported(initialize) {
+                fill_definition_full_content(workspace, client, &mut source_cache, &mut matches)?;
+            }
+
+            Ok(matches)
         },
     )?;
 
@@ -662,4 +680,47 @@ fn exact_named_document_anchors(
     }
 
     Ok(dedupe_symbol_matches(matches))
+}
+
+fn fill_definition_full_content(
+    workspace: &PreparedWorkspace,
+    client: &mut LspClient,
+    source_cache: &mut SourceCache,
+    matches: &mut [SymbolMatch],
+) -> Result<(), String> {
+    let mut responses = std::collections::HashMap::new();
+
+    for matched in matches {
+        if !responses.contains_key(&matched.path) {
+            let uri = path_to_file_uri(&matched.path)?;
+            client.open_document(&matched.path, &uri).map_err(|error| {
+                format!(
+                    "failed to open {} with {}: {error}",
+                    matched.path.display(),
+                    workspace.server.server
+                )
+            })?;
+            let response = match client.document_symbol(&uri) {
+                Ok(response) => Some(response),
+                Err(error) if should_skip_document_symbol_error(&error) => None,
+                Err(_) => None,
+            };
+            responses.insert(matched.path.clone(), response);
+        }
+
+        if let Some(Some(response)) = responses.get(&matched.path) {
+            matched.full_content = symbol_full_content_from_document_response(
+                response,
+                &matched.path,
+                matched,
+                source_cache,
+            )?
+            .or_else(|| matched.full_content.clone())
+            .or_else(|| Some(matched.line_content.clone()));
+        } else if matched.full_content.is_none() {
+            matched.full_content = Some(matched.line_content.clone());
+        }
+    }
+
+    Ok(())
 }

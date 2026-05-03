@@ -33,7 +33,7 @@ pub(crate) enum RawCommand {
     References(RawSymbolQueryArgs),
     Callers(RawSymbolQueryArgs),
     Callees(RawSymbolQueryArgs),
-    Definition(RawSymbolQueryArgs),
+    Definition(RawDefinitionArgs),
     Declaration(RawSymbolQueryArgs),
     BuildIndex(RawBuildIndexArgs),
     Completion(CompletionArgs),
@@ -55,7 +55,7 @@ pub enum Command {
     References(SymbolQueryArgs),
     Callers(SymbolQueryArgs),
     Callees(SymbolQueryArgs),
-    Definition(SymbolQueryArgs),
+    Definition(DefinitionArgs),
     Declaration(SymbolQueryArgs),
     BuildIndex(BuildIndexArgs),
     Completion(CompletionArgs),
@@ -248,6 +248,22 @@ pub(crate) struct RawSymbolQueryArgs {
 pub struct SymbolQueryArgs {
     pub name: String,
     pub query: LspWorkspaceQueryArgs,
+}
+
+#[derive(Debug, Args, Eq, PartialEq)]
+pub(crate) struct RawDefinitionArgs {
+    name: String,
+    #[command(flatten)]
+    query: RawLspWorkspaceQueryArgs,
+    #[arg(long)]
+    full: bool,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct DefinitionArgs {
+    pub name: String,
+    pub query: LspWorkspaceQueryArgs,
+    pub full: bool,
 }
 
 #[allow(clippy::struct_excessive_bools)]
@@ -565,6 +581,16 @@ impl RawSymbolQueryArgs {
         SymbolQueryArgs {
             name: self.name,
             query: self.query.resolve(defaults),
+        }
+    }
+}
+
+impl RawDefinitionArgs {
+    fn resolve(self, defaults: &CliConfig) -> DefinitionArgs {
+        DefinitionArgs {
+            name: self.name,
+            query: self.query.resolve(defaults),
+            full: self.full,
         }
     }
 }

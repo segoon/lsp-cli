@@ -12,8 +12,8 @@ use lsp_types::{
     DocumentSymbolParams, GeneralClientCapabilities, GotoDefinitionParams, InitializeParams,
     InitializedParams, PartialResultParams, Position, PositionEncodingKind, ReferenceContext,
     ReferenceParams, TextDocumentIdentifier, TextDocumentItem, TextDocumentPositionParams,
-    WindowClientCapabilities, WorkDoneProgressParams, WorkspaceClientCapabilities,
-    WorkspaceFolder, WorkspaceSymbolParams,
+    WindowClientCapabilities, WorkDoneProgressParams, WorkspaceClientCapabilities, WorkspaceFolder,
+    WorkspaceSymbolParams,
 };
 use serde_json::{Value, json};
 use std::path::Path;

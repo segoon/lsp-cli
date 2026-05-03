@@ -10,7 +10,10 @@ use lsp_types::notification::{Exit, Initialized, Notification};
 use lsp_types::request::{Initialize, Request, Shutdown};
 use serde_json::{Value, json};
 
-use super::{jsonrpc, transport::{log_debug_message, write_message}};
+use super::{
+    jsonrpc,
+    transport::{log_debug_message, write_message},
+};
 
 mod background;
 mod process_io;
@@ -198,7 +201,10 @@ impl LspClient {
                     ));
                 }
                 Ok(IncomingMessage::Error(error)) => {
-                    return Err(format!("failed to read LSP message for {}: {error}", R::METHOD));
+                    return Err(format!(
+                        "failed to read LSP message for {}: {error}",
+                        R::METHOD
+                    ));
                 }
                 Err(RecvTimeoutError::Timeout) => {
                     return Err(format!("timed out waiting for {}", R::METHOD));

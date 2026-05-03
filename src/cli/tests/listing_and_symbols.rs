@@ -1,4 +1,6 @@
-use super::super::{Command, CompletionArgs, ListFilesArgs, ListFunctionsArgs, SymbolQueryArgs};
+use super::super::{
+    Command, CompletionArgs, DefinitionArgs, ListFilesArgs, ListFunctionsArgs, SymbolQueryArgs,
+};
 use super::{build_index_args, list_symbols_args, lsp_workspace_query, parse, workspace_query};
 use clap_complete::Shell;
 use std::time::Duration;
@@ -173,4 +175,35 @@ fn parses_callers_arguments() {
             query,
         })
     );
+}
+
+#[test]
+fn parses_definition_full_arguments() {
+    let mut query = lsp_workspace_query("workspace");
+    query.query.lang = Some("python".to_string());
+
+    assert_eq!(
+        parse(&[
+            "definition",
+            "Order",
+            "workspace",
+            "--lang",
+            "python",
+            "--full"
+        ])
+        .expect("definition should parse"),
+        Command::Definition(DefinitionArgs {
+            name: "Order".to_string(),
+            query,
+            full: true,
+        })
+    );
+}
+
+#[test]
+fn rejects_full_for_references() {
+    let error = parse(&["references", "main", "workspace", "--full"])
+        .expect_err("references should reject --full");
+
+    assert!(error.contains("unexpected argument '--full'"));
 }

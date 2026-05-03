@@ -1,7 +1,7 @@
 use crate::cli::DaemonArgs;
 use crate::config::ConfigStore;
-use crate::lsp::{STOP_METHOD, jsonrpc, parse_lsp_uri};
 use crate::lsp::transport::{log_debug_message, write_message};
+use crate::lsp::{STOP_METHOD, jsonrpc, parse_lsp_uri};
 use lsp_types::notification::{Cancel, DidCloseTextDocument, Notification};
 use lsp_types::request::{Initialize, Request};
 use lsp_types::{CancelParams, DidCloseTextDocumentParams, NumberOrString, TextDocumentIdentifier};
@@ -25,11 +25,11 @@ mod tests;
 
 use process::{bind_listener, launch_background, resolve_target, run_background};
 use protocol::{
-    BackgroundWorkTracker, ReaderEvent, error_response, fingerprint_value,
-    handle_busy_connection, id_key, local_server_request_response, message_method,
-    normalize_initialize_params, read_control_message, request_id, request_id_from_key,
-    respond_to_stop_request, response_id, stop_request, stop_request_id, success_response,
-    update_background_work_tracker, wants_background_work,
+    BackgroundWorkTracker, ReaderEvent, error_response, fingerprint_value, handle_busy_connection,
+    id_key, local_server_request_response, message_method, normalize_initialize_params,
+    read_control_message, request_id, request_id_from_key, respond_to_stop_request, response_id,
+    stop_request, stop_request_id, success_response, update_background_work_tracker,
+    wants_background_work,
 };
 
 const BACKGROUND_ENV: &str = "LSP_CLI_DAEMON_BACKGROUND";
@@ -621,9 +621,7 @@ impl Daemon {
         for request_key in client.forwarded_client_requests {
             let id = serde_json::from_value::<NumberOrString>(request_id_from_key(&request_key))
                 .map_err(|error| format!("invalid cancel request id: {error}"))?;
-            let params = CancelParams {
-                id,
-            };
+            let params = CancelParams { id };
             let cancel = jsonrpc::<u64, _>(None, Cancel::METHOD, &params)?;
             let _ = self.write_upstream_message(&cancel);
             self.orphaned_client_requests.insert(request_key);

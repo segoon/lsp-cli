@@ -118,6 +118,8 @@ See `playground/README.md` for more examples.
 ```sh
 # Suggest LSP server cmdline based on filenames
 lsp-cli detect path/to/project
+lsp-cli detect path/to/project --lang python
+lsp-cli detect path/to/project --lsp pyright-langserver
 lsp-cli detect path/to/project/main.py --json
 
 # Query workspace symbols through the first detected LSP server
@@ -199,6 +201,7 @@ lsp-cli servers --lang rust
 `--download` on LSP-spawning commands keeps non-installed detected servers in consideration and installs the selected server automatically before launch.
 `--debug` logs the selected LSP server command line, pid, and raw LSP traffic to stderr.
 `--timeout` controls the per-request LSP timeout. Plain numbers are seconds, and values ending in `ms` are milliseconds.
+`detect --lang` and `detect --lsp` filter the detected server list to one language, one server, or their intersection.
 `--lang` narrows server selection to one detected language. LSP-backed commands error on mixed-language workspaces unless you pass `--lang` or an explicit `--lsp`.
 `server-capabilities` runs the normal LSP initialize handshake, prints the selected server command line and server version when available, then renders the initialize result capabilities as a YAML-like tree. Known standard capabilities use human-readable labels; unknown and experimental capabilities fall back to raw capability names. The output reflects what the server advertises during initialize, so later dynamic capability registration is not included.
 `build-index` waits for background-work signals such as `experimental/serverStatus` or work-done progress. If the selected server does not expose such progress, the command fails.

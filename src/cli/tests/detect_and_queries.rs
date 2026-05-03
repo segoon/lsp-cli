@@ -11,6 +11,8 @@ fn parses_detect_defaults() {
         parse(&["detect"]).expect("detect should parse"),
         Command::Detect(DetectArgs {
             path: PathBuf::from("."),
+            lang: None,
+            lsp: None,
             download: false,
             json: false,
             quiet: false,
@@ -22,9 +24,22 @@ fn parses_detect_defaults() {
 #[test]
 fn parses_detect_flags_and_path() {
     assert_eq!(
-        parse(&["detect", "src", "--download", "--json", "-q"]).expect("detect should parse"),
+        parse(&[
+            "detect",
+            "src",
+            "--lang",
+            "python",
+            "--lsp",
+            "pyright",
+            "--download",
+            "--json",
+            "-q",
+        ])
+        .expect("detect should parse"),
         Command::Detect(DetectArgs {
             path: PathBuf::from("src"),
+            lang: Some("python".to_string()),
+            lsp: Some("pyright".to_string()),
             download: true,
             json: true,
             quiet: true,
@@ -47,6 +62,8 @@ fn resolves_detect_defaults_from_config_and_no_flags() {
         parse_with_config(&["detect"], &config),
         Command::Detect(DetectArgs {
             path: PathBuf::from("."),
+            lang: None,
+            lsp: None,
             download: true,
             json: true,
             quiet: true,
@@ -79,6 +96,8 @@ fn cli_no_flags_override_boolean_config_defaults() {
         ),
         Command::Detect(DetectArgs {
             path: PathBuf::from("."),
+            lang: None,
+            lsp: None,
             download: false,
             json: false,
             quiet: false,

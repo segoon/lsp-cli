@@ -92,6 +92,10 @@ pub(crate) struct RawDetectArgs {
         help = "Path to inspect for supported languages and servers."
     )]
     pub(crate) path: PathBuf,
+    #[arg(long, help = HELP_LANG)]
+    pub(crate) lang: Option<String>,
+    #[arg(long, help = HELP_LSP)]
+    pub(crate) lsp: Option<String>,
     #[arg(long, conflicts_with = "no_download", help = HELP_DOWNLOAD)]
     pub(crate) download: bool,
     #[arg(long = "no-download", conflicts_with = "download", help = HELP_NO_DOWNLOAD)]

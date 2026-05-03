@@ -48,6 +48,8 @@ pub enum Command {
 #[derive(Debug, Eq, PartialEq)]
 pub struct DetectArgs {
     pub path: PathBuf,
+    pub lang: Option<String>,
+    pub lsp: Option<String>,
     pub download: bool,
     pub json: bool,
     pub quiet: bool,
@@ -253,6 +255,8 @@ impl RawDetectArgs {
     fn resolve(self, defaults: &CliConfig) -> DetectArgs {
         DetectArgs {
             path: self.path,
+            lang: self.lang,
+            lsp: self.lsp,
             download: resolve_bool(
                 self.download,
                 self.no_download,

@@ -1,7 +1,7 @@
 use crate::cli::{CompletionArgs, clap_command};
 use crate::config::{default_config_root, load_config_store};
 use clap::builder::PossibleValuesParser;
-use clap_complete::generate;
+use clap_complete::{Shell, generate};
 use std::collections::BTreeSet;
 use std::env;
 use std::ffi::OsStr;
@@ -15,7 +15,23 @@ pub(super) fn run(args: CompletionArgs) -> Result<String, String> {
     generate(shell, &mut command, "lsp-cli", &mut output);
 
     String::from_utf8(output.into_inner())
+        .map(|output| normalize_completion_output(shell, output, "lsp-cli"))
         .map_err(|error| format!("completion output was not valid UTF-8: {error}"))
+}
+
+fn normalize_completion_output(shell: Shell, output: String, bin_name: &str) -> String {
+    if shell != Shell::Bash || !bin_name.contains('-') {
+        return output;
+    }
+
+    // clap_complete 4.6.3 emits bash handler labels using `__subcmd__` for
+    // hyphens in the root binary name while the dispatcher uses `__`, which
+    // makes subcommand-specific completion unreachable for binaries like
+    // `lsp-cli`. Normalize the generated labels to the dispatcher form.
+    output.replace(
+        &bin_name.replace('-', "__subcmd__"),
+        &bin_name.replace('-', "__"),
+    )
 }
 
 fn completion_command() -> Result<clap::Command, String> {
@@ -87,10 +103,11 @@ pub(super) fn detect_shell_from_env(shell: Option<&OsStr>) -> Result<clap_comple
 
 #[cfg(test)]
 mod tests {
-    use super::{detect_shell_from_env, run};
+    use super::{detect_shell_from_env, normalize_completion_output, run};
     use crate::cli::CompletionArgs;
     use crate::test_support::{TestDir, env_var, with_env_vars};
     use clap_complete::Shell;
+    use std::process::Command;
 
     #[test]
     fn generates_bash_completion_script() {
@@ -111,6 +128,49 @@ mod tests {
         assert!(output.contains("list-functions"));
         assert!(output.contains("list-symbols"));
         assert!(output.contains("completion"));
+    }
+
+    #[test]
+    fn normalizes_bash_labels_for_hyphenated_binary_names() {
+        assert_eq!(
+            normalize_completion_output(
+                Shell::Bash,
+                "lsp__subcmd__cli__subcmd__detect".to_string(),
+                "lsp-cli",
+            ),
+            "lsp__cli__subcmd__detect"
+        );
+    }
+
+    #[test]
+    fn bash_detect_lsp_completion_reaches_value_candidates() {
+        let script = run(CompletionArgs {
+            shell: Some(Shell::Bash),
+        })
+        .expect("bash completion should generate");
+
+        let output = Command::new("/bin/bash")
+            .arg("-lc")
+            .arg(
+                "source /dev/stdin && COMP_WORDS=(lsp-cli detect playground/c --lsp \"\") && COMP_CWORD=4 && COMPREPLY=() && _lsp-cli lsp-cli \"\" --lsp && printf '%s\n' \"${COMPREPLY[@]}\"",
+            )
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .spawn()
+            .and_then(|mut child| {
+                use std::io::Write as _;
+
+                child
+                    .stdin
+                    .as_mut()
+                    .expect("stdin should be piped")
+                    .write_all(script.as_bytes())?;
+                child.wait_with_output()
+            })
+            .expect("bash subprocess should run");
+
+        let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
+        assert!(stdout.contains("clangd"));
     }
 
     #[test]

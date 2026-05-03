@@ -17,6 +17,8 @@ Suggested commands:
 
 ```sh
 cargo run -- detect playground/python
+cargo run -- detect playground/python --lang python
+cargo run -- detect playground/python --lsp pyright-langserver
 cargo run -- grep Order playground/rust
 cargo run -- list-symbols playground/c
 cargo run -- list-symbols playground/java/src/main/java/playground/order/Order.java

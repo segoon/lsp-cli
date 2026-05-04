@@ -943,6 +943,12 @@ They are useful for learning what each command prints before pointing `lsp-cli` 
 - symbol search quality (and regex syntax) varies between servers
 - background indexing support varies between servers
 
+# Links
+
+- lsp-cli on [github](https://github.com/segoon/lsp-cli) and on [crate.io](https://github.com/segoon/lsp-cli)
+- lsp-cli-data on [github](https://github.com/segoon/lsp-cli)
+
+
 # References
 
 - [LSP specification](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/)

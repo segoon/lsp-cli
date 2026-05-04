@@ -17,28 +17,22 @@ The goal is simple: point `lsp-cli` at a file or project directory, let it choos
 
 ## Getting Started
 
-Clone the repository with its data files:
+### Install via cargo
+
+### Compiling from sources
+
+Clone the repository with its data files and run:
 
 ```sh
 git clone --recurse-submodules https://github.com/segoon/lsp-cli.git
 cd lsp-cli
-```
+cargo build
 
-Build and try a few commands:
-
-```sh
+# Run the debug executable from ./target/debug/
 cargo run -- detect playground/python
 cargo run -- grep Order playground/rust
 cargo run -- definition format_order playground/c --lsp clangd
 ```
-
-If you cloned the repository earlier without submodules, initialize them first:
-
-```sh
-git submodule update --init --recursive
-```
-
-If config data is not available yet, most commands try to install it automatically before running.
 
 
 ## Use cases

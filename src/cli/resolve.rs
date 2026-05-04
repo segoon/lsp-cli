@@ -1,9 +1,9 @@
 use crate::cli::{
     BuildIndexArgs, Command, CommandsArgs, DEFAULT_IDLE_TIMEOUT, DEFAULT_LIMIT, DEFAULT_TIMEOUT,
-    DaemonArgs, DeclarationArgs, DefinitionArgs, DetectArgs, DiagnosticsArgs, FormatArgs,
-    GrepArgs, LanguagesArgs, ListFilesArgs, ListFunctionsArgs, ListSymbolsArgs,
-    LspWorkspaceQueryArgs, RunArgs, ServerCapabilitiesArgs, ServersArgs, StopAllArgs, StopArgs,
-    SymbolQueryArgs, UpdateArgs, WorkspaceQueryArgs,
+    DaemonArgs, DeclarationArgs, DefinitionArgs, DetectArgs, DiagnosticsArgs, FormatArgs, GrepArgs,
+    LanguagesArgs, ListFilesArgs, ListFunctionsArgs, ListSymbolsArgs, LspWorkspaceQueryArgs,
+    RunArgs, ServerCapabilitiesArgs, ServersArgs, StopAllArgs, StopArgs, SymbolQueryArgs,
+    UpdateArgs, WorkspaceQueryArgs,
 };
 use crate::cli::{
     RawBuildIndexArgs, RawCommand, RawCommandsArgs, RawDaemonArgs, RawDeclarationArgs,
@@ -96,8 +96,12 @@ impl RawWorkspaceQueryArgs {
             wait_for_index: self.wait_for_index,
             json: resolve_bool(self.json, self.no_json, defaults.json.unwrap_or(false)),
             debug: resolve_bool(self.debug, self.no_debug, defaults.debug.unwrap_or(false)),
-            timeout: self.timeout.unwrap_or(defaults.timeout.unwrap_or(DEFAULT_TIMEOUT)),
-            limit: self.limit.unwrap_or(defaults.limit.unwrap_or(DEFAULT_LIMIT)),
+            timeout: self
+                .timeout
+                .unwrap_or(defaults.timeout.unwrap_or(DEFAULT_TIMEOUT)),
+            limit: self
+                .limit
+                .unwrap_or(defaults.limit.unwrap_or(DEFAULT_LIMIT)),
         }
     }
 }
@@ -111,7 +115,11 @@ impl RawLspWorkspaceQueryArgs {
                 self.no_download,
                 defaults.download.unwrap_or(false),
             ),
-            detach: resolve_bool(self.detach, self.no_detach, defaults.detach.unwrap_or(false)),
+            detach: resolve_bool(
+                self.detach,
+                self.no_detach,
+                defaults.detach.unwrap_or(false),
+            ),
             files_with_matches: self.files_with_matches,
         }
     }
@@ -145,10 +153,16 @@ impl RawFormatArgs {
                 self.no_download,
                 defaults.download.unwrap_or(false),
             ),
-            detach: resolve_bool(self.detach, self.no_detach, defaults.detach.unwrap_or(false)),
+            detach: resolve_bool(
+                self.detach,
+                self.no_detach,
+                defaults.detach.unwrap_or(false),
+            ),
             json: resolve_bool(self.json, self.no_json, defaults.json.unwrap_or(false)),
             debug: resolve_bool(self.debug, self.no_debug, defaults.debug.unwrap_or(false)),
-            timeout: self.timeout.unwrap_or(defaults.timeout.unwrap_or(DEFAULT_TIMEOUT)),
+            timeout: self
+                .timeout
+                .unwrap_or(defaults.timeout.unwrap_or(DEFAULT_TIMEOUT)),
             check: self.check,
             stdout: self.stdout,
         }
@@ -161,7 +175,11 @@ impl RawListSymbolsArgs {
             path: self.path,
             lang: self.lang,
             lsp: self.lsp,
-            detach: resolve_bool(self.detach, self.no_detach, defaults.detach.unwrap_or(false)),
+            detach: resolve_bool(
+                self.detach,
+                self.no_detach,
+                defaults.detach.unwrap_or(false),
+            ),
             wait_for_index: self.wait_for_index,
             download: resolve_bool(
                 self.download,
@@ -170,8 +188,12 @@ impl RawListSymbolsArgs {
             ),
             json: resolve_bool(self.json, self.no_json, defaults.json.unwrap_or(false)),
             debug: resolve_bool(self.debug, self.no_debug, defaults.debug.unwrap_or(false)),
-            timeout: self.timeout.unwrap_or(defaults.timeout.unwrap_or(DEFAULT_TIMEOUT)),
-            limit: self.limit.unwrap_or(defaults.limit.unwrap_or(DEFAULT_LIMIT)),
+            timeout: self
+                .timeout
+                .unwrap_or(defaults.timeout.unwrap_or(DEFAULT_TIMEOUT)),
+            limit: self
+                .limit
+                .unwrap_or(defaults.limit.unwrap_or(DEFAULT_LIMIT)),
         }
     }
 }
@@ -227,14 +249,20 @@ impl RawBuildIndexArgs {
             directory: self.directory,
             lang: self.lang,
             lsp: self.lsp,
-            detach: resolve_bool(self.detach, self.no_detach, defaults.detach.unwrap_or(false)),
+            detach: resolve_bool(
+                self.detach,
+                self.no_detach,
+                defaults.detach.unwrap_or(false),
+            ),
             download: resolve_bool(
                 self.download,
                 self.no_download,
                 defaults.download.unwrap_or(false),
             ),
             debug: resolve_bool(self.debug, self.no_debug, defaults.debug.unwrap_or(false)),
-            timeout: self.timeout.unwrap_or(defaults.timeout.unwrap_or(DEFAULT_TIMEOUT)),
+            timeout: self
+                .timeout
+                .unwrap_or(defaults.timeout.unwrap_or(DEFAULT_TIMEOUT)),
         }
     }
 }
@@ -311,14 +339,20 @@ impl RawServerCapabilitiesArgs {
             directory: self.directory,
             lang: self.lang,
             lsp: self.lsp,
-            detach: resolve_bool(self.detach, self.no_detach, defaults.detach.unwrap_or(false)),
+            detach: resolve_bool(
+                self.detach,
+                self.no_detach,
+                defaults.detach.unwrap_or(false),
+            ),
             download: resolve_bool(
                 self.download,
                 self.no_download,
                 defaults.download.unwrap_or(false),
             ),
             debug: resolve_bool(self.debug, self.no_debug, defaults.debug.unwrap_or(false)),
-            timeout: self.timeout.unwrap_or(defaults.timeout.unwrap_or(DEFAULT_TIMEOUT)),
+            timeout: self
+                .timeout
+                .unwrap_or(defaults.timeout.unwrap_or(DEFAULT_TIMEOUT)),
         }
     }
 }

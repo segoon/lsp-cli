@@ -1,5 +1,5 @@
-mod build_index;
 mod agent_skill;
+mod build_index;
 mod callees;
 mod callers;
 mod command_list;

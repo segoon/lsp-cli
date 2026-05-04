@@ -40,6 +40,16 @@ git submodule update --init --recursive
 
 If config data is not available yet, most commands try to install it automatically before running.
 
+
+## Use cases
+
+You might want to use `lsp-cli` if:
+
+- you want to make simple LSP requests from the terminal
+- your code agent doesn't support a rare/proprietary LSP server (e.g. for a rare language)
+- you implement an IDE/editor that should support a wide range of languages, but you don't want to mess around LSP server configuration / distribution
+
+
 ## What lsp-cli Does
 
 At a high level, `lsp-cli` usually does the following:

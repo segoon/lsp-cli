@@ -118,7 +118,11 @@ TODO: options reference will be added later.
 
 ## Configuration Files
 
-`lsp-cli` uses several configuration locations with different roles.
+If you want to customize `lsp-cli`, the three important config layers are:
+
+- `lsp-cli.yaml` for defaults and preferences (especially LSP server preference order)
+- `filetypes/*.yaml` for language detection
+- `lsp/*.yaml` for server definitions
 
 ### Data Root
 
@@ -376,17 +380,6 @@ They are useful for learning what each command prints before pointing `lsp-cli` 
 - background indexing support varies between servers
 
 
-## Summary
-
-`lsp-cli` is best thought of as a terminal-friendly client for LSP servers.
-
-If you only want to use it, start with `detect`, `grep`, `definition`, `references`, `diagnostics`, and `format`.
-
-If you want to customize it, the three important config layers are:
-
-- `lsp-cli.yaml` for defaults and preferences
-- `filetypes/*.yaml` for language detection
-- `lsp/*.yaml` for server definitions
 
 # References
 

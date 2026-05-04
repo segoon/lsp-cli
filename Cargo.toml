@@ -8,6 +8,7 @@ repository = "https://github.com/segoon/lsp-cli"
 readme = "README.md"
 keywords = ["lsp", "cli", "language-server"]
 categories = ["command-line-utilities", "development-tools"]
+exclude = ["data/*"]
 
 [dependencies]
 clap = { version = "4.5.38", features = ["derive", "string"] }

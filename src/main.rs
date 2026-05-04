@@ -20,7 +20,7 @@ use std::env;
 use std::process;
 
 use cli::{RawCommand as CliRawCommand, parse_raw_args, resolve_command};
-use commands::{run, run_completion};
+use commands::{run, run_commands, run_completion};
 use config::{default_cli_config_roots, default_config_root, load_cli_config, load_config_store};
 use system_log::{log_unexpected_error, warn_if_log_file_is_large};
 
@@ -36,6 +36,7 @@ fn main() {
     };
 
     let output = match raw_command {
+        CliRawCommand::Commands(_) => run_commands(),
         CliRawCommand::Completion(completion_args) => run_completion(completion_args),
         CliRawCommand::Update(_) => {
             let cli = match update::load_cli_defaults_for_update() {

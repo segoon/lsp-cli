@@ -36,6 +36,8 @@ struct RawCli {
 
 #[derive(Debug, Eq, PartialEq, Subcommand)]
 pub(crate) enum RawCommand {
+    #[command(about = "List canonical top-level subcommands")]
+    Commands(RawCommandsArgs),
     #[command(about = "Start a background daemon for the selected workspace and server")]
     Daemon(RawDaemonArgs),
     #[command(about = "Stop the matching background daemon (same cmdline and cwd)")]
@@ -81,6 +83,9 @@ pub(crate) enum RawCommand {
     #[command(about = "Replace lsp-cli with the selected language server process")]
     Run(RawRunArgs),
 }
+
+#[derive(Debug, Args, Eq, PartialEq)]
+pub(crate) struct RawCommandsArgs {}
 
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Args, Eq, PartialEq)]

@@ -1,11 +1,19 @@
 use super::super::{
-    Command, DaemonArgs, FormatArgs, LanguagesArgs, RunArgs, ServerCapabilitiesArgs, ServersArgs,
-    StopAllArgs, StopArgs, UpdateArgs,
+    Command, CommandsArgs, DaemonArgs, FormatArgs, LanguagesArgs, RunArgs,
+    ServerCapabilitiesArgs, ServersArgs, StopAllArgs, StopArgs, UpdateArgs,
 };
 use super::{parse, parse_with_config};
 use crate::config::{CliConfig, DaemonCliConfig};
 use std::path::PathBuf;
 use std::time::Duration;
+
+#[test]
+fn parses_commands_arguments() {
+    assert_eq!(
+        parse(&["commands"]).expect("commands should parse"),
+        Command::Commands(CommandsArgs)
+    );
+}
 
 #[test]
 fn parses_run_arguments() {

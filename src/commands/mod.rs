@@ -1,6 +1,7 @@
 mod build_index;
 mod callees;
 mod callers;
+mod command_list;
 mod common;
 mod completion;
 mod daemon;
@@ -28,6 +29,7 @@ use crate::config::ConfigStore;
 pub(crate) fn run(command: CliCommand, config: &ConfigStore) -> Result<String, String> {
     match command {
         CliCommand::Detect(args) => detect::run(&args, config),
+        CliCommand::Commands(args) => command_list::run(&args),
         CliCommand::Diagnostics(args) => diagnostics::run(&args, config),
         CliCommand::Format(args) => format::run(&args, config),
         CliCommand::Daemon(args) => daemon::run(&args, config),
@@ -54,4 +56,8 @@ pub(crate) fn run(command: CliCommand, config: &ConfigStore) -> Result<String, S
 
 pub(crate) fn run_completion(args: CompletionArgs) -> Result<String, String> {
     completion::run(args)
+}
+
+pub(crate) fn run_commands() -> Result<String, String> {
+    command_list::run(&crate::cli::CommandsArgs)
 }

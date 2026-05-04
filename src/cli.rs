@@ -5,11 +5,12 @@ mod raw;
 
 pub use raw::{CompletionArgs, clap_command};
 pub(crate) use raw::{
-    RawBuildIndexArgs, RawCommand, RawDaemonArgs, RawDeclarationArgs, RawDefinitionArgs,
-    RawDetectArgs, RawDiagnosticsArgs, RawFormatArgs, RawGrepArgs, RawLanguagesArgs,
-    RawListFilesArgs, RawListFunctionsArgs, RawListSymbolsArgs, RawLspWorkspaceQueryArgs,
-    RawRunArgs, RawServerCapabilitiesArgs, RawServersArgs, RawStopAllArgs, RawStopArgs,
-    RawSymbolQueryArgs, RawUpdateArgs, RawWorkspaceQueryArgs, parse_raw_args,
+    RawBuildIndexArgs, RawCommand, RawCommandsArgs, RawDaemonArgs, RawDeclarationArgs,
+    RawDefinitionArgs, RawDetectArgs, RawDiagnosticsArgs, RawFormatArgs, RawGrepArgs,
+    RawLanguagesArgs, RawListFilesArgs, RawListFunctionsArgs, RawListSymbolsArgs,
+    RawLspWorkspaceQueryArgs, RawRunArgs, RawServerCapabilitiesArgs, RawServersArgs,
+    RawStopAllArgs, RawStopArgs, RawSymbolQueryArgs, RawUpdateArgs, RawWorkspaceQueryArgs,
+    parse_raw_args,
 };
 
 use crate::config::CliConfig;
@@ -20,6 +21,7 @@ const DEFAULT_IDLE_TIMEOUT: Duration = Duration::from_mins(1);
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Command {
+    Commands(CommandsArgs),
     Daemon(DaemonArgs),
     Stop(StopArgs),
     StopAll(StopAllArgs),
@@ -43,6 +45,9 @@ pub enum Command {
     Completion(CompletionArgs),
     Run(RunArgs),
 }
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct CommandsArgs;
 
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Eq, PartialEq)]
@@ -216,6 +221,7 @@ pub(crate) fn resolve_command(
     defaults: &CliConfig,
 ) -> Result<Command, String> {
     let command = match command {
+        RawCommand::Commands(_) => Command::Commands(RawCommandsArgs::resolve()),
         RawCommand::Daemon(args) => Command::Daemon(args.resolve(defaults)),
         RawCommand::Stop(args) => Command::Stop(args.resolve(defaults)),
         RawCommand::StopAll(args) => Command::StopAll(args.resolve(defaults)),
@@ -241,6 +247,12 @@ pub(crate) fn resolve_command(
     };
     validate_command(&command)?;
     Ok(command)
+}
+
+impl RawCommandsArgs {
+    fn resolve() -> CommandsArgs {
+        CommandsArgs
+    }
 }
 
 #[cfg(test)]

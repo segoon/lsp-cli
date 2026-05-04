@@ -968,7 +968,7 @@ They are useful for learning what each command prints before pointing `lsp-cli` 
 
 # Links
 
-- lsp-cli on [github](https://github.com/segoon/lsp-cli) and on [crate.io](https://github.com/segoon/lsp-cli)
+- lsp-cli on [github](https://github.com/segoon/lsp-cli) and on [crate.io](https://crates.io/crates/lsp-cli)
 - lsp-cli-data on [github](https://github.com/segoon/lsp-cli)
 
 

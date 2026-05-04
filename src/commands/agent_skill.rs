@@ -1,4 +1,5 @@
 use crate::cli::{AgentSkillArgs, clap_command};
+use clap::Arg;
 use clap::Command as ClapCommand;
 use regex::Regex;
 use std::collections::{BTreeMap, BTreeSet};
@@ -17,6 +18,15 @@ const IGNORED_COMMANDS: &[&str] = &[
     "agent-skill",
     "run",
 ];
+const IGNORED_OPTIONS: &[&str] = &[
+    "debug",
+    "no-debug",
+    "timeout",
+    "download",
+    "no-download",
+    "no-detach",
+    "no-json",
+];
 
 #[allow(clippy::unnecessary_wraps)]
 pub(super) fn run(_args: &AgentSkillArgs) -> Result<String, String> {
@@ -25,11 +35,12 @@ pub(super) fn run(_args: &AgentSkillArgs) -> Result<String, String> {
 
 fn render_skill() -> String {
     let root = clap_command();
-    let replacements = command_replacements(&root);
+    let mut replacements = command_replacements(&root);
+    replacements.extend(option_replacements(&root));
     render_template(TEMPLATE, &replacements)
 }
 
-fn command_replacements(root: &ClapCommand) -> BTreeMap<&'static str, String> {
+fn command_replacements(root: &ClapCommand) -> BTreeMap<String, String> {
     validate_ignored_commands(root);
 
     root.get_subcommands()
@@ -42,7 +53,54 @@ fn command_replacements(root: &ClapCommand) -> BTreeMap<&'static str, String> {
                     command.get_name()
                 )
             });
-            (placeholder, command_about(command))
+            (placeholder.to_string(), command_about(command))
+        })
+        .collect()
+}
+
+fn option_replacements(root: &ClapCommand) -> BTreeMap<String, String> {
+    let mut counts = BTreeMap::<String, BTreeMap<String, usize>>::new();
+    let mut known_options = BTreeSet::<String>::new();
+
+    for command in root
+        .get_subcommands()
+        .filter(|command| command.get_name() != "help")
+        .filter(|command| !IGNORED_COMMANDS.contains(&command.get_name()))
+    {
+        for arg in command.get_arguments() {
+            let Some(long) = arg.get_long() else {
+                continue;
+            };
+            if long == "help" || arg.is_hide_set() {
+                continue;
+            }
+
+            known_options.insert(long.to_string());
+            if IGNORED_OPTIONS.contains(&long) {
+                continue;
+            }
+
+            let help = option_help(arg);
+            *counts
+                .entry(long.to_string())
+                .or_default()
+                .entry(help)
+                .or_default() += 1;
+        }
+    }
+
+    for ignored in IGNORED_OPTIONS {
+        assert!(
+            known_options.contains(*ignored),
+            "ignored agent-skill option `--{ignored}` does not exist"
+        );
+    }
+
+    counts
+        .into_iter()
+        .map(|(long, variants)| {
+            let help = select_option_help(&long, &variants);
+            (option_placeholder(&long), help)
         })
         .collect()
 }
@@ -80,7 +138,31 @@ fn command_placeholder(command: &str) -> Option<&'static str> {
     }
 }
 
-fn render_template(template: &str, replacements: &BTreeMap<&'static str, String>) -> String {
+fn option_placeholder(long: &str) -> String {
+    format!("OPT/{}", long.replace('-', "_").to_uppercase())
+}
+
+fn select_option_help(long: &str, variants: &BTreeMap<String, usize>) -> String {
+    let max_count = variants
+        .values()
+        .copied()
+        .max()
+        .unwrap_or_else(|| panic!("agent-skill option `--{long}` has no help variants"));
+    let best = variants
+        .iter()
+        .filter(|(_, count)| **count == max_count)
+        .map(|(help, _)| help.clone())
+        .collect::<Vec<_>>();
+
+    assert!(
+        best.len() == 1,
+        "agent-skill option `--{long}` has ambiguous help variants: {}",
+        best.join(" | ")
+    );
+    best[0].clone()
+}
+
+fn render_template(template: &str, replacements: &BTreeMap<String, String>) -> String {
     let placeholder_regex = Regex::new(r"\{([A-Z0-9/_]+)\}").expect("placeholder regex should compile");
     let used = placeholder_regex
         .captures_iter(template)
@@ -96,7 +178,7 @@ fn render_template(template: &str, replacements: &BTreeMap<&'static str, String>
 
     for placeholder in replacements.keys() {
         assert!(
-            used.contains(*placeholder),
+            used.contains(placeholder),
             "agent-skill template argument `{{{placeholder}}}` was provided but never used"
         );
     }
@@ -104,7 +186,7 @@ fn render_template(template: &str, replacements: &BTreeMap<&'static str, String>
     placeholder_regex
         .replace_all(template, |captures: &regex::Captures<'_>| {
             replacements
-                .get(&captures[1])
+                .get(&captures[1].to_string())
                 .unwrap_or_else(|| panic!("missing replacement for `{{{}}}`", &captures[1]))
                 .clone()
         })
@@ -114,6 +196,13 @@ fn render_template(template: &str, replacements: &BTreeMap<&'static str, String>
 fn command_about(command: &ClapCommand) -> String {
     command.get_about().map_or_else(
         || "No summary available.".to_string(),
+        clap::builder::StyledStr::to_string,
+    )
+}
+
+fn option_help(arg: &Arg) -> String {
+    arg.get_help().map_or_else(
+        || "No help available.".to_string(),
         clap::builder::StyledStr::to_string,
     )
 }
@@ -176,7 +265,7 @@ mod tests {
 
     #[test]
     fn panics_for_unknown_template_placeholders() {
-        let args = BTreeMap::from([("CMD/GREP", "grep about".to_string())]);
+        let args = BTreeMap::from([("CMD/GREP".to_string(), "grep about".to_string())]);
         let result = std::panic::catch_unwind(|| render_template("{CMD/GREP} {CMD/NOPE}", &args));
 
         assert!(result.is_err(), "unknown placeholders should panic");
@@ -185,11 +274,26 @@ mod tests {
     #[test]
     fn panics_for_unused_template_arguments() {
         let args = BTreeMap::from([
-            ("CMD/GREP", "grep about".to_string()),
-            ("CMD/FORMAT", "format about".to_string()),
+            ("CMD/GREP".to_string(), "grep about".to_string()),
+            ("CMD/FORMAT".to_string(), "format about".to_string()),
         ]);
         let result = std::panic::catch_unwind(|| render_template("{CMD/GREP}", &args));
 
         assert!(result.is_err(), "unused template arguments should panic");
+    }
+
+    #[test]
+    fn renders_option_placeholders_from_clap_help() {
+        let markdown = render_skill();
+
+        assert!(markdown.contains("`--json`: Print results as JSON."));
+        assert!(markdown.contains(
+            "`--limit <N>`: Maximum number of results to print. Mainly usable for code agents."
+        ));
+        assert!(markdown.contains("`--lsp <LSP>`: Use a specific configured LSP server."));
+        assert!(markdown.contains("`--lang <LANG>`: Select this language."));
+        assert!(markdown.contains(
+            "`-l, --files-with-matches`: Print only file paths that contain matches."
+        ));
     }
 }

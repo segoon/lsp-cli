@@ -30,11 +30,11 @@ Example:
 lsp-cli grep --json --limit 20 Order path/to/project
 ```
 Recommended flags:
-- `--json`: Print results as JSON.
-- `--limit <N>`: Maximum number of results to print. Mainly usable for code agents.
-- `--wait-for-index`: Wait for background indexing before sending the workspace query.
-- `--detach`: Use a background daemon socket when available, starting one if needed.
-- `-l, --files-with-matches`: Print only file paths that contain matches.
+- `--json`: {OPT/JSON}
+- `--limit <N>`: {OPT/LIMIT}
+- `--wait-for-index`: {OPT/WAIT_FOR_INDEX}
+- `--detach`: {OPT/DETACH}
+- `-l, --files-with-matches`: {OPT/FILES_WITH_MATCHES}
 
 ### `list-symbols`
 Purpose: {CMD/LIST_SYMBOLS}
@@ -45,10 +45,10 @@ Example:
 lsp-cli list-symbols --json --limit 50 path/to/project/src/main.rs
 ```
 Recommended flags:
-- `--json`: Print results as JSON.
-- `--limit <N>`: Maximum number of results to print. Mainly usable for code agents.
-- `--wait-for-index`: Wait for background indexing before sending the workspace query.
-- `--detach`: Use a background daemon socket when available, starting one if needed.
+- `--json`: {OPT/JSON}
+- `--limit <N>`: {OPT/LIMIT}
+- `--wait-for-index`: {OPT/WAIT_FOR_INDEX}
+- `--detach`: {OPT/DETACH}
 
 ### `list-functions`
 Purpose: {CMD/LIST_FUNCTIONS}
@@ -59,10 +59,10 @@ Example:
 lsp-cli list-functions --json --limit 50 path/to/project
 ```
 Recommended flags:
-- `--json`: Print results as JSON.
-- `--limit <N>`: Maximum number of results to print. Mainly usable for code agents.
-- `--wait-for-index`: Wait for background indexing before sending the workspace query.
-- `--detach`: Use a background daemon socket when available, starting one if needed.
+- `--json`: {OPT/JSON}
+- `--limit <N>`: {OPT/LIMIT}
+- `--wait-for-index`: {OPT/WAIT_FOR_INDEX}
+- `--detach`: {OPT/DETACH}
 
 ### `list-files`
 Purpose: {CMD/LIST_FILES}
@@ -73,9 +73,9 @@ Example:
 lsp-cli list-files --json --limit 100 path/to/project
 ```
 Recommended flags:
-- `--json`: Print results as JSON.
-- `--limit <N>`: Maximum number of results to print. Mainly usable for code agents.
-- `--wait-for-index`: Wait for background indexing before sending the workspace query.
+- `--json`: {OPT/JSON}
+- `--limit <N>`: {OPT/LIMIT}
+- `--wait-for-index`: {OPT/WAIT_FOR_INDEX}
 
 ### `definition`
 Purpose: {CMD/DEFINITION}
@@ -86,12 +86,12 @@ Example:
 lsp-cli definition --json --limit 10 MySymbol path/to/project
 ```
 Recommended flags:
-- `--json`: Print results as JSON.
-- `--limit <N>`: Maximum number of results to print. Mainly usable for code agents.
-- `--wait-for-index`: Wait for background indexing before sending the workspace query.
-- `--detach`: Use a background daemon socket when available, starting one if needed.
-- `--full`: Include full source text for each match in output.
-- `-l, --files-with-matches`: Print only file paths that contain matches.
+- `--json`: {OPT/JSON}
+- `--limit <N>`: {OPT/LIMIT}
+- `--wait-for-index`: {OPT/WAIT_FOR_INDEX}
+- `--detach`: {OPT/DETACH}
+- `--full`: {OPT/FULL}
+- `-l, --files-with-matches`: {OPT/FILES_WITH_MATCHES}
 
 ### `declaration`
 Purpose: {CMD/DECLARATION}
@@ -102,12 +102,12 @@ Example:
 lsp-cli declaration --json --limit 10 MySymbol path/to/project
 ```
 Recommended flags:
-- `--json`: Print results as JSON.
-- `--limit <N>`: Maximum number of results to print. Mainly usable for code agents.
-- `--wait-for-index`: Wait for background indexing before sending the workspace query.
-- `--detach`: Use a background daemon socket when available, starting one if needed.
-- `--full`: Include full source text for each match in output.
-- `-l, --files-with-matches`: Print only file paths that contain matches.
+- `--json`: {OPT/JSON}
+- `--limit <N>`: {OPT/LIMIT}
+- `--wait-for-index`: {OPT/WAIT_FOR_INDEX}
+- `--detach`: {OPT/DETACH}
+- `--full`: {OPT/FULL}
+- `-l, --files-with-matches`: {OPT/FILES_WITH_MATCHES}
 
 ### `references`
 Purpose: {CMD/REFERENCES}
@@ -118,11 +118,11 @@ Example:
 lsp-cli references --json --limit 100 MySymbol path/to/project
 ```
 Recommended flags:
-- `--json`: Print results as JSON.
-- `--limit <N>`: Maximum number of results to print. Mainly usable for code agents.
-- `--wait-for-index`: Wait for background indexing before sending the workspace query.
-- `--detach`: Use a background daemon socket when available, starting one if needed.
-- `-l, --files-with-matches`: Print only file paths that contain matches.
+- `--json`: {OPT/JSON}
+- `--limit <N>`: {OPT/LIMIT}
+- `--wait-for-index`: {OPT/WAIT_FOR_INDEX}
+- `--detach`: {OPT/DETACH}
+- `-l, --files-with-matches`: {OPT/FILES_WITH_MATCHES}
 
 ### `callers`
 Purpose: {CMD/CALLERS}
@@ -133,11 +133,11 @@ Example:
 lsp-cli callers --json --limit 50 format_order path/to/project
 ```
 Recommended flags:
-- `--json`: Print results as JSON.
-- `--limit <N>`: Maximum number of results to print. Mainly usable for code agents.
-- `--wait-for-index`: Wait for background indexing before sending the workspace query.
-- `--detach`: Use a background daemon socket when available, starting one if needed.
-- `-l, --files-with-matches`: Print only file paths that contain matches.
+- `--json`: {OPT/JSON}
+- `--limit <N>`: {OPT/LIMIT}
+- `--wait-for-index`: {OPT/WAIT_FOR_INDEX}
+- `--detach`: {OPT/DETACH}
+- `-l, --files-with-matches`: {OPT/FILES_WITH_MATCHES}
 
 ### `callees`
 Purpose: {CMD/CALLEES}
@@ -148,11 +148,11 @@ Example:
 lsp-cli callees --json --limit 50 format_order path/to/project
 ```
 Recommended flags:
-- `--json`: Print results as JSON.
-- `--limit <N>`: Maximum number of results to print. Mainly usable for code agents.
-- `--wait-for-index`: Wait for background indexing before sending the workspace query.
-- `--detach`: Use a background daemon socket when available, starting one if needed.
-- `-l, --files-with-matches`: Print only file paths that contain matches.
+- `--json`: {OPT/JSON}
+- `--limit <N>`: {OPT/LIMIT}
+- `--wait-for-index`: {OPT/WAIT_FOR_INDEX}
+- `--detach`: {OPT/DETACH}
+- `-l, --files-with-matches`: {OPT/FILES_WITH_MATCHES}
 
 ### `diagnostics`
 Purpose: {CMD/DIAGNOSTICS}
@@ -163,11 +163,11 @@ Example:
 lsp-cli diagnostics --json --limit 100 path/to/project
 ```
 Recommended flags:
-- `--json`: Print results as JSON.
-- `--limit <N>`: Maximum number of results to print. Mainly usable for code agents.
-- `--wait-for-index`: Wait for background indexing before sending the workspace query.
-- `--detach`: Use a background daemon socket when available, starting one if needed.
-- `-l, --files-with-matches`: Print only file paths that contain matches.
+- `--json`: {OPT/JSON}
+- `--limit <N>`: {OPT/LIMIT}
+- `--wait-for-index`: {OPT/WAIT_FOR_INDEX}
+- `--detach`: {OPT/DETACH}
+- `-l, --files-with-matches`: {OPT/FILES_WITH_MATCHES}
 
 ### `format`
 Purpose: {CMD/FORMAT}
@@ -178,12 +178,16 @@ Example:
 lsp-cli format --check path/to/file.rs
 ```
 Recommended flags:
-- `--check`: Exit with an error if formatting would change the file.
-- `--stdout`: Write the formatted file to stdout instead of modifying it.
-- `--json`: Print results as JSON.
-- `--detach`: Use a background daemon socket when available, starting one if needed.
+- `--check`: {OPT/CHECK}
+- `--stdout`: {OPT/STDOUT}
+- `--json`: {OPT/JSON}
+- `--detach`: {OPT/DETACH}
 
 ## Setup and troubleshooting
+
+If automatic selection is ambiguous, these options help:
+- `--lang <LANG>`: {OPT/LANG}
+- `--lsp <LSP>`: {OPT/LSP}
 
 ### `languages`
 Purpose: {CMD/LANGUAGES}

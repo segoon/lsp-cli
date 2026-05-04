@@ -1,128 +1,114 @@
 use crate::cli::{AgentSkillArgs, clap_command};
-use clap::{Arg, Command as ClapCommand};
-use std::fs;
-use std::path::Path;
+use clap::Command as ClapCommand;
+use regex::Regex;
+use std::collections::{BTreeMap, BTreeSet};
 
-pub(super) fn run(args: &AgentSkillArgs) -> Result<String, String> {
-    let skill = render_skill();
-    if args.path == Path::new("-") {
-        return Ok(skill);
-    }
+const TEMPLATE: &str = include_str!("agent_skill.template.md");
+const IGNORED_COMMANDS: &[&str] = &[
+    "commands",
+    "daemon",
+    "stop",
+    "stop-all",
+    "server-capabilities",
+    "detect",
+    "build-index",
+    "update",
+    "completion",
+    "agent-skill",
+    "run",
+];
 
-    if let Some(parent) = args.path.parent()
-        && !parent.as_os_str().is_empty()
-    {
-        fs::create_dir_all(parent).map_err(|error| {
-            format!(
-                "failed to create parent directory {}: {error}",
-                parent.display()
-            )
-        })?;
-    }
-
-    fs::write(&args.path, skill).map_err(|error| {
-        format!(
-            "failed to write generated skill file to {}: {error}",
-            args.path.display()
-        )
-    })?;
-    Ok(format!("wrote agent skill to {}", args.path.display()))
+#[allow(clippy::unnecessary_wraps)]
+pub(super) fn run(_args: &AgentSkillArgs) -> Result<String, String> {
+    Ok(render_skill())
 }
 
 fn render_skill() -> String {
     let root = clap_command();
-    let mut sections = vec![
-        "# lsp-cli skill".to_string(),
-        "This skill helps a code agent use `lsp-cli` for semantic code navigation, diagnostics, and formatting from the terminal without editor-specific LSP integration.".to_string(),
-        render_when_to_use(),
-        render_rules_of_thumb(),
-        render_command_group("## Core commands", CORE_COMMANDS, &root),
-        render_command_group("## Setup and troubleshooting", SUPPORT_COMMANDS, &root),
-        render_limitations(),
-    ];
-    sections.retain(|section| !section.is_empty());
-    sections.join("\n\n")
+    let replacements = command_replacements(&root);
+    render_template(TEMPLATE, &replacements)
 }
 
-fn render_when_to_use() -> String {
-    [
-        "## When to use lsp-cli",
-        "- Use it when you need semantic workspace navigation instead of plain text search.",
-        "- Use it when the agent runs in a shell, container, CI job, or SSH session without editor-managed LSP integration.",
-        "- Use it when the repository uses a rare or proprietary language server that the agent does not know how to configure directly.",
-        "- Use it when you need LSP diagnostics or formatting as part of an edit/verify loop.",
-    ]
-    .join("\n")
+fn command_replacements(root: &ClapCommand) -> BTreeMap<&'static str, String> {
+    validate_ignored_commands(root);
+
+    root.get_subcommands()
+        .filter(|command| command.get_name() != "help")
+        .filter(|command| !IGNORED_COMMANDS.contains(&command.get_name()))
+        .map(|command| {
+            let placeholder = command_placeholder(command.get_name()).unwrap_or_else(|| {
+                panic!(
+                    "non-ignored command `{}` is missing an agent-skill template placeholder",
+                    command.get_name()
+                )
+            });
+            (placeholder, command_about(command))
+        })
+        .collect()
 }
 
-fn render_rules_of_thumb() -> String {
-    [
-        "## Rules of thumb",
-        "- Prefer `--json` when the output will be parsed or summarized by the agent.",
-        "- Prefer `--limit <N>` to avoid flooding the agent context with large workspaces.",
-        "- Always use --detach to avoid LSP server start/stop on each invocation.",
-        "- Fall back to plain file/content search when an LSP feature is unsupported or the result is obviously incomplete.",
-    ]
-    .join("\n")
-}
+fn validate_ignored_commands(root: &ClapCommand) {
+    let known = root
+        .get_subcommands()
+        .map(ClapCommand::get_name)
+        .collect::<BTreeSet<_>>();
 
-fn render_command_group(
-    title: &str,
-    specs: &[SkillCommandSpec],
-    root: &ClapCommand,
-) -> String {
-    let mut sections = vec![title.to_string()];
-    for spec in specs {
-        let command = find_subcommand(root, spec.name)
-            .unwrap_or_else(|| panic!("missing clap metadata for `{}`", spec.name));
-        sections.push(render_command(spec, command));
+    for ignored in IGNORED_COMMANDS {
+        assert!(
+            known.contains(ignored),
+            "ignored agent-skill command `{ignored}` does not exist"
+        );
     }
-    sections.join("\n\n")
 }
 
-fn render_command(spec: &SkillCommandSpec, command: &ClapCommand) -> String {
-    let mut lines = vec![format!("### `{}`", spec.name)];
-    lines.push(format!("Purpose: {}", command_about(command)));
-    lines.push(format!("Use it when: {}", spec.when_to_use));
-    lines.extend(spec.notes.iter().map(|note| format!("Note: {note}")));
-    lines.push("Example:".to_string());
-    lines.push("```sh".to_string());
-    lines.push(spec.example.to_string());
-    lines.push("```".to_string());
+fn command_placeholder(command: &str) -> Option<&'static str> {
+    match command {
+        "grep" => Some("CMD/GREP"),
+        "list-symbols" => Some("CMD/LIST_SYMBOLS"),
+        "list-functions" => Some("CMD/LIST_FUNCTIONS"),
+        "list-files" => Some("CMD/LIST_FILES"),
+        "definition" => Some("CMD/DEFINITION"),
+        "declaration" => Some("CMD/DECLARATION"),
+        "references" => Some("CMD/REFERENCES"),
+        "callers" => Some("CMD/CALLERS"),
+        "callees" => Some("CMD/CALLEES"),
+        "diagnostics" => Some("CMD/DIAGNOSTICS"),
+        "format" => Some("CMD/FORMAT"),
+        "languages" => Some("CMD/LANGUAGES"),
+        "servers" => Some("CMD/SERVERS"),
+        _ => None,
+    }
+}
 
-    if !spec.flags.is_empty() {
-        lines.push("Recommended flags:".to_string());
-        lines.extend(
-            spec.flags
-                .iter()
-                .filter_map(|flag| find_arg(command, flag).map(format_arg_summary))
-                .map(|summary| format!("- {summary}")),
+fn render_template(template: &str, replacements: &BTreeMap<&'static str, String>) -> String {
+    let placeholder_regex = Regex::new(r"\{([A-Z0-9/_]+)\}").expect("placeholder regex should compile");
+    let used = placeholder_regex
+        .captures_iter(template)
+        .map(|captures| captures[1].to_string())
+        .collect::<BTreeSet<_>>();
+
+    for placeholder in &used {
+        assert!(
+            replacements.contains_key(placeholder.as_str()),
+            "agent-skill template contains unknown placeholder `{{{placeholder}}}`"
         );
     }
 
-    lines.join("\n")
-}
+    for placeholder in replacements.keys() {
+        assert!(
+            used.contains(*placeholder),
+            "agent-skill template argument `{{{placeholder}}}` was provided but never used"
+        );
+    }
 
-fn render_limitations() -> String {
-    [
-        "## Limitations",
-        "- Results are only as good as the selected LSP server.",
-        "- Not every server supports every feature.",
-        "- `workspace/symbol` quality and pattern syntax vary between servers.",
-        "- Background indexing support varies, so `--wait-for-index` may help on some servers and do nothing on others.",
-    ]
-    .join("\n")
-}
-
-fn find_subcommand<'a>(root: &'a ClapCommand, name: &str) -> Option<&'a ClapCommand> {
-    root.get_subcommands()
-        .find(|command| command.get_name() == name)
-}
-
-fn find_arg<'a>(command: &'a ClapCommand, long: &str) -> Option<&'a Arg> {
-    command
-        .get_arguments()
-        .find(|arg| arg.get_long() == Some(long))
+    placeholder_regex
+        .replace_all(template, |captures: &regex::Captures<'_>| {
+            replacements
+                .get(&captures[1])
+                .unwrap_or_else(|| panic!("missing replacement for `{{{}}}`", &captures[1]))
+                .clone()
+        })
+        .into_owned()
 }
 
 fn command_about(command: &ClapCommand) -> String {
@@ -132,215 +118,24 @@ fn command_about(command: &ClapCommand) -> String {
     )
 }
 
-fn format_arg_summary(arg: &Arg) -> String {
-    let mut label = String::new();
-    if let Some(short) = arg.get_short() {
-        label.push('-');
-        label.push(short);
-        if arg.get_long().is_some() {
-            label.push_str(", ");
-        }
-    }
-    if let Some(long) = arg.get_long() {
-        label.push_str("--");
-        label.push_str(long);
-    }
-    if arg.get_action().takes_values()
-        && let Some(value_name) = arg.get_value_names().and_then(|names| names.first())
-    {
-        label.push(' ');
-        label.push('<');
-        label.push_str(value_name);
-        label.push('>');
-    }
-    let help = arg.get_help().map_or_else(
-        || "No help available.".to_string(),
-        clap::builder::StyledStr::to_string,
-    );
-    format!("`{label}`: {help}")
-}
-
-struct SkillCommandSpec {
-    name: &'static str,
-    when_to_use: &'static str,
-    example: &'static str,
-    flags: &'static [&'static str],
-    notes: &'static [&'static str],
-}
-
-const CORE_COMMANDS: &[SkillCommandSpec] = &[
-    SkillCommandSpec {
-        name: "grep",
-        when_to_use: "you need semantic workspace symbol search before opening or editing files.",
-        example: "lsp-cli grep --json --limit 20 Order path/to/project",
-        flags: &[
-            "json",
-            "limit",
-            "wait-for-index",
-            "detach",
-            "files-with-matches",
-        ],
-        notes: &["This uses `workspace/symbol`, so matching behavior depends on the server."],
-    },
-    SkillCommandSpec {
-        name: "list-symbols",
-        when_to_use: "you need a symbol outline for one file or a workspace slice.",
-        example: "lsp-cli list-symbols --json --limit 50 path/to/project/src/main.rs",
-        flags: &["json", "limit", "wait-for-index", "detach"],
-        notes: &["Pass a file path for a focused outline or a directory for a broader scan."],
-    },
-    SkillCommandSpec {
-        name: "list-functions",
-        when_to_use: "you want a compact list of callable entry points in a workspace.",
-        example: "lsp-cli list-functions --json --limit 50 path/to/project",
-        flags: &["json", "limit", "wait-for-index", "detach"],
-        notes: &["Useful for discovering candidate APIs before deeper navigation."],
-    },
-    SkillCommandSpec {
-        name: "list-files",
-        when_to_use: "you need the file set that the selected LSP workspace query will consider.",
-        example: "lsp-cli list-files --json --limit 100 path/to/project",
-        flags: &["json", "limit", "wait-for-index"],
-        notes: &[
-            "Useful before diagnostics or workspace-wide symbol queries in mixed repositories.",
-        ],
-    },
-    SkillCommandSpec {
-        name: "definition",
-        when_to_use: "you need the implementation location for a symbol before editing or reading code.",
-        example: "lsp-cli definition --json --limit 10 MySymbol path/to/project",
-        flags: &[
-            "json",
-            "limit",
-            "wait-for-index",
-            "detach",
-            "full",
-            "files-with-matches",
-        ],
-        notes: &[
-            "Use `--full` only when you need the returned source snippet, because it can expand output a lot.",
-        ],
-    },
-    SkillCommandSpec {
-        name: "declaration",
-        when_to_use: "you need the declared API location rather than the implementation site.",
-        example: "lsp-cli declaration --json --limit 10 MySymbol path/to/project",
-        flags: &[
-            "json",
-            "limit",
-            "wait-for-index",
-            "detach",
-            "full",
-            "files-with-matches",
-        ],
-        notes: &[
-            "This is most useful in languages that distinguish declarations from definitions.",
-        ],
-    },
-    SkillCommandSpec {
-        name: "references",
-        when_to_use: "you need impact analysis before a rename, signature change, or behavior change.",
-        example: "lsp-cli references --json --limit 100 MySymbol path/to/project",
-        flags: &[
-            "json",
-            "limit",
-            "wait-for-index",
-            "detach",
-            "files-with-matches",
-        ],
-        notes: &["Prefer this before wide edits so the agent does not miss indirect usage sites."],
-    },
-    SkillCommandSpec {
-        name: "callers",
-        when_to_use: "you need to understand which code paths invoke a function.",
-        example: "lsp-cli callers --json --limit 50 format_order path/to/project",
-        flags: &[
-            "json",
-            "limit",
-            "wait-for-index",
-            "detach",
-            "files-with-matches",
-        ],
-        notes: &["Use together with `callees` to sketch a local call graph."],
-    },
-    SkillCommandSpec {
-        name: "callees",
-        when_to_use: "you need to understand which functions a symbol depends on.",
-        example: "lsp-cli callees --json --limit 50 format_order path/to/project",
-        flags: &[
-            "json",
-            "limit",
-            "wait-for-index",
-            "detach",
-            "files-with-matches",
-        ],
-        notes: &["This is useful for estimating side effects before touching a function body."],
-    },
-    SkillCommandSpec {
-        name: "diagnostics",
-        when_to_use: "you need LSP-reported errors and warnings after making edits.",
-        example: "lsp-cli diagnostics --json --limit 100 path/to/project",
-        flags: &[
-            "json",
-            "limit",
-            "wait-for-index",
-            "detach",
-            "files-with-matches",
-        ],
-        notes: &[
-            "Use this after edits even when tests pass, because the language server may report unresolved symbols or type issues.",
-        ],
-    },
-    SkillCommandSpec {
-        name: "format",
-        when_to_use: "you need language-server-native formatting or a formatting check before finishing an edit.",
-        example: "lsp-cli format --check path/to/file.rs",
-        flags: &["check", "stdout", "json", "detach"],
-        notes: &[
-            "Use `--stdout` when the agent wants to inspect formatting changes before rewriting the file.",
-        ],
-    },
-];
-
-const SUPPORT_COMMANDS: &[SkillCommandSpec] = &[
-    SkillCommandSpec {
-        name: "languages",
-        when_to_use: "you need to discover the canonical language ids accepted by `--lang`.",
-        example: "lsp-cli languages",
-        flags: &[],
-        notes: &[
-            "This is mainly useful when `detect` reports multiple languages or a guess needs to be forced manually.",
-        ],
-    },
-    SkillCommandSpec {
-        name: "servers",
-        when_to_use: "you need to discover valid `--lsp` names, especially after narrowing to one language.",
-        example: "lsp-cli servers --lang python",
-        flags: &["lang"],
-        notes: &[
-            "Use this to pick a different configured server when the default one behaves poorly.",
-        ],
-    },
-];
-
 #[cfg(test)]
 mod tests {
-    use super::{render_skill, run};
+    use super::{render_skill, render_template, run};
     use crate::cli::AgentSkillArgs;
-    use crate::test_support::TestDir;
-    use std::path::PathBuf;
+    use std::collections::BTreeMap;
 
     #[test]
     fn renders_curated_skill_sections() {
         let markdown = render_skill();
 
+        assert!(markdown.starts_with("---\nname: lsp-cli\n"));
         assert!(markdown.contains("# lsp-cli skill"));
         assert!(markdown.contains("## Core commands"));
         assert!(markdown.contains("## Setup and troubleshooting"));
-        assert!(markdown.contains("### `grep`"));
-        assert!(markdown.contains("### `definition`"));
-        assert!(markdown.contains("### `languages`"));
-        assert!(markdown.contains("### `servers`"));
+        assert!(markdown.contains("Purpose: Search workspace symbols (regex syntax is server-dependent)"));
+        assert!(markdown.contains("Purpose: Find definitions of a symbol name"));
+        assert!(markdown.contains("Purpose: List known languages"));
+        assert!(markdown.contains("Purpose: List known LSP servers"));
         assert!(markdown.contains("Prefer `--json`"));
     }
 
@@ -357,33 +152,44 @@ mod tests {
     }
 
     #[test]
-    fn writes_skill_file_to_requested_path() {
-        let dir = TestDir::new("agent-skill");
-        let path = dir.path().join("docs/SKILL.md");
+    fn run_returns_markdown_for_stdout() {
+        let markdown = run(&AgentSkillArgs {}).expect("skill should render");
 
-        let output = run(&AgentSkillArgs { path: path.clone() }).expect("skill file should be written");
-
-        assert_eq!(output, format!("wrote agent skill to {}", path.display()));
-        let markdown = std::fs::read_to_string(&path).expect("skill file should be readable");
+        assert!(markdown.starts_with("---\n"));
         assert!(markdown.contains("# lsp-cli skill"));
     }
 
     #[test]
-    fn renders_boolean_flags_without_placeholder_values() {
-        let markdown = render_skill();
+    fn output_starts_with_frontmatter_block() {
+        let markdown = run(&AgentSkillArgs {}).expect("skill should render to stdout");
 
-        assert!(markdown.contains("`--json`: Print results as JSON."));
-        assert!(!markdown.contains("`--json <JSON>`"));
+        assert!(markdown.starts_with("---\nname: lsp-cli\n"));
+        assert!(markdown.contains("\n---\n\n# lsp-cli skill"));
     }
 
     #[test]
-    fn dash_path_writes_to_stdout() {
-        let markdown = run(&AgentSkillArgs {
-            path: PathBuf::from("-"),
-        })
-        .expect("skill should render to stdout");
+    fn agent_skill_does_not_panic() {
+        let result = std::panic::catch_unwind(render_skill);
 
-        assert!(markdown.contains("# lsp-cli skill"));
-        assert!(!markdown.contains("wrote agent skill"));
+        assert!(result.is_ok(), "agent-skill should not panic");
+    }
+
+    #[test]
+    fn panics_for_unknown_template_placeholders() {
+        let args = BTreeMap::from([("CMD/GREP", "grep about".to_string())]);
+        let result = std::panic::catch_unwind(|| render_template("{CMD/GREP} {CMD/NOPE}", &args));
+
+        assert!(result.is_err(), "unknown placeholders should panic");
+    }
+
+    #[test]
+    fn panics_for_unused_template_arguments() {
+        let args = BTreeMap::from([
+            ("CMD/GREP", "grep about".to_string()),
+            ("CMD/FORMAT", "format about".to_string()),
+        ]);
+        let result = std::panic::catch_unwind(|| render_template("{CMD/GREP}", &args));
+
+        assert!(result.is_err(), "unused template arguments should panic");
     }
 }

@@ -187,10 +187,8 @@ fn parses_update_arguments() {
 #[test]
 fn parses_agent_skill_arguments() {
     assert_eq!(
-        parse(&["agent-skill", "SKILL.md"]).expect("agent-skill should parse"),
-        Command::AgentSkill(AgentSkillArgs {
-            path: PathBuf::from("SKILL.md"),
-        })
+        parse(&["agent-skill"]).expect("agent-skill should parse"),
+        Command::AgentSkill(AgentSkillArgs {})
     );
 }
 

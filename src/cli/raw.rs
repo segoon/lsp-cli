@@ -473,14 +473,7 @@ pub struct CompletionArgs {
 }
 
 #[derive(Debug, Args, Eq, PartialEq)]
-pub struct AgentSkillArgs {
-    #[arg(
-        value_name = "PATH",
-        value_hint = ValueHint::FilePath,
-        help = "Write the generated skill Markdown to this path. Pass `-` to write to stdout."
-    )]
-    pub path: PathBuf,
-}
+pub struct AgentSkillArgs {}
 
 pub fn clap_command() -> clap::Command {
     RawCli::command()

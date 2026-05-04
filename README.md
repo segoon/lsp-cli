@@ -841,10 +841,7 @@ Options:
 $ lsp-cli agent-skill --help
 Generate a generic Markdown skill file for code agents
 
-Usage: lsp-cli agent-skill <PATH>
-
-Arguments:
-  <PATH>  Write the generated skill Markdown to this path. Pass `-` to write to stdout.
+Usage: lsp-cli agent-skill
 
 Options:
   -h, --help  Print help
@@ -946,8 +943,7 @@ lsp-cli completion bash > /tmp/lsp-cli.bash
 Generate a generic Markdown skill file for a code agent:
 
 ```sh
-lsp-cli agent-skill SKILL.md
-lsp-cli agent-skill -
+lsp-cli agent-skill > SKILL.md
 ```
 
 ## Playground

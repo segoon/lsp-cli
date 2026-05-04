@@ -19,6 +19,19 @@ The goal is simple: point `lsp-cli` at a file or project directory, let it choos
 
 ### Install via cargo
 
+The preferred installation method.
+
+Assuming you already have cargo installed, install `lsp-cli` with Cargo:
+
+```sh
+cargo install lsp-cli
+```
+
+Check that it works:
+```
+lsp-cli --help
+```
+
 ### Compiling from sources
 
 Clone the repository with its data files and run:

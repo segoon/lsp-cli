@@ -9,6 +9,9 @@ from pathlib import Path
 
 BEGIN_MARKER = "<!-- BEGIN GENERATED COMMANDS -->"
 END_MARKER = "<!-- END GENERATED COMMANDS -->"
+IGNORED_COMMANDS = [
+    'commands',
+]
 
 
 def parse_args() -> argparse.Namespace:
@@ -98,6 +101,8 @@ def render_block(command: str, output: str) -> str:
 def render_generated_section(root: Path, binary: Path) -> str:
     blocks = [render_block("lsp-cli --help", capture_help(root, binary, []))]
     for command in run_commands_subcommand(root, binary):
+        if command in IGNORED_COMMANDS:
+            continue
         blocks.append(
             render_block(
                 f"lsp-cli {command} --help",

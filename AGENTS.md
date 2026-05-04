@@ -79,6 +79,5 @@ It must describe user-visible behaviour, not implementation details.
 Test the code with the following commands:
 
 ```sh
-cargo test -q
-cargo clippy --all-targets --all-features -- -D warnings
+make test
 ```

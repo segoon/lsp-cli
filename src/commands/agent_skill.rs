@@ -12,6 +12,7 @@ const IGNORED_COMMANDS: &[&str] = &[
     "stop-all",
     "server-capabilities",
     "detect",
+    "languages",
     "build-index",
     "update",
     "completion",
@@ -25,7 +26,9 @@ const IGNORED_OPTIONS: &[&str] = &[
     "download",
     "no-download",
     "no-detach",
+    "detach",
     "no-json",
+    "wait-for-index",
 ];
 
 #[allow(clippy::unnecessary_wraps)]
@@ -163,7 +166,8 @@ fn select_option_help(long: &str, variants: &BTreeMap<String, usize>) -> String 
 }
 
 fn render_template(template: &str, replacements: &BTreeMap<String, String>) -> String {
-    let placeholder_regex = Regex::new(r"\{([A-Z0-9/_]+)\}").expect("placeholder regex should compile");
+    let placeholder_regex =
+        Regex::new(r"\{([A-Z0-9/_]+)\}").expect("placeholder regex should compile");
     let used = placeholder_regex
         .captures_iter(template)
         .map(|captures| captures[1].to_string())
@@ -221,7 +225,10 @@ mod tests {
         assert!(markdown.contains("# lsp-cli skill"));
         assert!(markdown.contains("## Core commands"));
         assert!(markdown.contains("## Setup and troubleshooting"));
-        assert!(markdown.contains("Purpose: Search workspace symbols (regex syntax is server-dependent)"));
+        assert!(
+            markdown
+                .contains("Purpose: Search workspace symbols (regex syntax is server-dependent)")
+        );
         assert!(markdown.contains("Purpose: Find definitions of a symbol name"));
         assert!(markdown.contains("Purpose: List known languages"));
         assert!(markdown.contains("Purpose: List known LSP servers"));
@@ -292,8 +299,10 @@ mod tests {
         ));
         assert!(markdown.contains("`--lsp <LSP>`: Use a specific configured LSP server."));
         assert!(markdown.contains("`--lang <LANG>`: Select this language."));
-        assert!(markdown.contains(
-            "`-l, --files-with-matches`: Print only file paths that contain matches."
-        ));
+        assert!(
+            markdown.contains(
+                "`-l, --files-with-matches`: Print only file paths that contain matches."
+            )
+        );
     }
 }

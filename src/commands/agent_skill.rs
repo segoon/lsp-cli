@@ -1,11 +1,10 @@
 use crate::cli::{AgentSkillArgs, clap_command};
-use crate::config::ConfigStore;
 use clap::{Arg, Command as ClapCommand};
 use std::fs;
 use std::path::Path;
 
-pub(super) fn run(args: &AgentSkillArgs, config: &ConfigStore) -> Result<String, String> {
-    let skill = render_skill(config)?;
+pub(super) fn run(args: &AgentSkillArgs) -> Result<String, String> {
+    let skill = render_skill();
     if args.path == Path::new("-") {
         return Ok(skill);
     }
@@ -30,19 +29,19 @@ pub(super) fn run(args: &AgentSkillArgs, config: &ConfigStore) -> Result<String,
     Ok(format!("wrote agent skill to {}", args.path.display()))
 }
 
-fn render_skill(config: &ConfigStore) -> Result<String, String> {
+fn render_skill() -> String {
     let root = clap_command();
     let mut sections = vec![
         "# lsp-cli skill".to_string(),
         "This skill helps a code agent use `lsp-cli` for semantic code navigation, diagnostics, and formatting from the terminal without editor-specific LSP integration.".to_string(),
         render_when_to_use(),
         render_rules_of_thumb(),
-        render_command_group("## Core commands", CORE_COMMANDS, &root)?,
-        render_command_group("## Setup and troubleshooting", SUPPORT_COMMANDS, &root)?,
+        render_command_group("## Core commands", CORE_COMMANDS, &root),
+        render_command_group("## Setup and troubleshooting", SUPPORT_COMMANDS, &root),
         render_limitations(),
     ];
     sections.retain(|section| !section.is_empty());
-    Ok(sections.join("\n\n"))
+    sections.join("\n\n")
 }
 
 fn render_when_to_use() -> String {
@@ -59,9 +58,9 @@ fn render_when_to_use() -> String {
 fn render_rules_of_thumb() -> String {
     [
         "## Rules of thumb",
-        "- Always use --detach to avoid LSP server start/stop on each invocation.",
         "- Prefer `--json` when the output will be parsed or summarized by the agent.",
         "- Prefer `--limit <N>` to avoid flooding the agent context with large workspaces.",
+        "- Always use --detach to avoid LSP server start/stop on each invocation.",
         "- Fall back to plain file/content search when an LSP feature is unsupported or the result is obviously incomplete.",
     ]
     .join("\n")
@@ -71,18 +70,14 @@ fn render_command_group(
     title: &str,
     specs: &[SkillCommandSpec],
     root: &ClapCommand,
-) -> Result<String, String> {
+) -> String {
     let mut sections = vec![title.to_string()];
     for spec in specs {
-        let command = find_subcommand(root, spec.name).ok_or_else(|| {
-            format!(
-                "failed to describe `{}`: command metadata is missing",
-                spec.name
-            )
-        })?;
+        let command = find_subcommand(root, spec.name)
+            .unwrap_or_else(|| panic!("missing clap metadata for `{}`", spec.name));
         sections.push(render_command(spec, command));
     }
-    Ok(sections.join("\n\n"))
+    sections.join("\n\n")
 }
 
 fn render_command(spec: &SkillCommandSpec, command: &ClapCommand) -> String {
@@ -332,66 +327,26 @@ const SUPPORT_COMMANDS: &[SkillCommandSpec] = &[
 mod tests {
     use super::{render_skill, run};
     use crate::cli::AgentSkillArgs;
-    use crate::config::{CliConfig, ConfigStore, FiletypeConfig, LspConfig};
     use crate::test_support::TestDir;
-    use regex::Regex;
     use std::path::PathBuf;
-
-    fn config() -> ConfigStore {
-        ConfigStore {
-            filetypes: vec![
-                FiletypeConfig {
-                    id: "python".to_string(),
-                    extensions: vec!["py".to_string()],
-                    patterns: Vec::new(),
-                },
-                FiletypeConfig {
-                    id: "rust".to_string(),
-                    extensions: vec!["rs".to_string()],
-                    patterns: vec![Regex::new("^Cargo\\.toml$").expect("regex should compile")],
-                },
-            ],
-            lsps: vec![
-                LspConfig {
-                    id: "pyright".to_string(),
-                    filetypes: vec!["python".to_string()],
-                    root_markers: Vec::new(),
-                    name: "pyright-langserver".to_string(),
-                    cmdline: "pyright-langserver --stdio".to_string(),
-                    wait_for_index: false,
-                },
-                LspConfig {
-                    id: "rust_analyzer".to_string(),
-                    filetypes: vec!["rust".to_string()],
-                    root_markers: Vec::new(),
-                    name: "rust-analyzer".to_string(),
-                    cmdline: "rust-analyzer".to_string(),
-                    wait_for_index: true,
-                },
-            ],
-            cli: CliConfig::default(),
-        }
-    }
 
     #[test]
     fn renders_curated_skill_sections() {
-        let markdown = render_skill(&config()).expect("skill should render");
+        let markdown = render_skill();
 
         assert!(markdown.contains("# lsp-cli skill"));
         assert!(markdown.contains("## Core commands"));
+        assert!(markdown.contains("## Setup and troubleshooting"));
         assert!(markdown.contains("### `grep`"));
         assert!(markdown.contains("### `definition`"));
-        assert!(markdown.contains("### `detect`"));
-        assert!(markdown.contains("Configured languages in this installation: python, rust."));
-        assert!(markdown.contains(
-            "Configured servers in this installation: pyright-langserver, rust-analyzer."
-        ));
+        assert!(markdown.contains("### `languages`"));
+        assert!(markdown.contains("### `servers`"));
         assert!(markdown.contains("Prefer `--json`"));
     }
 
     #[test]
     fn excludes_plumbing_commands_from_generated_skill() {
-        let markdown = render_skill(&config()).expect("skill should render");
+        let markdown = render_skill();
 
         assert!(!markdown.contains("### `completion`"));
         assert!(!markdown.contains("### `run`"));
@@ -406,8 +361,7 @@ mod tests {
         let dir = TestDir::new("agent-skill");
         let path = dir.path().join("docs/SKILL.md");
 
-        let output = run(&AgentSkillArgs { path: path.clone() }, &config())
-            .expect("skill file should be written");
+        let output = run(&AgentSkillArgs { path: path.clone() }).expect("skill file should be written");
 
         assert_eq!(output, format!("wrote agent skill to {}", path.display()));
         let markdown = std::fs::read_to_string(&path).expect("skill file should be readable");
@@ -416,7 +370,7 @@ mod tests {
 
     #[test]
     fn renders_boolean_flags_without_placeholder_values() {
-        let markdown = render_skill(&config()).expect("skill should render");
+        let markdown = render_skill();
 
         assert!(markdown.contains("`--json`: Print results as JSON."));
         assert!(!markdown.contains("`--json <JSON>`"));
@@ -424,12 +378,9 @@ mod tests {
 
     #[test]
     fn dash_path_writes_to_stdout() {
-        let markdown = run(
-            &AgentSkillArgs {
-                path: PathBuf::from("-"),
-            },
-            &config(),
-        )
+        let markdown = run(&AgentSkillArgs {
+            path: PathBuf::from("-"),
+        })
         .expect("skill should render to stdout");
 
         assert!(markdown.contains("# lsp-cli skill"));

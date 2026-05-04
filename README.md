@@ -371,6 +371,7 @@ Commands:
   build-index          Wait for the server to finish indexing a workspace
   update               Force update langages/servers database
   completion           Generate a shell completion script, write it to stdout
+  agent-skill          Generate a generic Markdown skill file for code agents
   run                  Replace lsp-cli with the selected language server process
   help                 Print this message or the help of the given subcommand(s)
 
@@ -837,6 +838,19 @@ Options:
 ```
 
 ```text
+$ lsp-cli agent-skill --help
+Generate a generic Markdown skill file for code agents
+
+Usage: lsp-cli agent-skill <PATH>
+
+Arguments:
+  <PATH>  Write the generated skill Markdown to this path. Pass `-` to write to stdout.
+
+Options:
+  -h, --help  Print help
+```
+
+```text
 $ lsp-cli run --help
 Replace lsp-cli with the selected language server process
 
@@ -927,6 +941,13 @@ Generate shell completion:
 
 ```sh
 lsp-cli completion bash > /tmp/lsp-cli.bash
+```
+
+Generate a generic Markdown skill file for a code agent:
+
+```sh
+lsp-cli agent-skill SKILL.md
+lsp-cli agent-skill -
 ```
 
 ## Playground

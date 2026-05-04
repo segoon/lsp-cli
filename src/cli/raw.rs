@@ -80,6 +80,8 @@ pub(crate) enum RawCommand {
     Update(RawUpdateArgs),
     #[command(about = "Generate a shell completion script, write it to stdout")]
     Completion(CompletionArgs),
+    #[command(about = "Generate a generic Markdown skill file for code agents")]
+    AgentSkill(AgentSkillArgs),
     #[command(about = "Replace lsp-cli with the selected language server process")]
     Run(RawRunArgs),
 }
@@ -468,6 +470,16 @@ pub struct CompletionArgs {
         help = "Shell to generate completion for. Defaults to the current shell from $SHELL."
     )]
     pub shell: Option<Shell>,
+}
+
+#[derive(Debug, Args, Eq, PartialEq)]
+pub struct AgentSkillArgs {
+    #[arg(
+        value_name = "PATH",
+        value_hint = ValueHint::FilePath,
+        help = "Write the generated skill Markdown to this path. Pass `-` to write to stdout."
+    )]
+    pub path: PathBuf,
 }
 
 pub fn clap_command() -> clap::Command {

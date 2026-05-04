@@ -1,4 +1,5 @@
 mod build_index;
+mod agent_skill;
 mod callees;
 mod callers;
 mod command_list;
@@ -50,6 +51,7 @@ pub(crate) fn run(command: CliCommand, config: &ConfigStore) -> Result<String, S
         CliCommand::BuildIndex(args) => build_index::run(&args, config),
         CliCommand::Update(args) => update::run(&args, config),
         CliCommand::Completion(_) => unreachable!("completion handled before config loading"),
+        CliCommand::AgentSkill(args) => agent_skill::run(&args, config),
         CliCommand::Run(args) => run::run(&args, config),
     }
 }

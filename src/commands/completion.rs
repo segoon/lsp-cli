@@ -128,6 +128,7 @@ mod tests {
         assert!(output.contains("list-functions"));
         assert!(output.contains("list-symbols"));
         assert!(output.contains("completion"));
+        assert!(output.contains("agent-skill"));
     }
 
     #[test]

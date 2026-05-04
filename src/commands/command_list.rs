@@ -46,6 +46,7 @@ mod tests {
                 "build-index\n",
                 "update\n",
                 "completion\n",
+                "agent-skill\n",
                 "run"
             )
         );

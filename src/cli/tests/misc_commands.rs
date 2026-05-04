@@ -1,6 +1,6 @@
 use super::super::{
-    Command, CommandsArgs, DaemonArgs, FormatArgs, LanguagesArgs, RunArgs, ServerCapabilitiesArgs,
-    ServersArgs, StopAllArgs, StopArgs, UpdateArgs,
+    AgentSkillArgs, Command, CommandsArgs, DaemonArgs, FormatArgs, LanguagesArgs, RunArgs,
+    ServerCapabilitiesArgs, ServersArgs, StopAllArgs, StopArgs, UpdateArgs,
 };
 use super::{parse, parse_with_config};
 use crate::config::{CliConfig, DaemonCliConfig};
@@ -181,6 +181,16 @@ fn parses_update_arguments() {
     assert_eq!(
         parse(&["update"]).expect("update should parse"),
         Command::Update(UpdateArgs)
+    );
+}
+
+#[test]
+fn parses_agent_skill_arguments() {
+    assert_eq!(
+        parse(&["agent-skill", "SKILL.md"]).expect("agent-skill should parse"),
+        Command::AgentSkill(AgentSkillArgs {
+            path: PathBuf::from("SKILL.md"),
+        })
     );
 }
 

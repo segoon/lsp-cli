@@ -225,13 +225,10 @@ mod tests {
         assert!(markdown.contains("# lsp-cli skill"));
         assert!(markdown.contains("## Core commands"));
         assert!(markdown.contains("## Setup and troubleshooting"));
-        assert!(
-            markdown
-                .contains("Purpose: Search workspace symbols (regex syntax is server-dependent)")
-        );
-        assert!(markdown.contains("Purpose: Find definitions of a symbol name"));
-        assert!(markdown.contains("Purpose: List known languages"));
-        assert!(markdown.contains("Purpose: List known LSP servers"));
+        assert!(markdown.contains("Search workspace symbols (regex syntax is server-dependent)"));
+        assert!(markdown.contains("Find definitions of a symbol name"));
+        assert!(markdown.contains("List known LSP servers"));
+        assert!(markdown.contains("If automatic selection is ambiguous, these options help:"));
         assert!(markdown.contains("Prefer `--json`"));
     }
 

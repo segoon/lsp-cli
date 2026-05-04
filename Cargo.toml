@@ -2,6 +2,12 @@
 name = "lsp-cli"
 version = "0.1.0"
 edition = "2024"
+description = "Command-line tool for talking to Language Server Protocol (LSP) servers from the terminal."
+license = "Apache-2.0"
+repository = "https://github.com/segoon/lsp-cli"
+readme = "README.md"
+keywords = ["lsp", "cli", "language-server"]
+categories = ["command-line-utilities", "development-tools"]
 
 [dependencies]
 clap = { version = "4.5.38", features = ["derive", "string"] }

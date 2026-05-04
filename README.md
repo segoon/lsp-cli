@@ -1,220 +1,382 @@
-This is a work-in-progress. Expect some glitches.
+# lsp-cli
+
+`lsp-cli` is a command-line tool for talking to Language Server Protocol (LSP) servers from the terminal without an editor.
+
+It helps you do editor-style code navigation and inspection from a terminal:
+
+- detect which language and LSP server fit a project
+- download LSP server if it is missing in the system
+- call simple LSP commands like references, callers, list-symbols
+- collect diagnostics
+- format files
+- inspect server capabilities
+- keep a server warm in a background daemon
+
+The goal is simple: point `lsp-cli` at a file or project directory, let it choose a matching LSP server, and query that server from the shell.
 
 
-# LSP-cli overview
+## Getting Started
 
-LSP-cli is a simple tool allowing one to work with LSP servers from the terminal with minimal configuration.
-
-It is able to access LSP server out of the box with zero configuration.
-lsp-cli does the following:
-- locates files in the selected directories
-- detects filetypes of the located files
-- selects LSP server responsible for the filetype handling
-- downloads LSP server, if it is not available in `$PATH`
-- assembles LSP server cmdline
-- starts LSP server
-
-After the LSP server is up, lsp-cli can:
-- make simple queries
-  * find symbol
-  * show definition/prototype
-  * show function body
-  * list callers
-  * list callees
-  * start indexing
-- start/stop LSP server
-- proxy requests to LSP server (to abstract from LSP server implementation)
-
-lsp-cli is configurable.
-You may configure:
-- filetype/language detection
-- LSP server selection for a specific language
-- LSP server cmdline (e.g. `-jN --background-index` for clangd)
-
-
-# Quick start
+Clone the repository with its data files:
 
 ```sh
 git clone --recurse-submodules https://github.com/segoon/lsp-cli.git
 cd lsp-cli
-cargo run
 ```
 
-If you already cloned the repository before `data/` became a submodule, run:
+Build and try a few commands:
+
+```sh
+cargo run -- detect playground/python
+cargo run -- grep Order playground/rust
+cargo run -- definition format_order playground/c --lsp clangd
+```
+
+If you cloned the repository earlier without submodules, initialize them first:
 
 ```sh
 git submodule update --init --recursive
 ```
 
+If config data is not available yet, most commands try to install it automatically before running.
 
-# Config defaults
+## What lsp-cli Does
 
-`lsp-cli` optionally loads `lsp-cli.yaml` in this order:
+At a high level, `lsp-cli` usually does the following:
 
-1. global: `$LSP_DATA/lsp-cli.yaml` if `LSP_DATA` is set, otherwise `~/.local/share/lsp-cli/data/lsp-cli.yaml` when downloaded data exists, otherwise `data/lsp-cli.yaml` from the checked-out `data/` submodule
-2. user: `$XDG_CONFIG_HOME/lsp-cli/lsp-cli.yaml`, or `~/.config/lsp-cli/lsp-cli.yaml` when `XDG_CONFIG_HOME` is unset
+1. scans the given directory
+2. detects matching languages from filenames
+3. chooses one or more configured LSP servers for those languages
+4. chooses a workspace root for the selected server
+5. downloads an LSP server if it is missing
+6. starts the server, or reuses a matching daemon
+7. sends the requested LSP query
+8. prints a human-readable result or JSON
 
-User settings override global settings.
-Command-line flags override both.
-`lsp.<language>` sets server priority for automatic selection when multiple detected servers match the same language.
+This means you do not have to assemble server command lines by hand or even install LSP server at all.
+
+## Typical Workflows
+
+Detect what `lsp-cli` would run:
+
+```sh
+lsp-cli detect path/to/project
+```
+
+Search for symbols across a workspace:
+
+```sh
+lsp-cli grep MySymbol path/to/project
+```
+
+Find definitions, declarations, and references by symbol name:
+
+```sh
+lsp-cli definition MySymbol path/to/project
+lsp-cli declaration MySymbol path/to/project
+lsp-cli references MySymbol path/to/project
+```
+
+List symbols in one file or all matching files in a workspace:
+
+```sh
+lsp-cli list-symbols path/to/project/src/main.rs
+lsp-cli list-symbols path/to/project
+```
+
+Collect diagnostics for the workspace:
+
+```sh
+lsp-cli diagnostics path/to/project
+```
+
+Format a file in place:
+
+```sh
+lsp-cli format path/to/file.rs
+```
+
+Use JSON output for scripts and code agents:
+
+```sh
+lsp-cli grep --json MySymbol path/to/project
+```
+
+## Commands and options
+
+TODO: options reference will be added later.
+
+## Configuration Files
+
+`lsp-cli` uses several configuration locations with different roles.
+
+### Data Root
+
+The data root is `~/.local/share/lsp-cli/data`.
+It contains:
+
+- `filetypes/*.yaml` - language detection settings
+- `lsp/*.yaml` - LSP server settings
+- `lsp-cli.yaml`
+
+### User Configuration File
+
+User-specific overrides live in a separate file:
+
+`$XDG_CONFIG_HOME/lsp-cli/lsp-cli.yaml` (or `~/.config/lsp-cli/lsp-cli.yaml` if `$XDG_CONFIG_HOME` is empty).
+
+
+### Precedence
+
+Settings are applied in this order:
+
+1. global `lsp-cli.yaml` from the data root
+2. user `lsp-cli.yaml`
+3. command-line flags
+
+User config overrides global config. Command-line flags override both.
+
+## lsp-cli.yaml
+
+`lsp-cli.yaml` stores CLI defaults and server preference order:
+
+```yaml
+# Install a missing server automatically when a command needs it.
+download: false
+
+# Which lsp-cli data release `update` should install.
+download-version: latest
+
+# Reuse or start background daemons for LSP-backed commands.
+detach: false
+
+# Print JSON.
+json: false
+
+# Print verbose logs and raw LSP traffic to stderr.
+debug: false
+
+# Default per-request timeout.
+# It supports two formats:
+# - 10.1 means 10.1 seconds
+# - 100ms means 0.1 seconds
+timeout: "10"
+
+# Default maximum number of printed results.
+# Useful for code agents.
+limit: 100
+
+detect:
+  # Print only suggested command lines for `detect`.
+  quiet: false
+
+daemon:
+  # Shut down an idle daemon after this much time.
+  idle-timeout: "60"
+
+lsp:
+  # Prefer clangd for C++.
+  cpp:
+    - clangd
+
+  # Prefer these Python servers in this order.
+  python:
+    - ty
+    - pyright-langserver
+    - jedi-language-server
+```
+
+## Language Configs: filetypes/*.yaml
+
+Files in `filetypes/` define how `lsp-cli` recognizes a language.
+
+The filename becomes the language id:
+
+- `filetypes/python.yaml` defines the `python` language
+- `filetypes/cpp.yaml` defines the `cpp` language
 
 Example:
 
 ```yaml
-download: false
-download-version: latest
-detach: false
-json: false
-debug: false
-timeout: "10"
-limit: 100
+# filetypes/python.yaml
 
-detect:
-  quiet: false
+# Match files by extension.
+extensions:
+  - "py"
 
-daemon:
-  idle-timeout: "60"
-
-lsp:
-  cpp:
-    - clangd
-  python:
-    - ty
-    - pyright
-    - jedi-language-server
+# Match files by filename regex when needed.
+patterns: []
 ```
 
+Another example for a filename-based language:
 
-# Playground
+```yaml
+# filetypes/BUILD.bazel.yaml
 
-The repository includes small multi-file sample projects under `playground/` for manual
-`lsp-cli` experiments across multiple languages:
+# No extension-based matching.
+extensions: []
 
-- `playground/c`
-- `playground/cpp`
-- `playground/java`
-- `playground/python`
-- `playground/csharp`
-- `playground/rust`
-- `playground/js`
-- `playground/typescript`
-- `playground/go`
-
-Each playground contains cross-file references, a subdirectory, and a minimal project marker so
-you can try commands such as:
-
-```sh
-cargo run -- detect playground/python
-cargo run -- grep Order playground/rust
-cargo run -- list-symbols playground/java/src/main/java/playground/order/Order.java
-cargo run -- definition format_order playground/c --lsp clangd
+# Match special filenames.
+patterns:
+  - "^BUILD(\\.bazel)?$"
 ```
 
-See `playground/README.md` for more examples.
+## LSP Server Configs: lsp/*.yaml
 
+Files in `lsp/` define how `lsp-cli` can run a language server.
 
-# Available modes
+`cmdline` may include `$WORKSPACE`, which is replaced with the resolved workspace path
+
+The workspace root is identified the following way.
+First, `lsp-cli` walks upward until it finds one of the configured `root_markers`.
+If no marker is found, it uses the input directory or input file parent directory as the workspace root.
+
+Example:
+
+```yaml
+# lsp/pyright.yaml
+
+# Languages this server handles.
+filetypes:
+  - "python"
+
+# Search upward for these files to choose the workspace root.
+root_markers:
+  - "pyrightconfig.json"
+  - "pyproject.toml"
+  - "setup.py"
+  - ".git"
+
+# User-visible server name.
+# This is the value used with `--lsp`.
+name: "pyright-langserver"
+
+# Command used to start the server.
+cmdline: "pyright-langserver --stdio"
+```
+
+Example with `$WORKSPACE` and indexing behavior:
+
+```yaml
+# lsp/clangd.yaml
+
+filetypes:
+  - "c"
+  - "cpp"
+
+root_markers:
+  - ".clangd"
+  - "compile_commands.json"
+  - ".git"
+
+name: "clangd"
+
+# `$WORKSPACE` is replaced with the resolved workspace path.
+cmdline: "clangd --background-index --compile-commands-dir=$WORKSPACE"
+
+# Whether commands that can wait for indexing should do so by default.
+wait-for-index: false
+```
+
+## Useful Examples
+
+Detect candidate servers for a project:
 
 ```sh
-# Suggest LSP server cmdline based on filenames
-lsp-cli detect path/to/project
-lsp-cli detect path/to/project --lang python
-lsp-cli detect path/to/project --lsp pyright-langserver
-lsp-cli detect path/to/project/main.py --json
+lsp-cli detect playground/python
+lsp-cli detect playground/python --lang python
+lsp-cli detect playground/python --lsp pyright-langserver
+```
 
-# Query workspace symbols through the first detected LSP server
-lsp-cli grep MySymbol path/to/project
-lsp-cli grep MySymbol path/to/project --lang python
-lsp-cli grep MySymbol path/to/project --lsp clangd
-lsp-cli grep --json MySymbol path/to/project
-lsp-cli grep --debug MySymbol path/to/project
-lsp-cli grep --timeout 1.5 MySymbol path/to/project
-lsp-cli grep --timeout 100ms MySymbol path/to/project
-lsp-cli grep --wait-for-index MySymbol path/to/project
+Search workspace symbols:
 
-# List symbols in one file or across one workspace directory
-lsp-cli list-symbols path/to/project
-lsp-cli list-symbols path/to/project/src/main.rs
-lsp-cli list-symbols path/to/project --json
-lsp-cli list-symbols path/to/project/src/main.rs --json
+```sh
+lsp-cli grep Order playground/rust
+lsp-cli grep --json Order playground/rust
+```
 
-# List only function-like workspace symbols
-lsp-cli list-functions path/to/project
-lsp-cli list-functions path/to/project --json
+List symbols and functions:
 
-# List files handled by the selected server
-lsp-cli list-files path/to/project
-lsp-cli list-files path/to/project --lang cpp
-lsp-cli list-files path/to/project --limit 20
+```sh
+lsp-cli list-symbols playground/java/src/main/java/playground/order/Order.java
+lsp-cli list-functions playground/rust
+```
 
-# Resolve symbol locations from fuzzy workspace-symbol matches
-lsp-cli references MySymbol path/to/project
-lsp-cli ref MySymbol path/to/project
-lsp-cli definition MySymbol path/to/project
-lsp-cli declaration MySymbol path/to/project
-lsp-cli callers MyFunction path/to/project
-lsp-cli callees MyFunction path/to/project
+Find locations and call relationships:
 
-# Wait for an LSP server that exposes background-work progress to finish indexing
-lsp-cli build-index path/to/project --lsp rust-analyzer
-lsp-cli build-index path/to/project --lsp clangd
+```sh
+lsp-cli definition format_order playground/c --lsp clangd
+lsp-cli declaration format_order playground/c --lsp clangd
+lsp-cli references OrderFormatter playground/csharp
+lsp-cli callers format_order playground/c --lsp clangd
+lsp-cli callees format_order playground/c --lsp clangd
+```
 
-# Show the selected server command line and initialize capabilities
-lsp-cli server-capabilities path/to/project
-lsp-cli server-capabilities path/to/project --lsp clangd
+Diagnostics and formatting:
 
-# Generate shell completion script to stdout
-lsp-cli completion > /tmp/lsp-cli.bash
-lsp-cli completion bash > /tmp/lsp-cli.bash
-lsp-cli completion zsh > /tmp/_lsp-cli
+```sh
+lsp-cli diagnostics playground/python
+lsp-cli diagnostics --json playground/python
+lsp-cli format playground/rust/src/main.rs
+lsp-cli format --check playground/rust/src/main.rs
+lsp-cli format --stdout playground/rust/src/main.rs
+```
 
-# Replace lsp-cli with the detected LSP server process
-lsp-cli run path/to/project --lsp rust-analyzer
-lsp-cli run path/to/project --lang rust
+Inspect the selected server:
 
-# Start a background daemon and print its Unix socket path
-lsp-cli daemon path/to/project --lsp rust-analyzer
-lsp-cli daemon path/to/project --lang rust
+```sh
+lsp-cli server-capabilities playground/rust --lsp rust-analyzer
+lsp-cli build-index playground/rust --lsp rust-analyzer
+```
 
-# Stop the matching daemon for one workspace/server selection
-lsp-cli stop path/to/project --lsp rust-analyzer
-lsp-cli stop path/to/project --lang rust
+Use background daemons:
 
-# Stop every active daemon under $XDG_RUNTIME_DIR/lsp-cli
+```sh
+lsp-cli daemon playground/python
+lsp-cli stop playground/python
 lsp-cli stop-all
+```
 
-# Download or refresh the external lsp-cli data bundle
-lsp-cli update
+List known languages and servers:
 
-# List configured languages and servers from the loaded config root
+```sh
 lsp-cli languages
 lsp-cli servers
-lsp-cli servers --lang rust
+lsp-cli servers --lang python
 ```
 
-`grep` uses the LSP `workspace/symbol` request. Pattern syntax and matching behavior are server-dependent.
-`list-symbols` uses `textDocument/documentSymbol`. For a file input it lists that file's symbols; for a directory input it walks matching files in that workspace.
-`list-functions` walks matching files with `textDocument/documentSymbol` and keeps only method, constructor, function, and operator symbol kinds.
-`references`, `definition`, `declaration`, `callers`, and `callees` start from `workspace/symbol` matches and then run the corresponding position-based LSP request for each match.
-`--limit` defaults to `100`. Text output is limited by lines, and JSON output is limited by result items. When the limit is hit, lsp-cli prints a notice to stderr.
-`--wait-for-index` waits for the same background-work signals as `build-index` before sending `workspace/symbol`.
-`--download` on LSP-spawning commands keeps non-installed detected servers in consideration and installs the selected server automatically before launch.
-`--debug` logs the selected LSP server command line, pid, and raw LSP traffic to stderr.
-`--timeout` controls the per-request LSP timeout. Plain numbers are seconds, and values ending in `ms` are milliseconds.
-`detect --lang` and `detect --lsp` filter the detected server list to one language, one server, or their intersection.
-`--lang` narrows server selection to one detected language. LSP-backed commands error on mixed-language workspaces unless you pass `--lang` or an explicit `--lsp`.
-`server-capabilities` runs the normal LSP initialize handshake, prints the selected server command line and server version when available, then renders the initialize result capabilities as a YAML-like tree. Known standard capabilities use human-readable labels; unknown and experimental capabilities fall back to raw capability names. The output reflects what the server advertises during initialize, so later dynamic capability registration is not included.
-`build-index` waits for background-work signals such as `experimental/serverStatus` or work-done progress. If the selected server does not expose such progress, the command fails.
-`completion` writes a shell completion script to stdout. If no shell is passed, it uses the current shell from `$SHELL`.
-`run` performs detection and then replaces `lsp-cli` with the detected LSP server process using `execve`.
-`daemon` creates a Unix socket under `$XDG_RUNTIME_DIR/lsp-cli/`, starts `lsp-cli run` in the background, and prints the socket path only after the socket is already listening. The daemon accepts one LSP client at a time, keeps the upstream server warm while idle, and shuts it down after `--idle-timeout` (default `60s`). If the next client initializes with different normalized settings, lsp-cli restarts the upstream LSP server before serving that client.
-`stop` resolves the same workspace/server selection as `daemon`, connects to the matching daemon socket, and asks that daemon to stop. If no matching daemon is active, the command succeeds and reports that nothing was running. When a workspace has multiple runnable detected languages and you do not pass `--lang` or `--lsp`, `stop` iterates over every matching language-specific daemon instead of failing on ambiguity.
-`stop-all` scans `$XDG_RUNTIME_DIR/lsp-cli` and stops every active daemon it can reach, removing stale socket files along the way.
-`update` downloads the `lsp-cli-data` GitHub release selected by `download-version` and installs it into `~/.local/share/lsp-cli/data/`. The archive is extracted into a temporary directory first, then all downloaded configs are validated before the installed data tree is replaced.
-`languages` lists the configured language ids from the loaded `filetypes/` config. `servers` lists configured LSP server names from the loaded `lsp/` config, and `servers --lang LANG` narrows that list to one configured language.
-LSP-backed commands such as `grep`, `list-symbols`, `references`, and `build-index` automatically prefer the matching daemon socket when it exists. If the socket file exists but no daemon is listening, lsp-cli removes the dead socket and falls back to starting the LSP server directly.
-When no config data is available, lsp-cli automatically runs the same update flow once before the requested command. If that first automatic download or validation fails, the command fails too.
+Generate shell completion:
 
+```sh
+lsp-cli completion bash > /tmp/lsp-cli.bash
+```
+
+## Playground
+
+The repository contains small multi-file sample projects in `playground/` for manual testing.
+
+They are useful for learning what each command prints before pointing `lsp-cli` at a real project.
+
+## Limitations
+
+- `lsp-cli` works through LSP servers, so results are only as good as the selected server
+- not every server supports every feature
+- some features may silently fail with some LSP servers
+- symbol search quality (and regex syntax) varies between servers
+- background indexing support varies between servers
+
+
+## Summary
+
+`lsp-cli` is best thought of as a terminal-friendly client for LSP servers.
+
+If you only want to use it, start with `detect`, `grep`, `definition`, `references`, `diagnostics`, and `format`.
+
+If you want to customize it, the three important config layers are:
+
+- `lsp-cli.yaml` for defaults and preferences
+- `filetypes/*.yaml` for language detection
+- `lsp/*.yaml` for server definitions
 
 # References
 

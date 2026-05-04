@@ -7,11 +7,8 @@
 - review mason database
 - user-visible messages - more friendly/informative -> into explicit module
 
-- readme
 - man
-- informative --help
-- better completion (--lsp, --lang)
-- agent-skill
+- how to use with AI code agents + agent-skill
 
 - test on multiple rust versions
 
@@ -42,18 +39,5 @@ generic:
 - declaration for clangd drops std (e.g. `declaration f` drops `fgetc`)
 
 
-# Readme
-
-- getting started
-- configs location
-- lsp-cli.yaml format
-- examples
-- how to use with AI code agents
-
 man:
 https://www.w3tutorials.net/blog/what-is-the-idiomatic-way-of-writing-man-pages-for-rust-cli-tools/
-
-
-# Infrastructure
-
-- upload to crates.io

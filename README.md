@@ -32,6 +32,12 @@ Check that it works:
 lsp-cli --help
 ```
 
+Generate `SKILL.md` for your code agent (if any):
+```
+mkdir -p .claude/skills/lsp-cli/
+lsp-cli agent-skill >.claude/skills/lsp-cli/SKILL.md
+```
+
 ### Compiling from sources
 
 Clone the repository with its data files and run:

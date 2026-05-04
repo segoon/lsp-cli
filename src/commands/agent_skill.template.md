@@ -1,6 +1,8 @@
 ---
 name: lsp-cli
-description: Use lsp-cli for semantic code navigation, diagnostics, and formatting from the terminal.
+description: |
+  Use lsp-cli for semantic code navigation, diagnostics,
+  and formatting from the terminal.
 ---
 
 # lsp-cli skill

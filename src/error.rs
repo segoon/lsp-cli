@@ -119,6 +119,16 @@ impl PartialEq<&str> for Error {
     }
 }
 
+macro_rules! error_fn {
+    ($error:expr, $fmt:literal) => (
+        |error| $error(format!(concat!($fmt, ": {}"), error))
+    );
+    ($error:expr, $fmt:literal, $($rest:expr),+) => (
+        |error| $error(format!(concat!($fmt, ": {}"), $($rest),+, error))
+    );
+}
+pub(crate) use error_fn;
+
 #[cfg(test)]
 mod tests {
     use super::Error;

@@ -9,7 +9,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use super::{SourceCache, file_uri_to_path};
-use crate::error::{Error, Result};
+use crate::error::{Error, Result, error_fn};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SymbolMatch {
@@ -60,7 +60,7 @@ pub fn symbol_matches_from_response(response: &Value) -> Result<Vec<SymbolMatch>
     }
 
     let symbols: Vec<WorkspaceSymbolItem> = serde_json::from_value(response.clone())
-        .map_err(|error| Error::lsp(format!("failed to decode workspace/symbol response: {error}")))?;
+        .map_err(error_fn!(Error::lsp, "failed to decode workspace/symbol response"))?;
     let mut source_cache = SourceCache::default();
 
     symbols

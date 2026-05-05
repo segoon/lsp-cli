@@ -1,20 +1,22 @@
 use crate::cli::DetectArgs;
 use crate::commands::common::analyze_path;
 use crate::config::ConfigStore;
+use crate::error::{Error, Result};
 use crate::mason::resolve_detect_suggestions;
 use crate::suggest::SuggestedLanguage;
 use serde_json::json;
 use std::collections::BTreeSet;
 
-pub(super) fn run(args: &DetectArgs, config: &ConfigStore) -> Result<String, String> {
+pub(super) fn run(args: &DetectArgs, config: &ConfigStore) -> Result<String> {
     let server = &args.server;
-    let (detection, suggestions) = analyze_path(&args.path, config)?;
+    let (detection, suggestions) = analyze_path(&args.path, config).map_err(Error::unexpected)?;
     let suggestions = filter_detect_suggestions(
         &suggestions,
         server.language(),
         server.server(),
     )?;
-    let suggestions = resolve_detect_suggestions(&suggestions, server.download)?;
+    let suggestions = resolve_detect_suggestions(&suggestions, server.download)
+        .map_err(Error::unexpected)?;
     ensure_requested_suggestions_resolved(
         &suggestions,
         server.language(),
@@ -34,7 +36,7 @@ fn filter_detect_suggestions(
     suggestions: &[SuggestedLanguage],
     selected_language: Option<&str>,
     selected_server: Option<&str>,
-) -> Result<Vec<SuggestedLanguage>, String> {
+) -> Result<Vec<SuggestedLanguage>> {
     let mut filtered = suggestions.to_vec();
 
     if let Some(selected_server) = selected_server {
@@ -47,7 +49,7 @@ fn filter_detect_suggestions(
                     .any(|language| language == selected_language)
             });
             if filtered.is_empty() {
-                return Err(
+                return Err(Error::detection(
                     if suggestions
                         .iter()
                         .any(|suggestion| suggestion.server == selected_server)
@@ -58,13 +60,13 @@ fn filter_detect_suggestions(
                     } else {
                         requested_server_not_detected_error(suggestions, selected_server)
                     },
-                );
+                ));
             }
         } else if filtered.is_empty() {
-            return Err(requested_server_not_detected_error(
+            return Err(Error::detection(requested_server_not_detected_error(
                 suggestions,
                 selected_server,
-            ));
+            )));
         }
 
         return Ok(filtered);
@@ -78,9 +80,9 @@ fn filter_detect_suggestions(
                 .any(|language| language == selected_language)
         });
         if filtered.is_empty() {
-            return Err(format!(
+            return Err(Error::detection(format!(
                 "no LSP server was detected for language {selected_language:?}"
-            ));
+            )));
         }
     }
 
@@ -91,21 +93,21 @@ fn ensure_requested_suggestions_resolved(
     suggestions: &[SuggestedLanguage],
     selected_language: Option<&str>,
     selected_server: Option<&str>,
-) -> Result<(), String> {
+) -> Result<()> {
     if !suggestions.is_empty() {
         return Ok(());
     }
 
     match (selected_server, selected_language) {
-        (Some(selected_server), Some(selected_language)) => Err(format!(
+        (Some(selected_server), Some(selected_language)) => Err(Error::unexpected(format!(
             "requested LSP server {selected_server:?} is not runnable for language {selected_language:?}"
-        )),
-        (Some(selected_server), None) => Err(format!(
+        ))),
+        (Some(selected_server), None) => Err(Error::unexpected(format!(
             "requested LSP server {selected_server:?} is not runnable"
-        )),
-        (None, Some(selected_language)) => Err(format!(
+        ))),
+        (None, Some(selected_language)) => Err(Error::detection(format!(
             "no runnable LSP server was found for language {selected_language:?}"
-        )),
+        ))),
         (None, None) => Ok(()),
     }
 }
@@ -193,6 +195,7 @@ mod tests {
         ensure_requested_suggestions_resolved, filter_detect_suggestions, render_json,
         render_quiet, render_text,
     };
+    use crate::error::Error;
     use crate::suggest::SuggestedLanguage;
     use std::collections::BTreeSet;
     use std::path::PathBuf;
@@ -256,70 +259,69 @@ mod tests {
 
     #[test]
     fn errors_when_detect_language_has_no_matching_server() {
-        assert_eq!(
+        assert!(matches!(
             filter_detect_suggestions(&[example_suggestion()], Some("gamma"), None),
-            Err("no LSP server was detected for language \"gamma\"".to_string())
-        );
+            Err(Error::Detection(message))
+                if message == "no LSP server was detected for language \"gamma\""
+        ));
     }
 
     #[test]
     fn errors_when_detect_server_is_not_detected() {
-        assert_eq!(
+        assert!(matches!(
             filter_detect_suggestions(&[example_suggestion()], None, Some("missing-lsp")),
-            Err(
-                "requested LSP server \"missing-lsp\" is not in the detected server list: example-lsp"
-                    .to_string()
-            )
-        );
+            Err(Error::Detection(message))
+                if message
+                    == "requested LSP server \"missing-lsp\" is not in the detected server list: example-lsp"
+        ));
     }
 
     #[test]
     fn errors_when_detect_server_is_not_detected_and_nothing_matches() {
-        assert_eq!(
+        assert!(matches!(
             filter_detect_suggestions(&[], None, Some("missing-lsp")),
-            Err(
-                "requested LSP server \"missing-lsp\" is not available because no matching servers were detected"
-                    .to_string()
-            )
-        );
+            Err(Error::Detection(message))
+                if message
+                    == "requested LSP server \"missing-lsp\" is not available because no matching servers were detected"
+        ));
     }
 
     #[test]
     fn errors_when_detect_server_is_not_available_for_language() {
-        assert_eq!(
+        assert!(matches!(
             filter_detect_suggestions(&[example_suggestion()], Some("gamma"), Some("example-lsp")),
-            Err(
-                "requested LSP server \"example-lsp\" is not available for language \"gamma\""
-                    .to_string()
-            )
-        );
+            Err(Error::Detection(message))
+                if message
+                    == "requested LSP server \"example-lsp\" is not available for language \"gamma\""
+        ));
     }
 
     #[test]
     fn errors_when_requested_detect_server_is_not_runnable() {
-        assert_eq!(
+        assert!(matches!(
             ensure_requested_suggestions_resolved(&[], None, Some("example-lsp")),
-            Err("requested LSP server \"example-lsp\" is not runnable".to_string())
-        );
+            Err(Error::Unexpected(message))
+                if message == "requested LSP server \"example-lsp\" is not runnable"
+        ));
     }
 
     #[test]
     fn errors_when_requested_detect_server_is_not_runnable_for_language() {
-        assert_eq!(
+        assert!(matches!(
             ensure_requested_suggestions_resolved(&[], Some("beta"), Some("example-lsp")),
-            Err(
-                "requested LSP server \"example-lsp\" is not runnable for language \"beta\""
-                    .to_string()
-            )
-        );
+            Err(Error::Unexpected(message))
+                if message
+                    == "requested LSP server \"example-lsp\" is not runnable for language \"beta\""
+        ));
     }
 
     #[test]
     fn errors_when_requested_detect_language_has_no_runnable_server() {
-        assert_eq!(
+        assert!(matches!(
             ensure_requested_suggestions_resolved(&[], Some("beta"), None),
-            Err("no runnable LSP server was found for language \"beta\"".to_string())
-        );
+            Err(Error::Detection(message))
+                if message == "no runnable LSP server was found for language \"beta\""
+        ));
     }
 
     #[test]

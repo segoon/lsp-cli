@@ -26,40 +26,57 @@ mod update;
 
 use crate::cli::{Command as CliCommand, CompletionArgs};
 use crate::config::ConfigStore;
+use crate::error::{Error, Result};
 
-pub(crate) fn run(command: CliCommand, config: &ConfigStore) -> Result<String, String> {
+pub(crate) fn run(command: CliCommand, config: &ConfigStore) -> Result<String> {
     match command {
         CliCommand::Detect(args) => detect::run(&args, config),
-        CliCommand::Commands(args) => command_list::run(&args),
-        CliCommand::Diagnostics(args) => diagnostics::run(&args, config),
+        CliCommand::Commands(args) => command_list::run(&args).map_err(Error::unexpected),
+        CliCommand::Diagnostics(args) => {
+            diagnostics::run(&args, config).map_err(Error::from_query_message)
+        }
         CliCommand::Format(args) => format::run(&args, config),
-        CliCommand::Daemon(args) => daemon::run(&args, config),
-        CliCommand::Stop(args) => stop::run(&args, config),
-        CliCommand::StopAll(args) => stop::run_all(&args),
-        CliCommand::Languages(args) => languages::run(&args, config),
-        CliCommand::Servers(args) => servers::run(&args, config),
-        CliCommand::ServerCapabilities(args) => server_capabilities::run(&args, config),
-        CliCommand::Grep(args) => grep::run(&args, config),
-        CliCommand::ListSymbols(args) => list_symbols::run(&args, config),
-        CliCommand::ListFunctions(args) => list_functions::run(&args, config),
-        CliCommand::ListFiles(args) => list_files::run(&args, config),
-        CliCommand::References(args) => references::run(&args, config),
-        CliCommand::Callers(args) => callers::run(&args, config),
-        CliCommand::Callees(args) => callees::run(&args, config),
-        CliCommand::Definition(args) => definition::run(&args, config),
-        CliCommand::Declaration(args) => declaration::run(&args, config),
-        CliCommand::BuildIndex(args) => build_index::run(&args, config),
+        CliCommand::Daemon(args) => daemon::run(&args, config).map_err(Error::from_query_message),
+        CliCommand::Stop(args) => stop::run(&args, config).map_err(Error::from_query_message),
+        CliCommand::StopAll(args) => stop::run_all(&args).map_err(Error::unexpected),
+        CliCommand::Languages(args) => languages::run(&args, config).map_err(Error::unexpected),
+        CliCommand::Servers(args) => servers::run(&args, config).map_err(Error::invalid_input),
+        CliCommand::ServerCapabilities(args) => {
+            server_capabilities::run(&args, config).map_err(Error::from_query_message)
+        }
+        CliCommand::Grep(args) => grep::run(&args, config).map_err(Error::from_query_message),
+        CliCommand::ListSymbols(args) => {
+            list_symbols::run(&args, config).map_err(Error::from_query_message)
+        }
+        CliCommand::ListFunctions(args) => {
+            list_functions::run(&args, config).map_err(Error::from_query_message)
+        }
+        CliCommand::ListFiles(args) => list_files::run(&args, config).map_err(Error::from_query_message),
+        CliCommand::References(args) => {
+            references::run(&args, config).map_err(Error::from_query_message)
+        }
+        CliCommand::Callers(args) => callers::run(&args, config).map_err(Error::from_query_message),
+        CliCommand::Callees(args) => callees::run(&args, config).map_err(Error::from_query_message),
+        CliCommand::Definition(args) => {
+            definition::run(&args, config).map_err(Error::from_query_message)
+        }
+        CliCommand::Declaration(args) => {
+            declaration::run(&args, config).map_err(Error::from_query_message)
+        }
+        CliCommand::BuildIndex(args) => {
+            build_index::run(&args, config).map_err(Error::from_query_message)
+        }
         CliCommand::Update(args) => update::run(&args, config),
         CliCommand::Completion(_) => unreachable!("completion handled before config loading"),
-        CliCommand::AgentSkill(args) => agent_skill::run(&args),
+        CliCommand::AgentSkill(args) => agent_skill::run(&args).map_err(Error::unexpected),
         CliCommand::Run(args) => run::run(&args, config),
     }
 }
 
-pub(crate) fn run_completion(args: CompletionArgs) -> Result<String, String> {
-    completion::run(args)
+pub(crate) fn run_completion(args: CompletionArgs) -> Result<String> {
+    completion::run(args).map_err(Error::invalid_input)
 }
 
-pub(crate) fn run_commands() -> Result<String, String> {
-    command_list::run(&crate::cli::CommandsArgs)
+pub(crate) fn run_commands() -> Result<String> {
+    command_list::run(&crate::cli::CommandsArgs).map_err(Error::unexpected)
 }

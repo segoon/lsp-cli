@@ -4,6 +4,7 @@ mod cli;
 mod commands;
 mod config;
 mod detect;
+mod error;
 mod env_vars;
 mod fs;
 mod hash;
@@ -24,97 +25,18 @@ use std::process;
 use cli::{RawCommand as CliRawCommand, parse_raw_args, resolve_command};
 use commands::{run, run_commands, run_completion};
 use config::{default_config_root, load_cli_config, load_config_store};
+use error::{Error, Result};
 use system_log::{log_unexpected_error, warn_if_log_file_is_large};
 
 fn main() {
     warn_if_log_file_is_large();
-    let cli_argv = env::args().skip(1).collect::<Vec<_>>();
-    let raw_command = match parse_raw_args(cli_argv.clone()) {
-        Ok(command) => command,
-        Err(message) => {
-            eprintln!("{message}");
-            process::exit(2);
-        }
-    };
+    let raw_command = parse_command_or_exit();
 
     let output = match raw_command {
         CliRawCommand::Commands(_) => run_commands(),
         CliRawCommand::Completion(completion_args) => run_completion(completion_args),
-        CliRawCommand::Update(_) => {
-            let cli = match update::load_cli_defaults_for_update() {
-                Ok(cli) => cli,
-                Err(error) => {
-                    log_unexpected_error(&format!("failed to load lsp-cli defaults: {error}"));
-                    eprintln!("failed to load lsp-cli defaults: {error}");
-                    process::exit(1);
-                }
-            };
-            let command = match resolve_command(raw_command, &cli) {
-                Ok(command) => command,
-                Err(error) => {
-                    eprintln!("{error}");
-                    process::exit(2);
-                }
-            };
-            let config = config::ConfigStore {
-                filetypes: Vec::new(),
-                lsps: Vec::new(),
-                cli,
-            };
-            run(command, &config)
-        }
-        raw_command => {
-            if let Err(error) = update::ensure_data_available() {
-                log_unexpected_error(&format!(
-                    "failed to install lsp-cli data automatically: {error}"
-                ));
-                eprintln!("failed to install lsp-cli data automatically: {error}");
-                process::exit(1);
-            }
-            let config_root = match default_config_root() {
-                Ok(path) => path,
-                Err(error) => {
-                    log_unexpected_error(&format!("failed to resolve config root: {error}"));
-                    eprintln!("failed to resolve config root: {error}");
-                    process::exit(1);
-                }
-            };
-
-            let mut config = match load_config_store(&config_root) {
-                Ok(config) => config,
-                Err(error) => {
-                    log_unexpected_error(&format!(
-                        "failed to load config from {}: {error}",
-                        config_root.display()
-                    ));
-                    eprintln!(
-                        "failed to load config from {}: {error}",
-                        config_root.display()
-                    );
-                    process::exit(1);
-                }
-            };
-
-            let cli_roots = config::CliConfigRoots::default();
-            config.cli = match load_cli_config(&cli_roots.global, cli_roots.user.as_deref()) {
-                Ok(cli) => cli,
-                Err(error) => {
-                    log_unexpected_error(&format!("failed to load lsp-cli defaults: {error}"));
-                    eprintln!("failed to load lsp-cli defaults: {error}");
-                    process::exit(1);
-                }
-            };
-
-            let command = match resolve_command(raw_command, &config.cli) {
-                Ok(command) => command,
-                Err(error) => {
-                    eprintln!("{error}");
-                    process::exit(2);
-                }
-            };
-
-            run(command, &config)
-        }
+        CliRawCommand::Update(_) => run_update_command(raw_command),
+        raw_command => run_with_loaded_config(raw_command),
     };
 
     match output {
@@ -124,9 +46,57 @@ fn main() {
             }
         }
         Err(error) => {
-            log_unexpected_error(&error);
+            if error.should_log_as_unexpected() {
+                log_unexpected_error(&error.to_string());
+            }
             eprintln!("{error}");
-            process::exit(1);
+            process::exit(error.exit_code());
         }
     }
+}
+
+fn parse_command_or_exit() -> CliRawCommand {
+    let cli_argv = env::args().skip(1).collect::<Vec<_>>();
+    parse_raw_args(cli_argv)
+        .unwrap_or_else(|message| exit_with_error(&Error::invalid_input(message)))
+}
+
+fn run_update_command(raw_command: CliRawCommand) -> Result<String> {
+    let cli = update::load_cli_defaults_for_update()
+        .map_err(|error| Error::unexpected(format!("failed to load lsp-cli defaults: {error}")))?;
+    let command = resolve_command(raw_command, &cli).map_err(Error::invalid_input)?;
+    let config = config::ConfigStore {
+        filetypes: Vec::new(),
+        lsps: Vec::new(),
+        cli,
+    };
+    run(command, &config)
+}
+
+fn run_with_loaded_config(raw_command: CliRawCommand) -> Result<String> {
+    if let Err(error) = update::ensure_data_available() {
+        return Err(Error::unexpected(format!(
+            "failed to install lsp-cli data automatically: {error}"
+        )));
+    }
+
+    let config_root = default_config_root()
+        .map_err(|error| Error::unexpected(format!("failed to resolve config root: {error}")))?;
+    let mut config = load_config_store(&config_root).map_err(|error| {
+        Error::unexpected(format!("failed to load config from {}: {error}", config_root.display()))
+    })?;
+    let cli_roots = config::CliConfigRoots::default();
+    config.cli = load_cli_config(&cli_roots.global, cli_roots.user.as_deref())
+        .map_err(|error| Error::unexpected(format!("failed to load lsp-cli defaults: {error}")))?;
+    let command = resolve_command(raw_command, &config.cli).map_err(Error::invalid_input)?;
+
+    run(command, &config)
+}
+
+fn exit_with_error(error: &Error) -> ! {
+    if error.should_log_as_unexpected() {
+        log_unexpected_error(&error.to_string());
+    }
+    eprintln!("{error}");
+    process::exit(error.exit_code())
 }

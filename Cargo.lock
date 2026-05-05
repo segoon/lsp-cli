@@ -794,6 +794,7 @@ dependencies = [
  "shlex",
  "tar",
  "tempfile",
+ "thiserror",
  "url",
  "zip",
 ]

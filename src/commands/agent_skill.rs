@@ -1,4 +1,5 @@
 use crate::cli::{AgentSkillArgs, clap_command};
+use crate::error::Result;
 use clap::Arg;
 use clap::Command as ClapCommand;
 use regex::Regex;
@@ -32,7 +33,7 @@ const IGNORED_OPTIONS: &[&str] = &[
 ];
 
 #[allow(clippy::unnecessary_wraps)]
-pub(super) fn run(_args: &AgentSkillArgs) -> Result<String, String> {
+pub(super) fn run(_args: &AgentSkillArgs) -> Result<String> {
     Ok(render_skill())
 }
 

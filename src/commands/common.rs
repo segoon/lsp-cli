@@ -1,6 +1,7 @@
 use crate::commands::daemon::launch_for_workspace;
 use crate::config::ConfigStore;
 use crate::detect::{DetectionResult, detect_workspace};
+use crate::error::{Error, Result};
 use crate::lsp::path_to_file_uri;
 use crate::mason::resolve_detect_suggestions;
 use crate::runtime_state::{daemon_socket_path, default_daemon_root};
@@ -32,11 +33,10 @@ pub(super) struct ResolvedServer {
 pub(super) fn analyze_path(
     path: &Path,
     config: &ConfigStore,
-) -> Result<(DetectionResult, Vec<SuggestedLanguage>), String> {
+) -> Result<(DetectionResult, Vec<SuggestedLanguage>)> {
     let detection = detect_workspace(path, &config.filetypes)
-        .map_err(|error| format!("failed to scan {}: {error}", path.display()))?;
-    let mut suggestions = suggestions_for(&config.lsps, &detection, path)
-        .map_err(|error| format!("failed to build suggestions: {error}"))?;
+        .map_err(|error| Error::unexpected(format!("failed to scan {}: {error}", path.display())))?;
+    let mut suggestions = suggestions_for(&config.lsps, &detection, path)?;
     sort_suggestions(&mut suggestions, &config.cli.lsp_preferences, None);
 
     Ok((detection, suggestions))
@@ -48,7 +48,7 @@ pub(super) fn prepare_workspace(
     selected_language: Option<&str>,
     download: bool,
     config: &ConfigStore,
-) -> Result<PreparedWorkspace, String> {
+) -> Result<PreparedWorkspace> {
     let (detection, suggestions) = analyze_path(path, config)?;
     let resolved = resolve_server(
         &detection,
@@ -60,10 +60,10 @@ pub(super) fn prepare_workspace(
     )?;
     let mut server = resolved.server;
     server.workspace_root = fs::canonicalize(&server.workspace_root).map_err(|error| {
-        format!(
+        Error::unexpected(format!(
             "failed to resolve {}: {error}",
             server.workspace_root.display()
-        )
+        ))
     })?;
     let root_uri = path_to_file_uri(&server.workspace_root)?;
     let workspace_name = crate::lsp::workspace_name(&server.workspace_root);
@@ -77,7 +77,7 @@ pub(super) fn prepare_workspace(
             )),
             None,
         ),
-        Err(error) => (None, Some(error)),
+        Err(error) => (None, Some(error.to_string())),
     };
 
     Ok(PreparedWorkspace {
@@ -96,7 +96,7 @@ pub(super) fn connect_lsp_client(
     detach: bool,
     debug: bool,
     timeout: Duration,
-) -> Result<LspClient, String> {
+) -> Result<LspClient> {
     if let Some(socket_path) = workspace.daemon_socket_path.as_ref()
         && socket_path.exists()
     {
@@ -107,10 +107,10 @@ pub(super) fn connect_lsp_client(
                     Ok(()) => {}
                     Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
                     Err(error) => {
-                        return Err(format!(
+                        return Err(Error::unexpected(format!(
                             "failed to clean up dead daemon socket {}: {error}",
                             socket_path.display()
-                        ));
+                        )));
                     }
                 }
 
@@ -122,11 +122,11 @@ pub(super) fn connect_lsp_client(
                         timeout,
                     )
                     .map_err(|spawn_error| {
-                        format!(
+                        Error::lsp(format!(
                             "failed to use daemon socket {}: {connect_error}; failed to start {}: {spawn_error}",
                             socket_path.display(),
                             workspace.server.server
-                        )
+                        ))
                     });
                 }
             }
@@ -139,7 +139,7 @@ pub(super) fn connect_lsp_client(
                 .daemon_socket_error
                 .as_deref()
                 .unwrap_or("daemon socket path could not be prepared for this workspace");
-            format!("cannot use --detach because {reason}")
+            Error::unexpected(format!("cannot use --detach because {reason}"))
         })?;
         launch_for_workspace(
             &workspace.server.workspace_root,
@@ -148,10 +148,10 @@ pub(super) fn connect_lsp_client(
             debug,
         )?;
         return LspClient::connect_unix(socket_path, debug, timeout).map_err(|error| {
-            format!(
+            Error::lsp(format!(
                 "failed to connect to detached daemon for {}: {error}",
                 workspace.server.server
-            )
+            ))
         });
     }
 
@@ -170,7 +170,7 @@ pub(super) fn resolve_server(
     selected_language: Option<&str>,
     lsp_preferences: &std::collections::BTreeMap<String, Vec<String>>,
     download: bool,
-) -> Result<ResolvedServer, String> {
+) -> Result<ResolvedServer> {
     let mut candidates = selection_candidates(suggestions, download)?;
 
     if let Some(server) = selected_server {
@@ -193,9 +193,9 @@ pub(super) fn resolve_server(
             {
                 return Err(no_runnable_server_for_language_error(language));
             }
-            return Err(format!(
+            return Err(Error::detection(format!(
                 "no LSP server was detected for language {language:?}"
-            ));
+            )));
         }
         sort_suggestions(&mut candidates, lsp_preferences, Some(language));
         return resolve_candidate(candidates[0].clone(), Some(language), download);
@@ -204,10 +204,10 @@ pub(super) fn resolve_server(
     let languages = detected_languages(&candidates);
     let language_names = languages.iter().cloned().collect::<Vec<_>>();
     if language_names.len() > 1 {
-        return Err(format!(
+        return Err(Error::detection(format!(
             "multiple languages were detected for this command: {}; pass --lang LANG or --lsp SERVER to choose one",
             language_names.join(", ")
-        ));
+        )));
     }
 
     let Some(language) = language_names.into_iter().next() else {
@@ -221,7 +221,7 @@ pub(super) fn resolve_server(
 fn selection_candidates(
     suggestions: &[SuggestedLanguage],
     download: bool,
-) -> Result<Vec<SuggestedLanguage>, String> {
+) -> Result<Vec<SuggestedLanguage>> {
     if download {
         Ok(suggestions.to_vec())
     } else {
@@ -236,7 +236,7 @@ fn resolve_explicit_server(
     selected_language: Option<&str>,
     lsp_preferences: &std::collections::BTreeMap<String, Vec<String>>,
     download: bool,
-) -> Result<ResolvedServer, String> {
+) -> Result<ResolvedServer> {
     let mut detected_candidates = suggestions
         .iter()
         .filter(|suggestion| suggestion.server == selected_server)
@@ -249,9 +249,9 @@ fn resolve_explicit_server(
             .retain(|suggestion| suggestion.languages.iter().any(|value| value == language));
         candidates.retain(|suggestion| suggestion.languages.iter().any(|value| value == language));
         if detected_candidates.is_empty() {
-            return Err(format!(
+            return Err(Error::detection(format!(
                 "requested LSP server {selected_server:?} is not available for language {language:?}"
-            ));
+            )));
         }
         if candidates.is_empty() {
             return Err(explicit_server_not_runnable_error(
@@ -269,14 +269,14 @@ fn resolve_explicit_server(
             .map(|suggestion| suggestion.server.as_str())
             .collect::<Vec<_>>();
         return Err(if available.is_empty() {
-            format!(
+            Error::detection(format!(
                 "requested LSP server {selected_server:?} is not available because no matching servers were detected"
-            )
+            ))
         } else {
-            format!(
+            Error::detection(format!(
                 "requested LSP server {selected_server:?} is not in the detected server list: {}",
                 available.join(", ")
-            )
+            ))
         });
     }
 
@@ -291,7 +291,7 @@ fn resolve_candidate(
     selected: SuggestedLanguage,
     language: Option<&str>,
     download: bool,
-) -> Result<ResolvedServer, String> {
+) -> Result<ResolvedServer> {
     let server = if download {
         resolve_detect_suggestions(std::slice::from_ref(&selected), true)?
             .into_iter()
@@ -311,26 +311,26 @@ fn resolve_candidate(
     })
 }
 
-fn explicit_server_not_runnable_error(selected_server: &str, language: Option<&str>) -> String {
+fn explicit_server_not_runnable_error(selected_server: &str, language: Option<&str>) -> Error {
     match language {
-        Some(language) => format!(
+        Some(language) => Error::unexpected(format!(
             "requested LSP server {selected_server:?} is not runnable for language {language:?}"
-        ),
-        None => format!("requested LSP server {selected_server:?} is not runnable"),
+        )),
+        None => Error::unexpected(format!("requested LSP server {selected_server:?} is not runnable")),
     }
 }
 
-fn no_runnable_server_for_language_error(language: &str) -> String {
-    format!("no runnable LSP server was found for language {language:?}")
+fn no_runnable_server_for_language_error(language: &str) -> Error {
+    Error::detection(format!("no runnable LSP server was found for language {language:?}"))
 }
 
-fn no_resolved_server_error(detection: &DetectionResult, download: bool) -> String {
+fn no_resolved_server_error(detection: &DetectionResult, download: bool) -> Error {
     if download {
         no_detected_server_error(detection)
     } else if detection.filetypes.is_empty() {
-        "No supported languages detected".to_string()
+        Error::detection("No supported languages detected")
     } else {
-        format!(
+        Error::detection(format!(
             "No runnable LSP server found for detected filetypes: {}",
             detection
                 .filetypes
@@ -338,7 +338,7 @@ fn no_resolved_server_error(detection: &DetectionResult, download: bool) -> Stri
                 .cloned()
                 .collect::<Vec<_>>()
                 .join(", ")
-        )
+        ))
     }
 }
 
@@ -349,11 +349,11 @@ fn detected_languages(suggestions: &[SuggestedLanguage]) -> BTreeSet<String> {
         .collect()
 }
 
-fn no_detected_server_error(detection: &DetectionResult) -> String {
+fn no_detected_server_error(detection: &DetectionResult) -> Error {
     if detection.filetypes.is_empty() {
-        "No supported languages detected".to_string()
+        Error::detection("No supported languages detected")
     } else {
-        format!(
+        Error::detection(format!(
             "No LSP server matches detected filetypes: {}",
             detection
                 .filetypes
@@ -361,7 +361,7 @@ fn no_detected_server_error(detection: &DetectionResult) -> String {
                 .cloned()
                 .collect::<Vec<_>>()
                 .join(", ")
-        )
+        ))
     }
 }
 

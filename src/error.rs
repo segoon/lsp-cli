@@ -1,6 +1,8 @@
+use std::fmt;
+
 pub(crate) type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Eq, PartialEq, thiserror::Error)]
 pub(crate) enum Error {
     #[error("{0}")]
     InvalidInput(String),
@@ -65,6 +67,20 @@ impl Error {
         Self::Unexpected(message.into())
     }
 
+    pub(crate) fn with_prefix(self, prefix: impl fmt::Display) -> Self {
+        match self {
+            Self::InvalidInput(message) => Self::InvalidInput(format!("{prefix}: {message}")),
+            Self::ConfigFormat(message) => Self::ConfigFormat(format!("{prefix}: {message}")),
+            Self::Detection(message) => Self::Detection(format!("{prefix}: {message}")),
+            Self::Lsp(message) => Self::Lsp(format!("{prefix}: {message}")),
+            Self::Network(message) => Self::Network(format!("{prefix}: {message}")),
+            Self::MissingExecutable(message) => {
+                Self::MissingExecutable(format!("{prefix}: {message}"))
+            }
+            Self::Unexpected(message) => Self::Unexpected(format!("{prefix}: {message}")),
+        }
+    }
+
     #[must_use]
     pub(crate) fn exit_code(&self) -> i32 {
         match self {
@@ -89,33 +105,6 @@ impl Error {
         self.message().contains(needle)
     }
 
-    // Temporary bridge while much of the crate still returns String.
-    // This keeps command-boundary semantics explicit without a full rewrite.
-    pub(crate) fn from_query_message(message: String) -> Self {
-        if message.starts_with("failed to scan ") {
-            return Self::Unexpected(message);
-        }
-
-        if message.contains(" is not runnable")
-            || message.starts_with("cannot use --detach because")
-            || message.starts_with("cannot stop daemon because")
-        {
-            return Self::Unexpected(message);
-        }
-
-        if message.starts_with("multiple languages were detected")
-            || message.starts_with("no LSP server was detected")
-            || message.starts_with("no runnable LSP server was found")
-            || message.contains(" is not in the detected server list")
-            || message.contains(" because no matching servers were detected")
-            || message.starts_with("requested LSP server ")
-                && message.contains(" is not available for language ")
-        {
-            return Self::Detection(message);
-        }
-
-        Self::Lsp(message)
-    }
 }
 
 impl PartialEq<String> for Error {
@@ -145,19 +134,4 @@ mod tests {
         assert!(Error::unexpected("boom").should_log_as_unexpected());
     }
 
-    #[test]
-    fn query_bridge_preserves_detection_and_unexpected_buckets() {
-        assert!(matches!(
-            Error::from_query_message(
-                "multiple languages were detected for this command: a, b".to_string()
-            ),
-            Error::Detection(_)
-        ));
-        assert!(matches!(
-            Error::from_query_message(
-                "requested LSP server \"foo\" is not runnable".to_string()
-            ),
-            Error::Unexpected(_)
-        ));
-    }
 }

@@ -1,4 +1,5 @@
 use crate::runtime_state::RuntimeState;
+use crate::error::{Error, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs;
@@ -17,7 +18,7 @@ pub struct MasonRegistry {
 }
 
 impl MasonRegistry {
-    pub fn load(state: &RuntimeState) -> Result<Self, String> {
+    pub fn load(state: &RuntimeState) -> Result<Self> {
         state.ensure_dirs()?;
 
         let registry_json_path = state.registry_json_path();
@@ -75,11 +76,11 @@ impl MasonRegistry {
         }
     }
 
-    fn from_registry_json_path(path: &Path) -> Result<Self, String> {
+    fn from_registry_json_path(path: &Path) -> Result<Self> {
         let contents = fs::read_to_string(path)
-            .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+            .map_err(|error| Error::unexpected(format!("failed to read {}: {error}", path.display())))?;
         let package_values = serde_json::from_str::<Vec<serde_json::Value>>(&contents)
-            .map_err(|error| format!("failed to parse {}: {error}", path.display()))?;
+            .map_err(|error| Error::unexpected(format!("failed to parse {}: {error}", path.display())))?;
         let mut packages = Vec::new();
         for value in package_values.into_iter().filter(is_lsp_package_value) {
             if let Ok(mut package) = serde_json::from_value::<MasonPackage>(value) {
@@ -89,10 +90,10 @@ impl MasonRegistry {
         }
 
         if packages.is_empty() {
-            return Err(format!(
+            return Err(Error::unexpected(format!(
                 "failed to parse any Mason LSP packages from {}",
                 path.display()
-            ));
+            )));
         }
 
         Ok(Self::from_packages(packages))
@@ -192,7 +193,7 @@ impl MasonPackage {
         self.categories.iter().any(|category| category == "LSP")
     }
 
-    fn apply_source_version_overrides(&mut self) -> Result<(), String> {
+    fn apply_source_version_overrides(&mut self) -> Result<()> {
         self.source.apply_version_overrides()
     }
 }
@@ -221,7 +222,7 @@ impl MasonSource {
         self.download.as_ref().map_or(&[], OneOrMany::as_slice)
     }
 
-    fn apply_version_overrides(&mut self) -> Result<(), String> {
+    fn apply_version_overrides(&mut self) -> Result<()> {
         let version = source_id_version(&self.id)?;
         let override_ = self
             .version_overrides
@@ -342,11 +343,11 @@ pub struct MasonNeovim {
     pub lspconfig: Option<String>,
 }
 
-fn source_id_version(source_id: &str) -> Result<&str, String> {
+fn source_id_version(source_id: &str) -> Result<&str> {
     source_id
         .strip_prefix("pkg:")
         .and_then(|value| value.rsplit_once('@').map(|(_, version)| version))
-        .ok_or_else(|| format!("unsupported Mason package source {source_id}"))
+        .ok_or_else(|| Error::unexpected(format!("unsupported Mason package source {source_id}")))
 }
 
 fn version_matches_constraint(version: &str, constraint: &str) -> bool {

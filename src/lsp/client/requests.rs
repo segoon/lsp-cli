@@ -1,4 +1,5 @@
 use super::LspClient;
+use crate::error::{Error, Result};
 use crate::lsp::{InitializeResponse, parse_lsp_uri};
 use lsp_types::notification::{DidOpenTextDocument, Initialized};
 use lsp_types::request::{
@@ -19,13 +20,13 @@ use serde_json::{Value, json};
 use std::path::Path;
 
 impl LspClient {
-    pub fn open_document(&mut self, path: &Path, uri: &str) -> Result<(), String> {
+    pub fn open_document(&mut self, path: &Path, uri: &str) -> Result<()> {
         if self.opened_documents.contains(uri) {
             return Ok(());
         }
 
         let text = std::fs::read_to_string(path)
-            .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+            .map_err(|error| Error::unexpected(format!("failed to read {}: {error}", path.display())))?;
         let params = DidOpenTextDocumentParams {
             text_document: TextDocumentItem::new(
                 parse_lsp_uri(uri, "document")?,
@@ -45,7 +46,7 @@ impl LspClient {
         root_uri: &str,
         workspace_name: &str,
         want_server_status: bool,
-    ) -> Result<InitializeResponse, String> {
+    ) -> Result<InitializeResponse> {
         let root_uri = parse_lsp_uri(root_uri, "workspace")?;
         let workspace_folders = vec![WorkspaceFolder {
             uri: root_uri.clone(),
@@ -87,13 +88,13 @@ impl LspClient {
         };
         let response = self.send_request::<Initialize>(&params)?;
         let response = InitializeResponse::from_raw_value(response)
-            .map_err(|error| format!("failed to decode initialize response: {error}"))?;
+            .map_err(|error| Error::lsp(format!("failed to decode initialize response: {error}")))?;
         self.send_notification::<Initialized>(&InitializedParams {})?;
         self.drain_pending_server_requests()?;
         Ok(response)
     }
 
-    pub fn workspace_symbol(&mut self, pattern: &str) -> Result<Value, String> {
+    pub fn workspace_symbol(&mut self, pattern: &str) -> Result<Value> {
         let params = WorkspaceSymbolParams {
             query: pattern.to_string(),
             ..Default::default()
@@ -101,7 +102,7 @@ impl LspClient {
         self.send_request::<WorkspaceSymbolRequest>(&params)
     }
 
-    pub fn document_symbol(&mut self, uri: &str) -> Result<Value, String> {
+    pub fn document_symbol(&mut self, uri: &str) -> Result<Value> {
         let params = DocumentSymbolParams {
             text_document: TextDocumentIdentifier::new(parse_lsp_uri(uri, "document")?),
             work_done_progress_params: WorkDoneProgressParams::default(),
@@ -110,7 +111,7 @@ impl LspClient {
         self.send_request::<DocumentSymbolRequest>(&params)
     }
 
-    pub fn document_diagnostic(&mut self, uri: &str) -> Result<Value, String> {
+    pub fn document_diagnostic(&mut self, uri: &str) -> Result<Value> {
         let params = DocumentDiagnosticParams {
             text_document: TextDocumentIdentifier::new(parse_lsp_uri(uri, "document")?),
             identifier: None,
@@ -121,7 +122,7 @@ impl LspClient {
         self.send_request::<DocumentDiagnosticRequest>(&params)
     }
 
-    pub fn format_document(&mut self, uri: &str) -> Result<Value, String> {
+    pub fn format_document(&mut self, uri: &str) -> Result<Value> {
         let params = DocumentFormattingParams {
             text_document: TextDocumentIdentifier::new(parse_lsp_uri(uri, "document")?),
             options: FormattingOptions {
@@ -140,7 +141,7 @@ impl LspClient {
         line: u32,
         character: u32,
         include_declaration: bool,
-    ) -> Result<Value, String> {
+    ) -> Result<Value> {
         let params = ReferenceParams {
             text_document_position: TextDocumentPositionParams::new(
                 TextDocumentIdentifier::new(parse_lsp_uri(uri, "document")?),
@@ -155,7 +156,7 @@ impl LspClient {
         self.send_request::<References>(&params)
     }
 
-    pub fn definition(&mut self, uri: &str, line: u32, character: u32) -> Result<Value, String> {
+    pub fn definition(&mut self, uri: &str, line: u32, character: u32) -> Result<Value> {
         let params = GotoDefinitionParams {
             text_document_position_params: TextDocumentPositionParams::new(
                 TextDocumentIdentifier::new(parse_lsp_uri(uri, "document")?),
@@ -167,7 +168,7 @@ impl LspClient {
         self.send_request::<GotoDefinition>(&params)
     }
 
-    pub fn declaration(&mut self, uri: &str, line: u32, character: u32) -> Result<Value, String> {
+    pub fn declaration(&mut self, uri: &str, line: u32, character: u32) -> Result<Value> {
         let params = GotoDeclarationParams {
             text_document_position_params: TextDocumentPositionParams::new(
                 TextDocumentIdentifier::new(parse_lsp_uri(uri, "document")?),
@@ -184,7 +185,7 @@ impl LspClient {
         uri: &str,
         line: u32,
         character: u32,
-    ) -> Result<Value, String> {
+    ) -> Result<Value> {
         let params = CallHierarchyPrepareParams {
             text_document_position_params: TextDocumentPositionParams::new(
                 TextDocumentIdentifier::new(parse_lsp_uri(uri, "document")?),
@@ -195,9 +196,9 @@ impl LspClient {
         self.send_request::<CallHierarchyPrepare>(&params)
     }
 
-    pub fn incoming_calls(&mut self, item: &Value) -> Result<Value, String> {
+    pub fn incoming_calls(&mut self, item: &Value) -> Result<Value> {
         let item: CallHierarchyItem = serde_json::from_value(item.clone())
-            .map_err(|error| format!("failed to decode call hierarchy item: {error}"))?;
+            .map_err(|error| Error::lsp(format!("failed to decode call hierarchy item: {error}")))?;
         let params = CallHierarchyIncomingCallsParams {
             item,
             work_done_progress_params: WorkDoneProgressParams::default(),
@@ -206,9 +207,9 @@ impl LspClient {
         self.send_request::<CallHierarchyIncomingCalls>(&params)
     }
 
-    pub fn outgoing_calls(&mut self, item: &Value) -> Result<Value, String> {
+    pub fn outgoing_calls(&mut self, item: &Value) -> Result<Value> {
         let item: CallHierarchyItem = serde_json::from_value(item.clone())
-            .map_err(|error| format!("failed to decode call hierarchy item: {error}"))?;
+            .map_err(|error| Error::lsp(format!("failed to decode call hierarchy item: {error}")))?;
         let params = CallHierarchyOutgoingCallsParams {
             item,
             work_done_progress_params: WorkDoneProgressParams::default(),

@@ -2,6 +2,7 @@ use crate::cli::{ListSymbolsArgs, LspWorkspaceQueryArgs, WorkspaceQueryArgs};
 use crate::commands::common::{PreparedWorkspace, connect_lsp_client, prepare_workspace};
 use crate::config::ConfigStore;
 use crate::detect::matching_files;
+use crate::error::{Error, Result};
 use crate::lsp::{
     LspClient, SourceCache, SymbolMatch, document_symbol_matches_from_response,
     document_symbol_supported, ensure_call_hierarchy_support, ensure_workspace_symbol_support,
@@ -52,7 +53,7 @@ pub(super) fn run_workspace_symbol_query(
     args: &LspWorkspaceQueryArgs,
     query: &str,
     config: &ConfigStore,
-) -> Result<WorkspaceSymbolQueryResult, String> {
+) -> Result<WorkspaceSymbolQueryResult> {
     let (workspace, matches) = with_initialized_client(
         &args.query.directory,
         args.query.selector.lsp.as_deref(),
@@ -67,7 +68,7 @@ pub(super) fn run_workspace_symbol_query(
             ensure_workspace_symbol_support(initialize)?;
             let response = client
                 .workspace_symbol(query)
-                .map_err(|error| format!("failed to query {}: {error}", workspace.server.server))?;
+                .map_err(|error| error.with_prefix(format!("failed to query {}", workspace.server.server)))?;
             symbol_matches_from_response(&response)
         },
     )?;
@@ -82,7 +83,7 @@ pub(super) fn run_workspace_symbol_query(
 pub(super) fn run_document_symbol_query(
     args: &LspWorkspaceQueryArgs,
     config: &ConfigStore,
-) -> Result<WorkspaceSymbolQueryResult, String> {
+) -> Result<WorkspaceSymbolQueryResult> {
     let (workspace, matches) = with_initialized_client(
         &args.query.directory,
         args.query.selector.lsp.as_deref(),
@@ -101,37 +102,36 @@ pub(super) fn run_document_symbol_query(
                 &config.filetypes,
                 &workspace.allowed_filetypes,
             )
-            .map_err(|error| {
-                format!("failed to scan {}: {error}", args.query.directory.display())
-            })?;
+            .map_err(|error| Error::unexpected(format!("failed to scan {}: {error}", args.query.directory.display())))?;
             let mut source_cache = SourceCache::default();
             let mut matches = Vec::new();
 
             for file in &files {
                 let uri = path_to_file_uri(file)?;
                 client.open_document(file, &uri).map_err(|error| {
-                    format!(
-                        "failed to open {} with {}: {error}",
+                    error.with_prefix(format!(
+                        "failed to open {} with {}",
                         file.display(),
                         workspace.server.server
-                    )
+                    ))
                 })?;
                 let response = match client.document_symbol(&uri) {
                     Ok(response) => response,
-                    Err(error) if should_skip_document_symbol_error(&error) => continue,
+                    Err(error) if should_skip_document_symbol_error(&error.to_string()) => continue,
                     Err(error) => {
-                        return Err(format!(
+                        return Err(Error::lsp(format!(
                             "failed to query {} for {}: {error}",
                             workspace.server.server,
                             file.display()
-                        ));
+                        )));
                     }
                 };
                 matches.extend(function_matches_from_document_response(
                     &response,
                     file,
                     &mut source_cache,
-                )?);
+                )
+                ?);
             }
 
             Ok(matches)
@@ -148,7 +148,7 @@ pub(super) fn run_document_symbol_query(
 pub(super) fn run_list_symbols_query(
     args: &ListSymbolsArgs,
     config: &ConfigStore,
-) -> Result<WorkspaceSymbolQueryResult, String> {
+) -> Result<WorkspaceSymbolQueryResult> {
     let target = list_symbols_target(&args.path)?;
 
     let (workspace, matches) = with_initialized_client(
@@ -180,14 +180,14 @@ fn collect_list_symbol_matches(
     workspace: &PreparedWorkspace,
     initialize: &crate::lsp::InitializeResponse,
     client: &mut LspClient,
-) -> Result<Vec<SymbolMatch>, String> {
+) -> Result<Vec<SymbolMatch>> {
     ensure_list_symbols_support(initialize, &workspace.server.server)?;
 
     let files = match target {
         ListSymbolsTarget::File => vec![args.path.clone()],
         ListSymbolsTarget::Directory => {
             matching_files(&args.path, &config.filetypes, &workspace.allowed_filetypes)
-                .map_err(|error| format!("failed to scan {}: {error}", args.path.display()))?
+                .map_err(|error| Error::unexpected(format!("failed to scan {}: {error}", args.path.display())))?
         }
     };
 
@@ -197,47 +197,48 @@ fn collect_list_symbol_matches(
     for file in &files {
         let uri = path_to_file_uri(file)?;
         client.open_document(file, &uri).map_err(|error| {
-            format!(
-                "failed to open {} with {}: {error}",
+            error.with_prefix(format!(
+                "failed to open {} with {}",
                 file.display(),
                 workspace.server.server
-            )
+            ))
         })?;
         let response = match client.document_symbol(&uri) {
             Ok(response) => response,
             Err(error)
                 if target == ListSymbolsTarget::Directory
-                    && should_skip_document_symbol_error(&error) =>
+                    && should_skip_document_symbol_error(&error.to_string()) =>
             {
                 continue;
             }
             Err(error) => {
-                return Err(format!(
+                return Err(Error::lsp(format!(
                     "failed to query {} for {}: {error}",
                     workspace.server.server,
                     file.display()
-                ));
+                )));
             }
         };
         matches.extend(document_symbol_matches_from_response(
             &response,
             file,
             &mut source_cache,
-        )?);
+        )
+        ?);
     }
 
     Ok(matches)
 }
 
-pub(super) fn list_symbols_target(path: &Path) -> Result<ListSymbolsTarget, String> {
+pub(super) fn list_symbols_target(path: &Path) -> Result<ListSymbolsTarget> {
     let metadata = std::fs::metadata(path).map_err(|error| {
         if error.kind() == std::io::ErrorKind::NotFound {
-            format!(
+            Error::invalid_input(format!(
                 "list-symbols expected a file or directory path, but {} does not exist",
                 path.display()
-            )
+            ))
         } else {
-            format!("failed to inspect {}: {error}", path.display())
+            Error::unexpected(format!("failed to inspect {}: {error}", path.display()))
         }
     })?;
 
@@ -249,20 +250,20 @@ pub(super) fn list_symbols_target(path: &Path) -> Result<ListSymbolsTarget, Stri
         return Ok(ListSymbolsTarget::File);
     }
 
-    Err(format!(
+    Err(Error::invalid_input(format!(
         "list-symbols expected a regular file or directory path, but {} is not supported",
         path.display()
-    ))
+    )))
 }
 
 fn ensure_list_functions_support(
     initialize: &crate::lsp::InitializeResponse,
     server_name: &str,
-) -> Result<(), String> {
+) -> Result<()> {
     if !document_symbol_supported(initialize) {
-        return Err(format!(
+        return Err(Error::lsp(format!(
             "{server_name} does not support list-functions because it does not advertise textDocument/documentSymbol"
-        ));
+        )));
     }
 
     Ok(())
@@ -271,11 +272,11 @@ fn ensure_list_functions_support(
 fn ensure_list_symbols_support(
     initialize: &crate::lsp::InitializeResponse,
     server_name: &str,
-) -> Result<(), String> {
+) -> Result<()> {
     if !document_symbol_supported(initialize) {
-        return Err(format!(
+        return Err(Error::lsp(format!(
             "{server_name} does not support list-symbols because it does not advertise textDocument/documentSymbol"
-        ));
+        )));
     }
 
     Ok(())
@@ -284,7 +285,7 @@ fn ensure_list_symbols_support(
 pub(super) fn run_list_files_query(
     args: &WorkspaceQueryArgs,
     config: &ConfigStore,
-) -> Result<FileListQueryResult, String> {
+) -> Result<FileListQueryResult> {
     let workspace = prepare_workspace(
         &args.directory,
         args.selector.lsp.as_deref(),
@@ -297,7 +298,7 @@ pub(super) fn run_list_files_query(
         &config.filetypes,
         &workspace.allowed_filetypes,
     )
-    .map_err(|error| format!("failed to scan {}: {error}", args.directory.display()))?;
+    .map_err(|error| Error::unexpected(format!("failed to scan {}: {error}", args.directory.display())))?;
 
     Ok(FileListQueryResult {
         detected_filetypes: workspace.detection.filetypes,
@@ -310,7 +311,7 @@ pub(super) fn run_references_query(
     args: &LspWorkspaceQueryArgs,
     name: &str,
     config: &ConfigStore,
-) -> Result<WorkspaceSymbolQueryResult, String> {
+) -> Result<WorkspaceSymbolQueryResult> {
     run_named_location_query(args, name, LocationQueryKind::References, false, config)
 }
 
@@ -319,7 +320,7 @@ pub(super) fn run_definition_query(
     name: &str,
     full: bool,
     config: &ConfigStore,
-) -> Result<WorkspaceSymbolQueryResult, String> {
+) -> Result<WorkspaceSymbolQueryResult> {
     run_named_location_query(args, name, LocationQueryKind::Definition, full, config)
 }
 
@@ -328,7 +329,7 @@ pub(super) fn run_declaration_query(
     name: &str,
     full: bool,
     config: &ConfigStore,
-) -> Result<WorkspaceSymbolQueryResult, String> {
+) -> Result<WorkspaceSymbolQueryResult> {
     run_named_location_query(args, name, LocationQueryKind::Declaration, full, config)
 }
 
@@ -336,7 +337,7 @@ pub(super) fn run_callers_query(
     args: &LspWorkspaceQueryArgs,
     name: &str,
     config: &ConfigStore,
-) -> Result<WorkspaceSymbolQueryResult, String> {
+) -> Result<WorkspaceSymbolQueryResult> {
     run_call_hierarchy_query(args, name, CallHierarchyDirection::Incoming, config)
 }
 
@@ -344,7 +345,7 @@ pub(super) fn run_callees_query(
     args: &LspWorkspaceQueryArgs,
     name: &str,
     config: &ConfigStore,
-) -> Result<WorkspaceSymbolQueryResult, String> {
+) -> Result<WorkspaceSymbolQueryResult> {
     run_call_hierarchy_query(args, name, CallHierarchyDirection::Outgoing, config)
 }
 
@@ -360,13 +361,13 @@ fn with_initialized_client<T, F>(
     timeout: Duration,
     config: &ConfigStore,
     run: F,
-) -> Result<(PreparedWorkspace, T), String>
+) -> Result<(PreparedWorkspace, T)>
 where
     F: FnOnce(
         &PreparedWorkspace,
         &crate::lsp::InitializeResponse,
         &mut LspClient,
-    ) -> Result<T, String>,
+    ) -> Result<T>,
 {
     let workspace = prepare_workspace(path, selected_server, selected_language, download, config)?;
     let wait_for_index = wait_for_index_requested || workspace.server.wait_for_index;
@@ -378,14 +379,14 @@ where
             &workspace.workspace_name,
             wait_for_index,
         )
-        .map_err(|error| format!("failed to initialize {}: {error}", workspace.server.server))?;
+        .map_err(|error| error.with_prefix(format!("failed to initialize {}", workspace.server.server)))?;
 
     let response = (if wait_for_index {
         client.wait_for_background_work().map_err(|error| {
-            format!(
+            Error::lsp(format!(
                 "failed to wait for background work with {}: {error}",
                 workspace.server.server
-            )
+            ))
         })
     } else {
         Ok(())
@@ -394,10 +395,10 @@ where
     let shutdown = client.shutdown();
     let response = response?;
     shutdown.map_err(|error| {
-        format!(
+        Error::lsp(format!(
             "failed to stop {} cleanly: {error}",
             workspace.server.server
-        )
+        ))
     })?;
 
     Ok((workspace, response))
@@ -409,7 +410,7 @@ fn run_named_location_query(
     kind: LocationQueryKind,
     include_full_content: bool,
     config: &ConfigStore,
-) -> Result<WorkspaceSymbolQueryResult, String> {
+) -> Result<WorkspaceSymbolQueryResult> {
     let (workspace, matches) = with_initialized_client(
         &args.query.directory,
         args.query.selector.lsp.as_deref(),
@@ -425,10 +426,10 @@ fn run_named_location_query(
             kind.ensure_support(initialize)?;
 
             let anchors = client.workspace_symbol(name).map_err(|error| {
-                format!(
+                Error::lsp(format!(
                     "failed to find matching symbols for {name:?} with {}: {error}",
                     workspace.server.server
-                )
+                ))
             })?;
             let workspace_anchors = symbol_matches_from_response(&anchors)?;
             let anchors = select_named_anchors(
@@ -449,18 +450,18 @@ fn run_named_location_query(
             for anchor in anchors {
                 let uri = path_to_file_uri(&anchor.path)?;
                 client.open_document(&anchor.path, &uri).map_err(|error| {
-                    format!(
-                        "failed to open {} with {}: {error}",
+                    error.with_prefix(format!(
+                        "failed to open {} with {}",
                         anchor.path.display(),
                         workspace.server.server
-                    )
+                    ))
                 })?;
                 let response = kind.query(client, &uri, &anchor).map_err(|error| {
-                    format!(
-                        "failed to query {} for {} of {name:?}: {error}",
+                    error.with_prefix(format!(
+                        "failed to query {} for {} of {name:?}",
                         workspace.server.server,
                         kind.label()
-                    )
+                    ))
                 })?;
                 matches.extend(if include_full_content {
                     location_matches_from_response_with_full_content(
@@ -468,14 +469,16 @@ fn run_named_location_query(
                         &anchor.name,
                         anchor.kind,
                         &mut source_cache,
-                    )?
+                    )
+                    ?
                 } else {
                     location_matches_from_response(
                         &response,
                         &anchor.name,
                         anchor.kind,
                         &mut source_cache,
-                    )?
+                    )
+                    ?
                 });
             }
 
@@ -500,7 +503,7 @@ fn run_call_hierarchy_query(
     name: &str,
     direction: CallHierarchyDirection,
     config: &ConfigStore,
-) -> Result<WorkspaceSymbolQueryResult, String> {
+) -> Result<WorkspaceSymbolQueryResult> {
     let (workspace, matches) = with_initialized_client(
         &args.query.directory,
         args.query.selector.lsp.as_deref(),
@@ -516,10 +519,10 @@ fn run_call_hierarchy_query(
             ensure_call_hierarchy_support(initialize)?;
 
             let anchors = client.workspace_symbol(name).map_err(|error| {
-                format!(
+                Error::lsp(format!(
                     "failed to find matching symbols for {name:?} with {}: {error}",
                     workspace.server.server
-                )
+                ))
             })?;
             let workspace_anchors = symbol_matches_from_response(&anchors)?;
             let anchors = select_named_anchors(
@@ -540,29 +543,29 @@ fn run_call_hierarchy_query(
             for anchor in anchors {
                 let uri = path_to_file_uri(&anchor.path)?;
                 client.open_document(&anchor.path, &uri).map_err(|error| {
-                    format!(
-                        "failed to open {} with {}: {error}",
+                    error.with_prefix(format!(
+                        "failed to open {} with {}",
                         anchor.path.display(),
                         workspace.server.server
-                    )
+                    ))
                 })?;
                 let prepared = client
                     .prepare_call_hierarchy(&uri, zero_based_line(&anchor), zero_based_col(&anchor))
                     .map_err(|error| {
-                        format!(
-                            "failed to prepare call hierarchy with {} for {name:?}: {error}",
+                        error.with_prefix(format!(
+                            "failed to prepare call hierarchy with {} for {name:?}",
                             workspace.server.server
-                        )
+                        ))
                     })?;
                 let items = prepare_call_hierarchy_response(&prepared)?;
 
                 for item in &items {
                     let response = direction.query(client, item).map_err(|error| {
-                        format!(
-                            "failed to query {} for {} of {name:?}: {error}",
+                        error.with_prefix(format!(
+                            "failed to query {} for {} of {name:?}",
                             workspace.server.server,
                             direction.label()
-                        )
+                        ))
                     })?;
                     matches.extend(direction.decode(&response, &mut source_cache)?);
                 }
@@ -627,7 +630,7 @@ fn select_named_anchors(
     config: &ConfigStore,
     request: NamedAnchorRequest<'_>,
     workspace_anchors: Vec<SymbolMatch>,
-) -> Result<Vec<SymbolMatch>, String> {
+) -> Result<Vec<SymbolMatch>> {
     if document_symbol_supported(initialize) {
         let document_anchors = exact_named_document_anchors(workspace, client, config, request)?;
         if !document_anchors.is_empty() {
@@ -654,34 +657,36 @@ fn exact_named_document_anchors(
     client: &mut LspClient,
     config: &ConfigStore,
     request: NamedAnchorRequest<'_>,
-) -> Result<Vec<SymbolMatch>, String> {
+) -> Result<Vec<SymbolMatch>> {
     let files = matching_files(
         request.directory,
         &config.filetypes,
         &workspace.allowed_filetypes,
     )
-    .map_err(|error| format!("failed to scan {}: {error}", request.directory.display()))?;
+    .map_err(|error| Error::unexpected(format!("failed to scan {}: {error}", request.directory.display())))?;
     let mut source_cache = SourceCache::default();
     let mut matches = Vec::new();
 
     for file in &files {
         let uri = path_to_file_uri(file)?;
         client.open_document(file, &uri).map_err(|error| {
-            format!(
-                "failed to open {} with {}: {error}",
+            error.with_prefix(format!(
+                "failed to open {} with {}",
                 file.display(),
                 workspace.server.server
-            )
+            ))
         })?;
         let response = match client.document_symbol(&uri) {
             Ok(response) => response,
-            Err(error) if should_skip_document_symbol_error(&error) => continue,
+            Err(error) if should_skip_document_symbol_error(&error.to_string()) => continue,
             Err(_) => continue,
         };
         let file_matches = if request.function_only {
-            function_matches_from_document_response(&response, file, &mut source_cache)?
+            function_matches_from_document_response(&response, file, &mut source_cache)
+                ?
         } else {
-            document_symbol_matches_from_response(&response, file, &mut source_cache)?
+            document_symbol_matches_from_response(&response, file, &mut source_cache)
+                ?
         };
         matches.extend(
             file_matches
@@ -698,22 +703,22 @@ fn fill_definition_full_content(
     client: &mut LspClient,
     source_cache: &mut SourceCache,
     matches: &mut [SymbolMatch],
-) -> Result<(), String> {
+) -> Result<()> {
     let mut responses = std::collections::HashMap::new();
 
     for matched in matches {
         if !responses.contains_key(&matched.path) {
             let uri = path_to_file_uri(&matched.path)?;
             client.open_document(&matched.path, &uri).map_err(|error| {
-                format!(
-                    "failed to open {} with {}: {error}",
+                error.with_prefix(format!(
+                    "failed to open {} with {}",
                     matched.path.display(),
                     workspace.server.server
-                )
+                ))
             })?;
             let response = match client.document_symbol(&uri) {
                 Ok(response) => Some(response),
-                Err(error) if should_skip_document_symbol_error(&error) => None,
+                Err(error) if should_skip_document_symbol_error(&error.to_string()) => None,
                 Err(_) => None,
             };
             responses.insert(matched.path.clone(), response);
@@ -725,7 +730,8 @@ fn fill_definition_full_content(
                 &matched.path,
                 matched,
                 source_cache,
-            )?
+            )
+            ?
             .or_else(|| matched.full_content.clone())
             .or_else(|| Some(matched.line_content.clone()));
         } else if matched.full_content.is_none() {

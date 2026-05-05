@@ -1,9 +1,10 @@
 use crate::cli::LanguagesArgs;
 use crate::config::ConfigStore;
+use crate::error::Result;
 use std::collections::BTreeSet;
 
 #[allow(clippy::unnecessary_wraps)]
-pub(super) fn run(_args: &LanguagesArgs, config: &ConfigStore) -> Result<String, String> {
+pub(super) fn run(_args: &LanguagesArgs, config: &ConfigStore) -> Result<String> {
     let languages = config
         .filetypes
         .iter()

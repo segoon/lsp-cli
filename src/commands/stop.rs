@@ -3,11 +3,12 @@ use crate::commands::common::{analyze_path, prepare_workspace, resolve_server};
 use crate::commands::daemon::{StopSocketResult, stop_socket};
 use crate::config::ConfigStore;
 use crate::detect::DetectionResult;
+use crate::error::{Error, Result};
 use crate::runtime_state::{daemon_socket_paths, default_daemon_root};
 use crate::suggest::SuggestedLanguage;
 use std::collections::BTreeSet;
 
-pub(super) fn run(args: &StopArgs, config: &ConfigStore) -> Result<String, String> {
+pub(super) fn run(args: &StopArgs, config: &ConfigStore) -> Result<String> {
     if args.selector.lang.is_none() && args.selector.lsp.is_none() {
         let (detection, suggestions) = analyze_path(&args.path, config)?;
         let languages = implicit_stop_languages(&detection, &suggestions, config);
@@ -28,7 +29,7 @@ pub(super) fn run(args: &StopArgs, config: &ConfigStore) -> Result<String, Strin
             .daemon_socket_error
             .as_deref()
             .unwrap_or("daemon socket path could not be prepared for this workspace");
-        format!("cannot stop daemon because {reason}")
+        Error::unexpected(format!("cannot stop daemon because {reason}"))
     })?;
 
     match stop_socket(socket_path, args.debug)? {
@@ -49,7 +50,7 @@ fn run_for_languages(
     args: &StopArgs,
     config: &ConfigStore,
     languages: &[String],
-) -> Result<String, String> {
+) -> Result<String> {
     let mut stopped = 0usize;
     let mut not_running = 0usize;
     let mut seen_sockets = BTreeSet::new();
@@ -61,7 +62,7 @@ fn run_for_languages(
                 .daemon_socket_error
                 .as_deref()
                 .unwrap_or("daemon socket path could not be prepared for this workspace");
-            format!("cannot stop daemon because {reason}")
+            Error::unexpected(format!("cannot stop daemon because {reason}"))
         })?;
         let socket_key = socket_path.display().to_string();
         if seen_sockets.contains(&socket_key) {
@@ -119,7 +120,7 @@ fn implicit_stop_languages(
         .collect()
 }
 
-pub(super) fn run_all(args: &StopAllArgs) -> Result<String, String> {
+pub(super) fn run_all(args: &StopAllArgs) -> Result<String> {
     let daemon_root = default_daemon_root()?;
     let socket_paths = daemon_socket_paths(&daemon_root)?;
     let mut stopped = 0usize;
@@ -136,10 +137,10 @@ pub(super) fn run_all(args: &StopAllArgs) -> Result<String, String> {
     }
 
     if !failures.is_empty() {
-        return Err(format!(
+        return Err(Error::unexpected(format!(
             "failed to stop some daemons:\n{}",
             failures.join("\n")
-        ));
+        )));
     }
 
     Ok(match (stopped, removed_stale) {

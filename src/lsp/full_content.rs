@@ -1,5 +1,6 @@
 use super::symbols::symbol_information_anchor;
 use super::{SourceCache, SymbolMatch};
+use crate::error::{Error, Result};
 use lsp_types::{DocumentSymbol, DocumentSymbolResponse};
 use serde_json::Value;
 use std::path::Path;
@@ -9,15 +10,13 @@ pub fn symbol_full_content_from_document_response(
     path: &Path,
     target: &SymbolMatch,
     source_cache: &mut SourceCache,
-) -> Result<Option<String>, String> {
+) -> Result<Option<String>> {
     if response.is_null() {
         return Ok(None);
     }
 
-    let response: DocumentSymbolResponse =
-        serde_json::from_value(response.clone()).map_err(|error| {
-            format!("failed to decode textDocument/documentSymbol response: {error}")
-        })?;
+    let response: DocumentSymbolResponse = serde_json::from_value(response.clone())
+        .map_err(|error| Error::lsp(format!("failed to decode textDocument/documentSymbol response: {error}")))?;
 
     match response {
         DocumentSymbolResponse::Flat(symbols) => Ok(symbols

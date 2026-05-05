@@ -1,6 +1,7 @@
 use crate::cli::ServerCapabilitiesArgs;
 use crate::commands::common::{connect_lsp_client, prepare_workspace};
 use crate::config::ConfigStore;
+use crate::error::Result;
 use crate::lsp::InitializeResponse;
 use serde_json::Value;
 use std::env;
@@ -304,7 +305,7 @@ const FIELD_LABELS: &[(&str, &str)] = &[
     ("language", "language"),
 ];
 
-pub(super) fn run(args: &ServerCapabilitiesArgs, config: &ConfigStore) -> Result<String, String> {
+pub(super) fn run(args: &ServerCapabilitiesArgs, config: &ConfigStore) -> Result<String> {
     let server = &args.server;
     let workspace = prepare_workspace(
         &args.directory,
@@ -317,17 +318,14 @@ pub(super) fn run(args: &ServerCapabilitiesArgs, config: &ConfigStore) -> Result
         connect_lsp_client(&workspace, args.detach, server.debug, args.timeout)?;
     let initialize = client
         .initialize(&workspace.root_uri, &workspace.workspace_name, false)
-        .map_err(|error| format!("failed to initialize {}: {error}", workspace.server.server))?;
+        .map_err(|error| error.with_prefix(format!("failed to initialize {}", workspace.server.server)))?;
     let output = render_output(
         &workspace.server.command,
         &workspace.server.server,
         &initialize,
     );
     client.shutdown().map_err(|error| {
-        format!(
-            "failed to stop {} cleanly: {error}",
-            workspace.server.server
-        )
+        error.with_prefix(format!("failed to stop {} cleanly", workspace.server.server))
     })?;
     Ok(output)
 }

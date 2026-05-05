@@ -5,6 +5,7 @@ use clap::{Args, CommandFactory, Parser, Subcommand, ValueHint};
 use clap_complete::Shell;
 
 use crate::config::parse_timeout;
+use crate::error::{Error, Result};
 
 const HELP_LANG: &str = "Select this language.";
 const HELP_LSP: &str = "Use a specific configured LSP server.";
@@ -462,12 +463,12 @@ pub fn clap_command() -> clap::Command {
     RawCli::command()
 }
 
-pub(crate) fn parse_raw_args<I>(args: I) -> Result<RawCommand, String>
+pub(crate) fn parse_raw_args<I>(args: I) -> Result<RawCommand>
 where
     I: IntoIterator<Item = String>,
 {
     let args = std::iter::once("lsp-cli".to_string()).chain(args);
     RawCli::try_parse_from(args)
         .map(|cli| cli.command)
-        .map_err(|error| error.to_string())
+        .map_err(|error| Error::invalid_input(error.to_string()))
 }

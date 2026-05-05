@@ -2,7 +2,9 @@ use std::io::{BufRead, BufReader, Read, Write};
 
 use serde_json::Value;
 
-pub(crate) fn read_message<R>(reader: &mut BufReader<R>) -> Result<Option<Value>, String>
+use crate::error::{Error, Result};
+
+pub(crate) fn read_message<R>(reader: &mut BufReader<R>) -> Result<Option<Value>>
 where
     R: Read,
 {
@@ -13,13 +15,13 @@ where
         line.clear();
         let bytes = reader
             .read_line(&mut line)
-            .map_err(|error| format!("failed to read LSP header: {error}"))?;
+            .map_err(|error| Error::lsp(format!("failed to read LSP header: {error}")))?;
 
         if bytes == 0 {
             return if content_length.is_none() {
                 Ok(None)
             } else {
-                Err("unexpected EOF while reading LSP headers".to_string())
+                Err(Error::lsp("unexpected EOF while reading LSP headers"))
             };
         }
 
@@ -29,7 +31,7 @@ where
         }
 
         let Some((name, value)) = trimmed.split_once(':') else {
-            return Err(format!("invalid LSP header: {trimmed}"));
+            return Err(Error::lsp(format!("invalid LSP header: {trimmed}")));
         };
 
         if name.eq_ignore_ascii_case("Content-Length") {
@@ -37,33 +39,33 @@ where
                 value
                     .trim()
                     .parse::<usize>()
-                    .map_err(|error| format!("invalid Content-Length {value:?}: {error}"))?,
+                    .map_err(|error| Error::lsp(format!("invalid Content-Length {value:?}: {error}")))?,
             );
         }
     }
 
     let Some(content_length) = content_length else {
-        return Err("missing Content-Length header".to_string());
+        return Err(Error::lsp("missing Content-Length header"));
     };
 
     let mut body = vec![0; content_length];
     reader
         .read_exact(&mut body)
-        .map_err(|error| format!("failed to read LSP body: {error}"))?;
-    serde_json::from_slice(&body).map_err(|error| format!("invalid JSON-RPC payload: {error}"))
+        .map_err(|error| Error::lsp(format!("failed to read LSP body: {error}")))?;
+    serde_json::from_slice(&body).map_err(|error| Error::lsp(format!("invalid JSON-RPC payload: {error}")))
 }
 
-pub(crate) fn write_message<W>(writer: &mut W, message: &Value) -> Result<(), String>
+pub(crate) fn write_message<W>(writer: &mut W, message: &Value) -> Result<()>
 where
     W: Write,
 {
     let body = serde_json::to_vec(message)
-        .map_err(|error| format!("failed to serialize JSON-RPC message: {error}"))?;
+        .map_err(|error| Error::lsp(format!("failed to serialize JSON-RPC message: {error}")))?;
     writer
         .write_all(format!("Content-Length: {}\r\n\r\n", body.len()).as_bytes())
         .and_then(|()| writer.write_all(&body))
         .and_then(|()| writer.flush())
-        .map_err(|error| format!("failed to write JSON-RPC message: {error}"))
+        .map_err(|error| Error::lsp(format!("failed to write JSON-RPC message: {error}")))
 }
 
 pub(crate) fn serialize_debug_message(message: &Value) -> String {

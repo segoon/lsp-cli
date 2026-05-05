@@ -1,4 +1,5 @@
 use crate::hash::encode_hex;
+use crate::error::{Error, Result};
 use crate::mason::http::{download_bytes as http_download_bytes, read_json as http_read_json, send as http_send};
 use crate::runtime_state::RuntimeState;
 use reqwest::blocking::Client;
@@ -44,7 +45,7 @@ struct GithubReleaseAsset {
     digest: Option<String>,
 }
 
-pub(super) fn ensure_registry_cache(state: &RuntimeState) -> Result<(), String> {
+pub(super) fn ensure_registry_cache(state: &RuntimeState) -> Result<()> {
     let registry_json_path = state.registry_json_path();
     let metadata_path = state.registry_metadata_path();
     let now_epoch_seconds = unix_timestamp_now()?;
@@ -59,18 +60,18 @@ pub(super) fn ensure_registry_cache(state: &RuntimeState) -> Result<(), String> 
     refresh_registry_cache(state, now_epoch_seconds)
 }
 
-fn refresh_registry_cache(state: &RuntimeState, now_epoch_seconds: u64) -> Result<(), String> {
+fn refresh_registry_cache(state: &RuntimeState, now_epoch_seconds: u64) -> Result<()> {
     let client = Client::builder()
         .user_agent(USER_AGENT)
         .build()
-        .map_err(|error| format!("failed to create HTTP client: {error}"))?;
+        .map_err(|error| Error::network(format!("failed to create HTTP client: {error}")))?;
 
     let release = fetch_latest_release(&client)?;
     let asset = release
         .assets
         .into_iter()
         .find(|asset| asset.name == REGISTRY_ASSET_NAME)
-        .ok_or_else(|| "Mason registry release does not include registry.json.zip".to_string())?;
+        .ok_or_else(|| Error::network("Mason registry release does not include registry.json.zip"))?;
     let metadata_path = state.registry_metadata_path();
     let registry_json_path = state.registry_json_path();
 
@@ -109,7 +110,7 @@ fn refresh_registry_cache(state: &RuntimeState, now_epoch_seconds: u64) -> Resul
     Ok(())
 }
 
-fn fetch_latest_release(client: &Client) -> Result<GithubRelease, String> {
+fn fetch_latest_release(client: &Client) -> Result<GithubRelease> {
     let response = http_send(
         client
             .get(GITHUB_API_URL)
@@ -121,80 +122,82 @@ fn fetch_latest_release(client: &Client) -> Result<GithubRelease, String> {
     http_read_json(response, "failed to parse Mason registry metadata")
 }
 
-fn verify_sha256(bytes: &[u8], digest: Option<&str>) -> Result<(), String> {
+fn verify_sha256(bytes: &[u8], digest: Option<&str>) -> Result<()> {
     let Some(digest) = digest else {
         return Ok(());
     };
     let expected = digest
         .strip_prefix("sha256:")
-        .ok_or_else(|| format!("unsupported Mason registry digest format: {digest}"))?;
+        .ok_or_else(|| Error::network(format!("unsupported Mason registry digest format: {digest}")))?;
     let actual = encode_hex(&Sha256::digest(bytes));
 
     if actual == expected {
         Ok(())
     } else {
-        Err("downloaded Mason registry archive failed integrity verification".to_string())
+        Err(Error::network(
+            "downloaded Mason registry archive failed integrity verification",
+        ))
     }
 }
 
-fn unpack_registry_json(archive_bytes: &[u8]) -> Result<Vec<u8>, String> {
+fn unpack_registry_json(archive_bytes: &[u8]) -> Result<Vec<u8>> {
     let cursor = Cursor::new(archive_bytes);
     let mut archive = ZipArchive::new(cursor)
-        .map_err(|error| format!("failed to open Mason registry archive: {error}"))?;
+        .map_err(|error| Error::network(format!("failed to open Mason registry archive: {error}")))?;
     let mut file = archive
         .by_name("registry.json")
-        .map_err(|error| format!("failed to read registry.json from Mason archive: {error}"))?;
+        .map_err(|error| Error::network(format!("failed to read registry.json from Mason archive: {error}")))?;
     let mut registry_bytes = Vec::new();
     file.read_to_end(&mut registry_bytes)
-        .map_err(|error| format!("failed to unpack Mason registry data: {error}"))?;
+        .map_err(|error| Error::network(format!("failed to unpack Mason registry data: {error}")))?;
     Ok(registry_bytes)
 }
 
-fn read_registry_metadata(path: &Path) -> Result<Option<RegistryMetadata>, String> {
+fn read_registry_metadata(path: &Path) -> Result<Option<RegistryMetadata>> {
     match fs::read_to_string(path) {
         Ok(contents) => serde_json::from_str(&contents)
             .map(Some)
-            .map_err(|error| format!("failed to parse {}: {error}", path.display())),
+            .map_err(|error| Error::unexpected(format!("failed to parse {}: {error}", path.display()))),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
-        Err(error) => Err(format!("failed to read {}: {error}", path.display())),
+        Err(error) => Err(Error::unexpected(format!("failed to read {}: {error}", path.display()))),
     }
 }
 
-fn write_bytes_file(path: &Path, bytes: &[u8]) -> Result<(), String> {
+fn write_bytes_file(path: &Path, bytes: &[u8]) -> Result<()> {
     let Some(parent) = path.parent() else {
-        return Err(format!(
+        return Err(Error::unexpected(format!(
             "failed to determine parent directory for {}",
             path.display()
-        ));
+        )));
     };
 
     fs::create_dir_all(parent)
-        .map_err(|error| format!("failed to create {}: {error}", parent.display()))?;
+        .map_err(|error| Error::unexpected(format!("failed to create {}: {error}", parent.display())))?;
     let mut temp = NamedTempFile::new_in(parent).map_err(|error| {
-        format!(
+        Error::unexpected(format!(
             "failed to create temporary file in {}: {error}",
             parent.display()
-        )
+        ))
     })?;
     temp.write_all(bytes)
-        .map_err(|error| format!("failed to write {}: {error}", path.display()))?;
+        .map_err(|error| Error::unexpected(format!("failed to write {}: {error}", path.display())))?;
     temp.persist(path)
-        .map_err(|error| format!("failed to persist {}: {error}", path.display()))?;
+        .map_err(|error| Error::unexpected(format!("failed to persist {}: {error}", path.display())))?;
     Ok(())
 }
 
-fn write_json_file<T>(path: &Path, value: &T) -> Result<(), String>
+fn write_json_file<T>(path: &Path, value: &T) -> Result<()>
 where
     T: Serialize,
 {
     let bytes = serde_json::to_vec_pretty(value)
-        .map_err(|error| format!("failed to serialize {}: {error}", path.display()))?;
+        .map_err(|error| Error::unexpected(format!("failed to serialize {}: {error}", path.display())))?;
     write_bytes_file(path, &bytes)
 }
 
-fn unix_timestamp_now() -> Result<u64, String> {
+fn unix_timestamp_now() -> Result<u64> {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_secs())
-        .map_err(|error| format!("failed to read system clock: {error}"))
+        .map_err(|error| Error::unexpected(format!("failed to read system clock: {error}")))
 }

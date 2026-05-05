@@ -4,6 +4,7 @@ use super::{
 };
 use crate::commands::common::prepare_workspace;
 use crate::config::ConfigStore;
+use crate::error::{Error, Result};
 use crate::lsp::transport::read_message;
 use crate::lsp::{jsonrpc, path_to_file_uri, workspace_name};
 use crate::runtime_state::{daemon_socket_path, default_daemon_root};
@@ -27,7 +28,7 @@ use std::time::Instant;
 pub(super) fn resolve_target(
     args: &DaemonArgs,
     config: &ConfigStore,
-) -> Result<DaemonTarget, String> {
+) -> Result<DaemonTarget> {
     let workspace = prepare_workspace(
         &args.path,
         args.server.server(),
@@ -37,17 +38,17 @@ pub(super) fn resolve_target(
     )?;
     let server = workspace.server;
     let workspace_root = fs::canonicalize(&server.workspace_root).map_err(|error| {
-        format!(
+        Error::unexpected(format!(
             "failed to resolve {}: {error}",
             server.workspace_root.display()
-        )
+        ))
     })?;
     let workspace_root_string = workspace_root.display().to_string();
     let root_uri = path_to_file_uri(&workspace_root)?;
     let workspace_name = workspace_name(&workspace_root);
     let socket_root = default_daemon_root()?;
     fs::create_dir_all(&socket_root)
-        .map_err(|error| format!("failed to create {}: {error}", socket_root.display()))?;
+        .map_err(|error| Error::unexpected(format!("failed to create {}: {error}", socket_root.display())))?;
 
     #[cfg(unix)]
     {
@@ -55,10 +56,10 @@ pub(super) fn resolve_target(
 
         let permissions = fs::Permissions::from_mode(0o700);
         fs::set_permissions(&socket_root, permissions).map_err(|error| {
-            format!(
+            Error::unexpected(format!(
                 "failed to secure daemon socket root {}: {error}",
                 socket_root.display()
-            )
+            ))
         })?;
     }
 
@@ -82,7 +83,7 @@ pub(super) fn resolve_target(
 pub(super) fn launch_background(
     args: &DaemonArgs,
     target: &DaemonTarget,
-) -> Result<String, String> {
+) -> Result<String> {
     launch_background_for_connection(
         &args.path,
         &target.server_name,
@@ -99,11 +100,11 @@ pub(super) fn launch_background_for_connection(
     socket_path: &Path,
     debug: bool,
     idle_timeout: std::time::Duration,
-) -> Result<(), String> {
+) -> Result<()> {
     let executable = std::env::current_exe()
-        .map_err(|error| format!("failed to resolve lsp-cli executable: {error}"))?;
+        .map_err(|error| Error::unexpected(format!("failed to resolve lsp-cli executable: {error}")))?;
     let devnull =
-        File::open("/dev/null").map_err(|error| format!("failed to open /dev/null: {error}"))?;
+        File::open("/dev/null").map_err(|error| Error::unexpected(format!("failed to open /dev/null: {error}")))?;
     let mut command = Command::new(executable);
     command
         .arg("daemon")
@@ -123,47 +124,51 @@ pub(super) fn launch_background_for_connection(
 
     let mut child = command
         .spawn()
-        .map_err(|error| format!("failed to start daemon process: {error}"))?;
+        .map_err(|error| Error::unexpected(format!("failed to start daemon process: {error}")))?;
     let stdout = child
         .stdout
         .take()
-        .ok_or_else(|| "failed to capture daemon startup status".to_string())?;
+        .ok_or_else(|| Error::unexpected("failed to capture daemon startup status"))?;
     let mut reader = BufReader::new(stdout);
     let mut status = String::new();
     let mut payload = String::new();
     reader
         .read_line(&mut status)
-        .map_err(|error| format!("failed to read daemon startup status: {error}"))?;
+        .map_err(|error| Error::unexpected(format!("failed to read daemon startup status: {error}")))?;
     reader
         .read_line(&mut payload)
-        .map_err(|error| format!("failed to read daemon startup payload: {error}"))?;
+        .map_err(|error| Error::unexpected(format!("failed to read daemon startup payload: {error}")))?;
 
     match status.trim_end() {
         "READY" => {
             let payload = payload.trim_end().to_string();
             if payload.is_empty() {
-                return Err("daemon started without reporting a socket path".to_string());
+                return Err(Error::unexpected("daemon started without reporting a socket path"));
             }
             if payload != socket_path.display().to_string() {
-                return Err(format!(
+                return Err(Error::unexpected(format!(
                     "daemon reported unexpected socket path {payload:?}, expected {}",
                     socket_path.display()
-                ));
+                )));
             }
             Ok(())
         }
-        "ERROR" => Err(payload.trim_end().to_string()),
-        other => Err(format!("unexpected daemon startup status {other:?}")),
+        "ERROR" => Err(Error::unexpected(payload.trim_end().to_string())),
+        other => Err(Error::unexpected(format!("unexpected daemon startup status {other:?}"))),
     }
 }
 
-pub(super) fn run_background(args: &DaemonArgs, target: DaemonTarget) -> Result<String, String> {
+pub(super) fn run_background(
+    args: &DaemonArgs,
+    target: DaemonTarget,
+) -> Result<String> {
     let mut daemon = match unsafe { setsid_wrapper() }
         .and_then(|()| Daemon::new(target, args.server.debug, args.idle_timeout))
     {
         Ok(daemon) => daemon,
         Err(error) => {
-            let _ = print_startup_status("ERROR", &error);
+            let startup_error = error.to_string();
+            let _ = print_startup_status("ERROR", &startup_error);
             return Err(error);
         }
     };
@@ -172,40 +177,40 @@ pub(super) fn run_background(args: &DaemonArgs, target: DaemonTarget) -> Result<
     Ok(String::new())
 }
 
-fn print_startup_status(status: &str, payload: &str) -> Result<(), String> {
+fn print_startup_status(status: &str, payload: &str) -> Result<()> {
     let mut stdout = std::io::stdout().lock();
     writeln!(stdout, "{status}")
-        .map_err(|error| format!("failed to report daemon status: {error}"))?;
+        .map_err(|error| Error::unexpected(format!("failed to report daemon status: {error}")))?;
     writeln!(stdout, "{payload}")
         .and_then(|()| stdout.flush())
-        .map_err(|error| format!("failed to flush daemon status: {error}"))
+        .map_err(|error| Error::unexpected(format!("failed to flush daemon status: {error}")))
 }
 
-pub(super) fn bind_listener(socket_path: &Path) -> Result<UnixListener, String> {
+pub(super) fn bind_listener(socket_path: &Path) -> Result<UnixListener> {
     if socket_path.exists() {
         match UnixStream::connect(socket_path) {
             Ok(_) => {
-                return Err(format!(
+                return Err(Error::unexpected(format!(
                     "a daemon is already listening on {}",
                     socket_path.display()
-                ));
+                )));
             }
             Err(_) => {
                 fs::remove_file(socket_path).map_err(|error| {
-                    format!(
+                    Error::unexpected(format!(
                         "failed to remove stale socket {}: {error}",
                         socket_path.display()
-                    )
+                    ))
                 })?;
             }
         }
     }
 
     UnixListener::bind(socket_path).map_err(|error| {
-        format!(
+        Error::unexpected(format!(
             "failed to bind daemon socket {}: {error}",
             socket_path.display()
-        )
+        ))
     })
 }
 
@@ -228,7 +233,7 @@ where
                     return;
                 }
                 Err(error) => {
-                    let _ = sender.send(ReaderEvent::Error(error));
+                    let _ = sender.send(ReaderEvent::Error(error.to_string()));
                     return;
                 }
             }
@@ -238,10 +243,10 @@ where
 }
 
 impl ClientSession {
-    pub(super) fn new(stream: UnixStream) -> Result<Self, String> {
+    pub(super) fn new(stream: UnixStream) -> Result<Self> {
         let reader = stream
             .try_clone()
-            .map_err(|error| format!("failed to clone client socket: {error}"))?;
+            .map_err(|error| Error::unexpected(format!("failed to clone client socket: {error}")))?;
 
         Ok(Self {
             writer: stream,
@@ -256,9 +261,9 @@ impl ClientSession {
 }
 
 impl UpstreamServer {
-    pub(super) fn spawn(target: &DaemonTarget, debug: bool) -> Result<Self, String> {
+    pub(super) fn spawn(target: &DaemonTarget, debug: bool) -> Result<Self> {
         let executable = std::env::current_exe()
-            .map_err(|error| format!("failed to resolve lsp-cli executable: {error}"))?;
+            .map_err(|error| Error::unexpected(format!("failed to resolve lsp-cli executable: {error}")))?;
         let mut command = Command::new(executable);
         command
             .arg("run")
@@ -280,24 +285,24 @@ impl UpstreamServer {
                 target.server_name
             );
             log_unexpected_error(&error);
-            error
+            Error::unexpected(error)
         })?;
         log_lsp_server_started(child.id());
         let stdin = child.stdin.take().ok_or_else(|| {
             let error = "failed to open LSP server stdin".to_string();
             log_unexpected_error(&error);
-            error
+            Error::unexpected(error)
         })?;
         let stdout = child.stdout.take().ok_or_else(|| {
             let error = "failed to open LSP server stdout".to_string();
             log_unexpected_error(&error);
-            error
+            Error::unexpected(error)
         })?;
         let stderr = CapturedStderr::spawn(
             child.stderr.take().ok_or_else(|| {
                 let error = "failed to open LSP server stderr".to_string();
                 log_unexpected_error(&error);
-                error
+                Error::unexpected(error)
             })?,
             debug,
         );
@@ -314,7 +319,7 @@ impl UpstreamServer {
         })
     }
 
-    pub(super) fn shutdown(&mut self, debug: bool) -> Result<(), String> {
+    pub(super) fn shutdown(&mut self, debug: bool) -> Result<()> {
         let _ = self.stderr.summary();
         if self.initialize_fingerprint.is_some() {
             let shutdown_id = Value::String("lsp-cli/daemon-shutdown".to_string());
@@ -355,7 +360,7 @@ impl UpstreamServer {
             Err(error) => {
                 let error = format!("failed to inspect LSP server process: {error}");
                 log_unexpected_error(&error);
-                return Err(error);
+                return Err(Error::unexpected(error));
             }
         }
 
@@ -370,7 +375,7 @@ impl UpstreamServer {
                 Err(error) => {
                     let error = format!("failed to wait for LSP server exit: {error}");
                     log_unexpected_error(&error);
-                    return Err(error);
+                    return Err(Error::unexpected(error));
                 }
             }
         }
@@ -378,28 +383,28 @@ impl UpstreamServer {
         self.child.kill().map_err(|error| {
             let error = format!("failed to stop LSP server process: {error}");
             log_unexpected_error(&error);
-            error
+            Error::unexpected(error)
         })?;
         let status = self.child.wait().map_err(|error| {
             let error = format!("failed to reap LSP server process: {error}");
             log_unexpected_error(&error);
-            error
+            Error::unexpected(error)
         })?;
         log_lsp_server_exit(status);
         Ok(())
     }
 }
 
-unsafe fn setsid_wrapper() -> Result<(), String> {
+unsafe fn setsid_wrapper() -> Result<()> {
     unsafe extern "C" {
         fn setsid() -> i32;
     }
 
     if unsafe { setsid() } == -1 {
-        return Err(format!(
+        return Err(Error::unexpected(format!(
             "failed to detach daemon from terminal: {}",
             std::io::Error::last_os_error()
-        ));
+        )));
     }
 
     Ok(())

@@ -15,19 +15,19 @@ use crate::runtime_state::{RuntimeState, default_runtime_state_root};
 const DATA_REPOSITORY: &str = "segoon/lsp-cli-data";
 const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
 
-pub(crate) fn load_cli_defaults_for_update() -> std::result::Result<CliConfig, String> {
+pub(crate) fn load_cli_defaults_for_update() -> Result<CliConfig> {
     let roots = crate::config::CliConfigRoots::default();
     load_cli_config(&roots.global, roots.user.as_deref())
+        .map_err(|error| error.with_prefix("failed to load lsp-cli defaults"))
 }
 
-pub(crate) fn ensure_data_available() -> std::result::Result<(), String> {
+pub(crate) fn ensure_data_available() -> Result<()> {
     if crate::config::default_config_root().is_ok() {
         return Ok(());
     }
 
     let cli = load_cli_defaults_for_update()?;
-    run_update_with_version(cli.download_version.as_deref().unwrap_or("latest"))
-        .map_err(|error| error.to_string())?;
+    run_update_with_version(cli.download_version.as_deref().unwrap_or("latest"))?;
 
     crate::config::default_config_root().map(|_| ())
 }
@@ -38,8 +38,8 @@ pub(crate) fn run_update_with_cli(cli: &CliConfig) -> Result<String> {
 }
 
 fn run_update_with_version(version: &str) -> Result<String> {
-    let state = RuntimeState::new(default_runtime_state_root().map_err(Error::unexpected)?);
-    state.ensure_dirs().map_err(Error::unexpected)?;
+    let state = RuntimeState::new(default_runtime_state_root()?);
+    state.ensure_dirs()?;
 
     let client = http_client()?;
     let release = fetch_release(&client, version)?;
@@ -63,8 +63,8 @@ fn install_downloaded_data(state: &RuntimeState, archive: &[u8]) -> Result<()> {
     let extracted_root = locate_data_root(temp_dir.path())?;
 
     // Validate every config file before replacing the live data tree.
-    load_config_store(&extracted_root).map_err(Error::config_format)?;
-    let _ = load_cli_config(&extracted_root, None).map_err(Error::config_format)?;
+    load_config_store(&extracted_root)?;
+    let _ = load_cli_config(&extracted_root, None)?;
 
     let final_root = state.data_dir();
     let replacement_root = temp_dir.path().join("validated-data");

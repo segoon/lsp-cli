@@ -1,15 +1,16 @@
 use crate::cli::ServersArgs;
 use crate::config::ConfigStore;
+use crate::error::{Error, Result};
 use std::collections::BTreeSet;
 
-pub(super) fn run(args: &ServersArgs, config: &ConfigStore) -> Result<String, String> {
+pub(super) fn run(args: &ServersArgs, config: &ConfigStore) -> Result<String> {
     if let Some(language) = args.lang.as_deref()
         && !config
             .filetypes
             .iter()
             .any(|filetype| filetype.id == language)
     {
-        return Err(format!("unsupported language {language:?}"));
+        return Err(Error::invalid_input(format!("unsupported language {language:?}")));
     }
 
     let servers = config
@@ -30,6 +31,7 @@ mod tests {
     use super::run;
     use crate::cli::ServersArgs;
     use crate::config::{CliConfig, ConfigStore, FiletypeConfig, LspConfig};
+    use crate::error::Error;
 
     fn config() -> ConfigStore {
         ConfigStore {
@@ -107,14 +109,14 @@ mod tests {
 
     #[test]
     fn errors_for_unsupported_language() {
-        assert_eq!(
+        assert!(matches!(
             run(
                 &ServersArgs {
                     lang: Some("unknown".to_string())
                 },
                 &config(),
             ),
-            Err("unsupported language \"unknown\"".to_string())
-        );
+            Err(Error::InvalidInput(message)) if message == "unsupported language \"unknown\""
+        ));
     }
 }

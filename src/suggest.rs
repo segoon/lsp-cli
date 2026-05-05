@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 
 use crate::config::LspConfig;
 use crate::detect::DetectionResult;
+use crate::error::{Error, Result};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SuggestedLanguage {
@@ -18,7 +19,7 @@ pub fn suggestions_for(
     lsps: &[LspConfig],
     detection: &DetectionResult,
     workspace: &Path,
-) -> Result<Vec<SuggestedLanguage>, String> {
+) -> Result<Vec<SuggestedLanguage>> {
     lsps.iter()
         .filter(|lsp| matches_lsp(lsp, detection))
         .map(|lsp| build_suggestion(lsp, detection, workspace))
@@ -73,21 +74,21 @@ fn build_suggestion(
     lsp: &LspConfig,
     detection: &DetectionResult,
     workspace: &Path,
-) -> Result<SuggestedLanguage, String> {
+) -> Result<SuggestedLanguage> {
     let workspace_root = resolve_workspace_root(lsp, workspace)
-        .map_err(|error| format!("failed to resolve workspace for {}: {error}", lsp.name))?;
+        .map_err(|error| Error::unexpected(format!("failed to resolve workspace for {}: {error}", lsp.name)))?;
     let workspace_root = absolute_path(&workspace_root)
-        .map_err(|error| format!("failed to resolve workspace for {}: {error}", lsp.name))?;
+        .map_err(|error| Error::unexpected(format!("failed to resolve workspace for {}: {error}", lsp.name)))?;
     let workspace = workspace_root.to_string_lossy();
     let template = shlex::split(&lsp.cmdline)
-        .ok_or_else(|| format!("invalid cmdline for {}: {}", lsp.name, lsp.cmdline))?;
+        .ok_or_else(|| Error::config_format(format!("invalid cmdline for {}: {}", lsp.name, lsp.cmdline)))?;
     let command = template
         .into_iter()
         .map(|token| token.replace("$WORKSPACE", &workspace))
         .collect::<Vec<_>>();
 
     if command.is_empty() {
-        return Err(format!("empty cmdline for {}", lsp.name));
+        return Err(Error::config_format(format!("empty cmdline for {}", lsp.name)));
     }
 
     Ok(SuggestedLanguage {

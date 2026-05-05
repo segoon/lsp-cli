@@ -2,6 +2,7 @@ use super::{
     ResolvedProgram, WrapperRuntime, is_command_runnable, is_resolved_program_runnable,
     join_relative_path, resolve_program, rewrite_program,
 };
+use crate::error::Result;
 use crate::mason::registry::{
     MasonAsset, MasonAssetBin, MasonDownload, MasonNeovim, MasonPackage, MasonSource, OneOrMany,
 };
@@ -168,7 +169,7 @@ fn resolve_program_path(
     program: &str,
     state: &RuntimeState,
     context: &TemplateContext<'_>,
-) -> Result<PathBuf, String> {
+) -> Result<PathBuf> {
     Ok(resolve_program(package, program, state, context)?
         .executable_path()
         .to_path_buf())

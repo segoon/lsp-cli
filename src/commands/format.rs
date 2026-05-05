@@ -21,32 +21,30 @@ pub(super) fn run(args: &FormatArgs, config: &ConfigStore) -> Result<String> {
         server.language(),
         server.download,
         config,
-    )
-    .map_err(Error::from_query_message)?;
+    )?;
     let mut client =
-        connect_lsp_client(&workspace, args.detach, server.debug, args.timeout)
-            .map_err(Error::from_query_message)?;
+        connect_lsp_client(&workspace, args.detach, server.debug, args.timeout)?;
     let initialize = client
         .initialize(&workspace.root_uri, &workspace.workspace_name, false)
-        .map_err(|error| Error::lsp(format!("failed to initialize {}: {error}", workspace.server.server)))?;
-    ensure_formatting_support(&initialize).map_err(|error| {
+        .map_err(|error| error.with_prefix(format!("failed to initialize {}", workspace.server.server)))?;
+    ensure_formatting_support(&initialize).map_err(|_| {
         Error::lsp(format!(
-            "{} does not support format because {error}",
+            "{} does not support format because it does not advertise textDocument/formatting",
             workspace.server.server
         ))
     })?;
 
-    let uri = path_to_file_uri(&args.path).map_err(Error::lsp)?;
+    let uri = path_to_file_uri(&args.path)?;
     client.open_document(&args.path, &uri).map_err(|error| {
-        Error::lsp(format!(
-            "failed to open {} with {}: {error}",
+        error.with_prefix(format!(
+            "failed to open {} with {}",
             args.path.display(),
             workspace.server.server
         ))
     })?;
     let response = client.format_document(&uri).map_err(|error| {
-        Error::lsp(format!(
-            "failed to format {} with {}: {error}",
+        error.with_prefix(format!(
+            "failed to format {} with {}",
             args.path.display(),
             workspace.server.server
         ))
@@ -63,10 +61,7 @@ pub(super) fn run(args: &FormatArgs, config: &ConfigStore) -> Result<String> {
     }
 
     client.shutdown().map_err(|error| {
-        Error::lsp(format!(
-            "failed to stop {} cleanly: {error}",
-            workspace.server.server
-        ))
+        error.with_prefix(format!("failed to stop {} cleanly", workspace.server.server))
     })?;
 
     if args.check && changed {

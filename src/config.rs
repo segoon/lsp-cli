@@ -3,6 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use crate::error::{Error, Result};
 use crate::env_vars;
 use crate::fs as path_fs;
 use regex::Regex;
@@ -123,7 +124,7 @@ struct DaemonCliConfigFile {
     idle_timeout: Option<Duration>,
 }
 
-pub fn default_config_root() -> Result<PathBuf, String> {
+pub fn default_config_root() -> Result<PathBuf> {
     let lsp_data = env_vars::lsp_data();
     let home = env_vars::home();
     let repo_data = repo_data_dir();
@@ -144,7 +145,7 @@ fn choose_config_root(
     lsp_data: Option<&Path>,
     home: Option<&Path>,
     repo_data: &Path,
-) -> Result<PathBuf, String> {
+) -> Result<PathBuf> {
     // 1. Respect an explicit `LSP_DATA` override.
     if let Some(path) = lsp_data {
         return Ok(path.to_path_buf());
@@ -163,17 +164,16 @@ fn choose_config_root(
         return Ok(repo_data.to_path_buf());
     }
 
-    Err(
-        "could not resolve config root from LSP_DATA, ~/.local/share/lsp-cli/data, or repo data/"
-            .to_string(),
-    )
+    Err(Error::unexpected(
+        "could not resolve config root from LSP_DATA, ~/.local/share/lsp-cli/data, or repo data/",
+    ))
 }
 
 fn has_config_dirs(root: &Path) -> bool {
     root.join("filetypes").is_dir() && root.join("lsp").is_dir()
 }
 
-pub fn load_config_store(root: &Path) -> Result<ConfigStore, String> {
+pub fn load_config_store(root: &Path) -> Result<ConfigStore> {
     let root = ConfigRoot::new(root);
     let filetypes = load_filetypes(&root.filetypes_dir())?;
     let lsps = load_lsps(&root.lsp_dir())?;
@@ -186,7 +186,7 @@ pub fn load_config_store(root: &Path) -> Result<ConfigStore, String> {
     })
 }
 
-pub fn load_cli_config(global_root: &Path, user_root: Option<&Path>) -> Result<CliConfig, String> {
+pub fn load_cli_config(global_root: &Path, user_root: Option<&Path>) -> Result<CliConfig> {
     let mut config = CliConfig::default();
     config.merge(load_optional_cli_config_file(
         &ConfigRoot::new(global_root).cli_config_path(),
@@ -201,14 +201,14 @@ pub fn load_cli_config(global_root: &Path, user_root: Option<&Path>) -> Result<C
     Ok(config)
 }
 
-fn load_optional_cli_config_file(path: &Path) -> Result<CliConfig, String> {
+fn load_optional_cli_config_file(path: &Path) -> Result<CliConfig> {
     if !path.exists() {
         return Ok(CliConfig::default());
     }
 
     let contents = path_fs::read_to_string(path)?;
-    let file: CliConfigFile =
-        serde_yaml::from_str(&contents).map_err(|error| path_fs::format_path_error(path, error))?;
+    let file: CliConfigFile = serde_yaml::from_str(&contents)
+        .map_err(|error| Error::config_format(path_fs::format_path_error(path, error)))?;
     Ok(CliConfig::from(file))
 }
 
@@ -248,37 +248,47 @@ impl From<CliConfigFile> for CliConfig {
     }
 }
 
-pub(crate) fn parse_timeout(value: &str) -> Result<Duration, String> {
+fn parse_timeout_value(value: &str) -> Result<Duration> {
     if let Some(milliseconds) = value.strip_suffix("ms") {
         let milliseconds = milliseconds.parse::<u64>().map_err(|_| {
-            format!("invalid timeout {value:?}: expected integer milliseconds or seconds")
+            Error::invalid_input(format!(
+                "invalid timeout {value:?}: expected integer milliseconds or seconds"
+            ))
         })?;
         return Ok(Duration::from_millis(milliseconds));
     }
 
     let seconds = value.parse::<f64>().map_err(|_| {
-        format!("invalid timeout {value:?}: expected integer milliseconds or seconds")
+        Error::invalid_input(format!(
+            "invalid timeout {value:?}: expected integer milliseconds or seconds"
+        ))
     })?;
     if !seconds.is_finite() || seconds < 0.0 {
-        return Err(format!(
+        return Err(Error::invalid_input(format!(
             "invalid timeout {value:?}: expected non-negative milliseconds or seconds"
-        ));
+        )));
     }
 
     Ok(Duration::from_secs_f64(seconds))
 }
 
-fn deserialize_optional_timeout<'de, D>(deserializer: D) -> Result<Option<Duration>, D::Error>
+pub(crate) fn parse_timeout(value: &str) -> std::result::Result<Duration, String> {
+    // Clap and serde parser hooks expect string/custom errors, so keep this as a thin adapter
+    // over the typed parser instead of duplicating parsing logic here.
+    parse_timeout_value(value).map_err(|error| error.to_string())
+}
+
+fn deserialize_optional_timeout<'de, D>(deserializer: D) -> std::result::Result<Option<Duration>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
     let value = Option::<String>::deserialize(deserializer)?;
     value
-        .map(|value| parse_timeout(&value).map_err(de::Error::custom))
+        .map(|value| parse_timeout_value(&value).map_err(|error| de::Error::custom(error.to_string())))
         .transpose()
 }
 
-fn load_filetypes(dir: &Path) -> Result<Vec<FiletypeConfig>, String> {
+fn load_filetypes(dir: &Path) -> Result<Vec<FiletypeConfig>> {
     let paths = find_yaml_files_in(dir)?;
 
     paths
@@ -286,21 +296,21 @@ fn load_filetypes(dir: &Path) -> Result<Vec<FiletypeConfig>, String> {
         .map(|path| {
             let contents = path_fs::read_to_string(&path)?;
             let file: FiletypeFile = serde_yaml::from_str(&contents)
-                .map_err(|error| path_fs::format_path_error(&path, error))?;
+                .map_err(|error| Error::config_format(path_fs::format_path_error(&path, error)))?;
             let id = path
                 .file_stem()
                 .and_then(|value| value.to_str())
-                .ok_or_else(|| format!("invalid filetype filename: {}", path.display()))?
+                .ok_or_else(|| Error::config_format(format!("invalid filetype filename: {}", path.display())))?
                 .to_string();
             let patterns = file
                 .patterns
                 .into_iter()
                 .map(|pattern| {
                     Regex::new(&pattern).map_err(|error| {
-                        format!("{}: invalid regex {pattern:?}: {error}", path.display())
+                        Error::config_format(format!("{}: invalid regex {pattern:?}: {error}", path.display()))
                     })
                 })
-                .collect::<Result<Vec<_>, _>>()?;
+                .collect::<std::result::Result<Vec<_>, _>>()?;
 
             Ok(FiletypeConfig {
                 id,
@@ -315,7 +325,7 @@ fn load_filetypes(dir: &Path) -> Result<Vec<FiletypeConfig>, String> {
         .collect()
 }
 
-fn load_lsps(dir: &Path) -> Result<Vec<LspConfig>, String> {
+fn load_lsps(dir: &Path) -> Result<Vec<LspConfig>> {
     let paths = find_yaml_files_in(dir)?;
 
     paths
@@ -323,11 +333,11 @@ fn load_lsps(dir: &Path) -> Result<Vec<LspConfig>, String> {
         .map(|path| {
             let contents = path_fs::read_to_string(&path)?;
             let file: LspFile = serde_yaml::from_str(&contents)
-                .map_err(|error| path_fs::format_path_error(&path, error))?;
+                .map_err(|error| Error::config_format(path_fs::format_path_error(&path, error)))?;
             let id = path
                 .file_stem()
                 .and_then(|value| value.to_str())
-                .ok_or_else(|| format!("invalid lsp filename: {}", path.display()))?
+                .ok_or_else(|| Error::config_format(format!("invalid lsp filename: {}", path.display())))?
                 .to_string();
 
             Ok(LspConfig {
@@ -342,32 +352,32 @@ fn load_lsps(dir: &Path) -> Result<Vec<LspConfig>, String> {
         .collect()
 }
 
-fn find_yaml_files_in(dir: &Path) -> Result<Vec<PathBuf>, String> {
+fn find_yaml_files_in(dir: &Path) -> Result<Vec<PathBuf>> {
     if !dir.exists() {
-        return Err(format!("missing directory {}", dir.display()));
+        return Err(Error::unexpected(format!("missing directory {}", dir.display())));
     }
 
     if !dir.is_dir() {
-        return Err(format!("not a directory: {}", dir.display()));
+        return Err(Error::unexpected(format!("not a directory: {}", dir.display())));
     }
 
     let mut paths = fs::read_dir(dir)
-        .map_err(|error| format!("{}: {error}", dir.display()))?
+        .map_err(|error| Error::unexpected(format!("{}: {error}", dir.display())))?
         .map(|entry| entry.map(|entry| entry.path()))
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|error| format!("{}: {error}", dir.display()))?;
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .map_err(|error| Error::unexpected(format!("{}: {error}", dir.display())))?;
 
     paths.retain(|path| path.extension().and_then(|value| value.to_str()) == Some("yaml"));
     paths.sort();
 
     if paths.is_empty() {
-        return Err(format!("no yaml files found in {}", dir.display()));
+        return Err(Error::unexpected(format!("no yaml files found in {}", dir.display())));
     }
 
     Ok(paths)
 }
 
-fn validate_lsp_filetypes(filetypes: &[FiletypeConfig], lsps: &[LspConfig]) -> Result<(), String> {
+fn validate_lsp_filetypes(filetypes: &[FiletypeConfig], lsps: &[LspConfig]) -> Result<()> {
     let known_filetypes = filetypes
         .iter()
         .map(|filetype| filetype.id.clone())
@@ -376,10 +386,10 @@ fn validate_lsp_filetypes(filetypes: &[FiletypeConfig], lsps: &[LspConfig]) -> R
     for lsp in lsps {
         for filetype in &lsp.filetypes {
             if !known_filetypes.contains(filetype) {
-                return Err(format!(
+                return Err(Error::config_format(format!(
                     "lsp {} references unknown filetype {}",
                     lsp.name, filetype
-                ));
+                )));
             }
         }
     }

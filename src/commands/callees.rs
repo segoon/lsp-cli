@@ -4,8 +4,9 @@ use crate::commands::symbol_query::{
     run_callees_query, truncate_items,
 };
 use crate::config::ConfigStore;
+use crate::error::Result;
 
-pub(super) fn run(args: &SymbolQueryArgs, config: &ConfigStore) -> Result<String, String> {
+pub(super) fn run(args: &SymbolQueryArgs, config: &ConfigStore) -> Result<String> {
     let query = &args.query.query;
     let result = run_callees_query(&args.query, &args.name, config)?;
     let matches = truncate_items(

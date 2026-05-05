@@ -1,6 +1,7 @@
 use super::super::{Command, DetectArgs, DiagnosticsArgs, GrepArgs};
 use super::{install_debug, lsp_workspace_query, parse, parse_with_config, selection};
 use crate::config::{CliConfig, DetectCliConfig};
+use crate::error::Error;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -236,7 +237,9 @@ fn parses_grep_files_with_matches() {
 fn rejects_invalid_timeout_value() {
     assert_eq!(
         parse(&["grep", "needle", "workspace", "--timeout", "nope"]),
-        Err("error: invalid value 'nope' for '--timeout <T>': invalid timeout \"nope\": expected integer milliseconds or seconds\n\nFor more information, try '--help'.\n".to_string())
+        Err(Error::invalid_input(
+            "error: invalid value 'nope' for '--timeout <T>': invalid timeout \"nope\": expected integer milliseconds or seconds\n\nFor more information, try '--help'.\n",
+        ))
     );
 }
 

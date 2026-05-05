@@ -3,11 +3,12 @@ use crate::mason::link::{is_command_runnable, rewrite_program};
 use crate::mason::registry::MasonRegistry;
 use crate::runtime_state::{RuntimeState, default_runtime_state_root};
 use crate::suggest::SuggestedLanguage;
+use crate::error::{Error, Result};
 
 pub fn resolve_detect_suggestions(
     suggestions: &[SuggestedLanguage],
     download: bool,
-) -> Result<Vec<SuggestedLanguage>, String> {
+) -> Result<Vec<SuggestedLanguage>> {
     let state = default_runtime_state_root().ok().map(RuntimeState::new);
     let cached_registry = state.as_ref().and_then(MasonRegistry::load_cached);
     let mut install_registry = None;
@@ -44,7 +45,13 @@ pub fn resolve_detect_suggestions(
     match errors.len() {
         0 => Ok(Vec::new()),
         1 => Err(errors.remove(0)),
-        _ => Err(errors.join("\n")),
+        _ => Err(Error::unexpected(
+            errors
+                .into_iter()
+                .map(|error| error.to_string())
+                .collect::<Vec<_>>()
+                .join("\n"),
+        )),
     }
 }
 
@@ -52,12 +59,12 @@ fn resolve_suggestion_from_path_or_cache(
     suggestion: &SuggestedLanguage,
     state: Option<&RuntimeState>,
     registry: Option<&MasonRegistry>,
-) -> Result<Option<SuggestedLanguage>, String> {
+) -> Result<Option<SuggestedLanguage>> {
     let Some(program) = suggestion.command.first() else {
-        return Err(format!(
+        return Err(Error::unexpected(format!(
             "selected LSP server {} has an empty command",
             suggestion.server
-        ));
+        )));
     };
 
     if is_command_runnable(program) {
@@ -91,30 +98,29 @@ fn install_suggestion(
     suggestion: &SuggestedLanguage,
     state: Option<&RuntimeState>,
     registry: &mut Option<MasonRegistry>,
-) -> Result<SuggestedLanguage, String> {
+) -> Result<SuggestedLanguage> {
     let Some(program) = suggestion.command.first() else {
-        return Err(format!(
+        return Err(Error::unexpected(format!(
             "selected LSP server {} has an empty command",
             suggestion.server
-        ));
+        )));
     };
     if program.contains(std::path::MAIN_SEPARATOR) {
-        return Err(format!(
+        return Err(Error::missing_executable(format!(
             "configured LSP server executable `{program}` was not found"
-        ));
+        )));
     }
 
-    let state = state.ok_or_else(|| {
-        "cannot install LSP servers automatically because $HOME is not set".to_string()
-    })?;
+    let state = state
+        .ok_or_else(|| Error::unexpected("cannot install LSP servers automatically because $HOME is not set"))?;
     let registry = registry.get_or_insert(MasonRegistry::load(state)?);
     let package = registry
         .package_for_detected(&suggestion.config_id, &suggestion.server, program)
         .ok_or_else(|| {
-            format!(
+            Error::unexpected(format!(
                 "no Mason install recipe is available for detected server {}",
                 suggestion.server
-            )
+            ))
         })?;
     let executable_path = resolve_or_install_program(state, package, program)?;
 

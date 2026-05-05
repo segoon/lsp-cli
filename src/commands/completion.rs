@@ -1,5 +1,6 @@
 use crate::cli::{CompletionArgs, clap_command};
 use crate::config::{default_config_root, load_config_store};
+use crate::error::{Error, Result};
 use crate::env_vars;
 use clap::builder::PossibleValuesParser;
 use clap_complete::{Shell, generate};
@@ -8,7 +9,7 @@ use std::ffi::OsStr;
 use std::io::Cursor;
 use std::path::Path;
 
-pub(super) fn run(args: CompletionArgs) -> Result<String, String> {
+pub(super) fn run(args: CompletionArgs) -> Result<String> {
     let shell = args.shell.map_or_else(detect_current_shell, Ok)?;
     let mut command = completion_command()?;
     let mut output = Cursor::new(Vec::new());
@@ -16,7 +17,7 @@ pub(super) fn run(args: CompletionArgs) -> Result<String, String> {
 
     String::from_utf8(output.into_inner())
         .map(|output| normalize_completion_output(shell, output, "lsp-cli"))
-        .map_err(|error| format!("completion output was not valid UTF-8: {error}"))
+        .map_err(|error| Error::unexpected(format!("completion output was not valid UTF-8: {error}")))
 }
 
 fn normalize_completion_output(shell: Shell, output: String, bin_name: &str) -> String {
@@ -34,19 +35,16 @@ fn normalize_completion_output(shell: Shell, output: String, bin_name: &str) -> 
     )
 }
 
-fn completion_command() -> Result<clap::Command, String> {
+fn completion_command() -> Result<clap::Command> {
     let values = load_completion_values()?;
     Ok(attach_completion_values(clap_command(), &values))
 }
 
-fn load_completion_values() -> Result<CompletionValues, String> {
+fn load_completion_values() -> Result<CompletionValues> {
     let config_root = default_config_root()
-        .map_err(|error| format!("failed to resolve config root for completion: {error}"))?;
+        .map_err(|error| error.with_prefix("failed to resolve config root for completion"))?;
     let config = load_config_store(&config_root).map_err(|error| {
-        format!(
-            "failed to load completion values from {}: {error}",
-            config_root.display()
-        )
+        error.with_prefix(format!("failed to load completion values from {}", config_root.display()))
     })?;
 
     Ok(CompletionValues {
@@ -82,22 +80,23 @@ struct CompletionValues {
     lsps: Vec<String>,
 }
 
-pub(super) fn detect_current_shell() -> Result<clap_complete::Shell, String> {
+pub(super) fn detect_current_shell() -> Result<clap_complete::Shell> {
     clap_complete::Shell::from_env()
         .ok_or(())
         .or_else(|()| detect_shell_from_env(env_vars::shell().as_deref()))
 }
 
-pub(super) fn detect_shell_from_env(shell: Option<&OsStr>) -> Result<clap_complete::Shell, String> {
+pub(super) fn detect_shell_from_env(shell: Option<&OsStr>) -> Result<clap_complete::Shell> {
     let shell = shell.ok_or_else(|| {
-        "could not detect current shell from $SHELL; pass one explicitly like `lsp-cli completion bash`"
-            .to_string()
+        Error::invalid_input(
+            "could not detect current shell from $SHELL; pass one explicitly like `lsp-cli completion bash`",
+        )
     })?;
     clap_complete::Shell::from_shell_path(shell).ok_or_else(|| {
-        format!(
+        Error::invalid_input(format!(
             "could not map current shell from $SHELL={}; pass one explicitly like `lsp-cli completion bash`",
             Path::new(shell).display()
-        )
+        ))
     })
 }
 
@@ -105,6 +104,7 @@ pub(super) fn detect_shell_from_env(shell: Option<&OsStr>) -> Result<clap_comple
 mod tests {
     use super::{detect_shell_from_env, normalize_completion_output, run};
     use crate::cli::CompletionArgs;
+    use crate::error::Error;
     use crate::test_support::{TestDir, env_var, with_env_vars};
     use clap_complete::Shell;
     use std::process::Command;
@@ -233,23 +233,19 @@ mod tests {
 
     #[test]
     fn errors_when_shell_env_is_missing() {
-        assert_eq!(
+        assert!(matches!(
             detect_shell_from_env(None),
-            Err(
-                "could not detect current shell from $SHELL; pass one explicitly like `lsp-cli completion bash`"
-                    .to_string()
-            )
-        );
+            Err(Error::InvalidInput(message))
+                if message == "could not detect current shell from $SHELL; pass one explicitly like `lsp-cli completion bash`"
+        ));
     }
 
     #[test]
     fn errors_when_shell_env_is_unsupported() {
-        assert_eq!(
+        assert!(matches!(
             detect_shell_from_env(Some("/bin/sh".as_ref())),
-            Err(
-                "could not map current shell from $SHELL=/bin/sh; pass one explicitly like `lsp-cli completion bash`"
-                    .to_string()
-            )
-        );
+            Err(Error::InvalidInput(message))
+                if message == "could not map current shell from $SHELL=/bin/sh; pass one explicitly like `lsp-cli completion bash`"
+        ));
     }
 }

@@ -1,4 +1,5 @@
 use super::{IncomingMessage, LspClient, request_id};
+use crate::error::{Error, Result};
 use crate::lsp::{SERVER_STATUS_METHOD, ServerStatusParams};
 use serde::Deserialize;
 use serde_json::Value;
@@ -31,13 +32,13 @@ struct BuildIndexState {
 }
 
 impl LspClient {
-    pub fn wait_for_background_work(&mut self) -> Result<(), String> {
+    pub fn wait_for_background_work(&mut self) -> Result<()> {
         let started = Instant::now();
         let mut state = BuildIndexState::default();
 
         loop {
             let Some(remaining) = self.timeout.checked_sub(started.elapsed()) else {
-                return Err(timeout_error(&state));
+                return Err(Error::lsp(timeout_error(&state)));
             };
 
             match self.recv_message(remaining) {
@@ -51,20 +52,22 @@ impl LspClient {
                     }
                 }
                 Ok(IncomingMessage::EndOfStream) => {
-                    return Err(
-                        "LSP server closed while waiting for background work to finish".to_string(),
-                    );
+                    return Err(Error::lsp(
+                        "LSP server closed while waiting for background work to finish",
+                    ));
                 }
                 Ok(IncomingMessage::Error(error)) => {
-                    return Err(format!(
-                        "failed to read LSP message while waiting for background work: {error}"
+                    return Err(error.with_prefix(
+                        "failed to read LSP message while waiting for background work",
                     ));
                 }
                 Err(RecvTimeoutError::Timeout) => {
-                    return Err(timeout_error(&state));
+                    return Err(Error::lsp(timeout_error(&state)));
                 }
                 Err(RecvTimeoutError::Disconnected) => {
-                    return Err("LSP reader stopped while waiting for background work".to_string());
+                    return Err(Error::lsp(
+                        "LSP reader stopped while waiting for background work",
+                    ));
                 }
             }
         }
@@ -74,7 +77,7 @@ impl LspClient {
 fn update_build_index_state(
     message: &Value,
     state: &mut BuildIndexState,
-) -> Result<Option<Result<(), String>>, String> {
+) -> Result<Option<Result<()>>> {
     let Some(method) = message.get("method").and_then(Value::as_str) else {
         return Ok(None);
     };
@@ -84,12 +87,12 @@ fn update_build_index_state(
             state.saw_server_status = true;
             let params = message.get("params").cloned().unwrap_or(Value::Null);
             let status: ServerStatusParams = serde_json::from_value(params)
-                .map_err(|error| format!("failed to decode {SERVER_STATUS_METHOD}: {error}"))?;
+                .map_err(|error| Error::lsp(format!("failed to decode {SERVER_STATUS_METHOD}: {error}")))?;
 
             if status.health == "error" {
-                return Ok(Some(Err(status.message.unwrap_or_else(|| {
+                return Ok(Some(Err(Error::lsp(status.message.unwrap_or_else(|| {
                     "LSP server reported an indexing error".to_string()
-                }))));
+                })))));
             }
 
             if status.quiescent {
@@ -100,7 +103,7 @@ fn update_build_index_state(
             let params = message.get("params").cloned().unwrap_or(Value::Null);
             let create: WorkDoneProgressCreateParams =
                 serde_json::from_value(params).map_err(|error| {
-                    format!("failed to decode window/workDoneProgress/create: {error}")
+                    Error::lsp(format!("failed to decode window/workDoneProgress/create: {error}"))
                 })?;
             state.saw_work_done_progress = true;
             let _ = create.token;
@@ -108,7 +111,7 @@ fn update_build_index_state(
         "$/progress" => {
             let params = message.get("params").cloned().unwrap_or(Value::Null);
             let progress: ProgressParams = serde_json::from_value(params)
-                .map_err(|error| format!("failed to decode $/progress: {error}"))?;
+                .map_err(|error| Error::lsp(format!("failed to decode $/progress: {error}")))?;
             state.saw_work_done_progress = true;
             let token = progress_token(&progress.token);
 

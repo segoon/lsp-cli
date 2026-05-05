@@ -9,6 +9,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use super::{SourceCache, file_uri_to_path};
+use crate::error::{Error, Result};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SymbolMatch {
@@ -36,7 +37,7 @@ pub fn function_matches_from_document_response(
     response: &Value,
     path: &Path,
     source_cache: &mut SourceCache,
-) -> Result<Vec<SymbolMatch>, String> {
+) -> Result<Vec<SymbolMatch>> {
     document_symbol_matches_from_response_with(
         response,
         path,
@@ -49,17 +50,17 @@ pub fn document_symbol_matches_from_response(
     response: &Value,
     path: &Path,
     source_cache: &mut SourceCache,
-) -> Result<Vec<SymbolMatch>, String> {
+) -> Result<Vec<SymbolMatch>> {
     document_symbol_matches_from_response_with(response, path, source_cache, |_| true)
 }
 
-pub fn symbol_matches_from_response(response: &Value) -> Result<Vec<SymbolMatch>, String> {
+pub fn symbol_matches_from_response(response: &Value) -> Result<Vec<SymbolMatch>> {
     if response.is_null() {
         return Ok(Vec::new());
     }
 
     let symbols: Vec<WorkspaceSymbolItem> = serde_json::from_value(response.clone())
-        .map_err(|error| format!("failed to decode workspace/symbol response: {error}"))?;
+        .map_err(|error| Error::lsp(format!("failed to decode workspace/symbol response: {error}")))?;
     let mut source_cache = SourceCache::default();
 
     symbols
@@ -73,7 +74,7 @@ pub fn location_matches_from_response(
     fallback_name: &str,
     fallback_kind: SymbolKind,
     source_cache: &mut SourceCache,
-) -> Result<Vec<SymbolMatch>, String> {
+) -> Result<Vec<SymbolMatch>> {
     location_matches_from_response_with(response, fallback_name, fallback_kind, false, source_cache)
 }
 
@@ -82,7 +83,7 @@ pub fn location_matches_from_response_with_full_content(
     fallback_name: &str,
     fallback_kind: SymbolKind,
     source_cache: &mut SourceCache,
-) -> Result<Vec<SymbolMatch>, String> {
+) -> Result<Vec<SymbolMatch>> {
     location_matches_from_response_with(response, fallback_name, fallback_kind, true, source_cache)
 }
 
@@ -92,13 +93,13 @@ fn location_matches_from_response_with(
     fallback_kind: SymbolKind,
     include_full_content: bool,
     source_cache: &mut SourceCache,
-) -> Result<Vec<SymbolMatch>, String> {
+) -> Result<Vec<SymbolMatch>> {
     if response.is_null() {
         return Ok(Vec::new());
     }
 
     let response: LocationResponse = serde_json::from_value(response.clone())
-        .map_err(|error| format!("failed to decode location response: {error}"))?;
+        .map_err(|error| Error::lsp(format!("failed to decode location response: {error}")))?;
 
     match response {
         LocationResponse::Scalar(location) => Ok(vec![location_to_symbol_match(
@@ -135,28 +136,28 @@ fn location_matches_from_response_with(
     }
 }
 
-pub fn prepare_call_hierarchy_response(response: &Value) -> Result<Vec<Value>, String> {
+pub fn prepare_call_hierarchy_response(response: &Value) -> Result<Vec<Value>> {
     if response.is_null() {
         return Ok(Vec::new());
     }
 
     serde_json::from_value(response.clone()).map_err(|error| {
-        format!("failed to decode textDocument/prepareCallHierarchy response: {error}")
+        Error::lsp(format!(
+            "failed to decode textDocument/prepareCallHierarchy response: {error}"
+        ))
     })
 }
 
 pub fn call_hierarchy_matches_from_incoming_response(
     response: &Value,
     source_cache: &mut SourceCache,
-) -> Result<Vec<SymbolMatch>, String> {
+) -> Result<Vec<SymbolMatch>> {
     if response.is_null() {
         return Ok(Vec::new());
     }
 
-    let calls: Vec<CallHierarchyIncomingCall> =
-        serde_json::from_value(response.clone()).map_err(|error| {
-            format!("failed to decode callHierarchy/incomingCalls response: {error}")
-        })?;
+    let calls: Vec<CallHierarchyIncomingCall> = serde_json::from_value(response.clone())
+        .map_err(|error| Error::lsp(format!("failed to decode callHierarchy/incomingCalls response: {error}")))?;
 
     calls
         .into_iter()
@@ -167,15 +168,13 @@ pub fn call_hierarchy_matches_from_incoming_response(
 pub fn call_hierarchy_matches_from_outgoing_response(
     response: &Value,
     source_cache: &mut SourceCache,
-) -> Result<Vec<SymbolMatch>, String> {
+) -> Result<Vec<SymbolMatch>> {
     if response.is_null() {
         return Ok(Vec::new());
     }
 
-    let calls: Vec<CallHierarchyOutgoingCall> =
-        serde_json::from_value(response.clone()).map_err(|error| {
-            format!("failed to decode callHierarchy/outgoingCalls response: {error}")
-        })?;
+    let calls: Vec<CallHierarchyOutgoingCall> = serde_json::from_value(response.clone())
+        .map_err(|error| Error::lsp(format!("failed to decode callHierarchy/outgoingCalls response: {error}")))?;
 
     calls
         .into_iter()
@@ -188,7 +187,7 @@ fn document_symbol_matches_from_response_with<F>(
     path: &Path,
     source_cache: &mut SourceCache,
     include: F,
-) -> Result<Vec<SymbolMatch>, String>
+) -> Result<Vec<SymbolMatch>>
 where
     F: Copy + Fn(SymbolKind) -> bool,
 {
@@ -196,10 +195,8 @@ where
         return Ok(Vec::new());
     }
 
-    let response: DocumentSymbolResponse =
-        serde_json::from_value(response.clone()).map_err(|error| {
-            format!("failed to decode textDocument/documentSymbol response: {error}")
-        })?;
+    let response: DocumentSymbolResponse = serde_json::from_value(response.clone())
+        .map_err(|error| Error::lsp(format!("failed to decode textDocument/documentSymbol response: {error}")))?;
 
     match response {
         DocumentSymbolResponse::Flat(symbols) => symbols
@@ -220,7 +217,7 @@ where
 fn symbol_information_to_match(
     symbol: SymbolInformation,
     source_cache: &mut SourceCache,
-) -> Result<SymbolMatch, String> {
+) -> Result<SymbolMatch> {
     let name = symbol.name;
     let kind = symbol.kind;
     let path = file_uri_to_path(&symbol.location.uri.to_string())?;
@@ -242,7 +239,7 @@ pub(crate) fn symbol_information_anchor(
     location: &Location,
     name: &str,
     path: &Path,
-) -> Result<(u32, u32, usize), String> {
+) -> Result<(u32, u32, usize)> {
     let lines = fs::read_to_string(path)
         .map(|contents| {
             contents
@@ -255,7 +252,7 @@ pub(crate) fn symbol_information_anchor(
     // Flat SymbolInformation ranges often start at the whole declaration, not the symbol name.
     if let Some((line_index, character)) = name_offset_in_range(&lines, &location.range, name) {
         let line = u32::try_from(line_index)
-            .map_err(|_| format!("line index overflow for {}", path.display()))?;
+            .map_err(|_| Error::lsp(format!("line index overflow for {}", path.display())))?;
         return line_col_and_index(line, character, path);
     }
 
@@ -323,7 +320,7 @@ fn collect_document_symbol_matches<F>(
     source_cache: &mut SourceCache,
     matches: &mut Vec<SymbolMatch>,
     include: F,
-) -> Result<(), String>
+) -> Result<()>
 where
     F: Copy + Fn(SymbolKind) -> bool,
 {
@@ -361,7 +358,7 @@ fn location_to_symbol_match(
     kind: SymbolKind,
     include_full_content: bool,
     source_cache: &mut SourceCache,
-) -> Result<SymbolMatch, String> {
+) -> Result<SymbolMatch> {
     let path = file_uri_to_path(&location.uri.to_string())?;
     let (line, col, line_index) = line_col_and_index(
         location.range.start.line,
@@ -389,7 +386,7 @@ fn location_link_to_symbol_match(
     kind: SymbolKind,
     include_full_content: bool,
     source_cache: &mut SourceCache,
-) -> Result<SymbolMatch, String> {
+) -> Result<SymbolMatch> {
     let path = file_uri_to_path(&location.target_uri.to_string())?;
     let (line, col, line_index) = line_col_and_index(
         location.target_selection_range.start.line,
@@ -416,7 +413,7 @@ fn location_link_to_symbol_match(
 fn call_hierarchy_item_to_match(
     item: CallHierarchyItem,
     source_cache: &mut SourceCache,
-) -> Result<SymbolMatch, String> {
+) -> Result<SymbolMatch> {
     let path = file_uri_to_path(&item.uri.to_string())?;
     let (line, col, line_index) = line_col_and_index(
         item.selection_range.start.line,
@@ -436,9 +433,9 @@ fn call_hierarchy_item_to_match(
     })
 }
 
-fn line_col_and_index(line: u32, character: u32, path: &Path) -> Result<(u32, u32, usize), String> {
+fn line_col_and_index(line: u32, character: u32, path: &Path) -> Result<(u32, u32, usize)> {
     let line_index =
-        usize::try_from(line).map_err(|_| format!("line index overflow for {}", path.display()))?;
+        usize::try_from(line).map_err(|_| Error::lsp(format!("line index overflow for {}", path.display())))?;
     Ok((line + 1, character + 1, line_index))
 }
 
@@ -453,7 +450,7 @@ impl WorkspaceSymbolItem {
     fn into_symbol_match(
         self,
         source_cache: &mut SourceCache,
-    ) -> Option<Result<SymbolMatch, String>> {
+    ) -> Option<Result<SymbolMatch>> {
         match self {
             Self::SymbolInformation(symbol) => Some(location_to_symbol_match(
                 &symbol.location,
@@ -501,7 +498,7 @@ impl WorkspaceSymbolLocation {
         name: String,
         kind: SymbolKind,
         source_cache: &mut SourceCache,
-    ) -> Option<Result<SymbolMatch, String>> {
+    ) -> Option<Result<SymbolMatch>> {
         match self {
             Self::Full(location) => Some(location_to_symbol_match(
                 &location,

@@ -13,6 +13,7 @@ use crate::cli::{
     RawStopAllArgs, RawStopArgs, RawSymbolQueryArgs, RawUpdateArgs, RawWorkspaceQueryArgs,
 };
 use crate::config::CliConfig;
+use crate::error::{Error, Result};
 
 #[cfg(test)]
 use crate::cli::parse_raw_args;
@@ -20,7 +21,7 @@ use crate::cli::parse_raw_args;
 pub(crate) fn resolve_command(
     command: RawCommand,
     defaults: &CliConfig,
-) -> Result<Command, String> {
+) -> Result<Command> {
     let command = match command {
         RawCommand::Commands(_) => Command::Commands(RawCommandsArgs::resolve()),
         RawCommand::Daemon(args) => Command::Daemon(args.resolve(defaults)),
@@ -58,7 +59,7 @@ impl RawCommandsArgs {
 }
 
 #[cfg(test)]
-pub(crate) fn parse_args<I>(args: I) -> Result<Command, String>
+pub(crate) fn parse_args<I>(args: I) -> Result<Command>
 where
     I: IntoIterator<Item = String>,
 {
@@ -400,22 +401,24 @@ fn resolve_install_debug_args(
     }
 }
 
-fn validate_command(command: &Command) -> Result<(), String> {
+fn validate_command(command: &Command) -> Result<()> {
     match command {
-        Command::ListFunctions(args) if args.query.files_with_matches => Err(
-            "`--files-with-matches` is only supported by grep, references, definition, declaration, callers, and callees".to_string(),
-        ),
-        Command::Definition(args) if args.full && args.query.files_with_matches => Err(
-            "`definition` does not support using `--full` together with `--files-with-matches`"
-                .to_string(),
-        ),
-        Command::Declaration(args) if args.full && args.query.files_with_matches => Err(
-            "`declaration` does not support using `--full` together with `--files-with-matches`"
-                .to_string(),
-        ),
-        Command::Format(args) if args.check && args.stdout => Err(
-            "`format` does not support using `--check` together with `--stdout`".to_string(),
-        ),
+        Command::ListFunctions(args) if args.query.files_with_matches => Err(Error::invalid_input(
+            "`--files-with-matches` is only supported by grep, references, definition, declaration, callers, and callees",
+        )),
+        Command::Definition(args) if args.full && args.query.files_with_matches => {
+            Err(Error::invalid_input(
+                "`definition` does not support using `--full` together with `--files-with-matches`",
+            ))
+        }
+        Command::Declaration(args) if args.full && args.query.files_with_matches => {
+            Err(Error::invalid_input(
+                "`declaration` does not support using `--full` together with `--files-with-matches`",
+            ))
+        }
+        Command::Format(args) if args.check && args.stdout => Err(Error::invalid_input(
+            "`format` does not support using `--check` together with `--stdout`",
+        )),
         _ => Ok(()),
     }
 }

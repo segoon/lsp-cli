@@ -3,8 +3,9 @@ use crate::commands::symbol_query::{
     render_file_list_json, render_paths_text, run_list_files_query, truncate_items,
 };
 use crate::config::ConfigStore;
+use crate::error::Result;
 
-pub(super) fn run(args: &ListFilesArgs, config: &ConfigStore) -> Result<String, String> {
+pub(super) fn run(args: &ListFilesArgs, config: &ConfigStore) -> Result<String> {
     let result = run_list_files_query(&args.query, config)?;
     let files = truncate_items(
         result.files,

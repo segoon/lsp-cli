@@ -1,5 +1,6 @@
 use crate::hash::encode_hex;
 use crate::env_vars;
+use crate::error::{Error, Result};
 use std::fs;
 use std::os::unix::fs::FileTypeExt;
 use std::path::{Path, PathBuf};
@@ -78,7 +79,7 @@ impl RuntimeState {
         self.receipts_dir().join(format!("{package}.json"))
     }
 
-    pub fn ensure_dirs(&self) -> Result<(), String> {
+    pub fn ensure_dirs(&self) -> Result<()> {
         for path in [
             self.root().to_path_buf(),
             self.registry_dir(),
@@ -89,19 +90,19 @@ impl RuntimeState {
             self.data_dir(),
         ] {
             fs::create_dir_all(&path)
-                .map_err(|error| format!("failed to create {}: {error}", path.display()))?;
+                .map_err(|error| Error::unexpected(format!("failed to create {}: {error}", path.display())))?;
         }
 
         Ok(())
     }
 }
 
-pub fn default_runtime_state_root() -> Result<PathBuf, String> {
+pub fn default_runtime_state_root() -> Result<PathBuf> {
     let home = env_vars::home();
     choose_runtime_state_root(home.as_deref())
 }
 
-pub fn default_daemon_root() -> Result<PathBuf, String> {
+pub fn default_daemon_root() -> Result<PathBuf> {
     let runtime_dir = env_vars::xdg_runtime();
     choose_daemon_root(runtime_dir.as_deref())
 }
@@ -126,13 +127,13 @@ pub fn daemon_socket_path(
     daemon_root.join(format!("{}-{}.sock", slug, &digest[..24]))
 }
 
-pub fn daemon_socket_paths(daemon_root: &Path) -> Result<Vec<PathBuf>, String> {
+pub fn daemon_socket_paths(daemon_root: &Path) -> Result<Vec<PathBuf>> {
     if !daemon_root.exists() {
         return Ok(Vec::new());
     }
 
     let mut paths = fs::read_dir(daemon_root)
-        .map_err(|error| format!("failed to read {}: {error}", daemon_root.display()))?
+        .map_err(|error| Error::unexpected(format!("failed to read {}: {error}", daemon_root.display())))?
         .filter_map(|entry| {
             let Ok(entry) = entry else {
                 return None;
@@ -154,19 +155,23 @@ pub fn daemon_socket_paths(daemon_root: &Path) -> Result<Vec<PathBuf>, String> {
     Ok(paths)
 }
 
-fn choose_runtime_state_root(home: Option<&Path>) -> Result<PathBuf, String> {
+fn choose_runtime_state_root(home: Option<&Path>) -> Result<PathBuf> {
     if let Some(path) = home {
         Ok(path.join(".local/share/lsp-cli"))
     } else {
-        Err("could not resolve runtime state root because $HOME is not set".to_string())
+        Err(Error::unexpected(
+            "could not resolve runtime state root because $HOME is not set",
+        ))
     }
 }
 
-fn choose_daemon_root(runtime_dir: Option<&Path>) -> Result<PathBuf, String> {
+fn choose_daemon_root(runtime_dir: Option<&Path>) -> Result<PathBuf> {
     if let Some(path) = runtime_dir {
         Ok(path.join("lsp-cli"))
     } else {
-        Err("could not resolve daemon socket root because $XDG_RUNTIME_DIR is not set".to_string())
+        Err(Error::unexpected(
+            "could not resolve daemon socket root because $XDG_RUNTIME_DIR is not set",
+        ))
     }
 }
 

@@ -57,14 +57,12 @@ fn main() {
 
 fn parse_command_or_exit() -> CliRawCommand {
     let cli_argv = env::args().skip(1).collect::<Vec<_>>();
-    parse_raw_args(cli_argv)
-        .unwrap_or_else(|message| exit_with_error(&Error::invalid_input(message)))
+    parse_raw_args(cli_argv).unwrap_or_else(|error| exit_with_error(&error))
 }
 
 fn run_update_command(raw_command: CliRawCommand) -> Result<String> {
-    let cli = update::load_cli_defaults_for_update()
-        .map_err(|error| Error::unexpected(format!("failed to load lsp-cli defaults: {error}")))?;
-    let command = resolve_command(raw_command, &cli).map_err(Error::invalid_input)?;
+    let cli = update::load_cli_defaults_for_update()?;
+    let command = resolve_command(raw_command, &cli)?;
     let config = config::ConfigStore {
         filetypes: Vec::new(),
         lsps: Vec::new(),
@@ -80,15 +78,13 @@ fn run_with_loaded_config(raw_command: CliRawCommand) -> Result<String> {
         )));
     }
 
-    let config_root = default_config_root()
-        .map_err(|error| Error::unexpected(format!("failed to resolve config root: {error}")))?;
-    let mut config = load_config_store(&config_root).map_err(|error| {
-        Error::unexpected(format!("failed to load config from {}: {error}", config_root.display()))
-    })?;
+    let config_root = default_config_root()?;
+    let mut config = load_config_store(&config_root)
+        .map_err(|error| error.with_prefix(format!("failed to load config from {}", config_root.display())))?;
     let cli_roots = config::CliConfigRoots::default();
     config.cli = load_cli_config(&cli_roots.global, cli_roots.user.as_deref())
-        .map_err(|error| Error::unexpected(format!("failed to load lsp-cli defaults: {error}")))?;
-    let command = resolve_command(raw_command, &config.cli).map_err(Error::invalid_input)?;
+        .map_err(|error| error.with_prefix("failed to load lsp-cli defaults"))?;
+    let command = resolve_command(raw_command, &config.cli)?;
 
     run(command, &config)
 }

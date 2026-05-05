@@ -1,3 +1,5 @@
+use crate::error::{Error, Result};
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MasonPlatform {
     full: String,
@@ -6,24 +8,24 @@ pub struct MasonPlatform {
 }
 
 impl MasonPlatform {
-    pub fn detect() -> Result<Self, String> {
+    pub fn detect() -> Result<Self> {
         let os = match std::env::consts::OS {
             "linux" => "linux",
             "macos" => "darwin",
             "windows" => "win",
             other => {
-                return Err(format!(
+                return Err(Error::unexpected(format!(
                     "cannot install LSP servers automatically on unsupported platform {other}"
-                ));
+                )));
             }
         };
         let arch = match std::env::consts::ARCH {
             "x86_64" => "x64",
             "aarch64" => "arm64",
             other => {
-                return Err(format!(
+                return Err(Error::unexpected(format!(
                     "cannot install LSP servers automatically on unsupported architecture {other}"
-                ));
+                )));
             }
         };
 

@@ -1,3 +1,5 @@
+use crate::error::{Error, Result};
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum SourceId {
     Npm {
@@ -30,18 +32,33 @@ pub(crate) enum SourceId {
     },
 }
 
-pub(crate) fn parse_source_id(source_id: &str) -> Result<SourceId, String> {
+pub(crate) fn parse_source_id(source_id: &str) -> Result<SourceId> {
     let without_prefix = source_id
         .strip_prefix("pkg:")
-        .ok_or_else(|| format!("unsupported Mason package source {source_id}: missing `pkg:` prefix"))?;
+        .ok_or_else(|| {
+            Error::unexpected(format!(
+                "unsupported Mason package source {source_id}: missing `pkg:` prefix"
+            ))
+        })?;
     let (package_ref, version_with_qualifiers) = without_prefix
         .rsplit_once('@')
-        .ok_or_else(|| format!("unsupported Mason package source {source_id}: missing `@version`"))?;
+        .ok_or_else(|| {
+            Error::unexpected(format!(
+                "unsupported Mason package source {source_id}: missing `@version`"
+            ))
+        })?;
     let (kind, name) = package_ref
         .split_once('/')
-        .ok_or_else(|| format!("unsupported Mason package source {source_id}: missing source kind or package name"))?;
-    let decoded_name = percent_decode_component(name)
-        .ok_or_else(|| format!("unsupported Mason package source {source_id}: invalid percent-encoding in package name"))?;
+        .ok_or_else(|| {
+            Error::unexpected(format!(
+                "unsupported Mason package source {source_id}: missing source kind or package name"
+            ))
+        })?;
+    let decoded_name = percent_decode_component(name).ok_or_else(|| {
+        Error::unexpected(format!(
+            "unsupported Mason package source {source_id}: invalid percent-encoding in package name"
+        ))
+    })?;
 
     let (version, qualifiers) = match version_with_qualifiers.split_once('?') {
         Some((version, qualifiers)) => (version.to_string(), Some(qualifiers)),

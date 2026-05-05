@@ -1,4 +1,5 @@
 use super::{BUSY_CLIENT_TIMEOUT, Daemon, DaemonTarget, INVALID_REQUEST, REQUEST_CANCELLED};
+use crate::error::{Error, Result};
 use crate::lsp::transport::{log_debug_message, read_message, write_message};
 use crate::lsp::{SERVER_STATUS_METHOD, ServerStatusParams, StopParams, jsonrpc, parse_lsp_uri};
 use lsp_types::{ApplyWorkspaceEditResponse, WorkspaceFolder};
@@ -52,7 +53,7 @@ impl Daemon {
     pub(super) fn notify_client_if_background_ready(
         &mut self,
         reused_initialize: bool,
-    ) -> Result<(), String> {
+    ) -> Result<()> {
         if !reused_initialize {
             return Ok(());
         }
@@ -75,7 +76,7 @@ impl Daemon {
     }
 }
 
-pub(super) fn handle_busy_connection(mut stream: UnixStream, debug: bool) -> Result<bool, String> {
+pub(super) fn handle_busy_connection(mut stream: UnixStream, debug: bool) -> Result<bool> {
     let _ = stream.set_read_timeout(Some(BUSY_CLIENT_TIMEOUT));
     let Ok(reader_stream) = stream.try_clone() else {
         return Ok(false);
@@ -111,11 +112,11 @@ pub(super) fn read_control_message(
     stream: &UnixStream,
     timeout: Duration,
     debug: bool,
-) -> Result<Option<Value>, String> {
+) -> Result<Option<Value>> {
     let _ = stream.set_read_timeout(Some(timeout));
     let reader = stream
         .try_clone()
-        .map_err(|error| format!("failed to clone daemon control socket: {error}"))?;
+        .map_err(|error| Error::unexpected(format!("failed to clone daemon control socket: {error}")))?;
     let mut reader = BufReader::new(reader);
     let message = read_message(&mut reader)?;
     if let Some(message) = &message {
@@ -140,14 +141,14 @@ pub(super) fn respond_to_stop_request(
     stream: &mut UnixStream,
     message: &Value,
     debug: bool,
-) -> Result<(), String> {
+) -> Result<()> {
     let Some(request_id) = stop_request_id(message) else {
-        return Err("daemon stop request is missing an id".to_string());
+        return Err(Error::lsp("daemon stop request is missing an id"));
     };
     let response = success_response(&request_id, &Value::Null);
     log_debug_message(debug, "daemon control <- ", &response);
     write_message(stream, &response)
-        .map_err(|error| format!("failed to write daemon stop response: {error}"))
+        .map_err(|error| Error::lsp(format!("failed to write daemon stop response: {error}")))
 }
 
 pub(super) fn local_server_request_response(request_id: &Value, method: &str) -> Value {
@@ -185,7 +186,7 @@ pub(super) fn local_server_request_response(request_id: &Value, method: &str) ->
 pub(super) fn update_background_work_tracker(
     message: &Value,
     tracker: &mut BackgroundWorkTracker,
-) -> Result<(), String> {
+) -> Result<()> {
     let Some(method) = message_method(message) else {
         return Ok(());
     };
@@ -194,7 +195,7 @@ pub(super) fn update_background_work_tracker(
         SERVER_STATUS_METHOD => {
             let params = message.get("params").cloned().unwrap_or(Value::Null);
             let status: ServerStatusParams = serde_json::from_value(params)
-                .map_err(|error| format!("failed to decode {SERVER_STATUS_METHOD}: {error}"))?;
+                .map_err(|error| Error::lsp(format!("failed to decode {SERVER_STATUS_METHOD}: {error}")))?;
             tracker.state = if status.quiescent {
                 BackgroundWorkState::Quiescent
             } else {
@@ -207,7 +208,7 @@ pub(super) fn update_background_work_tracker(
         "$/progress" => {
             let params = message.get("params").cloned().unwrap_or(Value::Null);
             let progress: ProgressParams = serde_json::from_value(params)
-                .map_err(|error| format!("failed to decode $/progress: {error}"))?;
+                .map_err(|error| Error::lsp(format!("failed to decode $/progress: {error}")))?;
             let token = progress_token(&progress.token);
 
             match progress.value.kind.as_str() {
@@ -270,44 +271,44 @@ pub(super) fn background_work_ready_notification() -> Value {
 pub(super) fn normalize_initialize_params(
     params: &Value,
     target: &DaemonTarget,
-) -> Result<Value, String> {
+) -> Result<Value> {
     let Some(object) = params.as_object() else {
-        return Err("initialize params must be a JSON object".to_string());
+        return Err(Error::lsp("initialize params must be a JSON object"));
     };
 
     if let Some(root_uri) = object.get("rootUri")
         && !root_uri.is_null()
         && root_uri.as_str() != Some(target.root_uri.as_str())
     {
-        return Err(format!(
+        return Err(Error::lsp(format!(
             "daemon client rootUri must match {}",
             target.root_uri
-        ));
+        )));
     }
 
     if let Some(root_path) = object.get("rootPath")
         && !root_path.is_null()
         && root_path.as_str() != Some(target.workspace_root_string.as_str())
     {
-        return Err(format!(
+        return Err(Error::lsp(format!(
             "daemon client rootPath must match {}",
             target.workspace_root_string
-        ));
+        )));
     }
 
     if let Some(workspace_folders) = object.get("workspaceFolders")
         && !workspace_folders.is_null()
     {
         let Some(items) = workspace_folders.as_array() else {
-            return Err("initialize workspaceFolders must be an array or null".to_string());
+            return Err(Error::lsp("initialize workspaceFolders must be an array or null"));
         };
         if items.len() != 1
             || items[0].get("uri").and_then(Value::as_str) != Some(target.root_uri.as_str())
         {
-            return Err(format!(
+            return Err(Error::lsp(format!(
                 "daemon client workspaceFolders must contain only {}",
                 target.root_uri
-            ));
+            )));
         }
     }
 

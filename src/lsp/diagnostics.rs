@@ -2,6 +2,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use std::path::{Path, PathBuf};
 
+use crate::error::{Error, Result};
 use crate::lsp::file_uri_to_path;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -50,19 +51,19 @@ struct DocumentDiagnosticReport {
     items: Option<Vec<Diagnostic>>,
 }
 
-fn diagnostic_params_from_notification(value: &Value) -> Result<PublishDiagnosticsParams, String> {
+fn diagnostic_params_from_notification(value: &Value) -> Result<PublishDiagnosticsParams> {
     let params = value
         .get("params")
         .cloned()
-        .ok_or_else(|| "publishDiagnostics notification is missing params".to_string())?;
+        .ok_or_else(|| Error::lsp("publishDiagnostics notification is missing params"))?;
     serde_json::from_value(params)
-        .map_err(|error| format!("failed to decode publishDiagnostics params: {error}"))
+        .map_err(|error| Error::lsp(format!("failed to decode publishDiagnostics params: {error}")))
 }
 
 fn diagnostic_matches_from_params(
     params: &PublishDiagnosticsParams,
     workspace_root: &Path,
-) -> Result<Vec<DiagnosticMatch>, String> {
+) -> Result<Vec<DiagnosticMatch>> {
     let path = file_uri_to_path(&params.uri)?;
     let path = path
         .strip_prefix(workspace_root)
@@ -88,7 +89,7 @@ fn diagnostic_matches_from_params(
 pub fn diagnostic_matches_from_notification(
     value: &Value,
     workspace_root: &Path,
-) -> Result<Vec<DiagnosticMatch>, String> {
+) -> Result<Vec<DiagnosticMatch>> {
     let params = diagnostic_params_from_notification(value)?;
     diagnostic_matches_from_params(&params, workspace_root)
 }
@@ -97,18 +98,18 @@ pub fn diagnostic_matches_from_document_response(
     value: &Value,
     document_path: &Path,
     workspace_root: &Path,
-) -> Result<Vec<DiagnosticMatch>, String> {
+) -> Result<Vec<DiagnosticMatch>> {
     let report: DocumentDiagnosticReport = serde_json::from_value(value.clone())
-        .map_err(|error| format!("failed to decode textDocument/diagnostic response: {error}"))?;
+        .map_err(|error| Error::lsp(format!("failed to decode textDocument/diagnostic response: {error}")))?;
 
     if report.kind == "unchanged" {
         return Ok(Vec::new());
     }
     if report.kind != "full" {
-        return Err(format!(
+        return Err(Error::lsp(format!(
             "textDocument/diagnostic returned unsupported report kind {:?}",
             report.kind
-        ));
+        )));
     }
 
     let path = document_path

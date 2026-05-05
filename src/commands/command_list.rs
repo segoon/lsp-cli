@@ -1,7 +1,8 @@
 use crate::cli::{CommandsArgs, clap_command};
+use crate::error::Result;
 
 #[allow(clippy::unnecessary_wraps)]
-pub(super) fn run(_args: &CommandsArgs) -> Result<String, String> {
+pub(super) fn run(_args: &CommandsArgs) -> Result<String> {
     Ok(render_commands())
 }
 

@@ -15,8 +15,7 @@ pub(super) fn run(args: &RunArgs, config: &ConfigStore) -> Result<String> {
         args.server.language(),
         args.server.download,
         config,
-    )
-    .map_err(Error::from_query_message)?;
+    )?;
     let server = workspace.server;
     let Some(program) = server.command.first() else {
         return Err(Error::unexpected(format!(

@@ -1,5 +1,6 @@
 use crate::cli::DaemonArgs;
 use crate::config::ConfigStore;
+use crate::error::{Error, Result};
 use crate::lsp::transport::{log_debug_message, write_message};
 use crate::lsp::{STOP_METHOD, jsonrpc, parse_lsp_uri};
 use crate::server_stderr::CapturedStderr;
@@ -45,7 +46,7 @@ const SERVER_NOT_INITIALIZED: i64 = -32002;
 const INVALID_REQUEST: i64 = -32600;
 const REQUEST_CANCELLED: i64 = -32800;
 
-pub(super) fn run(args: &DaemonArgs, config: &ConfigStore) -> Result<String, String> {
+pub(super) fn run(args: &DaemonArgs, config: &ConfigStore) -> Result<String> {
     let target = resolve_target(args, config)?;
 
     if std::env::var_os(BACKGROUND_ENV).is_some() {
@@ -60,7 +61,7 @@ pub(super) fn launch_for_workspace(
     server_name: &str,
     socket_path: &Path,
     debug: bool,
-) -> Result<(), String> {
+) -> Result<()> {
     process::launch_background_for_connection(
         workspace_root,
         server_name,
@@ -76,7 +77,10 @@ pub(super) enum StopSocketResult {
     NotRunning,
 }
 
-pub(super) fn stop_socket(socket_path: &Path, debug: bool) -> Result<StopSocketResult, String> {
+pub(super) fn stop_socket(
+    socket_path: &Path,
+    debug: bool,
+) -> Result<StopSocketResult> {
     if !socket_path.exists() {
         return Ok(StopSocketResult::NotRunning);
     }
@@ -89,10 +93,10 @@ pub(super) fn stop_socket(socket_path: &Path, debug: bool) -> Result<StopSocketR
                 return Ok(StopSocketResult::NotRunning);
             }
             Err(error) => {
-                return Err(format!(
+                return Err(Error::unexpected(format!(
                     "failed to connect to daemon socket {}: {connect_error}; failed to remove stale socket: {error}",
                     socket_path.display()
-                ));
+                )));
             }
         },
     };
@@ -100,19 +104,19 @@ pub(super) fn stop_socket(socket_path: &Path, debug: bool) -> Result<StopSocketR
     let request = stop_request();
     log_debug_message(debug, "daemon control <- ", &request);
     write_message(&mut stream, &request)
-        .map_err(|error| format!("failed to write daemon stop request: {error}"))?;
+        .map_err(|error| Error::unexpected(format!("failed to write daemon stop request: {error}")))?;
     let response = read_control_message(&stream, CONTROL_TIMEOUT, debug)?
-        .ok_or_else(|| "daemon closed the stop control socket without replying".to_string())?;
+        .ok_or_else(|| Error::unexpected("daemon closed the stop control socket without replying"))?;
 
     if response_id(&response) != stop_request_id(&request) {
-        return Err("daemon returned an unexpected stop response id".to_string());
+        return Err(Error::unexpected("daemon returned an unexpected stop response id"));
     }
     if let Some(error) = response.get("error") {
         let message = error
             .get("message")
             .and_then(Value::as_str)
             .unwrap_or("unknown daemon stop error");
-        return Err(message.to_string());
+        return Err(Error::unexpected(message));
     }
 
     wait_for_stopped_socket(socket_path)?;
@@ -120,7 +124,7 @@ pub(super) fn stop_socket(socket_path: &Path, debug: bool) -> Result<StopSocketR
     Ok(StopSocketResult::Stopped)
 }
 
-fn wait_for_stopped_socket(socket_path: &Path) -> Result<(), String> {
+fn wait_for_stopped_socket(socket_path: &Path) -> Result<()> {
     let started = Instant::now();
     while started.elapsed() < STOP_COMPLETION_TIMEOUT {
         if !socket_path.exists() {
@@ -133,19 +137,19 @@ fn wait_for_stopped_socket(socket_path: &Path) -> Result<(), String> {
                 Ok(()) => return Ok(()),
                 Err(error) if error.kind() == ErrorKind::NotFound => return Ok(()),
                 Err(error) => {
-                    return Err(format!(
+                    return Err(Error::unexpected(format!(
                         "daemon stopped listening on {} but its socket could not be removed: {error}",
                         socket_path.display()
-                    ));
+                    )));
                 }
             },
         }
     }
 
-    Err(format!(
+    Err(Error::unexpected(format!(
         "daemon acknowledged stop on {} but did not exit before the timeout",
         socket_path.display()
-    ))
+    )))
 }
 
 struct DaemonTarget {
@@ -199,13 +203,13 @@ enum ClientPhase {
 }
 
 impl Daemon {
-    fn new(target: DaemonTarget, debug: bool, idle_timeout: Duration) -> Result<Self, String> {
+    fn new(target: DaemonTarget, debug: bool, idle_timeout: Duration) -> Result<Self> {
         let listener = bind_listener(&target.socket_path)?;
         listener.set_nonblocking(true).map_err(|error| {
-            format!(
+            Error::unexpected(format!(
                 "failed to set {} nonblocking: {error}",
                 target.socket_path.display()
-            )
+            ))
         })?;
         let upstream = UpstreamServer::spawn(&target, debug)?;
 
@@ -222,7 +226,7 @@ impl Daemon {
         })
     }
 
-    fn serve(&mut self) -> Result<(), String> {
+    fn serve(&mut self) -> Result<()> {
         loop {
             self.accept_connections()?;
             self.drain_upstream_messages()?;
@@ -240,7 +244,7 @@ impl Daemon {
         }
     }
 
-    fn accept_connections(&mut self) -> Result<(), String> {
+    fn accept_connections(&mut self) -> Result<()> {
         loop {
             match self.listener.accept() {
                 Ok((stream, _)) => {
@@ -255,16 +259,16 @@ impl Daemon {
                 }
                 Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => return Ok(()),
                 Err(error) => {
-                    return Err(format!(
+                    return Err(Error::unexpected(format!(
                         "failed to accept client on {}: {error}",
                         self.target.socket_path.display()
-                    ));
+                    )));
                 }
             }
         }
     }
 
-    fn drain_upstream_messages(&mut self) -> Result<(), String> {
+    fn drain_upstream_messages(&mut self) -> Result<()> {
         loop {
             let event = match self.upstream.as_ref() {
                 Some(upstream) => match upstream.messages.try_recv() {
@@ -288,13 +292,13 @@ impl Daemon {
                     self.upstream_died();
                     let error = format!("failed to read LSP server message: {error}");
                     log_unexpected_error(&error);
-                    return Err(error);
+                    return Err(Error::unexpected(error));
                 }
             }
         }
     }
 
-    fn drain_client_messages(&mut self) -> Result<(), String> {
+    fn drain_client_messages(&mut self) -> Result<()> {
         loop {
             let event = match self.active_client.as_ref() {
                 Some(client) => match client.messages.try_recv() {
@@ -316,13 +320,13 @@ impl Daemon {
                 }
                 ReaderEvent::Error(error) => {
                     self.disconnect_client()?;
-                    return Err(format!("failed to read daemon client message: {error}"));
+                    return Err(Error::lsp(format!("failed to read daemon client message: {error}")));
                 }
             }
         }
     }
 
-    fn handle_client_message(&mut self, message: &Value) -> Result<(), String> {
+    fn handle_client_message(&mut self, message: &Value) -> Result<()> {
         log_debug_message(self.debug, "daemon client <- ", message);
         let method = message_method(message);
         let request_id = request_id(message);
@@ -428,14 +432,14 @@ impl Daemon {
         self.write_upstream_message(message)
     }
 
-    fn handle_initialize_request(&mut self, message: &Value) -> Result<(), String> {
+    fn handle_initialize_request(&mut self, message: &Value) -> Result<()> {
         let Some(request_id) = request_id(message) else {
             return Ok(());
         };
         let params = message
             .get("params")
             .cloned()
-            .ok_or_else(|| "initialize request is missing params".to_string())?;
+            .ok_or_else(|| Error::lsp("initialize request is missing params"))?;
         let normalized = normalize_initialize_params(&params, &self.target)?;
         let fingerprint = fingerprint_value(&normalized);
         let wants_background_work = wants_background_work(&normalized);
@@ -465,7 +469,7 @@ impl Daemon {
                 .upstream
                 .as_ref()
                 .and_then(|upstream| upstream.initialize_result.clone())
-                .ok_or_else(|| "daemon lost cached initialize result".to_string())?;
+                .ok_or_else(|| Error::unexpected("daemon lost cached initialize result"))?;
             self.write_client_response(&success_response(&request_id, &result))?;
             if let Some(client) = self.active_client.as_mut() {
                 client.wants_background_work = wants_background_work;
@@ -479,7 +483,7 @@ impl Daemon {
         let upstream = self
             .upstream
             .as_mut()
-            .ok_or_else(|| "daemon failed to start LSP server".to_string())?;
+            .ok_or_else(|| Error::unexpected("daemon failed to start LSP server"))?;
         upstream.initialize_fingerprint = Some(fingerprint);
 
         let forwarded = jsonrpc(Some(request_id.clone()), Initialize::METHOD, &normalized)?;
@@ -494,7 +498,7 @@ impl Daemon {
         Ok(())
     }
 
-    fn handle_stop_request(&mut self, message: &Value) -> Result<(), String> {
+    fn handle_stop_request(&mut self, message: &Value) -> Result<()> {
         let Some(client) = self.active_client.as_mut() else {
             return Ok(());
         };
@@ -504,7 +508,7 @@ impl Daemon {
         Ok(())
     }
 
-    fn handle_upstream_message(&mut self, message: &Value) -> Result<(), String> {
+    fn handle_upstream_message(&mut self, message: &Value) -> Result<()> {
         log_debug_message(self.debug, "daemon upstream -> ", message);
 
         if let Some(upstream) = self.upstream.as_mut() {
@@ -553,7 +557,7 @@ impl Daemon {
 
         if let Some(request_id) = request_id(message) {
             let Some(method) = message_method(message) else {
-                return Err("server request missing method".to_string());
+                return Err(Error::lsp("server request missing method"));
             };
 
             if matches!(
@@ -610,22 +614,25 @@ impl Daemon {
         }
     }
 
-    fn disconnect_client(&mut self) -> Result<(), String> {
+    fn disconnect_client(&mut self) -> Result<()> {
         let Some(client) = self.active_client.take() else {
             return Ok(());
         };
 
         for uri in client.open_documents {
             let params = DidCloseTextDocumentParams {
-                text_document: TextDocumentIdentifier::new(parse_lsp_uri(&uri, "document")?),
+                text_document: TextDocumentIdentifier::new(
+                    parse_lsp_uri(&uri, "document")?,
+                ),
             };
-            let close = jsonrpc::<u64, _>(None, DidCloseTextDocument::METHOD, &params)?;
+            let close = jsonrpc::<u64, _>(None, DidCloseTextDocument::METHOD, &params)
+                ?;
             let _ = self.write_upstream_message(&close);
         }
 
         for request_key in client.forwarded_client_requests {
             let id = serde_json::from_value::<NumberOrString>(request_id_from_key(&request_key))
-                .map_err(|error| format!("invalid cancel request id: {error}"))?;
+                .map_err(|error| Error::lsp(format!("invalid cancel request id: {error}")))?;
             let params = CancelParams { id };
             let cancel = jsonrpc::<u64, _>(None, Cancel::METHOD, &params)?;
             let _ = self.write_upstream_message(&cancel);
@@ -655,25 +662,25 @@ impl Daemon {
         Ok(())
     }
 
-    fn write_client_response(&mut self, message: &Value) -> Result<(), String> {
+    fn write_client_response(&mut self, message: &Value) -> Result<()> {
         log_debug_message(self.debug, "daemon client -> ", message);
         let Some(client) = self.active_client.as_mut() else {
             return Ok(());
         };
         write_message(&mut client.writer, message)
-            .map_err(|error| format!("failed to write daemon client message: {error}"))
+            .map_err(|error| Error::lsp(format!("failed to write daemon client message: {error}")))
     }
 
-    fn write_upstream_message(&mut self, message: &Value) -> Result<(), String> {
+    fn write_upstream_message(&mut self, message: &Value) -> Result<()> {
         let Some(upstream) = self.upstream.as_mut() else {
-            return Err("LSP server is not running".to_string());
+            return Err(Error::unexpected("LSP server is not running"));
         };
         log_debug_message(self.debug, "daemon upstream <- ", message);
         write_message(&mut upstream.stdin, message)
-            .map_err(|error| format!("failed to write LSP server message: {error}"))
+            .map_err(|error| Error::lsp(format!("failed to write LSP server message: {error}")))
     }
 
-    fn shutdown_upstream(&mut self) -> Result<(), String> {
+    fn shutdown_upstream(&mut self) -> Result<()> {
         if let Some(mut upstream) = self.upstream.take() {
             upstream.shutdown(self.debug)?;
         }
@@ -681,20 +688,20 @@ impl Daemon {
         Ok(())
     }
 
-    fn stop(&mut self) -> Result<(), String> {
+    fn stop(&mut self) -> Result<()> {
         self.disconnect_client()?;
         self.shutdown_upstream()?;
         match fs::remove_file(&self.target.socket_path) {
             Ok(()) => Ok(()),
             Err(error) if error.kind() == ErrorKind::NotFound => Ok(()),
-            Err(error) => Err(format!(
+            Err(error) => Err(Error::unexpected(format!(
                 "failed to remove daemon socket {}: {error}",
                 self.target.socket_path.display()
-            )),
+            ))),
         }
     }
 
-    fn restart_upstream(&mut self) -> Result<(), String> {
+    fn restart_upstream(&mut self) -> Result<()> {
         self.shutdown_upstream()?;
         self.upstream = Some(UpstreamServer::spawn(&self.target, self.debug)?);
         Ok(())

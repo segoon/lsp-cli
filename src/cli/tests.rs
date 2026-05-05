@@ -4,6 +4,7 @@ use super::{
     resolve_command,
 };
 use crate::config::CliConfig;
+use crate::error::Result;
 use clap::Command as ClapCommand;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -74,7 +75,7 @@ pub(super) fn install_debug(
     }
 }
 
-pub(super) fn parse(args: &[&str]) -> Result<Command, String> {
+pub(super) fn parse(args: &[&str]) -> Result<Command> {
     parse_args(raw_args(args))
 }
 

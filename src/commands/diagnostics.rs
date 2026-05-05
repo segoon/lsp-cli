@@ -3,6 +3,7 @@ use crate::commands::common::{connect_lsp_client, prepare_workspace};
 use crate::commands::symbol_query::{render_paths_text, truncate_items};
 use crate::config::ConfigStore;
 use crate::detect::matching_files;
+use crate::error::{Error, Result};
 use crate::lsp::{
     DiagnosticMatch, LspClient, diagnostic_matches_from_document_response,
     diagnostic_matches_from_notification, diagnostics_supported, path_to_file_uri,
@@ -19,7 +20,7 @@ mod tests;
 const DIAGNOSTIC_QUIET_PERIOD: Duration = Duration::from_millis(250);
 const DIAGNOSTIC_POLL_INTERVAL: Duration = Duration::from_millis(100);
 
-pub(super) fn run(args: &DiagnosticsArgs, config: &ConfigStore) -> Result<String, String> {
+pub(super) fn run(args: &DiagnosticsArgs, config: &ConfigStore) -> Result<String> {
     let result = run_diagnostics_query(args, config)?;
     let diagnostics = truncate_items(
         result.diagnostics,
@@ -54,7 +55,7 @@ struct DiagnosticsQueryResult {
 fn run_diagnostics_query(
     args: &DiagnosticsArgs,
     config: &ConfigStore,
-) -> Result<DiagnosticsQueryResult, String> {
+) -> Result<DiagnosticsQueryResult> {
     let query = &args.query.query;
     let workspace = prepare_workspace(
         &query.directory,
@@ -68,9 +69,7 @@ fn run_diagnostics_query(
         &config.filetypes,
         &workspace.allowed_filetypes,
     )
-    .map_err(|error| {
-        format!("failed to scan {}: {error}", query.directory.display())
-    })?;
+    .map_err(|error| Error::unexpected(format!("failed to scan {}: {error}", query.directory.display())))?;
 
     let mut client = connect_lsp_client(
         &workspace,
@@ -80,7 +79,7 @@ fn run_diagnostics_query(
     )?;
     let initialize = client
         .initialize(&workspace.root_uri, &workspace.workspace_name, true)
-        .map_err(|error| format!("failed to initialize {}: {error}", workspace.server.server))?;
+        .map_err(|error| error.with_prefix(format!("failed to initialize {}", workspace.server.server)))?;
 
     let mut diagnostics = if diagnostics_supported(&initialize) {
         collect_pull_diagnostics(
@@ -107,10 +106,7 @@ fn run_diagnostics_query(
             .then(left.message.cmp(&right.message))
     });
     client.shutdown().map_err(|error| {
-        format!(
-            "failed to stop {} cleanly: {error}",
-            workspace.server.server
-        )
+        error.with_prefix(format!("failed to stop {} cleanly", workspace.server.server))
     })?;
 
     Ok(DiagnosticsQueryResult {
@@ -125,24 +121,20 @@ fn collect_pull_diagnostics(
     server_name: &str,
     workspace_root: &Path,
     files: &[PathBuf],
-) -> Result<Vec<DiagnosticMatch>, String> {
+) -> Result<Vec<DiagnosticMatch>> {
     let mut diagnostics = Vec::new();
 
     for file in files {
         let uri = path_to_file_uri(file)?;
         client.open_document(file, &uri).map_err(|error| {
-            format!(
-                "failed to open {} with {}: {error}",
-                file.display(),
-                server_name
-            )
+            error.with_prefix(format!("failed to open {} with {}", file.display(), server_name))
         })?;
         let response = client.document_diagnostic(&uri).map_err(|error| {
-            format!(
-                "failed to query diagnostics from {} for {}: {error}",
+            error.with_prefix(format!(
+                "failed to query diagnostics from {} for {}",
                 server_name,
                 file.display()
-            )
+            ))
         })?;
         diagnostics.extend(diagnostic_matches_from_document_response(
             &response,
@@ -160,15 +152,11 @@ fn collect_push_diagnostics(
     workspace_root: &Path,
     files: &[PathBuf],
     timeout: Duration,
-) -> Result<Vec<DiagnosticMatch>, String> {
+) -> Result<Vec<DiagnosticMatch>> {
     for file in files {
         let uri = path_to_file_uri(file)?;
         client.open_document(file, &uri).map_err(|error| {
-            format!(
-                "failed to open {} with {}: {error}",
-                file.display(),
-                server_name
-            )
+            error.with_prefix(format!("failed to open {} with {}", file.display(), server_name))
         })?;
     }
 
@@ -176,7 +164,7 @@ fn collect_push_diagnostics(
     collect_diagnostic_matches(client, workspace_root)
 }
 
-fn wait_for_push_diagnostics(client: &mut LspClient, timeout: Duration) -> Result<(), String> {
+fn wait_for_push_diagnostics(client: &mut LspClient, timeout: Duration) -> Result<()> {
     let started = Instant::now();
     let mut saw_diagnostics = false;
     let mut last_activity = started;
@@ -208,7 +196,7 @@ fn wait_for_push_diagnostics(client: &mut LspClient, timeout: Duration) -> Resul
 fn collect_diagnostic_matches(
     client: &mut LspClient,
     workspace_root: &Path,
-) -> Result<Vec<DiagnosticMatch>, String> {
+) -> Result<Vec<DiagnosticMatch>> {
     let notifications = client.take_published_diagnostics();
     let mut diagnostics = Vec::new();
 

@@ -1,4 +1,5 @@
 use super::{ClientTransport, LspClient};
+use crate::error::Error;
 use crate::server_stderr::CapturedStderr;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::io::Cursor;
@@ -30,7 +31,7 @@ fn reports_server_stderr_for_initialize_transport_errors() {
         timeout: Duration::from_secs(1),
     };
 
-    let error = client.format_transport_wait_error("initialize", "initialize failed".to_string());
+    let error = client.format_transport_wait_error("initialize", Error::lsp("initialize failed"));
 
     assert!(error.contains("initialize failed"));
     assert!(error.contains("No ast-grep project configuration is found."));

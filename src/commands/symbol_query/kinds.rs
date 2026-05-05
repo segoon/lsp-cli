@@ -5,6 +5,8 @@ use crate::lsp::{
 };
 use serde_json::Value;
 
+use crate::error::Result;
+
 pub(super) fn zero_based_line(symbol: &SymbolMatch) -> u32 {
     symbol.line.saturating_sub(1)
 }
@@ -32,7 +34,7 @@ impl LocationQueryKind {
     pub(super) fn ensure_support(
         self,
         initialize: &crate::lsp::InitializeResponse,
-    ) -> Result<(), String> {
+    ) -> Result<()> {
         match self {
             Self::References => ensure_references_support(initialize),
             Self::Definition => ensure_definition_support(initialize),
@@ -45,14 +47,12 @@ impl LocationQueryKind {
         client: &mut LspClient,
         uri: &str,
         anchor: &SymbolMatch,
-    ) -> Result<Value, String> {
+    ) -> Result<Value> {
         match self {
             Self::References => {
                 client.references(uri, zero_based_line(anchor), zero_based_col(anchor), false)
             }
-            Self::Definition => {
-                client.definition(uri, zero_based_line(anchor), zero_based_col(anchor))
-            }
+            Self::Definition => client.definition(uri, zero_based_line(anchor), zero_based_col(anchor)),
             Self::Declaration => {
                 client.declaration(uri, zero_based_line(anchor), zero_based_col(anchor))
             }
@@ -74,7 +74,7 @@ impl CallHierarchyDirection {
         }
     }
 
-    pub(super) fn query(self, client: &mut LspClient, item: &Value) -> Result<Value, String> {
+    pub(super) fn query(self, client: &mut LspClient, item: &Value) -> Result<Value> {
         match self {
             Self::Incoming => client.incoming_calls(item),
             Self::Outgoing => client.outgoing_calls(item),
@@ -85,7 +85,7 @@ impl CallHierarchyDirection {
         self,
         response: &Value,
         source_cache: &mut SourceCache,
-    ) -> Result<Vec<SymbolMatch>, String> {
+    ) -> Result<Vec<SymbolMatch>> {
         match self {
             Self::Incoming => call_hierarchy_matches_from_incoming_response(response, source_cache),
             Self::Outgoing => call_hierarchy_matches_from_outgoing_response(response, source_cache),

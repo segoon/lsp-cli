@@ -77,13 +77,11 @@ pub struct InstallDebugArgs {
 }
 
 impl InstallDebugArgs {
-    // Q: rename to language()
-    pub fn selected_language(&self) -> Option<&str> {
+    pub fn language(&self) -> Option<&str> {
         self.selection.selected_language()
     }
 
-    // Q: rename to server()
-    pub fn selected_server(&self) -> Option<&str> {
+    pub fn server(&self) -> Option<&str> {
         self.selection.selected_server()
     }
 }
@@ -109,13 +107,11 @@ pub struct WorkspaceQueryArgs {
 }
 
 impl WorkspaceQueryArgs {
-    // Q: rename to language()
-    pub fn selected_language(&self) -> Option<&str> {
+    pub fn language(&self) -> Option<&str> {
         self.selector.selected_language()
     }
 
-    // Q: rename to server()
-    pub fn selected_server(&self) -> Option<&str> {
+    pub fn server(&self) -> Option<&str> {
         self.selector.selected_server()
     }
 }

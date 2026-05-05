@@ -30,8 +30,8 @@ pub(super) fn resolve_target(
 ) -> Result<DaemonTarget, String> {
     let workspace = prepare_workspace(
         &args.path,
-        args.server.selected_server(),
-        args.server.selected_language(),
+        args.server.server(),
+        args.server.language(),
         args.server.download,
         config,
     )?;

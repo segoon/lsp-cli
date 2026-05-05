@@ -153,64 +153,16 @@ pub(super) fn run_list_symbols_query(
 
     let (workspace, matches) = with_initialized_client(
         &args.path,
-        args.server.selected_server(),
-        args.server.selected_language(),
+        args.server.server(),
+        args.server.language(),
         args.detach,
         args.server.download,
         args.wait_for_index,
         args.server.debug,
         args.timeout,
         config,
-        // Q: move the lambda into an explicit function
         |workspace, initialize, client| {
-            ensure_list_symbols_support(initialize, &workspace.server.server)?;
-
-            let files = match target {
-                ListSymbolsTarget::File => vec![args.path.clone()],
-                ListSymbolsTarget::Directory => {
-                    matching_files(&args.path, &config.filetypes, &workspace.allowed_filetypes)
-                        .map_err(|error| {
-                            format!("failed to scan {}: {error}", args.path.display())
-                        })?
-                }
-            };
-
-            let mut source_cache = SourceCache::default();
-            let mut matches = Vec::new();
-
-            for file in &files {
-                let uri = path_to_file_uri(file)?;
-                client.open_document(file, &uri).map_err(|error| {
-                    format!(
-                        "failed to open {} with {}: {error}",
-                        file.display(),
-                        workspace.server.server
-                    )
-                })?;
-                let response = match client.document_symbol(&uri) {
-                    Ok(response) => response,
-                    Err(error)
-                        if target == ListSymbolsTarget::Directory
-                            && should_skip_document_symbol_error(&error) =>
-                    {
-                        continue;
-                    }
-                    Err(error) => {
-                        return Err(format!(
-                            "failed to query {} for {}: {error}",
-                            workspace.server.server,
-                            file.display()
-                        ));
-                    }
-                };
-                matches.extend(document_symbol_matches_from_response(
-                    &response,
-                    file,
-                    &mut source_cache,
-                )?);
-            }
-
-            Ok(matches)
+            collect_list_symbol_matches(target, args, config, workspace, initialize, client)
         },
     )?;
 
@@ -219,6 +171,62 @@ pub(super) fn run_list_symbols_query(
         server: workspace.server,
         matches,
     })
+}
+
+fn collect_list_symbol_matches(
+    target: ListSymbolsTarget,
+    args: &ListSymbolsArgs,
+    config: &ConfigStore,
+    workspace: &PreparedWorkspace,
+    initialize: &crate::lsp::InitializeResponse,
+    client: &mut LspClient,
+) -> Result<Vec<SymbolMatch>, String> {
+    ensure_list_symbols_support(initialize, &workspace.server.server)?;
+
+    let files = match target {
+        ListSymbolsTarget::File => vec![args.path.clone()],
+        ListSymbolsTarget::Directory => {
+            matching_files(&args.path, &config.filetypes, &workspace.allowed_filetypes)
+                .map_err(|error| format!("failed to scan {}: {error}", args.path.display()))?
+        }
+    };
+
+    let mut source_cache = SourceCache::default();
+    let mut matches = Vec::new();
+
+    for file in &files {
+        let uri = path_to_file_uri(file)?;
+        client.open_document(file, &uri).map_err(|error| {
+            format!(
+                "failed to open {} with {}: {error}",
+                file.display(),
+                workspace.server.server
+            )
+        })?;
+        let response = match client.document_symbol(&uri) {
+            Ok(response) => response,
+            Err(error)
+                if target == ListSymbolsTarget::Directory
+                    && should_skip_document_symbol_error(&error) =>
+            {
+                continue;
+            }
+            Err(error) => {
+                return Err(format!(
+                    "failed to query {} for {}: {error}",
+                    workspace.server.server,
+                    file.display()
+                ));
+            }
+        };
+        matches.extend(document_symbol_matches_from_response(
+            &response,
+            file,
+            &mut source_cache,
+        )?);
+    }
+
+    Ok(matches)
 }
 
 pub(super) fn list_symbols_target(path: &Path) -> Result<ListSymbolsTarget, String> {

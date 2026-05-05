@@ -131,11 +131,6 @@ pub fn default_config_root() -> Result<PathBuf, String> {
     choose_config_root(lsp_data.as_deref(), home.as_deref(), &repo_data)
 }
 
-// Q: inline default_cli_config_roots() into the callers
-pub fn default_cli_config_roots() -> CliConfigRoots {
-    CliConfigRoots::default()
-}
-
 fn choose_cli_config_user_root(
     xdg_config_home: Option<&Path>,
     home: Option<&Path>,

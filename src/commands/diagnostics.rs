@@ -58,8 +58,8 @@ fn run_diagnostics_query(
     let query = &args.query.query;
     let workspace = prepare_workspace(
         &query.directory,
-        query.selected_server(),
-        query.selected_language(),
+        query.server(),
+        query.language(),
         args.query.download,
         config,
     )?;

@@ -33,8 +33,7 @@ fn scan_path(
     filetypes: &[FiletypeConfig],
     detection: &mut DetectionResult,
 ) -> io::Result<()> {
-    // Q: path_error(path) should return lambda that takes error and returns string
-    let metadata = fs::symlink_metadata(path).map_err(|error| path_error(path, &error))?;
+    let metadata = fs::symlink_metadata(path).map_err(path_error(path))?;
     let file_type = metadata.file_type();
 
     if file_type.is_symlink() {
@@ -47,10 +46,10 @@ fn scan_path(
     }
 
     if file_type.is_dir() {
-        let entries = fs::read_dir(path).map_err(|error| path_error(path, &error))?;
+        let entries = fs::read_dir(path).map_err(path_error(path))?;
 
         for entry in entries {
-            let entry = entry.map_err(|error| path_error(path, &error))?;
+            let entry = entry.map_err(path_error(path))?;
             scan_path(&entry.path(), filetypes, detection)?;
         }
     }
@@ -64,7 +63,7 @@ fn collect_matching_files(
     allowed_filetypes: &BTreeSet<String>,
     matches: &mut Vec<PathBuf>,
 ) -> io::Result<()> {
-    let metadata = fs::symlink_metadata(path).map_err(|error| path_error(path, &error))?;
+    let metadata = fs::symlink_metadata(path).map_err(path_error(path))?;
     let file_type = metadata.file_type();
 
     if file_type.is_symlink() {
@@ -79,10 +78,10 @@ fn collect_matching_files(
     }
 
     if file_type.is_dir() {
-        let entries = fs::read_dir(path).map_err(|error| path_error(path, &error))?;
+        let entries = fs::read_dir(path).map_err(path_error(path))?;
 
         for entry in entries {
-            let entry = entry.map_err(|error| path_error(path, &error))?;
+            let entry = entry.map_err(path_error(path))?;
             collect_matching_files(&entry.path(), filetypes, allowed_filetypes, matches)?;
         }
     }
@@ -156,8 +155,9 @@ fn matching_filetypes(path: &Path, filetypes: &[FiletypeConfig]) -> Vec<String> 
         .collect()
 }
 
-fn path_error(path: &Path, error: &io::Error) -> io::Error {
-    io::Error::new(error.kind(), crate::fs::format_path_error(path, error))
+// Q: rename to path_error_fn
+fn path_error(path: &Path) -> impl FnOnce(io::Error) -> io::Error + '_ {
+    move |error| io::Error::new(error.kind(), crate::fs::format_path_error(path, &error))
 }
 
 #[cfg(test)]

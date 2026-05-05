@@ -273,7 +273,6 @@ fn extract_tar_gz(root: &Path, bytes: &[u8]) -> Result<(), String> {
             .map_err(format_root_error("failed to read tar entry path in", root))?;
         let output_path = join_relative_path(root, &entry_path.to_string_lossy())?;
         if entry.header().entry_type().is_dir() {
-            // Q: format_root_error() can be used here, look carefully in other places and in other functions, think hard
             fs::create_dir_all(&output_path)
                 .map_err(|error| format!("failed to create {}: {error}", output_path.display()))?;
             continue;

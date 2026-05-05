@@ -8,11 +8,10 @@ use std::process::{Command, Stdio};
 use std::os::unix::process::CommandExt;
 
 pub(super) fn run(args: &RunArgs, config: &ConfigStore) -> Result<String, String> {
-    // Q: args.server is duplicated
     let workspace = prepare_workspace(
         &args.path,
-        args.server.selected_server(),
-        args.server.selected_language(),
+        args.server.server(),
+        args.server.language(),
         args.server.download,
         config,
     )?;

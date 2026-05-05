@@ -13,16 +13,16 @@ mod tests;
 pub(super) fn run(args: &FormatArgs, config: &ConfigStore) -> Result<String, String> {
     ensure_regular_file(&args.path)?;
 
-    // Q: args.server is duplicated
+    let server = &args.server;
     let workspace = prepare_workspace(
         &args.path,
-        args.server.selected_server(),
-        args.server.selected_language(),
-        args.server.download,
+        server.server(),
+        server.language(),
+        server.download,
         config,
     )?;
     let mut client =
-        connect_lsp_client(&workspace, args.detach, args.server.debug, args.timeout)?;
+        connect_lsp_client(&workspace, args.detach, server.debug, args.timeout)?;
     let initialize = client
         .initialize(&workspace.root_uri, &workspace.workspace_name, false)
         .map_err(|error| format!("failed to initialize {}: {error}", workspace.server.server))?;

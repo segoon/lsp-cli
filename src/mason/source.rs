@@ -43,9 +43,10 @@ pub(crate) fn parse_source_id(source_id: &str) -> Result<SourceId, String> {
     let decoded_name = percent_decode_component(name)
         .ok_or_else(|| format!("unsupported Mason package source {source_id}: invalid percent-encoding in package name"))?;
 
-    let (version, qualifiers) = split_version_qualifiers(version_with_qualifiers);
-    let version = version.to_string();
-    let decoded_name = decoded_name.clone();
+    let (version, qualifiers) = match version_with_qualifiers.split_once('?') {
+        Some((version, qualifiers)) => (version.to_string(), Some(qualifiers)),
+        None => (version_with_qualifiers.to_string(), None),
+    };
 
     Ok(match kind {
         "npm" => {
@@ -83,14 +84,6 @@ pub(crate) fn parse_source_id(source_id: &str) -> Result<SourceId, String> {
             kind: kind.to_string(),
         },
     })
-}
-
-// Q: inline the function
-fn split_version_qualifiers(version_with_qualifiers: &str) -> (&str, Option<&str>) {
-    match version_with_qualifiers.split_once('?') {
-        Some((version, qualifiers)) => (version, Some(qualifiers)),
-        None => (version_with_qualifiers, None),
-    }
 }
 
 fn parse_pypi_extras(qualifiers: Option<&str>) -> Vec<String> {

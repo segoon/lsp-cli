@@ -1,4 +1,3 @@
-use crate::config::default_cli_config_roots;
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -16,7 +15,7 @@ const DATA_REPOSITORY: &str = "segoon/lsp-cli-data";
 const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
 
 pub(crate) fn load_cli_defaults_for_update() -> Result<CliConfig, String> {
-    let roots = default_cli_config_roots();
+    let roots = crate::config::CliConfigRoots::default();
     load_cli_config(&roots.global, roots.user.as_deref())
 }
 

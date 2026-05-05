@@ -23,7 +23,7 @@ use std::process;
 
 use cli::{RawCommand as CliRawCommand, parse_raw_args, resolve_command};
 use commands::{run, run_commands, run_completion};
-use config::{default_cli_config_roots, default_config_root, load_cli_config, load_config_store};
+use config::{default_config_root, load_cli_config, load_config_store};
 use system_log::{log_unexpected_error, warn_if_log_file_is_large};
 
 fn main() {
@@ -95,7 +95,7 @@ fn main() {
                 }
             };
 
-            let cli_roots = default_cli_config_roots();
+            let cli_roots = config::CliConfigRoots::default();
             config.cli = match load_cli_config(&cli_roots.global, cli_roots.user.as_deref()) {
                 Ok(cli) => cli,
                 Err(error) => {

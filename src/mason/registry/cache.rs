@@ -87,7 +87,13 @@ fn refresh_registry_cache(state: &RuntimeState, now_epoch_seconds: u64) -> Resul
         return Ok(());
     }
 
-    let archive_bytes = download_bytes(&client, &asset.browser_download_url)?;
+    let archive_bytes = http_download_bytes(
+        &client,
+        &asset.browser_download_url,
+        "failed to download Mason registry archive",
+        "failed to download Mason registry archive",
+        "failed to read Mason registry archive",
+    )?;
     verify_sha256(&archive_bytes, asset.digest.as_deref())?;
     let registry_bytes = unpack_registry_json(&archive_bytes)?;
 
@@ -113,17 +119,6 @@ fn fetch_latest_release(client: &Client) -> Result<GithubRelease, String> {
     )?;
 
     http_read_json(response, "failed to parse Mason registry metadata")
-}
-
-// Q: inline this function
-fn download_bytes(client: &Client, url: &str) -> Result<Vec<u8>, String> {
-    http_download_bytes(
-        client,
-        url,
-        "failed to download Mason registry archive",
-        "failed to download Mason registry archive",
-        "failed to read Mason registry archive",
-    )
 }
 
 fn verify_sha256(bytes: &[u8], digest: Option<&str>) -> Result<(), String> {

@@ -1,4 +1,5 @@
 use crate::hash::encode_hex;
+use crate::mason::http::{read_bytes as http_read_bytes, read_json as http_read_json, send as http_send, get as http_get};
 use crate::runtime_state::RuntimeState;
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
@@ -103,32 +104,25 @@ fn refresh_registry_cache(state: &RuntimeState, now_epoch_seconds: u64) -> Resul
 }
 
 fn fetch_latest_release(client: &Client) -> Result<GithubRelease, String> {
-    // Q: this function duplicates code with download_bytes()
-    let response = client
-        .get(GITHUB_API_URL)
-        .header("Accept", "application/vnd.github+json")
-        .send()
-        .map_err(|error| format!("failed to contact GitHub for Mason registry metadata: {error}"))?
-        .error_for_status()
-        .map_err(|error| format!("failed to fetch Mason registry metadata: {error}"))?;
+    let response = http_send(
+        client
+            .get(GITHUB_API_URL)
+            .header("Accept", "application/vnd.github+json"),
+        "failed to contact GitHub for Mason registry metadata",
+        "failed to fetch Mason registry metadata",
+    )?;
 
-    response
-        .json::<GithubRelease>()
-        .map_err(|error| format!("failed to parse Mason registry metadata: {error}"))
+    http_read_json(response, "failed to parse Mason registry metadata")
 }
 
 fn download_bytes(client: &Client, url: &str) -> Result<Vec<u8>, String> {
-    let mut response = client
-        .get(url)
-        .send()
-        .map_err(|error| format!("failed to download Mason registry archive: {error}"))?
-        .error_for_status()
-        .map_err(|error| format!("failed to download Mason registry archive: {error}"))?;
-    let mut bytes = Vec::new();
-    response
-        .read_to_end(&mut bytes)
-        .map_err(|error| format!("failed to read Mason registry archive: {error}"))?;
-    Ok(bytes)
+    let response = http_get(
+        client,
+        url,
+        "failed to download Mason registry archive",
+        "failed to download Mason registry archive",
+    )?;
+    http_read_bytes(response, "failed to read Mason registry archive")
 }
 
 fn verify_sha256(bytes: &[u8], digest: Option<&str>) -> Result<(), String> {

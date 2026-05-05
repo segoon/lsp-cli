@@ -41,13 +41,10 @@ pub fn resolve_detect_suggestions(
         return Ok(resolved);
     }
 
-    // Q: rewrite using match errors.len()
-    if errors.len() == 1 {
-        Err(errors.remove(0))
-    } else if errors.is_empty() {
-        Ok(Vec::new())
-    } else {
-        Err(errors.join("\n"))
+    match errors.len() {
+        0 => Ok(Vec::new()),
+        1 => Err(errors.remove(0)),
+        _ => Err(errors.join("\n")),
     }
 }
 
@@ -71,8 +68,10 @@ fn resolve_suggestion_from_path_or_cache(
         return Ok(None);
     }
 
-    // Q: split into two statements to simplify the code
-    let (Some(state), Some(registry)) = (state, registry) else {
+    let Some(state) = state else {
+        return Ok(None);
+    };
+    let Some(registry) = registry else {
         return Ok(None);
     };
     let Some(package) =
@@ -131,18 +130,25 @@ mod tests {
     };
     use std::fs;
 
-    #[cfg(unix)]
-    #[test]
-    fn prefers_cached_direct_binary_when_path_misses() {
-        // Q: setup code is duplicated in this function and the next one
+    fn prepare_registry_test_home(
+        package_name: &str,
+        packages: &[crate::mason::registry::MasonPackage],
+    ) -> (TestDir, std::path::PathBuf, crate::runtime_state::RuntimeState) {
         let dir = TestDir::new("mason-resolve");
         let home = dir.path().join("home");
         let state = runtime_state_in_home(&home);
         state.ensure_dirs().expect("state dirs should be created");
-        write_registry(&state, &[pyright_package()]);
-        let cached = state
-            .package_dir("pyright")
-            .join("node_modules/.bin/pyright-langserver");
+        write_registry(&state, packages);
+        let package_dir = state.package_dir(package_name);
+        (dir, package_dir, state)
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn prefers_cached_direct_binary_when_path_misses() {
+        let (dir, package_dir, _state) = prepare_registry_test_home("pyright", &[pyright_package()]);
+        let home = dir.path().join("home");
+        let cached = package_dir.join("node_modules/.bin/pyright-langserver");
         fs::create_dir_all(cached.parent().expect("parent should exist"))
             .expect("parent dirs should be created");
         fs::write(&cached, b"stub\n").expect("cached binary should be written");
@@ -171,12 +177,9 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn prefers_cached_wrapper_when_path_misses() {
-        let dir = TestDir::new("mason-resolve");
+        let (dir, package_dir, state) = prepare_registry_test_home("jdtls", &[jdtls_package()]);
         let home = dir.path().join("home");
-        let state = runtime_state_in_home(&home);
-        state.ensure_dirs().expect("state dirs should be created");
-        write_registry(&state, &[jdtls_package()]);
-        let target = state.package_dir("jdtls").join("bin/jdtls");
+        let target = package_dir.join("bin/jdtls");
         fs::create_dir_all(target.parent().expect("parent should exist"))
             .expect("parent dirs should be created");
         fs::write(&target, b"print('ok')\n").expect("target should be written");
@@ -210,7 +213,6 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn skips_server_when_not_in_path_or_cache() {
-        // Q: is TestDir autoremoved on test exit? for panic'ed test?
         let dir = TestDir::new("mason-resolve");
         let home = dir.path().join("home");
         fs::create_dir_all(&home).expect("home dir should be created");

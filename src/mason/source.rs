@@ -31,47 +31,48 @@ pub(crate) enum SourceId {
 }
 
 pub(crate) fn parse_source_id(source_id: &str) -> Result<SourceId, String> {
-    // Q: error reason is lost, keep it in error message
     let without_prefix = source_id
         .strip_prefix("pkg:")
-        .ok_or_else(|| format!("unsupported Mason package source {source_id}"))?;
+        .ok_or_else(|| format!("unsupported Mason package source {source_id}: missing `pkg:` prefix"))?;
     let (package_ref, version_with_qualifiers) = without_prefix
         .rsplit_once('@')
-        .ok_or_else(|| format!("unsupported Mason package source {source_id}"))?;
+        .ok_or_else(|| format!("unsupported Mason package source {source_id}: missing `@version`"))?;
     let (kind, name) = package_ref
         .split_once('/')
-        .ok_or_else(|| format!("unsupported Mason package source {source_id}"))?;
+        .ok_or_else(|| format!("unsupported Mason package source {source_id}: missing source kind or package name"))?;
     let decoded_name = percent_decode_component(name)
-        .ok_or_else(|| format!("unsupported Mason package source {source_id}"))?;
+        .ok_or_else(|| format!("unsupported Mason package source {source_id}: invalid percent-encoding in package name"))?;
 
     let (version, qualifiers) = split_version_qualifiers(version_with_qualifiers);
+    let version = version.to_string();
 
-    // Q: decoded_name.clone() and version.to_string() is duplicated, move it to a local variable
+    // Q: decoded_name.clone() and version.clone() is duplicated, move it to a local variable
+    // if it is not used in some branches, it is OK
     Ok(match kind {
         "npm" => SourceId::Npm {
             package_name: decoded_name.clone(),
-            version: version.to_string(),
+            version: version.clone(),
         },
         "pypi" => SourceId::Pypi {
             package_name: decoded_name.clone(),
-            version: version.to_string(),
+            version: version.clone(),
             extras: parse_pypi_extras(qualifiers),
         },
         "cargo" => SourceId::Cargo {
             package_name: decoded_name.clone(),
-            version: version.to_string(),
+            version: version.clone(),
         },
         "golang" => SourceId::Golang {
             module_path: decoded_name.clone(),
-            version: version.to_string(),
+            version: version.clone(),
         },
         "github" => SourceId::Github {
             repository: decoded_name.clone(),
-            version: version.to_string(),
+            version: version.clone(),
         },
         "generic" => SourceId::Generic {
             package_name: decoded_name,
-            version: version.to_string(),
+            version,
         },
         _ => SourceId::Unsupported {
             kind: kind.to_string(),

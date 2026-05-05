@@ -1,9 +1,10 @@
 use std::collections::{BTreeMap, BTreeSet};
-use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use crate::env_vars;
+use crate::fs_err;
 use regex::Regex;
 use serde::{Deserialize, de};
 
@@ -14,7 +15,11 @@ pub struct ConfigStore {
     pub cli: CliConfig,
 }
 
-// Q: is it possible to avoid using Option<> for options with clear defaults?
+pub struct CliConfigRoots {
+    pub global: PathBuf,
+    pub user: Option<PathBuf>,
+}
+
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct CliConfig {
     pub download_version: Option<String>,
@@ -97,9 +102,11 @@ struct CliConfigFile {
     detect: DetectCliConfigFile,
     #[serde(default)]
     daemon: DaemonCliConfigFile,
-    // Q: why not simply name it 'lsp'?
+    // QD: why not simply name it 'lsp'?
+    // A: The YAML key is now `lsp`, but the runtime config still uses
+    // A: `lsp_preferences` to avoid confusion with one selected LSP.
     #[serde(default, rename = "lsp")]
-    lsp_preferences: BTreeMap<String, Vec<String>>,
+    lsp: BTreeMap<String, Vec<String>>,
 }
 
 #[derive(Default, Deserialize)]
@@ -110,52 +117,47 @@ struct DetectCliConfigFile {
 }
 
 #[derive(Default, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
 struct DaemonCliConfigFile {
-    // Q: is it possible to use some serde option to automatically convert hyphen <-> underscore?
-    #[serde(
-        rename = "idle-timeout",
-        default,
-        deserialize_with = "deserialize_optional_timeout"
-    )]
+    // QD: is it possible to use some serde option to automatically convert hyphen <-> underscore?
+    // A: Yes. This struct now uses `rename_all = "kebab-case"`.
+    // A: That removes the one-off field rename.
+    #[serde(default, deserialize_with = "deserialize_optional_timeout")]
     idle_timeout: Option<Duration>,
 }
 
 pub fn default_config_root() -> Result<PathBuf, String> {
-    let lsp_data = env::var_os("LSP_DATA").map(PathBuf::from);
-    let home = env::var_os("HOME").map(PathBuf::from);
-    // Q: PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data") is duplicated across multiple
+    let lsp_data = env_vars::lsp_data_dir();
+    let home = env_vars::home_dir();
+    // QD: PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data") is duplicated across multiple
     // files, is it possible to move it to a function and call it instead?
-    let repo_data = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data");
+    // A: Added `repo_data_dir()` and reuse it from config and update code.
+    let repo_data = repo_data_dir();
 
     choose_config_root(lsp_data.as_deref(), home.as_deref(), &repo_data)
 }
 
-// Q: what do these (A, B) mean? Do not use unnamed tuples, use types with semantic names instead
-pub fn default_cli_config_roots() -> (PathBuf, Option<PathBuf>) {
-    let global = env::var_os("LSP_DATA").map_or_else(
-        || {
-            env::var_os("HOME").map_or_else(
-                || PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data"),
+// Q: use Default trait for that
+pub fn default_cli_config_roots() -> CliConfigRoots {
+    let home = env_vars::home_dir();
+    let repo_data = repo_data_dir();
+    let global = env_vars::lsp_data_dir().unwrap_or_else(|| {
+            home.as_deref().map_or_else(
+                || repo_data.clone(),
                 |home| {
-                    // Q: HOME.join(".local/share/lsp-cli/data") is duplicated across multiple
-                    // files, is it possible to move it to a function?
-                    let user_data = PathBuf::from(home).join(".local/share/lsp-cli/data");
+                    let user_data = home_data_dir(home);
                     if has_config_dirs(&user_data) {
                         user_data
                     } else {
-                        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data")
+                        repo_data.clone()
                     }
                 },
             )
-        },
-        PathBuf::from,
-    );
-    let xdg_config_home = env::var_os("XDG_CONFIG_HOME").map(PathBuf::from);
-    // Q: HOME is read multiple times in this function
-    let home = env::var_os("HOME").map(PathBuf::from);
+        });
+    // Q: inline xdg_config_home and user
+    let xdg_config_home = env_vars::xdg_config_home();
     let user = choose_cli_config_user_root(xdg_config_home.as_deref(), home.as_deref());
-    (global, user)
+    CliConfigRoots { global, user }
 }
 
 fn choose_cli_config_user_root(
@@ -172,19 +174,20 @@ fn choose_config_root(
     home: Option<&Path>,
     repo_data: &Path,
 ) -> Result<PathBuf, String> {
-    // Q: write explicit comments for the search steps in the function
+    // 1. Respect an explicit `LSP_DATA` override.
     if let Some(path) = lsp_data {
         return Ok(path.to_path_buf());
     }
 
     if let Some(home) = home {
-        let home_root = home.join(".local/share/lsp-cli");
-        let downloaded_root = home_root.join("data");
+        // 2. Prefer previously downloaded per-user data when it looks complete.
+        let downloaded_root = home_data_dir(home);
         if has_config_dirs(&downloaded_root) {
             return Ok(downloaded_root);
         }
     }
 
+    // 3. Fall back to the repository `data/` tree for development and bootstrapping.
     if has_config_dirs(repo_data) {
         return Ok(repo_data.to_path_buf());
     }
@@ -200,10 +203,9 @@ fn has_config_dirs(root: &Path) -> bool {
 }
 
 pub fn load_config_store(root: &Path) -> Result<ConfigStore, String> {
-    // Q: root.join(filetypes | lsp) is duplicated, try to wrap it into a smart directory object
-    // that knows how to access its subdirectories and files
-    let filetypes = load_filetypes(&root.join("filetypes"))?;
-    let lsps = load_lsps(&root.join("lsp"))?;
+    let root = ConfigRoot::new(root);
+    let filetypes = load_filetypes(&root.filetypes_dir())?;
+    let lsps = load_lsps(&root.lsp_dir())?;
     validate_lsp_filetypes(&filetypes, &lsps)?;
 
     Ok(ConfigStore {
@@ -216,12 +218,12 @@ pub fn load_config_store(root: &Path) -> Result<ConfigStore, String> {
 pub fn load_cli_config(global_root: &Path, user_root: Option<&Path>) -> Result<CliConfig, String> {
     let mut config = CliConfig::default();
     config.merge(load_optional_cli_config_file(
-        &global_root.join("lsp-cli.yaml"),
+        &ConfigRoot::new(global_root).cli_config_path(),
     )?);
 
     if let Some(user_root) = user_root {
         config.merge(load_optional_cli_config_file(
-            &user_root.join("lsp-cli.yaml"),
+            &ConfigRoot::new(user_root).cli_config_path(),
         )?);
     }
 
@@ -234,8 +236,7 @@ fn load_optional_cli_config_file(path: &Path) -> Result<CliConfig, String> {
     }
 
     // Q: |error| format!("{}: {error}", path.display()) or similar is duplicated across multiple files
-    let contents =
-        fs::read_to_string(path).map_err(|error| format!("{}: {error}", path.display()))?;
+    let contents = fs_err::read_to_string(path)?;
     let file: CliConfigFile =
         serde_yaml::from_str(&contents).map_err(|error| format!("{}: {error}", path.display()))?;
     Ok(CliConfig::from(file))
@@ -243,34 +244,15 @@ fn load_optional_cli_config_file(path: &Path) -> Result<CliConfig, String> {
 
 impl CliConfig {
     fn merge(&mut self, other: Self) {
-        // Q: simplify with a helper function: f(&mut self.download, &other.download), choose name for f
-        if other.download.is_some() {
-            self.download = other.download;
-        }
-        if other.detach.is_some() {
-            self.detach = other.detach;
-        }
-        if other.json.is_some() {
-            self.json = other.json;
-        }
-        if other.debug.is_some() {
-            self.debug = other.debug;
-        }
-        if other.timeout.is_some() {
-            self.timeout = other.timeout;
-        }
-        if other.limit.is_some() {
-            self.limit = other.limit;
-        }
-        if other.detect.quiet.is_some() {
-            self.detect.quiet = other.detect.quiet;
-        }
-        if other.daemon.idle_timeout.is_some() {
-            self.daemon.idle_timeout = other.daemon.idle_timeout;
-        }
-        if other.download_version.is_some() {
-            self.download_version = other.download_version;
-        }
+        override_if_some(&mut self.download, other.download);
+        override_if_some(&mut self.detach, other.detach);
+        override_if_some(&mut self.json, other.json);
+        override_if_some(&mut self.debug, other.debug);
+        override_if_some(&mut self.timeout, other.timeout);
+        override_if_some(&mut self.limit, other.limit);
+        override_if_some(&mut self.detect.quiet, other.detect.quiet);
+        override_if_some(&mut self.daemon.idle_timeout, other.daemon.idle_timeout);
+        override_if_some(&mut self.download_version, other.download_version);
         self.lsp_preferences.extend(other.lsp_preferences);
     }
 }
@@ -291,22 +273,23 @@ impl From<CliConfigFile> for CliConfig {
             daemon: DaemonCliConfig {
                 idle_timeout: file.daemon.idle_timeout,
             },
-            lsp_preferences: file.lsp_preferences,
+            lsp_preferences: file.lsp,
         }
     }
 }
 
 pub(crate) fn parse_timeout(value: &str) -> Result<Duration, String> {
+    // Q: inline the string literal into format!(...)
+    let expected_integer_or_seconds = "expected integer milliseconds or seconds";
     if let Some(milliseconds) = value.strip_suffix("ms") {
         let milliseconds = milliseconds.parse::<u64>().map_err(|_| {
-            format!("invalid timeout {value:?}: expected integer milliseconds or seconds")
+            format!("invalid timeout {value:?}: {expected_integer_or_seconds}")
         })?;
         return Ok(Duration::from_millis(milliseconds));
     }
 
     let seconds = value.parse::<f64>().map_err(|_| {
-        // Q: move string literal to a local variable and reuse it 3 times
-        format!("invalid timeout {value:?}: expected integer milliseconds or seconds")
+        format!("invalid timeout {value:?}: {expected_integer_or_seconds}")
     })?;
     if !seconds.is_finite() || seconds < 0.0 {
         return Err(format!(
@@ -328,13 +311,12 @@ where
 }
 
 fn load_filetypes(dir: &Path) -> Result<Vec<FiletypeConfig>, String> {
-    let paths = yaml_files_in(dir)?;
+    let paths = find_yaml_files_in(dir)?;
 
     paths
         .into_iter()
         .map(|path| {
-            let contents = fs::read_to_string(&path)
-                .map_err(|error| format!("{}: {error}", path.display()))?;
+            let contents = fs_err::read_to_string(&path)?;
             let file: FiletypeFile = serde_yaml::from_str(&contents)
                 .map_err(|error| format!("{}: {error}", path.display()))?;
             let id = path
@@ -366,13 +348,12 @@ fn load_filetypes(dir: &Path) -> Result<Vec<FiletypeConfig>, String> {
 }
 
 fn load_lsps(dir: &Path) -> Result<Vec<LspConfig>, String> {
-    let paths = yaml_files_in(dir)?;
+    let paths = find_yaml_files_in(dir)?;
 
     paths
         .into_iter()
         .map(|path| {
-            let contents = fs::read_to_string(&path)
-                .map_err(|error| format!("{}: {error}", path.display()))?;
+            let contents = fs_err::read_to_string(&path)?;
             let file: LspFile = serde_yaml::from_str(&contents)
                 .map_err(|error| format!("{}: {error}", path.display()))?;
             let id = path
@@ -393,8 +374,7 @@ fn load_lsps(dir: &Path) -> Result<Vec<LspConfig>, String> {
         .collect()
 }
 
-// Q: use a verb in the function name (e.g. locate, find, etc.)
-fn yaml_files_in(dir: &Path) -> Result<Vec<PathBuf>, String> {
+fn find_yaml_files_in(dir: &Path) -> Result<Vec<PathBuf>, String> {
     if !dir.exists() {
         return Err(format!("missing directory {}", dir.display()));
     }
@@ -437,6 +417,42 @@ fn validate_lsp_filetypes(filetypes: &[FiletypeConfig], lsps: &[LspConfig]) -> R
     }
 
     Ok(())
+}
+
+fn repo_data_dir() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data")
+}
+
+fn home_data_dir(home: &Path) -> PathBuf {
+    home.join(".local/share/lsp-cli/data")
+}
+
+fn override_if_some<T>(target: &mut Option<T>, replacement: Option<T>) {
+    if replacement.is_some() {
+        *target = replacement;
+    }
+}
+
+struct ConfigRoot<'a> {
+    root: &'a Path,
+}
+
+impl<'a> ConfigRoot<'a> {
+    fn new(root: &'a Path) -> Self {
+        Self { root }
+    }
+
+    fn filetypes_dir(&self) -> PathBuf {
+        self.root.join("filetypes")
+    }
+
+    fn lsp_dir(&self) -> PathBuf {
+        self.root.join("lsp")
+    }
+
+    fn cli_config_path(&self) -> PathBuf {
+        self.root.join("lsp-cli.yaml")
+    }
 }
 
 #[cfg(test)]

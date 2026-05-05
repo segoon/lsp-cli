@@ -7,11 +7,20 @@ use serde_json::json;
 use std::collections::BTreeSet;
 
 pub(super) fn run(args: &DetectArgs, config: &ConfigStore) -> Result<String, String> {
+    // Q: args.server.selection is duplicated multiple times
+    // fix here and search for similar duplication in other functions
     let (detection, suggestions) = analyze_path(&args.path, config)?;
-    let suggestions =
-        filter_detect_suggestions(&suggestions, args.lang.as_deref(), args.lsp.as_deref())?;
-    let suggestions = resolve_detect_suggestions(&suggestions, args.download)?;
-    ensure_requested_suggestions_resolved(&suggestions, args.lang.as_deref(), args.lsp.as_deref())?;
+    let suggestions = filter_detect_suggestions(
+        &suggestions,
+        args.server.selection.lang.as_deref(),
+        args.server.selection.lsp.as_deref(),
+    )?;
+    let suggestions = resolve_detect_suggestions(&suggestions, args.server.download)?;
+    ensure_requested_suggestions_resolved(
+        &suggestions,
+        args.server.selection.lang.as_deref(),
+        args.server.selection.lsp.as_deref(),
+    )?;
 
     Ok(if args.json {
         render_json(&suggestions)

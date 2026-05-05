@@ -55,8 +55,8 @@ pub(super) fn run_workspace_symbol_query(
 ) -> Result<WorkspaceSymbolQueryResult, String> {
     let (workspace, matches) = with_initialized_client(
         &args.query.directory,
-        args.query.lsp.as_deref(),
-        args.query.lang.as_deref(),
+        args.query.selector.lsp.as_deref(),
+        args.query.selector.lang.as_deref(),
         args.detach,
         args.download,
         args.query.wait_for_index,
@@ -85,8 +85,8 @@ pub(super) fn run_document_symbol_query(
 ) -> Result<WorkspaceSymbolQueryResult, String> {
     let (workspace, matches) = with_initialized_client(
         &args.query.directory,
-        args.query.lsp.as_deref(),
-        args.query.lang.as_deref(),
+        args.query.selector.lsp.as_deref(),
+        args.query.selector.lang.as_deref(),
         args.detach,
         args.download,
         args.query.wait_for_index,
@@ -153,12 +153,12 @@ pub(super) fn run_list_symbols_query(
 
     let (workspace, matches) = with_initialized_client(
         &args.path,
-        args.lsp.as_deref(),
-        args.lang.as_deref(),
+        args.server.selection.lsp.as_deref(),
+        args.server.selection.lang.as_deref(),
         args.detach,
-        args.download,
+        args.server.download,
         args.wait_for_index,
-        args.debug,
+        args.server.debug,
         args.timeout,
         config,
         |workspace, initialize, client| {
@@ -278,8 +278,8 @@ pub(super) fn run_list_files_query(
 ) -> Result<FileListQueryResult, String> {
     let workspace = prepare_workspace(
         &args.directory,
-        args.lsp.as_deref(),
-        args.lang.as_deref(),
+        args.selector.lsp.as_deref(),
+        args.selector.lang.as_deref(),
         false,
         config,
     )?;
@@ -403,8 +403,8 @@ fn run_named_location_query(
 ) -> Result<WorkspaceSymbolQueryResult, String> {
     let (workspace, matches) = with_initialized_client(
         &args.query.directory,
-        args.query.lsp.as_deref(),
-        args.query.lang.as_deref(),
+        args.query.selector.lsp.as_deref(),
+        args.query.selector.lang.as_deref(),
         args.detach,
         args.download,
         args.query.wait_for_index,
@@ -494,8 +494,8 @@ fn run_call_hierarchy_query(
 ) -> Result<WorkspaceSymbolQueryResult, String> {
     let (workspace, matches) = with_initialized_client(
         &args.query.directory,
-        args.query.lsp.as_deref(),
-        args.query.lang.as_deref(),
+        args.query.selector.lsp.as_deref(),
+        args.query.selector.lang.as_deref(),
         args.detach,
         args.download,
         args.query.wait_for_index,

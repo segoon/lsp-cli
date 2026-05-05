@@ -1,3 +1,4 @@
+use crate::config::default_cli_config_roots;
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -15,16 +16,8 @@ const DATA_REPOSITORY: &str = "segoon/lsp-cli-data";
 const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
 
 pub(crate) fn load_cli_defaults_for_update() -> Result<CliConfig, String> {
-    let home = std::env::var_os("HOME").map(PathBuf::from);
-    let global_root = home.as_deref().map_or_else(
-        || PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data"),
-        |path| path.join(".local/share/lsp-cli/data"),
-    );
-    let xdg_config_home = std::env::var_os("XDG_CONFIG_HOME").map(PathBuf::from);
-    let user_root = xdg_config_home
-        .map(|path| path.join("lsp-cli"))
-        .or_else(|| home.map(|path| path.join(".config/lsp-cli")));
-    load_cli_config(&global_root, user_root.as_deref())
+    let roots = default_cli_config_roots();
+    load_cli_config(&roots.global, roots.user.as_deref())
 }
 
 pub(crate) fn ensure_data_available() -> Result<(), String> {

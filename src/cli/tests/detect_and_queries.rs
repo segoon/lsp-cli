@@ -1,5 +1,5 @@
 use super::super::{Command, DetectArgs, DiagnosticsArgs, GrepArgs};
-use super::{lsp_workspace_query, parse, parse_with_config};
+use super::{install_debug, lsp_workspace_query, parse, parse_with_config, selection};
 use crate::config::{CliConfig, DetectCliConfig};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -11,12 +11,9 @@ fn parses_detect_defaults() {
         parse(&["detect"]).expect("detect should parse"),
         Command::Detect(DetectArgs {
             path: PathBuf::from("."),
-            lang: None,
-            lsp: None,
-            download: false,
+            server: install_debug(None, None, false, false),
             json: false,
             quiet: false,
-            debug: false,
         })
     );
 }
@@ -38,12 +35,9 @@ fn parses_detect_flags_and_path() {
         .expect("detect should parse"),
         Command::Detect(DetectArgs {
             path: PathBuf::from("src"),
-            lang: Some("python".to_string()),
-            lsp: Some("pyright".to_string()),
-            download: true,
+            server: install_debug(Some("python"), Some("pyright"), true, false),
             json: true,
             quiet: true,
-            debug: false,
         })
     );
 }
@@ -62,12 +56,9 @@ fn resolves_detect_defaults_from_config_and_no_flags() {
         parse_with_config(&["detect"], &config),
         Command::Detect(DetectArgs {
             path: PathBuf::from("."),
-            lang: None,
-            lsp: None,
-            download: true,
+            server: install_debug(None, None, true, true),
             json: true,
             quiet: true,
-            debug: true,
         })
     );
 }
@@ -96,12 +87,9 @@ fn cli_no_flags_override_boolean_config_defaults() {
         ),
         Command::Detect(DetectArgs {
             path: PathBuf::from("."),
-            lang: None,
-            lsp: None,
-            download: false,
+            server: install_debug(None, None, false, false),
             json: false,
             quiet: false,
-            debug: false,
         })
     );
 }
@@ -109,8 +97,7 @@ fn cli_no_flags_override_boolean_config_defaults() {
 #[test]
 fn parses_grep_arguments() {
     let mut query = lsp_workspace_query("workspace");
-    query.query.lsp = Some("clangd".to_string());
-    query.query.lang = Some("cpp".to_string());
+    query.query.selector = selection(Some("cpp"), Some("clangd"));
     query.download = true;
     query.query.json = true;
     query.query.debug = true;
@@ -139,8 +126,7 @@ fn parses_grep_arguments() {
 #[test]
 fn parses_diagnostics_arguments() {
     let mut query = lsp_workspace_query("workspace");
-    query.query.lsp = Some("clangd".to_string());
-    query.query.lang = Some("cpp".to_string());
+    query.query.selector = selection(Some("cpp"), Some("clangd"));
     query.download = true;
     query.query.json = true;
     query.query.debug = true;

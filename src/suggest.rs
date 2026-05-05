@@ -47,8 +47,10 @@ fn preference_rank(
             .min(),
     };
 
-    // Q: rewrite without map_or()
-    matched_rank.map_or((1, usize::MAX), |rank| (0, rank))
+    match matched_rank {
+        Some(rank) => (0, rank),
+        None => (1, usize::MAX),
+    }
 }
 
 fn preference_index(

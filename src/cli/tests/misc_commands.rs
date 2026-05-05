@@ -2,7 +2,7 @@ use super::super::{
     AgentSkillArgs, Command, CommandsArgs, DaemonArgs, FormatArgs, LanguagesArgs, RunArgs,
     ServerCapabilitiesArgs, ServersArgs, StopAllArgs, StopArgs, UpdateArgs,
 };
-use super::{parse, parse_with_config};
+use super::{install_debug, parse, parse_with_config, selection};
 use crate::config::{CliConfig, DaemonCliConfig};
 use std::path::PathBuf;
 use std::time::Duration;
@@ -31,10 +31,7 @@ fn parses_run_arguments() {
         .expect("run should parse"),
         Command::Run(RunArgs {
             path: PathBuf::from("workspace"),
-            lang: Some("rust".to_string()),
-            lsp: Some("rust-analyzer".to_string()),
-            download: true,
-            debug: true,
+            server: install_debug(Some("rust"), Some("rust-analyzer"), true, true),
         })
     );
 }
@@ -57,10 +54,7 @@ fn parses_daemon_arguments_and_config_idle_timeout() {
         .expect("daemon should parse"),
         Command::Daemon(DaemonArgs {
             path: PathBuf::from("workspace"),
-            lang: Some("rust".to_string()),
-            lsp: Some("rust-analyzer".to_string()),
-            download: true,
-            debug: true,
+            server: install_debug(Some("rust"), Some("rust-analyzer"), true, true),
             idle_timeout: Duration::from_millis(1500),
         })
     );
@@ -76,10 +70,7 @@ fn parses_daemon_arguments_and_config_idle_timeout() {
         parse_with_config(&["daemon", "workspace"], &config),
         Command::Daemon(DaemonArgs {
             path: PathBuf::from("workspace"),
-            lang: None,
-            lsp: None,
-            download: false,
-            debug: false,
+            server: install_debug(None, None, false, false),
             idle_timeout: Duration::from_secs(5),
         })
     );
@@ -100,8 +91,7 @@ fn parses_stop_arguments() {
         .expect("stop should parse"),
         Command::Stop(StopArgs {
             path: PathBuf::from("workspace"),
-            lang: Some("rust".to_string()),
-            lsp: Some("rust-analyzer".to_string()),
+            selector: selection(Some("rust"), Some("rust-analyzer")),
             debug: true,
         })
     );
@@ -166,11 +156,8 @@ fn parses_server_capabilities_arguments() {
         .expect("server-capabilities should parse"),
         Command::ServerCapabilities(ServerCapabilitiesArgs {
             directory: PathBuf::from("workspace"),
-            lang: Some("rust".to_string()),
-            lsp: Some("rust-analyzer".to_string()),
+            server: install_debug(Some("rust"), Some("rust-analyzer"), true, true),
             detach: true,
-            download: true,
-            debug: true,
             timeout: Duration::from_millis(250),
         })
     );
@@ -213,12 +200,9 @@ fn parses_format_arguments() {
         .expect("format should parse"),
         Command::Format(FormatArgs {
             path: PathBuf::from("src/main.rs"),
-            lang: Some("rust".to_string()),
-            lsp: Some("rust-analyzer".to_string()),
-            download: true,
+            server: install_debug(Some("rust"), Some("rust-analyzer"), true, true),
             detach: true,
             json: true,
-            debug: true,
             timeout: Duration::from_millis(250),
             check: true,
             stdout: false,

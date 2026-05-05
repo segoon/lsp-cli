@@ -7,6 +7,7 @@ use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
+use std::time::{SystemTime, UNIX_EPOCH};
 use tempfile::TempDir;
 
 pub(crate) const LOCAL_SHARE_LSP_CLI: &str = ".local/share/lsp-cli";
@@ -129,6 +130,23 @@ pub(crate) fn write_registry(state: &RuntimeState, packages: &[MasonPackage]) {
     fs::create_dir_all(state.registry_dir()).expect("registry dir should be created");
     let bytes = serde_json::to_vec(packages).expect("registry should serialize");
     fs::write(state.registry_json_path(), bytes).expect("registry should be written");
+
+    // Seed fresh metadata too so tests use the local cache immediately instead of
+    // attempting a network refresh before falling back to the registry file.
+    let refreshed_at_epoch_seconds = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system clock should be after unix epoch")
+        .as_secs();
+    let metadata = serde_json::json!({
+        "release_tag": "test",
+        "refreshed_at_epoch_seconds": refreshed_at_epoch_seconds,
+        "digest": null,
+    });
+    fs::write(
+        state.registry_metadata_path(),
+        serde_json::to_vec(&metadata).expect("registry metadata should serialize"),
+    )
+    .expect("registry metadata should be written");
 }
 
 pub(crate) fn pyright_package() -> MasonPackage {

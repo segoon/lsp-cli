@@ -89,6 +89,58 @@ pub(crate) enum RawCommand {
 #[derive(Debug, Args, Eq, PartialEq)]
 pub(crate) struct RawCommandsArgs {}
 
+#[derive(Debug, Args, Eq, PartialEq)]
+pub(crate) struct RawLangLspArgs {
+    #[arg(long, help = HELP_LANG)]
+    pub(crate) lang: Option<String>,
+    #[arg(long, help = HELP_LSP)]
+    pub(crate) lsp: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Args, Eq, PartialEq)]
+pub(crate) struct RawDownloadArgs {
+    #[arg(long, conflicts_with = "no_download", help = HELP_DOWNLOAD)]
+    pub(crate) download: bool,
+    #[arg(long = "no-download", conflicts_with = "download", help = HELP_NO_DOWNLOAD)]
+    pub(crate) no_download: bool,
+}
+
+#[derive(Debug, Args, Eq, PartialEq)]
+pub(crate) struct RawJsonArgs {
+    #[arg(long, conflicts_with = "no_json", help = HELP_JSON)]
+    pub(crate) json: bool,
+    #[arg(long = "no-json", conflicts_with = "json", help = HELP_NO_JSON)]
+    pub(crate) no_json: bool,
+}
+
+#[derive(Clone, Copy, Debug, Args, Eq, PartialEq)]
+pub(crate) struct RawDebugArgs {
+    #[arg(long, conflicts_with = "no_debug", help = HELP_DEBUG)]
+    pub(crate) debug: bool,
+    #[arg(long = "no-debug", conflicts_with = "debug", help = HELP_NO_DEBUG)]
+    pub(crate) no_debug: bool,
+}
+
+#[derive(Debug, Args, Eq, PartialEq)]
+pub(crate) struct RawDetachArgs {
+    #[arg(long, conflicts_with = "no_detach", help = HELP_DETACH)]
+    pub(crate) detach: bool,
+    #[arg(long = "no-detach", conflicts_with = "detach", help = HELP_NO_DETACH)]
+    pub(crate) no_detach: bool,
+}
+
+#[derive(Debug, Args, Eq, PartialEq)]
+pub(crate) struct RawTimeoutArgs {
+    #[arg(long, value_name = "T", value_parser = parse_timeout, help = HELP_TIMEOUT)]
+    pub(crate) timeout: Option<Duration>,
+}
+
+#[derive(Debug, Args, Eq, PartialEq)]
+pub(crate) struct RawLimitArgs {
+    #[arg(long, value_name = "N", help = HELP_LIMIT)]
+    pub(crate) limit: Option<usize>,
+}
+
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Args, Eq, PartialEq)]
 pub(crate) struct RawDetectArgs {
@@ -99,18 +151,12 @@ pub(crate) struct RawDetectArgs {
         help = "Path to inspect for supported languages and servers."
     )]
     pub(crate) path: PathBuf,
-    #[arg(long, help = HELP_LANG)]
-    pub(crate) lang: Option<String>,
-    #[arg(long, help = HELP_LSP)]
-    pub(crate) lsp: Option<String>,
-    #[arg(long, conflicts_with = "no_download", help = HELP_DOWNLOAD)]
-    pub(crate) download: bool,
-    #[arg(long = "no-download", conflicts_with = "download", help = HELP_NO_DOWNLOAD)]
-    pub(crate) no_download: bool,
-    #[arg(long, conflicts_with = "no_json", help = HELP_JSON)]
-    pub(crate) json: bool,
-    #[arg(long = "no-json", conflicts_with = "json", help = HELP_NO_JSON)]
-    pub(crate) no_json: bool,
+    #[command(flatten)]
+    pub(crate) selector: RawLangLspArgs,
+    #[command(flatten)]
+    pub(crate) download: RawDownloadArgs,
+    #[command(flatten)]
+    pub(crate) json: RawJsonArgs,
     #[arg(
         short = 'q',
         conflicts_with = "no_quiet",
@@ -123,10 +169,8 @@ pub(crate) struct RawDetectArgs {
         help = "Print labeled output instead of only command lines."
     )]
     pub(crate) no_quiet: bool,
-    #[arg(long, conflicts_with = "no_debug", help = HELP_DEBUG)]
-    pub(crate) debug: bool,
-    #[arg(long = "no-debug", conflicts_with = "debug", help = HELP_NO_DEBUG)]
-    pub(crate) no_debug: bool,
+    #[command(flatten)]
+    pub(crate) debug: RawDebugArgs,
 }
 
 #[allow(clippy::struct_excessive_bools)]
@@ -138,25 +182,21 @@ pub(crate) struct RawWorkspaceQueryArgs {
         help = "Workspace directory to query."
     )]
     pub(crate) directory: PathBuf,
-    #[arg(long, help = HELP_LANG)]
-    // Q: lang, lsp, wait_for_index, debug, no_debug, etc. are duplicated, try to remove duplication
-    pub(crate) lang: Option<String>,
-    #[arg(long, help = HELP_LSP)]
-    pub(crate) lsp: Option<String>,
+    #[command(flatten)]
+    // QD: lang, lsp, wait_for_index, debug, no_debug, etc. are duplicated, try to remove duplication
+    // A: Pulled the repeated option groups into small flattened structs.
+    // A: The CLI flags and help stay the same, but the duplication is centralized.
+    pub(crate) selector: RawLangLspArgs,
     #[arg(long, help = HELP_WAIT_FOR_INDEX)]
     pub(crate) wait_for_index: bool,
-    #[arg(long, conflicts_with = "no_json", help = HELP_JSON)]
-    pub(crate) json: bool,
-    #[arg(long = "no-json", conflicts_with = "json", help = HELP_NO_JSON)]
-    pub(crate) no_json: bool,
-    #[arg(long, conflicts_with = "no_debug", help = HELP_DEBUG)]
-    pub(crate) debug: bool,
-    #[arg(long = "no-debug", conflicts_with = "debug", help = HELP_NO_DEBUG)]
-    pub(crate) no_debug: bool,
-    #[arg(long, value_name = "T", value_parser = parse_timeout, help = HELP_TIMEOUT)]
-    pub(crate) timeout: Option<Duration>,
-    #[arg(long, value_name = "N", help = HELP_LIMIT)]
-    pub(crate) limit: Option<usize>,
+    #[command(flatten)]
+    pub(crate) json: RawJsonArgs,
+    #[command(flatten)]
+    pub(crate) debug: RawDebugArgs,
+    #[command(flatten)]
+    pub(crate) timeout: RawTimeoutArgs,
+    #[command(flatten)]
+    pub(crate) limit: RawLimitArgs,
 }
 
 #[allow(clippy::struct_excessive_bools)]
@@ -164,14 +204,10 @@ pub(crate) struct RawWorkspaceQueryArgs {
 pub(crate) struct RawLspWorkspaceQueryArgs {
     #[command(flatten)]
     pub(crate) query: RawWorkspaceQueryArgs,
-    #[arg(long, conflicts_with = "no_download", help = HELP_DOWNLOAD)]
-    pub(crate) download: bool,
-    #[arg(long = "no-download", conflicts_with = "download", help = HELP_NO_DOWNLOAD)]
-    pub(crate) no_download: bool,
-    #[arg(long, conflicts_with = "no_detach", help = HELP_DETACH)]
-    pub(crate) detach: bool,
-    #[arg(long = "no-detach", conflicts_with = "detach", help = HELP_NO_DETACH)]
-    pub(crate) no_detach: bool,
+    #[command(flatten)]
+    pub(crate) download: RawDownloadArgs,
+    #[command(flatten)]
+    pub(crate) detach: RawDetachArgs,
     #[arg(short = 'l', long = "files-with-matches", help = HELP_FILES_WITH_MATCHES)]
     pub(crate) files_with_matches: bool,
 }
@@ -202,28 +238,18 @@ pub(crate) struct RawFormatArgs {
         help = "File to format."
     )]
     pub(crate) path: PathBuf,
-    #[arg(long, help = HELP_LANG)]
-    pub(crate) lang: Option<String>,
-    #[arg(long, help = HELP_LSP)]
-    pub(crate) lsp: Option<String>,
-    #[arg(long, conflicts_with = "no_download", help = HELP_DOWNLOAD)]
-    pub(crate) download: bool,
-    #[arg(long = "no-download", conflicts_with = "download", help = HELP_NO_DOWNLOAD)]
-    pub(crate) no_download: bool,
-    #[arg(long, conflicts_with = "no_detach", help = HELP_DETACH)]
-    pub(crate) detach: bool,
-    #[arg(long = "no-detach", conflicts_with = "detach", help = HELP_NO_DETACH)]
-    pub(crate) no_detach: bool,
-    #[arg(long, conflicts_with = "no_json", help = HELP_JSON)]
-    pub(crate) json: bool,
-    #[arg(long = "no-json", conflicts_with = "json", help = HELP_NO_JSON)]
-    pub(crate) no_json: bool,
-    #[arg(long, conflicts_with = "no_debug", help = HELP_DEBUG)]
-    pub(crate) debug: bool,
-    #[arg(long = "no-debug", conflicts_with = "debug", help = HELP_NO_DEBUG)]
-    pub(crate) no_debug: bool,
-    #[arg(long, value_name = "T", value_parser = parse_timeout, help = HELP_TIMEOUT)]
-    pub(crate) timeout: Option<Duration>,
+    #[command(flatten)]
+    pub(crate) selector: RawLangLspArgs,
+    #[command(flatten)]
+    pub(crate) download: RawDownloadArgs,
+    #[command(flatten)]
+    pub(crate) detach: RawDetachArgs,
+    #[command(flatten)]
+    pub(crate) json: RawJsonArgs,
+    #[command(flatten)]
+    pub(crate) debug: RawDebugArgs,
+    #[command(flatten)]
+    pub(crate) timeout: RawTimeoutArgs,
     #[arg(long, help = "Exit with an error if formatting would change the file.")]
     pub(crate) check: bool,
     #[arg(
@@ -242,32 +268,22 @@ pub(crate) struct RawListSymbolsArgs {
         help = "File or directory whose symbols to list."
     )]
     pub(crate) path: PathBuf,
-    #[arg(long, help = HELP_LANG)]
-    pub(crate) lang: Option<String>,
-    #[arg(long, help = HELP_LSP)]
-    pub(crate) lsp: Option<String>,
-    #[arg(long, conflicts_with = "no_detach", help = HELP_DETACH)]
-    pub(crate) detach: bool,
-    #[arg(long = "no-detach", conflicts_with = "detach", help = HELP_NO_DETACH)]
-    pub(crate) no_detach: bool,
+    #[command(flatten)]
+    pub(crate) selector: RawLangLspArgs,
+    #[command(flatten)]
+    pub(crate) detach: RawDetachArgs,
     #[arg(long, help = HELP_WAIT_FOR_INDEX)]
     pub(crate) wait_for_index: bool,
-    #[arg(long, conflicts_with = "no_download", help = HELP_DOWNLOAD)]
-    pub(crate) download: bool,
-    #[arg(long = "no-download", conflicts_with = "download", help = HELP_NO_DOWNLOAD)]
-    pub(crate) no_download: bool,
-    #[arg(long, conflicts_with = "no_json", help = HELP_JSON)]
-    pub(crate) json: bool,
-    #[arg(long = "no-json", conflicts_with = "json", help = HELP_NO_JSON)]
-    pub(crate) no_json: bool,
-    #[arg(long, conflicts_with = "no_debug", help = HELP_DEBUG)]
-    pub(crate) debug: bool,
-    #[arg(long = "no-debug", conflicts_with = "debug", help = HELP_NO_DEBUG)]
-    pub(crate) no_debug: bool,
-    #[arg(long, value_name = "T", value_parser = parse_timeout, help = HELP_TIMEOUT)]
-    pub(crate) timeout: Option<Duration>,
-    #[arg(long, value_name = "N", help = HELP_LIMIT)]
-    pub(crate) limit: Option<usize>,
+    #[command(flatten)]
+    pub(crate) download: RawDownloadArgs,
+    #[command(flatten)]
+    pub(crate) json: RawJsonArgs,
+    #[command(flatten)]
+    pub(crate) debug: RawDebugArgs,
+    #[command(flatten)]
+    pub(crate) timeout: RawTimeoutArgs,
+    #[command(flatten)]
+    pub(crate) limit: RawLimitArgs,
 }
 
 #[derive(Debug, Args, Eq, PartialEq)]
@@ -319,24 +335,16 @@ pub(crate) struct RawBuildIndexArgs {
         help = "Workspace directory to index."
     )]
     pub(crate) directory: PathBuf,
-    #[arg(long, help = HELP_LANG)]
-    pub(crate) lang: Option<String>,
-    #[arg(long, help = HELP_LSP)]
-    pub(crate) lsp: Option<String>,
-    #[arg(long, conflicts_with = "no_detach", help = HELP_DETACH)]
-    pub(crate) detach: bool,
-    #[arg(long = "no-detach", conflicts_with = "detach", help = HELP_NO_DETACH)]
-    pub(crate) no_detach: bool,
-    #[arg(long, conflicts_with = "no_download", help = HELP_DOWNLOAD)]
-    pub(crate) download: bool,
-    #[arg(long = "no-download", conflicts_with = "download", help = HELP_NO_DOWNLOAD)]
-    pub(crate) no_download: bool,
-    #[arg(long, conflicts_with = "no_debug", help = HELP_DEBUG)]
-    pub(crate) debug: bool,
-    #[arg(long = "no-debug", conflicts_with = "debug", help = HELP_NO_DEBUG)]
-    pub(crate) no_debug: bool,
-    #[arg(long, value_name = "T", value_parser = parse_timeout, help = HELP_TIMEOUT)]
-    pub(crate) timeout: Option<Duration>,
+    #[command(flatten)]
+    pub(crate) selector: RawLangLspArgs,
+    #[command(flatten)]
+    pub(crate) detach: RawDetachArgs,
+    #[command(flatten)]
+    pub(crate) download: RawDownloadArgs,
+    #[command(flatten)]
+    pub(crate) debug: RawDebugArgs,
+    #[command(flatten)]
+    pub(crate) timeout: RawTimeoutArgs,
 }
 
 #[allow(clippy::struct_excessive_bools)]
@@ -349,18 +357,12 @@ pub(crate) struct RawRunArgs {
         help = "Path used to detect the workspace and server to run."
     )]
     pub(crate) path: PathBuf,
-    #[arg(long, help = HELP_LANG)]
-    pub(crate) lang: Option<String>,
-    #[arg(long, help = HELP_LSP)]
-    pub(crate) lsp: Option<String>,
-    #[arg(long, conflicts_with = "no_download", help = HELP_DOWNLOAD)]
-    pub(crate) download: bool,
-    #[arg(long = "no-download", conflicts_with = "download", help = HELP_NO_DOWNLOAD)]
-    pub(crate) no_download: bool,
-    #[arg(long, conflicts_with = "no_debug", help = HELP_DEBUG)]
-    pub(crate) debug: bool,
-    #[arg(long = "no-debug", conflicts_with = "debug", help = HELP_NO_DEBUG)]
-    pub(crate) no_debug: bool,
+    #[command(flatten)]
+    pub(crate) selector: RawLangLspArgs,
+    #[command(flatten)]
+    pub(crate) download: RawDownloadArgs,
+    #[command(flatten)]
+    pub(crate) debug: RawDebugArgs,
 }
 
 #[allow(clippy::struct_excessive_bools)]
@@ -373,18 +375,12 @@ pub(crate) struct RawDaemonArgs {
         help = "Path used to detect the workspace and server to daemonize."
     )]
     pub(crate) path: PathBuf,
-    #[arg(long, help = HELP_LANG)]
-    pub(crate) lang: Option<String>,
-    #[arg(long, help = HELP_LSP)]
-    pub(crate) lsp: Option<String>,
-    #[arg(long, conflicts_with = "no_download", help = HELP_DOWNLOAD)]
-    pub(crate) download: bool,
-    #[arg(long = "no-download", conflicts_with = "download", help = HELP_NO_DOWNLOAD)]
-    pub(crate) no_download: bool,
-    #[arg(long, conflicts_with = "no_debug", help = HELP_DEBUG)]
-    pub(crate) debug: bool,
-    #[arg(long = "no-debug", conflicts_with = "debug", help = HELP_NO_DEBUG)]
-    pub(crate) no_debug: bool,
+    #[command(flatten)]
+    pub(crate) selector: RawLangLspArgs,
+    #[command(flatten)]
+    pub(crate) download: RawDownloadArgs,
+    #[command(flatten)]
+    pub(crate) debug: RawDebugArgs,
     #[arg(
         long,
         value_name = "T",
@@ -404,23 +400,17 @@ pub(crate) struct RawStopArgs {
         help = "Path used to resolve the daemon to stop."
     )]
     pub(crate) path: PathBuf,
-    #[arg(long, help = HELP_LANG)]
-    pub(crate) lang: Option<String>,
-    #[arg(long, help = HELP_LSP)]
-    pub(crate) lsp: Option<String>,
-    #[arg(long, conflicts_with = "no_debug", help = HELP_DEBUG)]
-    pub(crate) debug: bool,
-    #[arg(long = "no-debug", conflicts_with = "debug", help = HELP_NO_DEBUG)]
-    pub(crate) no_debug: bool,
+    #[command(flatten)]
+    pub(crate) selector: RawLangLspArgs,
+    #[command(flatten)]
+    pub(crate) debug: RawDebugArgs,
 }
 
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Args, Eq, PartialEq)]
 pub(crate) struct RawStopAllArgs {
-    #[arg(long, conflicts_with = "no_debug", help = HELP_DEBUG)]
-    pub(crate) debug: bool,
-    #[arg(long = "no-debug", conflicts_with = "debug", help = HELP_NO_DEBUG)]
-    pub(crate) no_debug: bool,
+    #[command(flatten)]
+    pub(crate) debug: RawDebugArgs,
 }
 
 #[derive(Debug, Args, Eq, PartialEq)]
@@ -441,24 +431,16 @@ pub(crate) struct RawServerCapabilitiesArgs {
         help = "Workspace directory used to initialize the server."
     )]
     pub(crate) directory: PathBuf,
-    #[arg(long, help = HELP_LANG)]
-    pub(crate) lang: Option<String>,
-    #[arg(long, help = HELP_LSP)]
-    pub(crate) lsp: Option<String>,
-    #[arg(long, conflicts_with = "no_detach", help = HELP_DETACH)]
-    pub(crate) detach: bool,
-    #[arg(long = "no-detach", conflicts_with = "detach", help = HELP_NO_DETACH)]
-    pub(crate) no_detach: bool,
-    #[arg(long, conflicts_with = "no_download", help = HELP_DOWNLOAD)]
-    pub(crate) download: bool,
-    #[arg(long = "no-download", conflicts_with = "download", help = HELP_NO_DOWNLOAD)]
-    pub(crate) no_download: bool,
-    #[arg(long, conflicts_with = "no_debug", help = HELP_DEBUG)]
-    pub(crate) debug: bool,
-    #[arg(long = "no-debug", conflicts_with = "debug", help = HELP_NO_DEBUG)]
-    pub(crate) no_debug: bool,
-    #[arg(long, value_name = "T", value_parser = parse_timeout, help = HELP_TIMEOUT)]
-    pub(crate) timeout: Option<Duration>,
+    #[command(flatten)]
+    pub(crate) selector: RawLangLspArgs,
+    #[command(flatten)]
+    pub(crate) detach: RawDetachArgs,
+    #[command(flatten)]
+    pub(crate) download: RawDownloadArgs,
+    #[command(flatten)]
+    pub(crate) debug: RawDebugArgs,
+    #[command(flatten)]
+    pub(crate) timeout: RawTimeoutArgs,
 }
 
 #[derive(Debug, Args, Eq, PartialEq)]

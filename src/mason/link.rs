@@ -1,3 +1,5 @@
+use crate::env_vars;
+use crate::fs_err;
 use crate::mason::registry::MasonPackage;
 use crate::mason::template::TemplateContext;
 use crate::runtime_state::RuntimeState;
@@ -9,7 +11,9 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Component, Path, PathBuf};
 
-// Q: write a comment about the type
+const MASON_PATH_SEPARATOR: char = '/';
+
+// A resolved launcher path is either the executable itself or a generated wrapper.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum ResolvedProgram {
     Direct(PathBuf),
@@ -192,7 +196,7 @@ pub(crate) fn is_command_runnable(program: &str) -> bool {
         return is_command_runnable_path(Path::new(program));
     }
 
-    let Some(path) = env::var_os("PATH") else {
+    let Some(path) = env_vars::path_value() else {
         return false;
     };
 
@@ -237,15 +241,16 @@ fn materialize_share(
     for (target, source) in &package.share {
         let rendered_target = context.render(target);
         let rendered_source = context.render(source);
-        // Q: / is hardcoded here and in other places, is it OK for Windows?
-        // If yes, define a constant, document it (why it is OK), use it instead of hardcoding
-        let target_is_dir = rendered_target.ends_with('/');
-        let source_is_dir = rendered_source.ends_with('/');
+        let target_is_dir = rendered_target.ends_with(MASON_PATH_SEPARATOR);
+        let source_is_dir = rendered_source.ends_with(MASON_PATH_SEPARATOR);
         let share_path =
-            join_relative_path(&state.share_dir(), rendered_target.trim_end_matches('/'))?;
+            join_relative_path(
+                &state.share_dir(),
+                rendered_target.trim_end_matches(MASON_PATH_SEPARATOR),
+            )?;
         let package_path = join_relative_path(
             &state.package_dir(&package.name),
-            rendered_source.trim_end_matches('/'),
+            rendered_source.trim_end_matches(MASON_PATH_SEPARATOR),
         )?;
 
         if target_is_dir || source_is_dir {
@@ -263,39 +268,41 @@ fn write_wrapper_script(
     runtime: WrapperRuntime,
     target_path: &Path,
 ) -> Result<(), String> {
-    // Q: does it work on Windows? If not, use proper #[cfg(...)], here and in other functions
-    let contents = format!("#!/bin/sh\n{}\n", runtime.script_line(target_path));
-    write_file(launcher_path, contents.as_bytes())
+    #[cfg(unix)]
+    {
+        let contents = format!("#!/bin/sh\n{}\n", runtime.script_line(target_path));
+        write_file(launcher_path, contents.as_bytes())
+    }
+
+    #[cfg(not(unix))]
+    {
+        let _ = (runtime, target_path);
+        Err(format!(
+            "failed to create wrapper launcher {} because wrapper scripts are only implemented on Unix",
+            launcher_path.display()
+        ))
+    }
 }
 
 fn copy_file(source: &Path, target: &Path) -> Result<(), String> {
-    let bytes = fs::read(source)
-        .map_err(|error| format!("failed to read {}: {error}", source.display()))?;
+    let bytes = fs_err::read(source)?;
     write_file(target, &bytes)
 }
 
 fn copy_directory_contents(source: &Path, target: &Path) -> Result<(), String> {
-    // Q: std::fs::XXX(...).map_err() is used in multiple functions in many modules,
-    // wrap all of them into fn XXX(...) -> Result<_, _> that formats operation+path+error,
-    // move these wrappers into a separate module.
-    let metadata = fs::metadata(source)
-        .map_err(|error| format!("failed to inspect {}: {error}", source.display()))?;
+    let metadata = fs_err::metadata(source)?;
     if !metadata.is_dir() {
         return Err(format!("expected directory at {}", source.display()));
     }
 
-    fs::create_dir_all(target)
-        .map_err(|error| format!("failed to create {}: {error}", target.display()))?;
-    for entry in fs::read_dir(source)
-        .map_err(|error| format!("failed to read {}: {error}", source.display()))?
-    {
-        let entry =
-            entry.map_err(|error| format!("failed to read {}: {error}", source.display()))?;
+    fs_err::create_dir_all(target)?;
+    for entry in fs_err::read_dir(source)? {
+        let entry = entry.map_err(|error| format!("failed to read {}: {error}", source.display()))?;
         let source_path = entry.path();
         let target_path = target.join(entry.file_name());
-        let metadata = entry
-            .metadata()
-            .map_err(|error| format!("failed to inspect {}: {error}", source_path.display()))?;
+        let metadata = entry.metadata().map_err(|error| {
+            format!("failed to inspect {}: {error}", source_path.display())
+        })?;
         if metadata.is_dir() {
             copy_directory_contents(&source_path, &target_path)?;
         } else if metadata.is_file() {
@@ -337,9 +344,8 @@ fn write_file(path: &Path, bytes: &[u8]) -> Result<(), String> {
             path.display()
         ));
     };
-    fs::create_dir_all(parent)
-        .map_err(|error| format!("failed to create {}: {error}", parent.display()))?;
-    fs::write(path, bytes).map_err(|error| format!("failed to write {}: {error}", path.display()))
+    fs_err::create_dir_all(parent)?;
+    fs_err::write(path, bytes)
 }
 
 fn ensure_executable(path: &Path) -> Result<(), String> {
@@ -352,12 +358,10 @@ fn ensure_executable(path: &Path) -> Result<(), String> {
         };
         let mut permissions = metadata.permissions();
         let mode = permissions.mode();
-        if mode & 0o111 == 0 {
-            permissions.set_mode(mode | 0o755);
-            // Q: make sure other writable bit is dropped, here and in other places
-            fs::set_permissions(path, permissions).map_err(|error| {
-                format!("failed to set permissions on {}: {error}", path.display())
-            })?;
+        let hardened_mode = (mode | 0o111) & !0o022;
+        if hardened_mode != mode {
+            permissions.set_mode(hardened_mode);
+            fs_err::set_permissions(path, permissions)?;
         }
     }
 

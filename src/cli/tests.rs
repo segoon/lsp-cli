@@ -1,6 +1,7 @@
 use super::{
-    BuildIndexArgs, Command, ListSymbolsArgs, LspWorkspaceQueryArgs, WorkspaceQueryArgs,
-    clap_command, parse_args, parse_raw_args, resolve_command,
+    BuildIndexArgs, Command, InstallDebugArgs, ListSymbolsArgs, LspWorkspaceQueryArgs,
+    SelectionArgs, WorkspaceQueryArgs, clap_command, parse_args, parse_raw_args,
+    resolve_command,
 };
 use crate::config::CliConfig;
 use clap::Command as ClapCommand;
@@ -14,8 +15,7 @@ mod misc_commands;
 pub(super) fn workspace_query(directory: &str) -> WorkspaceQueryArgs {
     WorkspaceQueryArgs {
         directory: PathBuf::from(directory),
-        lang: None,
-        lsp: None,
+        selector: selection(None, None),
         wait_for_index: false,
         json: false,
         debug: false,
@@ -36,13 +36,10 @@ pub(super) fn lsp_workspace_query(directory: &str) -> LspWorkspaceQueryArgs {
 pub(super) fn list_symbols_args(path: &str) -> ListSymbolsArgs {
     ListSymbolsArgs {
         path: PathBuf::from(path),
-        lang: None,
-        lsp: None,
+        server: install_debug(None, None, false, false),
         detach: false,
         wait_for_index: false,
-        download: false,
         json: false,
-        debug: false,
         timeout: Duration::from_secs(10),
         limit: 100,
     }
@@ -51,12 +48,29 @@ pub(super) fn list_symbols_args(path: &str) -> ListSymbolsArgs {
 pub(super) fn build_index_args(directory: &str) -> BuildIndexArgs {
     BuildIndexArgs {
         directory: PathBuf::from(directory),
-        lang: None,
-        lsp: None,
+        server: install_debug(None, None, false, false),
         detach: false,
-        download: false,
-        debug: false,
         timeout: Duration::from_secs(10),
+    }
+}
+
+pub(super) fn selection(lang: Option<&str>, lsp: Option<&str>) -> SelectionArgs {
+    SelectionArgs {
+        lang: lang.map(str::to_string),
+        lsp: lsp.map(str::to_string),
+    }
+}
+
+pub(super) fn install_debug(
+    lang: Option<&str>,
+    lsp: Option<&str>,
+    download: bool,
+    debug: bool,
+) -> InstallDebugArgs {
+    InstallDebugArgs {
+        selection: selection(lang, lsp),
+        download,
+        debug,
     }
 }
 

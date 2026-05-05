@@ -4,6 +4,8 @@ mod cli;
 mod commands;
 mod config;
 mod detect;
+mod env_vars;
+mod fs_err;
 mod hash;
 mod lsp;
 mod mason;
@@ -93,8 +95,8 @@ fn main() {
                 }
             };
 
-            let (global_cli_root, user_cli_root) = default_cli_config_roots();
-            config.cli = match load_cli_config(&global_cli_root, user_cli_root.as_deref()) {
+            let cli_roots = default_cli_config_roots();
+            config.cli = match load_cli_config(&cli_roots.global, cli_roots.user.as_deref()) {
                 Ok(cli) => cli,
                 Err(error) => {
                     log_unexpected_error(&format!("failed to load lsp-cli defaults: {error}"));

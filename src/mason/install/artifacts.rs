@@ -1,4 +1,5 @@
 use crate::mason::install::join_relative_path;
+use crate::mason::http::{get as http_get, read_bytes as http_read_bytes};
 use crate::mason::platform::MasonPlatform;
 use crate::mason::registry::{MasonAsset, MasonAssetBin, MasonDownload, MasonPackage, OneOrMany};
 use crate::mason::template::TemplateContext;
@@ -14,6 +15,7 @@ use tar::Archive;
 use zip::ZipArchive;
 
 const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
+const MAX_DECOMPRESSED_BYTES: u64 = 512 * 1024 * 1024;
 
 pub(super) struct RenderedAssetData {
     bin: Option<String>,
@@ -214,27 +216,25 @@ pub(super) fn http_client() -> Result<Client, String> {
         .map_err(|error| format!("failed to create HTTP client: {error}"))
 }
 
-// Q: download_bytes() is duplicated
+// Q: download_bytes() is duplicated, it has almost the same body
 pub(super) fn download_bytes(
     client: &Client,
     url: &str,
     package: &MasonPackage,
 ) -> Result<Vec<u8>, String> {
-    // Q: does downloading via HTTPS check server SSL certificate?
-    let mut response = client
-        .get(url)
-        .send()
-        .map_err(|error| format!("failed to download {}: {error}", package.name))?
-        .error_for_status()
-        .map_err(|error| format!("failed to download {}: {error}", package.name))?;
-    let mut bytes = Vec::new();
-    response
-        .read_to_end(&mut bytes)
-        .map_err(|error| format!("failed to read download for {}: {error}", package.name))?;
-    Ok(bytes)
+    let response = http_get(
+        client,
+        url,
+        &format!("failed to download {}", package.name),
+        &format!("failed to download {}", package.name),
+    )?;
+    http_read_bytes(response, &format!("failed to read download for {}", package.name))
 }
 
-// Q: write a comment what the function does
+/// Creates the install root and materializes one downloaded payload into it.
+///
+/// Archive payloads are unpacked based on the downloaded filename, while plain
+/// files are written directly under `root`.
 pub(super) fn install_downloaded_artifact(
     root: &Path,
     relative_name: &str,
@@ -263,31 +263,29 @@ pub(super) fn install_downloaded_artifact(
 fn extract_tar_gz(root: &Path, bytes: &[u8]) -> Result<(), String> {
     let reader = GzDecoder::new(Cursor::new(bytes));
     let mut archive = Archive::new(reader);
-    // Q: try to move duplicated code to a function: |error| { format!("XXX {}: {error}", root.display()) }
-    for entry in archive.entries().map_err(|error| {
-        format!(
-            "failed to open downloaded tar archive in {}: {error}",
-            root.display()
-        )
-    })? {
-        let mut entry = entry.map_err(|error| {
-            format!(
-                "failed to read downloaded tar archive in {}: {error}",
-                root.display()
-            )
-        })?;
-        let entry_path = entry.path().map_err(|error| {
-            format!(
-                "failed to read tar entry path in {}: {error}",
-                root.display()
-            )
-        })?;
+    // Q: format_root_error(msg, root) must return lambda to simplify the caller
+    for entry in archive
+        .entries()
+        .map_err(|error| format_root_error("failed to open downloaded tar archive in", root, error))?
+    {
+        let mut entry = entry
+            .map_err(|error| format_root_error("failed to read downloaded tar archive in", root, error))?;
+        let entry_path = entry
+            .path()
+            .map_err(|error| format_root_error("failed to read tar entry path in", root, error))?;
         let output_path = join_relative_path(root, &entry_path.to_string_lossy())?;
         if entry.header().entry_type().is_dir() {
+            // Q: format_root_error() can be used here, look carefully in other places and in other functions
             fs::create_dir_all(&output_path)
                 .map_err(|error| format!("failed to create {}: {error}", output_path.display()))?;
             continue;
         }
+
+        ensure_decompressed_size_limit(
+            entry.size(),
+            &format!("tar entry {}", output_path.display()),
+        )?;
+
         if let Some(parent) = output_path.parent() {
             fs::create_dir_all(parent)
                 .map_err(|error| format!("failed to create {}: {error}", parent.display()))?;
@@ -325,6 +323,7 @@ fn extract_zip(root: &Path, bytes: &[u8]) -> Result<(), String> {
                 .map_err(|error| format!("failed to create {}: {error}", output_path.display()))?;
             continue;
         }
+        ensure_decompressed_size_limit(file.size(), &format!("zip entry {}", output_path.display()))?;
         if let Some(parent) = output_path.parent() {
             fs::create_dir_all(parent)
                 .map_err(|error| format!("failed to create {}: {error}", parent.display()))?;
@@ -333,10 +332,9 @@ fn extract_zip(root: &Path, bytes: &[u8]) -> Result<(), String> {
             .map_err(|error| format!("failed to create {}: {error}", output_path.display()))?;
         std::io::copy(&mut file, &mut output)
             .map_err(|error| format!("failed to extract {}: {error}", output_path.display()))?;
-        // Q: make sure other users may not write to the extracted file
         #[cfg(unix)]
         if let Some(mode) = file.unix_mode() {
-            fs::set_permissions(&output_path, fs::Permissions::from_mode(mode)).map_err(
+            fs::set_permissions(&output_path, fs::Permissions::from_mode(owner_writable_mode(mode))).map_err(
                 |error| {
                     format!(
                         "failed to set permissions on {}: {error}",
@@ -349,15 +347,33 @@ fn extract_zip(root: &Path, bytes: &[u8]) -> Result<(), String> {
     Ok(())
 }
 
-// Q: for gzip and other decoders set a hard limit of the output size,
-// fail loudly if it is violated.
 fn write_gzip_file(path: &Path, bytes: &[u8]) -> Result<(), String> {
-    let mut decoder = GzDecoder::new(Cursor::new(bytes));
     let mut output = Vec::new();
-    decoder
+    GzDecoder::new(Cursor::new(bytes))
+        .take(MAX_DECOMPRESSED_BYTES + 1)
         .read_to_end(&mut output)
         .map_err(|error| format!("failed to unpack {}: {error}", path.display()))?;
+    ensure_decompressed_size_limit(output.len() as u64, &path.display().to_string())?;
     write_file(path, &output)
+}
+
+fn format_root_error(action: &str, root: &Path, error: impl std::fmt::Display) -> String {
+    format!("{action} {}: {error}", root.display())
+}
+
+fn ensure_decompressed_size_limit(size: u64, path: &str) -> Result<(), String> {
+    if size > MAX_DECOMPRESSED_BYTES {
+        Err(format!(
+            "refusing to unpack {path} because it expands beyond {MAX_DECOMPRESSED_BYTES} bytes"
+        ))
+    } else {
+        Ok(())
+    }
+}
+
+#[cfg(unix)]
+fn owner_writable_mode(mode: u32) -> u32 {
+    mode & !0o022
 }
 
 fn write_file(path: &Path, bytes: &[u8]) -> Result<(), String> {

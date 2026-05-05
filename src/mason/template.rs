@@ -24,7 +24,8 @@ impl TemplateContext<'_> {
             .into_owned()
     }
 
-    // Q: add a link to specification that defines the format
+    // Mason expression format reference:
+    // https://github.com/mason-org/mason-registry/blob/main/CONTRIBUTING.md#expressions
     fn render_expression(&self, expression: &str) -> Option<String> {
         let expression = expression.trim();
 

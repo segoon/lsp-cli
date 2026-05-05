@@ -1,9 +1,9 @@
 use crate::cli::{CompletionArgs, clap_command};
 use crate::config::{default_config_root, load_config_store};
+use crate::env_vars;
 use clap::builder::PossibleValuesParser;
 use clap_complete::{Shell, generate};
 use std::collections::BTreeSet;
-use std::env;
 use std::ffi::OsStr;
 use std::io::Cursor;
 use std::path::Path;
@@ -85,7 +85,7 @@ struct CompletionValues {
 pub(super) fn detect_current_shell() -> Result<clap_complete::Shell, String> {
     clap_complete::Shell::from_env()
         .ok_or(())
-        .or_else(|()| detect_shell_from_env(env::var_os("SHELL").as_deref()))
+        .or_else(|()| detect_shell_from_env(env_vars::shell_path().as_deref()))
 }
 
 pub(super) fn detect_shell_from_env(shell: Option<&OsStr>) -> Result<clap_complete::Shell, String> {

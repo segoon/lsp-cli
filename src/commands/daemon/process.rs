@@ -30,9 +30,9 @@ pub(super) fn resolve_target(
 ) -> Result<DaemonTarget, String> {
     let workspace = prepare_workspace(
         &args.path,
-        args.lsp.as_deref(),
-        args.lang.as_deref(),
-        args.download,
+        args.server.selection.lsp.as_deref(),
+        args.server.selection.lang.as_deref(),
+        args.server.download,
         config,
     )?;
     let server = workspace.server;
@@ -87,7 +87,7 @@ pub(super) fn launch_background(
         &args.path,
         &target.server_name,
         &target.socket_path,
-        args.debug,
+        args.server.debug,
         args.idle_timeout,
     )?;
     Ok(target.socket_path.display().to_string())
@@ -159,7 +159,7 @@ pub(super) fn launch_background_for_connection(
 
 pub(super) fn run_background(args: &DaemonArgs, target: DaemonTarget) -> Result<String, String> {
     let mut daemon = match unsafe { setsid_wrapper() }
-        .and_then(|()| Daemon::new(target, args.debug, args.idle_timeout))
+        .and_then(|()| Daemon::new(target, args.server.debug, args.idle_timeout))
     {
         Ok(daemon) => daemon,
         Err(error) => {

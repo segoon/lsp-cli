@@ -1,12 +1,12 @@
 use crate::hash::encode_hex;
-use std::env;
+use crate::env_vars;
 use std::fs;
 use std::os::unix::fs::FileTypeExt;
 use std::path::{Path, PathBuf};
 
 use sha2::{Digest, Sha256};
 
-// Q: write a comment for the type
+// Per-user root for lsp-cli runtime state: registry cache, installs, logs, and receipts.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RuntimeState {
     root: PathBuf,
@@ -97,13 +97,12 @@ impl RuntimeState {
 }
 
 pub fn default_runtime_state_root() -> Result<PathBuf, String> {
-    let home = env::var_os("HOME").map(PathBuf::from);
+    let home = env_vars::home_dir();
     choose_runtime_state_root(home.as_deref())
 }
 
 pub fn default_daemon_root() -> Result<PathBuf, String> {
-    // Q: move XDG_RUNTIME_DIR reading to a function, reuse it here and in other files
-    let runtime_dir = env::var_os("XDG_RUNTIME_DIR").map(PathBuf::from);
+    let runtime_dir = env_vars::xdg_runtime_dir();
     choose_daemon_root(runtime_dir.as_deref())
 }
 
@@ -156,11 +155,13 @@ pub fn daemon_socket_paths(daemon_root: &Path) -> Result<Vec<PathBuf>, String> {
 }
 
 fn choose_runtime_state_root(home: Option<&Path>) -> Result<PathBuf, String> {
+    // Q: use explicit if/else instead of map/ok_or_else
     home.map(|path| path.join(".local/share/lsp-cli"))
         .ok_or_else(|| "could not resolve runtime state root because $HOME is not set".to_string())
 }
 
 fn choose_daemon_root(runtime_dir: Option<&Path>) -> Result<PathBuf, String> {
+    // Q: use explicit if/else instead of map/ok_or_else
     runtime_dir.map(|path| path.join("lsp-cli")).ok_or_else(|| {
         "could not resolve daemon socket root because $XDG_RUNTIME_DIR is not set".to_string()
     })
@@ -268,20 +269,20 @@ mod tests {
     fn lists_only_daemon_socket_paths() {
         let dir = TestDir::new("daemon-socket-list");
         let daemon_root = dir.path().join("runtime");
-        fs::create_dir_all(&daemon_root).expect("daemon root should exist");
-        let socket_path = daemon_root.join("alpha.sock");
-        let listener = UnixListener::bind(&socket_path).expect("socket should bind");
-        fs::write(daemon_root.join("notes.txt"), b"").expect("other placeholder should be written");
-        fs::create_dir_all(daemon_root.join("beta.sock"))
-            .expect("directory placeholder should be written");
+        {
+            fs::create_dir_all(&daemon_root).expect("daemon root should exist");
+            let socket_path = daemon_root.join("alpha.sock");
+            let _listener = UnixListener::bind(&socket_path).expect("socket should bind");
+            fs::write(daemon_root.join("notes.txt"), b"")
+                .expect("other placeholder should be written");
+            fs::create_dir_all(daemon_root.join("beta.sock"))
+                .expect("directory placeholder should be written");
 
-        assert_eq!(
-            daemon_socket_paths(&daemon_root).expect("socket listing should succeed"),
-            vec![socket_path]
-        );
-
-        // Q: why explicit drop()? it is called automatically, isn't it?
-        drop(listener);
+            assert_eq!(
+                daemon_socket_paths(&daemon_root).expect("socket listing should succeed"),
+                vec![socket_path.clone()]
+            );
+        }
     }
 
     #[test]

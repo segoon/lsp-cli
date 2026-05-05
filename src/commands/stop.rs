@@ -8,7 +8,7 @@ use crate::suggest::SuggestedLanguage;
 use std::collections::BTreeSet;
 
 pub(super) fn run(args: &StopArgs, config: &ConfigStore) -> Result<String, String> {
-    if args.lang.is_none() && args.lsp.is_none() {
+    if args.selector.lang.is_none() && args.selector.lsp.is_none() {
         let (detection, suggestions) = analyze_path(&args.path, config)?;
         let languages = implicit_stop_languages(&detection, &suggestions, config);
         if languages.len() > 1 {
@@ -18,8 +18,8 @@ pub(super) fn run(args: &StopArgs, config: &ConfigStore) -> Result<String, Strin
 
     let workspace = prepare_workspace(
         &args.path,
-        args.lsp.as_deref(),
-        args.lang.as_deref(),
+        args.selector.lsp.as_deref(),
+        args.selector.lang.as_deref(),
         false,
         config,
     )?;

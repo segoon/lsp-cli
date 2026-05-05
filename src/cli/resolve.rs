@@ -1,9 +1,9 @@
 use crate::cli::{
     BuildIndexArgs, Command, CommandsArgs, DEFAULT_IDLE_TIMEOUT, DEFAULT_LIMIT, DEFAULT_TIMEOUT,
-    DaemonArgs, DeclarationArgs, DefinitionArgs, DetectArgs, DiagnosticsArgs, FormatArgs, GrepArgs,
-    LanguagesArgs, ListFilesArgs, ListFunctionsArgs, ListSymbolsArgs, LspWorkspaceQueryArgs,
-    RunArgs, ServerCapabilitiesArgs, ServersArgs, StopAllArgs, StopArgs, SymbolQueryArgs,
-    UpdateArgs, WorkspaceQueryArgs,
+    DaemonArgs, DeclarationArgs, DefinitionArgs, DetectArgs, DiagnosticsArgs, FormatArgs,
+    GrepArgs, InstallDebugArgs, LanguagesArgs, ListFilesArgs, ListFunctionsArgs,
+    ListSymbolsArgs, LspWorkspaceQueryArgs, RunArgs, SelectionArgs, ServerCapabilitiesArgs,
+    ServersArgs, StopAllArgs, StopArgs, SymbolQueryArgs, UpdateArgs, WorkspaceQueryArgs,
 };
 use crate::cli::{
     RawBuildIndexArgs, RawCommand, RawCommandsArgs, RawDaemonArgs, RawDeclarationArgs,
@@ -69,20 +69,18 @@ impl RawDetectArgs {
     fn resolve(self, defaults: &CliConfig) -> DetectArgs {
         DetectArgs {
             path: self.path,
-            lang: self.lang,
-            lsp: self.lsp,
-            download: resolve_bool(
+            server: resolve_install_debug_args(
+                self.selector,
                 self.download,
-                self.no_download,
-                defaults.download.unwrap_or(false),
+                self.debug,
+                defaults,
             ),
-            json: resolve_bool(self.json, self.no_json, defaults.json.unwrap_or(false)),
+            json: resolve_bool(self.json.json, self.json.no_json, defaults.json.unwrap_or(false)),
             quiet: resolve_bool(
                 self.quiet,
                 self.no_quiet,
                 defaults.detect.quiet.unwrap_or(false),
             ),
-            debug: resolve_bool(self.debug, self.no_debug, defaults.debug.unwrap_or(false)),
         }
     }
 }
@@ -91,15 +89,20 @@ impl RawWorkspaceQueryArgs {
     fn resolve(self, defaults: &CliConfig) -> WorkspaceQueryArgs {
         WorkspaceQueryArgs {
             directory: self.directory,
-            lang: self.lang,
-            lsp: self.lsp,
+            selector: resolve_selection_args(self.selector),
             wait_for_index: self.wait_for_index,
-            json: resolve_bool(self.json, self.no_json, defaults.json.unwrap_or(false)),
-            debug: resolve_bool(self.debug, self.no_debug, defaults.debug.unwrap_or(false)),
+            json: resolve_bool(self.json.json, self.json.no_json, defaults.json.unwrap_or(false)),
+            debug: resolve_bool(
+                self.debug.debug,
+                self.debug.no_debug,
+                defaults.debug.unwrap_or(false),
+            ),
             timeout: self
+                .timeout
                 .timeout
                 .unwrap_or(defaults.timeout.unwrap_or(DEFAULT_TIMEOUT)),
             limit: self
+                .limit
                 .limit
                 .unwrap_or(defaults.limit.unwrap_or(DEFAULT_LIMIT)),
         }
@@ -111,13 +114,13 @@ impl RawLspWorkspaceQueryArgs {
         LspWorkspaceQueryArgs {
             query: self.query.resolve(defaults),
             download: resolve_bool(
-                self.download,
-                self.no_download,
+                self.download.download,
+                self.download.no_download,
                 defaults.download.unwrap_or(false),
             ),
             detach: resolve_bool(
-                self.detach,
-                self.no_detach,
+                self.detach.detach,
+                self.detach.no_detach,
                 defaults.detach.unwrap_or(false),
             ),
             files_with_matches: self.files_with_matches,
@@ -146,21 +149,20 @@ impl RawFormatArgs {
     fn resolve(self, defaults: &CliConfig) -> FormatArgs {
         FormatArgs {
             path: self.path,
-            lang: self.lang,
-            lsp: self.lsp,
-            download: resolve_bool(
+            server: resolve_install_debug_args(
+                self.selector,
                 self.download,
-                self.no_download,
-                defaults.download.unwrap_or(false),
+                self.debug,
+                defaults,
             ),
             detach: resolve_bool(
-                self.detach,
-                self.no_detach,
+                self.detach.detach,
+                self.detach.no_detach,
                 defaults.detach.unwrap_or(false),
             ),
-            json: resolve_bool(self.json, self.no_json, defaults.json.unwrap_or(false)),
-            debug: resolve_bool(self.debug, self.no_debug, defaults.debug.unwrap_or(false)),
+            json: resolve_bool(self.json.json, self.json.no_json, defaults.json.unwrap_or(false)),
             timeout: self
+                .timeout
                 .timeout
                 .unwrap_or(defaults.timeout.unwrap_or(DEFAULT_TIMEOUT)),
             check: self.check,
@@ -173,25 +175,25 @@ impl RawListSymbolsArgs {
     fn resolve(self, defaults: &CliConfig) -> ListSymbolsArgs {
         ListSymbolsArgs {
             path: self.path,
-            lang: self.lang,
-            lsp: self.lsp,
+            server: resolve_install_debug_args(
+                self.selector,
+                self.download,
+                self.debug,
+                defaults,
+            ),
             detach: resolve_bool(
-                self.detach,
-                self.no_detach,
+                self.detach.detach,
+                self.detach.no_detach,
                 defaults.detach.unwrap_or(false),
             ),
             wait_for_index: self.wait_for_index,
-            download: resolve_bool(
-                self.download,
-                self.no_download,
-                defaults.download.unwrap_or(false),
-            ),
-            json: resolve_bool(self.json, self.no_json, defaults.json.unwrap_or(false)),
-            debug: resolve_bool(self.debug, self.no_debug, defaults.debug.unwrap_or(false)),
+            json: resolve_bool(self.json.json, self.json.no_json, defaults.json.unwrap_or(false)),
             timeout: self
+                .timeout
                 .timeout
                 .unwrap_or(defaults.timeout.unwrap_or(DEFAULT_TIMEOUT)),
             limit: self
+                .limit
                 .limit
                 .unwrap_or(defaults.limit.unwrap_or(DEFAULT_LIMIT)),
         }
@@ -247,20 +249,19 @@ impl RawBuildIndexArgs {
     fn resolve(self, defaults: &CliConfig) -> BuildIndexArgs {
         BuildIndexArgs {
             directory: self.directory,
-            lang: self.lang,
-            lsp: self.lsp,
+            server: resolve_install_debug_args(
+                self.selector,
+                self.download,
+                self.debug,
+                defaults,
+            ),
             detach: resolve_bool(
-                self.detach,
-                self.no_detach,
+                self.detach.detach,
+                self.detach.no_detach,
                 defaults.detach.unwrap_or(false),
             ),
-            download: resolve_bool(
-                self.download,
-                self.no_download,
-                defaults.download.unwrap_or(false),
-            ),
-            debug: resolve_bool(self.debug, self.no_debug, defaults.debug.unwrap_or(false)),
             timeout: self
+                .timeout
                 .timeout
                 .unwrap_or(defaults.timeout.unwrap_or(DEFAULT_TIMEOUT)),
         }
@@ -271,14 +272,12 @@ impl RawRunArgs {
     fn resolve(self, defaults: &CliConfig) -> RunArgs {
         RunArgs {
             path: self.path,
-            lang: self.lang,
-            lsp: self.lsp,
-            download: resolve_bool(
+            server: resolve_install_debug_args(
+                self.selector,
                 self.download,
-                self.no_download,
-                defaults.download.unwrap_or(false),
+                self.debug,
+                defaults,
             ),
-            debug: resolve_bool(self.debug, self.no_debug, defaults.debug.unwrap_or(false)),
         }
     }
 }
@@ -287,14 +286,12 @@ impl RawDaemonArgs {
     fn resolve(self, defaults: &CliConfig) -> DaemonArgs {
         DaemonArgs {
             path: self.path,
-            lang: self.lang,
-            lsp: self.lsp,
-            download: resolve_bool(
+            server: resolve_install_debug_args(
+                self.selector,
                 self.download,
-                self.no_download,
-                defaults.download.unwrap_or(false),
+                self.debug,
+                defaults,
             ),
-            debug: resolve_bool(self.debug, self.no_debug, defaults.debug.unwrap_or(false)),
             idle_timeout: self
                 .idle_timeout
                 .unwrap_or(defaults.daemon.idle_timeout.unwrap_or(DEFAULT_IDLE_TIMEOUT)),
@@ -306,9 +303,12 @@ impl RawStopArgs {
     fn resolve(self, defaults: &CliConfig) -> StopArgs {
         StopArgs {
             path: self.path,
-            lang: self.lang,
-            lsp: self.lsp,
-            debug: resolve_bool(self.debug, self.no_debug, defaults.debug.unwrap_or(false)),
+            selector: resolve_selection_args(self.selector),
+            debug: resolve_bool(
+                self.debug.debug,
+                self.debug.no_debug,
+                defaults.debug.unwrap_or(false),
+            ),
         }
     }
 }
@@ -316,7 +316,11 @@ impl RawStopArgs {
 impl RawStopAllArgs {
     fn resolve(self, defaults: &CliConfig) -> StopAllArgs {
         StopAllArgs {
-            debug: resolve_bool(self.debug, self.no_debug, defaults.debug.unwrap_or(false)),
+            debug: resolve_bool(
+                self.debug.debug,
+                self.debug.no_debug,
+                defaults.debug.unwrap_or(false),
+            ),
         }
     }
 }
@@ -337,20 +341,19 @@ impl RawServerCapabilitiesArgs {
     fn resolve(self, defaults: &CliConfig) -> ServerCapabilitiesArgs {
         ServerCapabilitiesArgs {
             directory: self.directory,
-            lang: self.lang,
-            lsp: self.lsp,
+            server: resolve_install_debug_args(
+                self.selector,
+                self.download,
+                self.debug,
+                defaults,
+            ),
             detach: resolve_bool(
-                self.detach,
-                self.no_detach,
+                self.detach.detach,
+                self.detach.no_detach,
                 defaults.detach.unwrap_or(false),
             ),
-            download: resolve_bool(
-                self.download,
-                self.no_download,
-                defaults.download.unwrap_or(false),
-            ),
-            debug: resolve_bool(self.debug, self.no_debug, defaults.debug.unwrap_or(false)),
             timeout: self
+                .timeout
                 .timeout
                 .unwrap_or(defaults.timeout.unwrap_or(DEFAULT_TIMEOUT)),
         }
@@ -370,6 +373,30 @@ fn resolve_bool(enabled: bool, disabled: bool, default: bool) -> bool {
         false
     } else {
         default
+    }
+}
+
+fn resolve_selection_args(selector: crate::cli::RawLangLspArgs) -> SelectionArgs {
+    SelectionArgs {
+        lang: selector.lang,
+        lsp: selector.lsp,
+    }
+}
+
+fn resolve_install_debug_args(
+    selector: crate::cli::RawLangLspArgs,
+    download: crate::cli::RawDownloadArgs,
+    debug: crate::cli::RawDebugArgs,
+    defaults: &CliConfig,
+) -> InstallDebugArgs {
+    InstallDebugArgs {
+        selection: resolve_selection_args(selector),
+        download: resolve_bool(
+            download.download,
+            download.no_download,
+            defaults.download.unwrap_or(false),
+        ),
+        debug: resolve_bool(debug.debug, debug.no_debug, defaults.debug.unwrap_or(false)),
     }
 }
 

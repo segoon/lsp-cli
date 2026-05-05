@@ -55,10 +55,11 @@ fn run_diagnostics_query(
     args: &DiagnosticsArgs,
     config: &ConfigStore,
 ) -> Result<DiagnosticsQueryResult, String> {
+    // Q: args.query.query is duplicated, fix here and in similar places in other functions/modules
     let workspace = prepare_workspace(
         &args.query.query.directory,
-        args.query.query.lsp.as_deref(),
-        args.query.query.lang.as_deref(),
+        args.query.query.selector.lsp.as_deref(),
+        args.query.query.selector.lang.as_deref(),
         args.query.download,
         config,
     )?;

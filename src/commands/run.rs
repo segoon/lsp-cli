@@ -10,9 +10,9 @@ use std::os::unix::process::CommandExt;
 pub(super) fn run(args: &RunArgs, config: &ConfigStore) -> Result<String, String> {
     let workspace = prepare_workspace(
         &args.path,
-        args.lsp.as_deref(),
-        args.lang.as_deref(),
-        args.download,
+        args.server.selection.lsp.as_deref(),
+        args.server.selection.lang.as_deref(),
+        args.server.download,
         config,
     )?;
     let server = workspace.server;
@@ -23,7 +23,7 @@ pub(super) fn run(args: &RunArgs, config: &ConfigStore) -> Result<String, String
         ));
     };
 
-    if args.debug {
+    if args.server.debug {
         eprintln!("LSP server: {}", server.command.join(" "));
     }
 
@@ -35,7 +35,7 @@ pub(super) fn run(args: &RunArgs, config: &ConfigStore) -> Result<String, String
     command
         .args(&server.command[1..])
         .current_dir(&server.workspace_root)
-        .stderr(if args.debug {
+        .stderr(if args.server.debug {
             Stdio::inherit()
         } else {
             Stdio::null()

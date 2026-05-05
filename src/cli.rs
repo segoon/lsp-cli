@@ -6,12 +6,12 @@ mod resolve;
 
 pub use raw::{AgentSkillArgs, CompletionArgs, clap_command};
 pub(crate) use raw::{
-    RawBuildIndexArgs, RawCommand, RawCommandsArgs, RawDaemonArgs, RawDeclarationArgs,
-    RawDefinitionArgs, RawDetectArgs, RawDiagnosticsArgs, RawFormatArgs, RawGrepArgs,
-    RawLanguagesArgs, RawListFilesArgs, RawListFunctionsArgs, RawListSymbolsArgs,
-    RawLspWorkspaceQueryArgs, RawRunArgs, RawServerCapabilitiesArgs, RawServersArgs,
-    RawStopAllArgs, RawStopArgs, RawSymbolQueryArgs, RawUpdateArgs, RawWorkspaceQueryArgs,
-    parse_raw_args,
+    RawBuildIndexArgs, RawCommand, RawCommandsArgs, RawDaemonArgs, RawDebugArgs,
+    RawDeclarationArgs, RawDefinitionArgs, RawDetectArgs, RawDiagnosticsArgs, RawDownloadArgs,
+    RawFormatArgs, RawGrepArgs, RawLangLspArgs, RawLanguagesArgs, RawListFilesArgs,
+    RawListFunctionsArgs, RawListSymbolsArgs, RawLspWorkspaceQueryArgs, RawRunArgs,
+    RawServerCapabilitiesArgs, RawServersArgs, RawStopAllArgs, RawStopArgs, RawSymbolQueryArgs,
+    RawUpdateArgs, RawWorkspaceQueryArgs, parse_raw_args,
 };
 pub(crate) use resolve::resolve_command;
 
@@ -53,25 +53,32 @@ pub enum Command {
 #[derive(Debug, Eq, PartialEq)]
 pub struct CommandsArgs;
 
+#[derive(Debug, Eq, PartialEq)]
+pub struct SelectionArgs {
+    pub lang: Option<String>,
+    pub lsp: Option<String>,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct InstallDebugArgs {
+    pub selection: SelectionArgs,
+    pub download: bool,
+    pub debug: bool,
+}
+
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Eq, PartialEq)]
 pub struct DetectArgs {
     pub path: PathBuf,
-    // Q: langu, lsp, download, debug are duplicated across multiple *Args,
-    // is it possible to unify it? e.g. via new common struct
-    pub lang: Option<String>,
-    pub lsp: Option<String>,
-    pub download: bool,
+    pub server: InstallDebugArgs,
     pub json: bool,
     pub quiet: bool,
-    pub debug: bool,
 }
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct WorkspaceQueryArgs {
     pub directory: PathBuf,
-    pub lang: Option<String>,
-    pub lsp: Option<String>,
+    pub selector: SelectionArgs,
     pub wait_for_index: bool,
     pub json: bool,
     pub debug: bool,
@@ -102,12 +109,9 @@ pub struct DiagnosticsArgs {
 #[derive(Debug, Eq, PartialEq)]
 pub struct FormatArgs {
     pub path: PathBuf,
-    pub lang: Option<String>,
-    pub lsp: Option<String>,
-    pub download: bool,
+    pub server: InstallDebugArgs,
     pub detach: bool,
     pub json: bool,
-    pub debug: bool,
     pub timeout: Duration,
     pub check: bool,
     pub stdout: bool,
@@ -117,13 +121,10 @@ pub struct FormatArgs {
 #[derive(Debug, Eq, PartialEq)]
 pub struct ListSymbolsArgs {
     pub path: PathBuf,
-    pub lang: Option<String>,
-    pub lsp: Option<String>,
+    pub server: InstallDebugArgs,
     pub detach: bool,
     pub wait_for_index: bool,
-    pub download: bool,
     pub json: bool,
-    pub debug: bool,
     pub timeout: Duration,
     pub limit: usize,
 }
@@ -161,38 +162,28 @@ pub struct DeclarationArgs {
 #[derive(Debug, Eq, PartialEq)]
 pub struct BuildIndexArgs {
     pub directory: PathBuf,
-    pub lang: Option<String>,
-    pub lsp: Option<String>,
+    pub server: InstallDebugArgs,
     pub detach: bool,
-    pub download: bool,
-    pub debug: bool,
     pub timeout: Duration,
 }
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct RunArgs {
     pub path: PathBuf,
-    pub lang: Option<String>,
-    pub lsp: Option<String>,
-    pub download: bool,
-    pub debug: bool,
+    pub server: InstallDebugArgs,
 }
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct DaemonArgs {
     pub path: PathBuf,
-    pub lang: Option<String>,
-    pub lsp: Option<String>,
-    pub download: bool,
-    pub debug: bool,
+    pub server: InstallDebugArgs,
     pub idle_timeout: Duration,
 }
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct StopArgs {
     pub path: PathBuf,
-    pub lang: Option<String>,
-    pub lsp: Option<String>,
+    pub selector: SelectionArgs,
     pub debug: bool,
 }
 
@@ -212,11 +203,8 @@ pub struct ServersArgs {
 #[derive(Debug, Eq, PartialEq)]
 pub struct ServerCapabilitiesArgs {
     pub directory: PathBuf,
-    pub lang: Option<String>,
-    pub lsp: Option<String>,
+    pub server: InstallDebugArgs,
     pub detach: bool,
-    pub download: bool,
-    pub debug: bool,
     pub timeout: Duration,
 }
 

@@ -2,17 +2,17 @@ use super::super::{
     Command, CompletionArgs, DeclarationArgs, DefinitionArgs, ListFilesArgs, ListFunctionsArgs,
     SymbolQueryArgs,
 };
-use super::{build_index_args, list_symbols_args, lsp_workspace_query, parse, workspace_query};
+use super::{
+    build_index_args, install_debug, list_symbols_args, lsp_workspace_query, parse, selection,
+    workspace_query,
+};
 use clap_complete::Shell;
 use std::time::Duration;
 
 #[test]
 fn parses_build_index_arguments() {
     let mut expected = build_index_args("workspace");
-    expected.lang = Some("rust".to_string());
-    expected.lsp = Some("rust-analyzer".to_string());
-    expected.download = true;
-    expected.debug = true;
+    expected.server = install_debug(Some("rust"), Some("rust-analyzer"), true, true);
     expected.timeout = Duration::from_millis(500);
 
     assert_eq!(
@@ -54,11 +54,8 @@ fn parses_completion_without_shell() {
 #[test]
 fn parses_list_symbols_arguments() {
     let mut expected = list_symbols_args("workspace");
-    expected.lang = Some("rust".to_string());
-    expected.lsp = Some("rust-analyzer".to_string());
-    expected.download = true;
+    expected.server = install_debug(Some("rust"), Some("rust-analyzer"), true, true);
     expected.json = true;
-    expected.debug = true;
     expected.timeout = Duration::from_millis(250);
 
     assert_eq!(
@@ -83,8 +80,7 @@ fn parses_list_symbols_arguments() {
 #[test]
 fn parses_list_functions_arguments() {
     let mut query = lsp_workspace_query("workspace");
-    query.query.lang = Some("rust".to_string());
-    query.query.lsp = Some("rust-analyzer".to_string());
+    query.query.selector = selection(Some("rust"), Some("rust-analyzer"));
     query.query.json = true;
     query.query.debug = true;
     query.query.timeout = Duration::from_millis(250);
@@ -110,8 +106,7 @@ fn parses_list_functions_arguments() {
 #[test]
 fn parses_list_files_arguments() {
     let mut query = workspace_query("workspace");
-    query.lang = Some("rust".to_string());
-    query.lsp = Some("rust-analyzer".to_string());
+    query.selector = selection(Some("rust"), Some("rust-analyzer"));
     query.json = true;
     query.limit = 25;
 
@@ -143,7 +138,7 @@ fn rejects_list_files_detach() {
 #[test]
 fn parses_references_alias_arguments() {
     let mut query = lsp_workspace_query("workspace");
-    query.query.lang = Some("rust".to_string());
+    query.query.selector = selection(Some("rust"), None);
     query.query.limit = 50;
 
     assert_eq!(
@@ -182,7 +177,7 @@ fn parses_references_files_with_matches_arguments() {
 #[test]
 fn parses_callers_arguments() {
     let mut query = lsp_workspace_query("workspace");
-    query.query.lang = Some("rust".to_string());
+    query.query.selector = selection(Some("rust"), None);
 
     assert_eq!(
         parse(&["callers", "main", "workspace", "--lang", "rust"]).expect("callers should parse"),
@@ -196,7 +191,7 @@ fn parses_callers_arguments() {
 #[test]
 fn parses_definition_full_arguments() {
     let mut query = lsp_workspace_query("workspace");
-    query.query.lang = Some("python".to_string());
+    query.query.selector = selection(Some("python"), None);
 
     assert_eq!(
         parse(&[
@@ -234,7 +229,7 @@ fn parses_definition_files_with_matches_arguments() {
 #[test]
 fn parses_declaration_full_arguments() {
     let mut query = lsp_workspace_query("workspace");
-    query.query.lang = Some("cpp".to_string());
+    query.query.selector = selection(Some("cpp"), None);
 
     assert_eq!(
         parse(&["declaration", "f", "workspace", "--lang", "cpp", "--full"])

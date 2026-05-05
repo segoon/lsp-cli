@@ -240,18 +240,23 @@ impl MasonSource {
         };
 
         self.id = override_.id;
-        // Q: move duplicated code to function (if let Some(x) = a { b = x; })
-        if let Some(extra_packages) = override_.extra_packages {
-            self.extra_packages = extra_packages;
-        }
-        if let Some(asset) = override_.asset {
-            self.asset = Some(asset);
-        }
-        if let Some(download) = override_.download {
-            self.download = Some(download);
-        }
+        assign_if_some(&mut self.extra_packages, override_.extra_packages);
+        assign_option_if_some(&mut self.asset, override_.asset);
+        assign_option_if_some(&mut self.download, override_.download);
 
         Ok(())
+    }
+}
+
+fn assign_if_some<T>(target: &mut T, replacement: Option<T>) {
+    if let Some(replacement) = replacement {
+        *target = replacement;
+    }
+}
+
+fn assign_option_if_some<T>(target: &mut Option<T>, replacement: Option<T>) {
+    if let Some(replacement) = replacement {
+        *target = Some(replacement);
     }
 }
 

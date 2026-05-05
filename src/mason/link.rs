@@ -9,6 +9,7 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Component, Path, PathBuf};
 
+// Q: write a comment about the type
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum ResolvedProgram {
     Direct(PathBuf),
@@ -236,6 +237,8 @@ fn materialize_share(
     for (target, source) in &package.share {
         let rendered_target = context.render(target);
         let rendered_source = context.render(source);
+        // Q: / is hardcoded here and in other places, is it OK for Windows?
+        // If yes, define a constant, document it (why it is OK), use it instead of hardcoding
         let target_is_dir = rendered_target.ends_with('/');
         let source_is_dir = rendered_source.ends_with('/');
         let share_path =
@@ -260,6 +263,7 @@ fn write_wrapper_script(
     runtime: WrapperRuntime,
     target_path: &Path,
 ) -> Result<(), String> {
+    // Q: does it work on Windows? If not, use proper #[cfg(...)], here and in other functions
     let contents = format!("#!/bin/sh\n{}\n", runtime.script_line(target_path));
     write_file(launcher_path, contents.as_bytes())
 }
@@ -271,6 +275,9 @@ fn copy_file(source: &Path, target: &Path) -> Result<(), String> {
 }
 
 fn copy_directory_contents(source: &Path, target: &Path) -> Result<(), String> {
+    // Q: std::fs::XXX(...).map_err() is used in multiple functions in many modules,
+    // wrap all of them into fn XXX(...) -> Result<_, _> that formats operation+path+error,
+    // move these wrappers into a separate module.
     let metadata = fs::metadata(source)
         .map_err(|error| format!("failed to inspect {}: {error}", source.display()))?;
     if !metadata.is_dir() {
@@ -347,6 +354,7 @@ fn ensure_executable(path: &Path) -> Result<(), String> {
         let mode = permissions.mode();
         if mode & 0o111 == 0 {
             permissions.set_mode(mode | 0o755);
+            // Q: make sure other writable bit is dropped, here and in other places
             fs::set_permissions(path, permissions).map_err(|error| {
                 format!("failed to set permissions on {}: {error}", path.display())
             })?;

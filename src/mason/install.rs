@@ -86,6 +86,14 @@ pub(crate) fn resolve_or_install_program(
     }
 }
 
+// Q: Inspect all install_* functions. Document how they work, their system requirements
+// (e.g. executables in PATH), security implications, work modes, limitations.
+// Put the documentation to `INSTALL_LSP_SERVERS.md`.
+
+// Q: Result<_, String> is used quite many times in the sources.
+// Learn how it is used in the program and whether thiserror, anyhow, snafu
+// or any other crate can be used to simplify the code, make it more explicit
+// and more simple to maintain.
 fn install_npm_package(
     state: &RuntimeState,
     package: &MasonPackage,
@@ -145,6 +153,8 @@ fn install_npm_package(
 
 #[cfg(test)]
 fn fake_npm_install(install_dir: &std::path::Path, program: &str) -> Result<bool, String> {
+    // Q: the code working with env variables is scattered across the modules.
+    // I want it to be gathered in a single module. Write a comment for each used env var.
     let Some(fake_program) = std::env::var_os("LSP_CLI_TEST_FAKE_NPM_PROGRAM") else {
         return Ok(false);
     };

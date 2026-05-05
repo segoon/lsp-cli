@@ -31,6 +31,7 @@ pub(crate) enum SourceId {
 }
 
 pub(crate) fn parse_source_id(source_id: &str) -> Result<SourceId, String> {
+    // Q: error reason is lost, keep it in error message
     let without_prefix = source_id
         .strip_prefix("pkg:")
         .ok_or_else(|| format!("unsupported Mason package source {source_id}"))?;
@@ -45,6 +46,7 @@ pub(crate) fn parse_source_id(source_id: &str) -> Result<SourceId, String> {
 
     let (version, qualifiers) = split_version_qualifiers(version_with_qualifiers);
 
+    // Q: decoded_name.clone() and version.to_string() is duplicated, move it to a local variable
     Ok(match kind {
         "npm" => SourceId::Npm {
             package_name: decoded_name.clone(),

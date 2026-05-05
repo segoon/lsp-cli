@@ -214,11 +214,13 @@ pub(super) fn http_client() -> Result<Client, String> {
         .map_err(|error| format!("failed to create HTTP client: {error}"))
 }
 
+// Q: download_bytes() is duplicated
 pub(super) fn download_bytes(
     client: &Client,
     url: &str,
     package: &MasonPackage,
 ) -> Result<Vec<u8>, String> {
+    // Q: does downloading via HTTPS check server SSL certificate?
     let mut response = client
         .get(url)
         .send()
@@ -232,6 +234,7 @@ pub(super) fn download_bytes(
     Ok(bytes)
 }
 
+// Q: write a comment what the function does
 pub(super) fn install_downloaded_artifact(
     root: &Path,
     relative_name: &str,
@@ -260,6 +263,7 @@ pub(super) fn install_downloaded_artifact(
 fn extract_tar_gz(root: &Path, bytes: &[u8]) -> Result<(), String> {
     let reader = GzDecoder::new(Cursor::new(bytes));
     let mut archive = Archive::new(reader);
+    // Q: try to move duplicated code to a function: |error| { format!("XXX {}: {error}", root.display()) }
     for entry in archive.entries().map_err(|error| {
         format!(
             "failed to open downloaded tar archive in {}: {error}",
@@ -329,6 +333,7 @@ fn extract_zip(root: &Path, bytes: &[u8]) -> Result<(), String> {
             .map_err(|error| format!("failed to create {}: {error}", output_path.display()))?;
         std::io::copy(&mut file, &mut output)
             .map_err(|error| format!("failed to extract {}: {error}", output_path.display()))?;
+        // Q: make sure other users may not write to the extracted file
         #[cfg(unix)]
         if let Some(mode) = file.unix_mode() {
             fs::set_permissions(&output_path, fs::Permissions::from_mode(mode)).map_err(
@@ -344,6 +349,8 @@ fn extract_zip(root: &Path, bytes: &[u8]) -> Result<(), String> {
     Ok(())
 }
 
+// Q: for gzip and other decoders set a hard limit of the output size,
+// fail loudly if it is violated.
 fn write_gzip_file(path: &Path, bytes: &[u8]) -> Result<(), String> {
     let mut decoder = GzDecoder::new(Cursor::new(bytes));
     let mut output = Vec::new();

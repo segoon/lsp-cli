@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 
 use sha2::{Digest, Sha256};
 
+// Q: write a comment for the type
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RuntimeState {
     root: PathBuf,
@@ -101,6 +102,7 @@ pub fn default_runtime_state_root() -> Result<PathBuf, String> {
 }
 
 pub fn default_daemon_root() -> Result<PathBuf, String> {
+    // Q: move XDG_RUNTIME_DIR reading to a function, reuse it here and in other files
     let runtime_dir = env::var_os("XDG_RUNTIME_DIR").map(PathBuf::from);
     choose_daemon_root(runtime_dir.as_deref())
 }
@@ -278,6 +280,7 @@ mod tests {
             vec![socket_path]
         );
 
+        // Q: why explicit drop()? it is called automatically, isn't it?
         drop(listener);
     }
 

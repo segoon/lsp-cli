@@ -1,5 +1,6 @@
 use crate::runtime_state::{RuntimeState, default_runtime_state_root};
 use humantime::format_rfc3339_millis;
+// Q: is shles really needed here? why? can we avoid using it?
 use shlex::try_join as shell_try_join;
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -219,6 +220,7 @@ mod tests {
 
     #[test]
     fn warns_when_log_file_is_larger_than_limit() {
+        // Q: move repeated path to a constant, write an explicit comment that tests don't access the path
         let message =
             log_size_warning_message(std::path::Path::new("/tmp/lsp-cli.log"), 10_485_761)
                 .expect("large log file should warn");

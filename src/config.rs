@@ -14,6 +14,7 @@ pub struct ConfigStore {
     pub cli: CliConfig,
 }
 
+// Q: is it possible to avoid using Option<> for options with clear defaults?
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct CliConfig {
     pub download_version: Option<String>,
@@ -96,6 +97,7 @@ struct CliConfigFile {
     detect: DetectCliConfigFile,
     #[serde(default)]
     daemon: DaemonCliConfigFile,
+    // Q: why not simply name it 'lsp'?
     #[serde(default, rename = "lsp")]
     lsp_preferences: BTreeMap<String, Vec<String>>,
 }
@@ -110,6 +112,7 @@ struct DetectCliConfigFile {
 #[derive(Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct DaemonCliConfigFile {
+    // Q: is it possible to use some serde option to automatically convert hyphen <-> underscore?
     #[serde(
         rename = "idle-timeout",
         default,
@@ -121,17 +124,22 @@ struct DaemonCliConfigFile {
 pub fn default_config_root() -> Result<PathBuf, String> {
     let lsp_data = env::var_os("LSP_DATA").map(PathBuf::from);
     let home = env::var_os("HOME").map(PathBuf::from);
+    // Q: PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data") is duplicated across multiple
+    // files, is it possible to move it to a function and call it instead?
     let repo_data = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data");
 
     choose_config_root(lsp_data.as_deref(), home.as_deref(), &repo_data)
 }
 
+// Q: what do these (A, B) mean? Do not use unnamed tuples, use types with semantic names instead
 pub fn default_cli_config_roots() -> (PathBuf, Option<PathBuf>) {
     let global = env::var_os("LSP_DATA").map_or_else(
         || {
             env::var_os("HOME").map_or_else(
                 || PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data"),
                 |home| {
+                    // Q: HOME.join(".local/share/lsp-cli/data") is duplicated across multiple
+                    // files, is it possible to move it to a function?
                     let user_data = PathBuf::from(home).join(".local/share/lsp-cli/data");
                     if has_config_dirs(&user_data) {
                         user_data
@@ -144,6 +152,7 @@ pub fn default_cli_config_roots() -> (PathBuf, Option<PathBuf>) {
         PathBuf::from,
     );
     let xdg_config_home = env::var_os("XDG_CONFIG_HOME").map(PathBuf::from);
+    // Q: HOME is read multiple times in this function
     let home = env::var_os("HOME").map(PathBuf::from);
     let user = choose_cli_config_user_root(xdg_config_home.as_deref(), home.as_deref());
     (global, user)
@@ -163,6 +172,7 @@ fn choose_config_root(
     home: Option<&Path>,
     repo_data: &Path,
 ) -> Result<PathBuf, String> {
+    // Q: write explicit comments for the search steps in the function
     if let Some(path) = lsp_data {
         return Ok(path.to_path_buf());
     }
@@ -190,6 +200,8 @@ fn has_config_dirs(root: &Path) -> bool {
 }
 
 pub fn load_config_store(root: &Path) -> Result<ConfigStore, String> {
+    // Q: root.join(filetypes | lsp) is duplicated, try to wrap it into a smart directory object
+    // that knows how to access its subdirectories and files
     let filetypes = load_filetypes(&root.join("filetypes"))?;
     let lsps = load_lsps(&root.join("lsp"))?;
     validate_lsp_filetypes(&filetypes, &lsps)?;
@@ -221,6 +233,7 @@ fn load_optional_cli_config_file(path: &Path) -> Result<CliConfig, String> {
         return Ok(CliConfig::default());
     }
 
+    // Q: |error| format!("{}: {error}", path.display()) or similar is duplicated across multiple files
     let contents =
         fs::read_to_string(path).map_err(|error| format!("{}: {error}", path.display()))?;
     let file: CliConfigFile =
@@ -230,6 +243,7 @@ fn load_optional_cli_config_file(path: &Path) -> Result<CliConfig, String> {
 
 impl CliConfig {
     fn merge(&mut self, other: Self) {
+        // Q: simplify with a helper function: f(&mut self.download, &other.download), choose name for f
         if other.download.is_some() {
             self.download = other.download;
         }
@@ -291,6 +305,7 @@ pub(crate) fn parse_timeout(value: &str) -> Result<Duration, String> {
     }
 
     let seconds = value.parse::<f64>().map_err(|_| {
+        // Q: move string literal to a local variable and reuse it 3 times
         format!("invalid timeout {value:?}: expected integer milliseconds or seconds")
     })?;
     if !seconds.is_finite() || seconds < 0.0 {
@@ -378,6 +393,7 @@ fn load_lsps(dir: &Path) -> Result<Vec<LspConfig>, String> {
         .collect()
 }
 
+// Q: use a verb in the function name (e.g. locate, find, etc.)
 fn yaml_files_in(dir: &Path) -> Result<Vec<PathBuf>, String> {
     if !dir.exists() {
         return Err(format!("missing directory {}", dir.display()));

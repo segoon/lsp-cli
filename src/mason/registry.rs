@@ -240,6 +240,7 @@ impl MasonSource {
         };
 
         self.id = override_.id;
+        // Q: move duplicated code to function (if let Some(x) = a { b = x; })
         if let Some(extra_packages) = override_.extra_packages {
             self.extra_packages = extra_packages;
         }

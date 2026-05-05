@@ -103,6 +103,7 @@ fn refresh_registry_cache(state: &RuntimeState, now_epoch_seconds: u64) -> Resul
 }
 
 fn fetch_latest_release(client: &Client) -> Result<GithubRelease, String> {
+    // Q: this function duplicates code with download_bytes()
     let response = client
         .get(GITHUB_API_URL)
         .header("Accept", "application/vnd.github+json")

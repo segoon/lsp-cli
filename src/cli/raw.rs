@@ -139,6 +139,7 @@ pub(crate) struct RawWorkspaceQueryArgs {
     )]
     pub(crate) directory: PathBuf,
     #[arg(long, help = HELP_LANG)]
+    // Q: lang, lsp, wait_for_index, debug, no_debug, etc. are duplicated, try to remove duplication
     pub(crate) lang: Option<String>,
     #[arg(long, help = HELP_LSP)]
     pub(crate) lsp: Option<String>,

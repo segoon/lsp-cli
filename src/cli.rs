@@ -57,6 +57,8 @@ pub struct CommandsArgs;
 #[derive(Debug, Eq, PartialEq)]
 pub struct DetectArgs {
     pub path: PathBuf,
+    // Q: langu, lsp, download, debug are duplicated across multiple *Args,
+    // is it possible to unify it? e.g. via new common struct
     pub lang: Option<String>,
     pub lsp: Option<String>,
     pub download: bool,

@@ -73,6 +73,8 @@ Limit each file to 600 lines (including the tests).
 All clap arguments MUST have an informative human-readable help.
 It must describe user-visible behaviour, not implementation details.
 
+If you define/use drop() (or do any other uncommon action that is usually done automatically), write a comment why you have to do it.
+
 
 # Commands
 

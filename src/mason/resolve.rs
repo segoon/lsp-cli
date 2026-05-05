@@ -41,6 +41,7 @@ pub fn resolve_detect_suggestions(
         return Ok(resolved);
     }
 
+    // Q: rewrite using match errors.len()
     if errors.len() == 1 {
         Err(errors.remove(0))
     } else if errors.is_empty() {
@@ -70,6 +71,7 @@ fn resolve_suggestion_from_path_or_cache(
         return Ok(None);
     }
 
+    // Q: split into two statements to simplify the code
     let (Some(state), Some(registry)) = (state, registry) else {
         return Ok(None);
     };
@@ -132,6 +134,7 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn prefers_cached_direct_binary_when_path_misses() {
+        // Q: setup code is duplicated in this function and the next one
         let dir = TestDir::new("mason-resolve");
         let home = dir.path().join("home");
         let state = runtime_state_in_home(&home);
@@ -207,6 +210,7 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn skips_server_when_not_in_path_or_cache() {
+        // Q: is TestDir autoremoved on test exit? for panic'ed test?
         let dir = TestDir::new("mason-resolve");
         let home = dir.path().join("home");
         fs::create_dir_all(&home).expect("home dir should be created");

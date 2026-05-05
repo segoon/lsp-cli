@@ -24,6 +24,7 @@ impl TemplateContext<'_> {
             .into_owned()
     }
 
+    // Q: add a link to specification that defines the format
     fn render_expression(&self, expression: &str) -> Option<String> {
         let expression = expression.trim();
 

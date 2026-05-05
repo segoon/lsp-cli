@@ -153,14 +153,15 @@ pub(super) fn run_list_symbols_query(
 
     let (workspace, matches) = with_initialized_client(
         &args.path,
-        args.server.selection.lsp.as_deref(),
-        args.server.selection.lang.as_deref(),
+        args.server.selected_server(),
+        args.server.selected_language(),
         args.detach,
         args.server.download,
         args.wait_for_index,
         args.server.debug,
         args.timeout,
         config,
+        // Q: move the lambda into an explicit function
         |workspace, initialize, client| {
             ensure_list_symbols_support(initialize, &workspace.server.server)?;
 

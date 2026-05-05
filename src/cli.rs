@@ -59,11 +59,33 @@ pub struct SelectionArgs {
     pub lsp: Option<String>,
 }
 
+impl SelectionArgs {
+    pub fn selected_language(&self) -> Option<&str> {
+        self.lang.as_deref()
+    }
+
+    pub fn selected_server(&self) -> Option<&str> {
+        self.lsp.as_deref()
+    }
+}
+
 #[derive(Debug, Eq, PartialEq)]
 pub struct InstallDebugArgs {
     pub selection: SelectionArgs,
     pub download: bool,
     pub debug: bool,
+}
+
+impl InstallDebugArgs {
+    // Q: rename to language()
+    pub fn selected_language(&self) -> Option<&str> {
+        self.selection.selected_language()
+    }
+
+    // Q: rename to server()
+    pub fn selected_server(&self) -> Option<&str> {
+        self.selection.selected_server()
+    }
 }
 
 #[allow(clippy::struct_excessive_bools)]
@@ -84,6 +106,18 @@ pub struct WorkspaceQueryArgs {
     pub debug: bool,
     pub timeout: Duration,
     pub limit: usize,
+}
+
+impl WorkspaceQueryArgs {
+    // Q: rename to language()
+    pub fn selected_language(&self) -> Option<&str> {
+        self.selector.selected_language()
+    }
+
+    // Q: rename to server()
+    pub fn selected_server(&self) -> Option<&str> {
+        self.selector.selected_server()
+    }
 }
 
 #[derive(Debug, Eq, PartialEq)]

@@ -27,16 +27,15 @@ fn path_var(name: &str) -> Option<PathBuf> {
     std::env::var_os(name).map(PathBuf::from)
 }
 
-// Q: do not add _dir to wrapper names
-pub(crate) fn home_dir() -> Option<PathBuf> {
+pub(crate) fn home() -> Option<PathBuf> {
     path_var(HOME)
 }
 
-pub(crate) fn lsp_data_dir() -> Option<PathBuf> {
+pub(crate) fn lsp_data() -> Option<PathBuf> {
     path_var(LSP_DATA)
 }
 
-pub(crate) fn xdg_runtime_dir() -> Option<PathBuf> {
+pub(crate) fn xdg_runtime() -> Option<PathBuf> {
     path_var(XDG_RUNTIME_DIR)
 }
 
@@ -44,13 +43,11 @@ pub(crate) fn xdg_config_home() -> Option<PathBuf> {
     path_var(XDG_CONFIG_HOME)
 }
 
-// Q: rename path_value -> path
-pub(crate) fn path_value() -> Option<OsString> {
+pub(crate) fn path() -> Option<OsString> {
     std::env::var_os(PATH)
 }
 
-// Q: rename shell_path -> shell
-pub(crate) fn shell_path() -> Option<OsString> {
+pub(crate) fn shell() -> Option<OsString> {
     std::env::var_os(SHELL)
 }
 

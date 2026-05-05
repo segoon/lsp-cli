@@ -5,8 +5,8 @@ use crate::config::ConfigStore;
 pub(super) fn run(args: &BuildIndexArgs, config: &ConfigStore) -> Result<String, String> {
     let workspace = prepare_workspace(
         &args.directory,
-        args.server.selection.lsp.as_deref(),
-        args.server.selection.lang.as_deref(),
+        args.server.selected_server(),
+        args.server.selected_language(),
         args.server.download,
         config,
     )?;

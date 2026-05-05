@@ -33,6 +33,7 @@ fn scan_path(
     filetypes: &[FiletypeConfig],
     detection: &mut DetectionResult,
 ) -> io::Result<()> {
+    // Q: path_error(path) should return lambda that takes error and returns string
     let metadata = fs::symlink_metadata(path).map_err(|error| path_error(path, &error))?;
     let file_type = metadata.file_type();
 
@@ -156,7 +157,7 @@ fn matching_filetypes(path: &Path, filetypes: &[FiletypeConfig]) -> Vec<String> 
 }
 
 fn path_error(path: &Path, error: &io::Error) -> io::Error {
-    io::Error::new(error.kind(), format!("{}: {error}", path.display()))
+    io::Error::new(error.kind(), crate::fs::format_path_error(path, error))
 }
 
 #[cfg(test)]

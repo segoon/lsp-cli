@@ -305,10 +305,11 @@ const FIELD_LABELS: &[(&str, &str)] = &[
 ];
 
 pub(super) fn run(args: &ServerCapabilitiesArgs, config: &ConfigStore) -> Result<String, String> {
+    // Q: args.server is duplicated
     let workspace = prepare_workspace(
         &args.directory,
-        args.server.selection.lsp.as_deref(),
-        args.server.selection.lang.as_deref(),
+        args.server.selected_server(),
+        args.server.selected_language(),
         args.server.download,
         config,
     )?;

@@ -5,7 +5,7 @@ mod commands;
 mod config;
 mod detect;
 mod env_vars;
-mod fs_err;
+mod fs;
 mod hash;
 mod lsp;
 mod mason;

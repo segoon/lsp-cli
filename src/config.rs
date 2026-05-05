@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use crate::env_vars;
-use crate::fs_err;
+use crate::fs as path_fs;
 use regex::Regex;
 use serde::{Deserialize, de};
 
@@ -119,45 +119,21 @@ struct DetectCliConfigFile {
 #[derive(Default, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 struct DaemonCliConfigFile {
-    // QD: is it possible to use some serde option to automatically convert hyphen <-> underscore?
-    // A: Yes. This struct now uses `rename_all = "kebab-case"`.
-    // A: That removes the one-off field rename.
     #[serde(default, deserialize_with = "deserialize_optional_timeout")]
     idle_timeout: Option<Duration>,
 }
 
 pub fn default_config_root() -> Result<PathBuf, String> {
-    let lsp_data = env_vars::lsp_data_dir();
-    let home = env_vars::home_dir();
-    // QD: PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data") is duplicated across multiple
-    // files, is it possible to move it to a function and call it instead?
-    // A: Added `repo_data_dir()` and reuse it from config and update code.
+    let lsp_data = env_vars::lsp_data();
+    let home = env_vars::home();
     let repo_data = repo_data_dir();
 
     choose_config_root(lsp_data.as_deref(), home.as_deref(), &repo_data)
 }
 
-// Q: use Default trait for that
+// Q: inline default_cli_config_roots() into the callers
 pub fn default_cli_config_roots() -> CliConfigRoots {
-    let home = env_vars::home_dir();
-    let repo_data = repo_data_dir();
-    let global = env_vars::lsp_data_dir().unwrap_or_else(|| {
-            home.as_deref().map_or_else(
-                || repo_data.clone(),
-                |home| {
-                    let user_data = home_data_dir(home);
-                    if has_config_dirs(&user_data) {
-                        user_data
-                    } else {
-                        repo_data.clone()
-                    }
-                },
-            )
-        });
-    // Q: inline xdg_config_home and user
-    let xdg_config_home = env_vars::xdg_config_home();
-    let user = choose_cli_config_user_root(xdg_config_home.as_deref(), home.as_deref());
-    CliConfigRoots { global, user }
+    CliConfigRoots::default()
 }
 
 fn choose_cli_config_user_root(
@@ -235,10 +211,9 @@ fn load_optional_cli_config_file(path: &Path) -> Result<CliConfig, String> {
         return Ok(CliConfig::default());
     }
 
-    // Q: |error| format!("{}: {error}", path.display()) or similar is duplicated across multiple files
-    let contents = fs_err::read_to_string(path)?;
+    let contents = path_fs::read_to_string(path)?;
     let file: CliConfigFile =
-        serde_yaml::from_str(&contents).map_err(|error| format!("{}: {error}", path.display()))?;
+        serde_yaml::from_str(&contents).map_err(|error| path_fs::format_path_error(path, error))?;
     Ok(CliConfig::from(file))
 }
 
@@ -279,17 +254,15 @@ impl From<CliConfigFile> for CliConfig {
 }
 
 pub(crate) fn parse_timeout(value: &str) -> Result<Duration, String> {
-    // Q: inline the string literal into format!(...)
-    let expected_integer_or_seconds = "expected integer milliseconds or seconds";
     if let Some(milliseconds) = value.strip_suffix("ms") {
         let milliseconds = milliseconds.parse::<u64>().map_err(|_| {
-            format!("invalid timeout {value:?}: {expected_integer_or_seconds}")
+            format!("invalid timeout {value:?}: expected integer milliseconds or seconds")
         })?;
         return Ok(Duration::from_millis(milliseconds));
     }
 
     let seconds = value.parse::<f64>().map_err(|_| {
-        format!("invalid timeout {value:?}: {expected_integer_or_seconds}")
+        format!("invalid timeout {value:?}: expected integer milliseconds or seconds")
     })?;
     if !seconds.is_finite() || seconds < 0.0 {
         return Err(format!(
@@ -316,9 +289,9 @@ fn load_filetypes(dir: &Path) -> Result<Vec<FiletypeConfig>, String> {
     paths
         .into_iter()
         .map(|path| {
-            let contents = fs_err::read_to_string(&path)?;
+            let contents = path_fs::read_to_string(&path)?;
             let file: FiletypeFile = serde_yaml::from_str(&contents)
-                .map_err(|error| format!("{}: {error}", path.display()))?;
+                .map_err(|error| path_fs::format_path_error(&path, error))?;
             let id = path
                 .file_stem()
                 .and_then(|value| value.to_str())
@@ -353,9 +326,9 @@ fn load_lsps(dir: &Path) -> Result<Vec<LspConfig>, String> {
     paths
         .into_iter()
         .map(|path| {
-            let contents = fs_err::read_to_string(&path)?;
+            let contents = path_fs::read_to_string(&path)?;
             let file: LspFile = serde_yaml::from_str(&contents)
-                .map_err(|error| format!("{}: {error}", path.display()))?;
+                .map_err(|error| path_fs::format_path_error(&path, error))?;
             let id = path
                 .file_stem()
                 .and_then(|value| value.to_str())
@@ -435,6 +408,31 @@ fn override_if_some<T>(target: &mut Option<T>, replacement: Option<T>) {
 
 struct ConfigRoot<'a> {
     root: &'a Path,
+}
+
+impl Default for CliConfigRoots {
+    fn default() -> Self {
+        let home = env_vars::home();
+        let repo_data = repo_data_dir();
+        let global = env_vars::lsp_data().unwrap_or_else(|| {
+            home.as_deref().map_or_else(
+                || repo_data.clone(),
+                |home| {
+                    let user_data = home_data_dir(home);
+                    if has_config_dirs(&user_data) {
+                        user_data
+                    } else {
+                        repo_data.clone()
+                    }
+                },
+            )
+        });
+
+        Self {
+            global,
+            user: choose_cli_config_user_root(env_vars::xdg_config_home().as_deref(), home.as_deref()),
+        }
+    }
 }
 
 impl<'a> ConfigRoot<'a> {

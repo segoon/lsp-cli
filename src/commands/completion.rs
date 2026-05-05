@@ -85,7 +85,7 @@ struct CompletionValues {
 pub(super) fn detect_current_shell() -> Result<clap_complete::Shell, String> {
     clap_complete::Shell::from_env()
         .ok_or(())
-        .or_else(|()| detect_shell_from_env(env_vars::shell_path().as_deref()))
+        .or_else(|()| detect_shell_from_env(env_vars::shell().as_deref()))
 }
 
 pub(super) fn detect_shell_from_env(shell: Option<&OsStr>) -> Result<clap_complete::Shell, String> {

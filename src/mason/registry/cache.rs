@@ -1,5 +1,5 @@
 use crate::hash::encode_hex;
-use crate::mason::http::{read_bytes as http_read_bytes, read_json as http_read_json, send as http_send, get as http_get};
+use crate::mason::http::{download_bytes as http_download_bytes, read_json as http_read_json, send as http_send};
 use crate::runtime_state::RuntimeState;
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
@@ -115,14 +115,15 @@ fn fetch_latest_release(client: &Client) -> Result<GithubRelease, String> {
     http_read_json(response, "failed to parse Mason registry metadata")
 }
 
+// Q: inline this function
 fn download_bytes(client: &Client, url: &str) -> Result<Vec<u8>, String> {
-    let response = http_get(
+    http_download_bytes(
         client,
         url,
         "failed to download Mason registry archive",
         "failed to download Mason registry archive",
-    )?;
-    http_read_bytes(response, "failed to read Mason registry archive")
+        "failed to read Mason registry archive",
+    )
 }
 
 fn verify_sha256(bytes: &[u8], digest: Option<&str>) -> Result<(), String> {

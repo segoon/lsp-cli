@@ -1,5 +1,5 @@
 use crate::mason::install::join_relative_path;
-use crate::mason::http::{get as http_get, read_bytes as http_read_bytes};
+use crate::mason::http::download_bytes as http_download_bytes;
 use crate::mason::platform::MasonPlatform;
 use crate::mason::registry::{MasonAsset, MasonAssetBin, MasonDownload, MasonPackage, OneOrMany};
 use crate::mason::template::TemplateContext;
@@ -216,19 +216,18 @@ pub(super) fn http_client() -> Result<Client, String> {
         .map_err(|error| format!("failed to create HTTP client: {error}"))
 }
 
-// Q: download_bytes() is duplicated, it has almost the same body
 pub(super) fn download_bytes(
     client: &Client,
     url: &str,
     package: &MasonPackage,
 ) -> Result<Vec<u8>, String> {
-    let response = http_get(
+    http_download_bytes(
         client,
         url,
         &format!("failed to download {}", package.name),
         &format!("failed to download {}", package.name),
-    )?;
-    http_read_bytes(response, &format!("failed to read download for {}", package.name))
+        &format!("failed to read download for {}", package.name),
+    )
 }
 
 /// Creates the install root and materializes one downloaded payload into it.
@@ -263,19 +262,18 @@ pub(super) fn install_downloaded_artifact(
 fn extract_tar_gz(root: &Path, bytes: &[u8]) -> Result<(), String> {
     let reader = GzDecoder::new(Cursor::new(bytes));
     let mut archive = Archive::new(reader);
-    // Q: format_root_error(msg, root) must return lambda to simplify the caller
     for entry in archive
         .entries()
-        .map_err(|error| format_root_error("failed to open downloaded tar archive in", root, error))?
+        .map_err(format_root_error("failed to open downloaded tar archive in", root))?
     {
         let mut entry = entry
-            .map_err(|error| format_root_error("failed to read downloaded tar archive in", root, error))?;
+            .map_err(format_root_error("failed to read downloaded tar archive in", root))?;
         let entry_path = entry
             .path()
-            .map_err(|error| format_root_error("failed to read tar entry path in", root, error))?;
+            .map_err(format_root_error("failed to read tar entry path in", root))?;
         let output_path = join_relative_path(root, &entry_path.to_string_lossy())?;
         if entry.header().entry_type().is_dir() {
-            // Q: format_root_error() can be used here, look carefully in other places and in other functions
+            // Q: format_root_error() can be used here, look carefully in other places and in other functions, think hard
             fs::create_dir_all(&output_path)
                 .map_err(|error| format!("failed to create {}: {error}", output_path.display()))?;
             continue;
@@ -298,19 +296,12 @@ fn extract_tar_gz(root: &Path, bytes: &[u8]) -> Result<(), String> {
 }
 
 fn extract_zip(root: &Path, bytes: &[u8]) -> Result<(), String> {
-    let mut archive = ZipArchive::new(Cursor::new(bytes)).map_err(|error| {
-        format!(
-            "failed to open downloaded zip archive in {}: {error}",
-            root.display()
-        )
-    })?;
+    let mut archive = ZipArchive::new(Cursor::new(bytes))
+        .map_err(format_root_error("failed to open downloaded zip archive in", root))?;
     for index in 0..archive.len() {
-        let mut file = archive.by_index(index).map_err(|error| {
-            format!(
-                "failed to read downloaded zip archive in {}: {error}",
-                root.display()
-            )
-        })?;
+        let mut file = archive
+            .by_index(index)
+            .map_err(format_root_error("failed to read downloaded zip archive in", root))?;
         let Some(name) = file.enclosed_name() else {
             return Err(format!(
                 "downloaded zip archive contains unsafe paths for {}",
@@ -357,8 +348,11 @@ fn write_gzip_file(path: &Path, bytes: &[u8]) -> Result<(), String> {
     write_file(path, &output)
 }
 
-fn format_root_error(action: &str, root: &Path, error: impl std::fmt::Display) -> String {
-    format!("{action} {}: {error}", root.display())
+fn format_root_error<'a, E: std::fmt::Display>(
+    action: &'static str,
+    root: &'a Path,
+) -> impl FnOnce(E) -> String + 'a {
+    move |error| format!("{action} {}: {error}", root.display())
 }
 
 fn ensure_decompressed_size_limit(size: u64, path: &str) -> Result<(), String> {

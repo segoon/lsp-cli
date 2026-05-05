@@ -55,31 +55,28 @@ fn run_diagnostics_query(
     args: &DiagnosticsArgs,
     config: &ConfigStore,
 ) -> Result<DiagnosticsQueryResult, String> {
-    // Q: args.query.query is duplicated, fix here and in similar places in other functions/modules
+    let query = &args.query.query;
     let workspace = prepare_workspace(
-        &args.query.query.directory,
-        args.query.query.selector.lsp.as_deref(),
-        args.query.query.selector.lang.as_deref(),
+        &query.directory,
+        query.selected_server(),
+        query.selected_language(),
         args.query.download,
         config,
     )?;
     let files = matching_files(
-        &args.query.query.directory,
+        &query.directory,
         &config.filetypes,
         &workspace.allowed_filetypes,
     )
     .map_err(|error| {
-        format!(
-            "failed to scan {}: {error}",
-            args.query.query.directory.display()
-        )
+        format!("failed to scan {}: {error}", query.directory.display())
     })?;
 
     let mut client = connect_lsp_client(
         &workspace,
         args.query.detach,
-        args.query.query.debug,
-        args.query.query.timeout,
+        query.debug,
+        query.timeout,
     )?;
     let initialize = client
         .initialize(&workspace.root_uri, &workspace.workspace_name, true)
@@ -98,7 +95,7 @@ fn run_diagnostics_query(
             &workspace.server.server,
             &workspace.server.workspace_root,
             &files,
-            args.query.query.timeout,
+            query.timeout,
         )?
     };
     diagnostics.sort_by(|left, right| {

@@ -31,6 +31,17 @@ pub(super) fn read_bytes(mut response: Response, read_error: &str) -> Result<Vec
     Ok(bytes)
 }
 
+pub(super) fn download_bytes(
+    client: &Client,
+    url: &str,
+    send_error: &str,
+    status_error: &str,
+    read_error: &str,
+) -> Result<Vec<u8>, String> {
+    let response = get(client, url, send_error, status_error)?;
+    read_bytes(response, read_error)
+}
+
 pub(super) fn read_json<T>(response: Response, parse_error: &str) -> Result<T, String>
 where
     T: DeserializeOwned,

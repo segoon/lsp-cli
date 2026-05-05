@@ -97,12 +97,12 @@ impl RuntimeState {
 }
 
 pub fn default_runtime_state_root() -> Result<PathBuf, String> {
-    let home = env_vars::home_dir();
+    let home = env_vars::home();
     choose_runtime_state_root(home.as_deref())
 }
 
 pub fn default_daemon_root() -> Result<PathBuf, String> {
-    let runtime_dir = env_vars::xdg_runtime_dir();
+    let runtime_dir = env_vars::xdg_runtime();
     choose_daemon_root(runtime_dir.as_deref())
 }
 
@@ -155,16 +155,19 @@ pub fn daemon_socket_paths(daemon_root: &Path) -> Result<Vec<PathBuf>, String> {
 }
 
 fn choose_runtime_state_root(home: Option<&Path>) -> Result<PathBuf, String> {
-    // Q: use explicit if/else instead of map/ok_or_else
-    home.map(|path| path.join(".local/share/lsp-cli"))
-        .ok_or_else(|| "could not resolve runtime state root because $HOME is not set".to_string())
+    if let Some(path) = home {
+        Ok(path.join(".local/share/lsp-cli"))
+    } else {
+        Err("could not resolve runtime state root because $HOME is not set".to_string())
+    }
 }
 
 fn choose_daemon_root(runtime_dir: Option<&Path>) -> Result<PathBuf, String> {
-    // Q: use explicit if/else instead of map/ok_or_else
-    runtime_dir.map(|path| path.join("lsp-cli")).ok_or_else(|| {
-        "could not resolve daemon socket root because $XDG_RUNTIME_DIR is not set".to_string()
-    })
+    if let Some(path) = runtime_dir {
+        Ok(path.join("lsp-cli"))
+    } else {
+        Err("could not resolve daemon socket root because $XDG_RUNTIME_DIR is not set".to_string())
+    }
 }
 
 fn sanitize_daemon_socket_component(value: &str) -> String {

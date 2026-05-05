@@ -45,30 +45,35 @@ pub(crate) fn parse_source_id(source_id: &str) -> Result<SourceId, String> {
 
     let (version, qualifiers) = split_version_qualifiers(version_with_qualifiers);
     let version = version.to_string();
+    let decoded_name = decoded_name.clone();
 
-    // Q: decoded_name.clone() and version.clone() is duplicated, move it to a local variable
-    // if it is not used in some branches, it is OK
     Ok(match kind {
-        "npm" => SourceId::Npm {
-            package_name: decoded_name.clone(),
-            version: version.clone(),
-        },
-        "pypi" => SourceId::Pypi {
-            package_name: decoded_name.clone(),
-            version: version.clone(),
-            extras: parse_pypi_extras(qualifiers),
-        },
-        "cargo" => SourceId::Cargo {
-            package_name: decoded_name.clone(),
-            version: version.clone(),
-        },
+        "npm" => {
+            SourceId::Npm {
+                package_name: decoded_name,
+                version,
+            }
+        }
+        "pypi" => {
+            SourceId::Pypi {
+                package_name: decoded_name,
+                version,
+                extras: parse_pypi_extras(qualifiers),
+            }
+        }
+        "cargo" => {
+            SourceId::Cargo {
+                package_name: decoded_name,
+                version,
+            }
+        }
         "golang" => SourceId::Golang {
-            module_path: decoded_name.clone(),
-            version: version.clone(),
+            module_path: decoded_name,
+            version,
         },
         "github" => SourceId::Github {
-            repository: decoded_name.clone(),
-            version: version.clone(),
+            repository: decoded_name,
+            version,
         },
         "generic" => SourceId::Generic {
             package_name: decoded_name,
@@ -80,6 +85,7 @@ pub(crate) fn parse_source_id(source_id: &str) -> Result<SourceId, String> {
     })
 }
 
+// Q: inline the function
 fn split_version_qualifiers(version_with_qualifiers: &str) -> (&str, Option<&str>) {
     match version_with_qualifiers.split_once('?') {
         Some((version, qualifiers)) => (version, Some(qualifiers)),

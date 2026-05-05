@@ -13,10 +13,11 @@ mod tests;
 pub(super) fn run(args: &FormatArgs, config: &ConfigStore) -> Result<String, String> {
     ensure_regular_file(&args.path)?;
 
+    // Q: args.server is duplicated
     let workspace = prepare_workspace(
         &args.path,
-        args.server.selection.lsp.as_deref(),
-        args.server.selection.lang.as_deref(),
+        args.server.selected_server(),
+        args.server.selected_language(),
         args.server.download,
         config,
     )?;

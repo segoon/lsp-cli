@@ -1,5 +1,5 @@
 use crate::env_vars;
-use crate::fs_err;
+use crate::fs as path_fs;
 use crate::mason::registry::MasonPackage;
 use crate::mason::template::TemplateContext;
 use crate::runtime_state::RuntimeState;
@@ -196,7 +196,7 @@ pub(crate) fn is_command_runnable(program: &str) -> bool {
         return is_command_runnable_path(Path::new(program));
     }
 
-    let Some(path) = env_vars::path_value() else {
+    let Some(path) = env_vars::path() else {
         return false;
     };
 
@@ -285,18 +285,18 @@ fn write_wrapper_script(
 }
 
 fn copy_file(source: &Path, target: &Path) -> Result<(), String> {
-    let bytes = fs_err::read(source)?;
+    let bytes = path_fs::read(source)?;
     write_file(target, &bytes)
 }
 
 fn copy_directory_contents(source: &Path, target: &Path) -> Result<(), String> {
-    let metadata = fs_err::metadata(source)?;
+    let metadata = path_fs::metadata(source)?;
     if !metadata.is_dir() {
         return Err(format!("expected directory at {}", source.display()));
     }
 
-    fs_err::create_dir_all(target)?;
-    for entry in fs_err::read_dir(source)? {
+    path_fs::create_dir_all(target)?;
+    for entry in path_fs::read_dir(source)? {
         let entry = entry.map_err(|error| format!("failed to read {}: {error}", source.display()))?;
         let source_path = entry.path();
         let target_path = target.join(entry.file_name());
@@ -344,8 +344,8 @@ fn write_file(path: &Path, bytes: &[u8]) -> Result<(), String> {
             path.display()
         ));
     };
-    fs_err::create_dir_all(parent)?;
-    fs_err::write(path, bytes)
+    path_fs::create_dir_all(parent)?;
+    path_fs::write(path, bytes)
 }
 
 fn ensure_executable(path: &Path) -> Result<(), String> {
@@ -361,7 +361,7 @@ fn ensure_executable(path: &Path) -> Result<(), String> {
         let hardened_mode = (mode | 0o111) & !0o022;
         if hardened_mode != mode {
             permissions.set_mode(hardened_mode);
-            fs_err::set_permissions(path, permissions)?;
+            path_fs::set_permissions(path, permissions)?;
         }
     }
 

@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use crate::env_vars;
-use crate::error::{Error, Result};
+use crate::error::{Error, Result, error_fn};
 use crate::fs as path_fs;
 use regex::Regex;
 use serde::{Deserialize, de};
@@ -379,10 +379,10 @@ fn find_yaml_files_in(dir: &Path) -> Result<Vec<PathBuf>> {
     }
 
     let mut paths = fs::read_dir(dir)
-        .map_err(|error| Error::unexpected(format!("{}: {error}", dir.display())))?
+        .map_err(error_fn!(Error::unexpected, "{}", dir.display()))?
         .map(|entry| entry.map(|entry| entry.path()))
         .collect::<std::result::Result<Vec<_>, _>>()
-        .map_err(|error| Error::unexpected(format!("{}: {error}", dir.display())))?;
+        .map_err(error_fn!(Error::unexpected, "{}", dir.display()))?;
 
     paths.retain(|path| path.extension().and_then(|value| value.to_str()) == Some("yaml"));
     paths.sort();

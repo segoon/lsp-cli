@@ -9,7 +9,7 @@ use tar::Archive;
 use zip::ZipArchive;
 
 use crate::config::{CliConfig, load_cli_config, load_config_store};
-use crate::error::{Error, Result};
+use crate::error::{Error, Result, error_fn};
 use crate::runtime_state::{RuntimeState, default_runtime_state_root};
 
 const DATA_REPOSITORY: &str = "segoon/lsp-cli-data";
@@ -240,20 +240,21 @@ fn http_client() -> Result<Client> {
     Client::builder()
         .user_agent(USER_AGENT)
         .build()
-        .map_err(|error| Error::network(format!("failed to create HTTP client: {error}")))
+        .map_err(error_fn!(Error::network, "failed to create HTTP client"))
 }
 
 fn download_bytes(client: &Client, url: &str) -> Result<Vec<u8>> {
     let mut response = client
         .get(url)
         .send()
-        .map_err(|error| Error::network(format!("failed to download lsp-cli-data: {error}")))?
+        .map_err(error_fn!(Error::network, "failed to download lsp-cli-data"))?
         .error_for_status()
-        .map_err(|error| Error::network(format!("failed to download lsp-cli-data: {error}")))?;
+        .map_err(error_fn!(Error::network, "failed to download lsp-cli-data"))?;
     let mut bytes = Vec::new();
-    response.read_to_end(&mut bytes).map_err(|error| {
-        Error::network(format!("failed to read lsp-cli-data download: {error}"))
-    })?;
+    response.read_to_end(&mut bytes).map_err(error_fn!(
+        Error::network,
+        "failed to read lsp-cli-data download"
+    ))?;
     Ok(bytes)
 }
 
@@ -278,15 +279,20 @@ fn fetch_release(client: &Client, version: &str) -> Result<ReleaseDownload> {
     let release: GithubRelease = client
         .get(url)
         .send()
-        .map_err(|error| Error::network(format!("failed to query lsp-cli-data releases: {error}")))?
+        .map_err(error_fn!(
+            Error::network,
+            "failed to query lsp-cli-data releases"
+        ))?
         .error_for_status()
-        .map_err(|error| Error::network(format!("failed to query lsp-cli-data releases: {error}")))?
+        .map_err(error_fn!(
+            Error::network,
+            "failed to query lsp-cli-data releases"
+        ))?
         .json()
-        .map_err(|error| {
-            Error::network(format!(
-                "failed to parse lsp-cli-data release metadata: {error}"
-            ))
-        })?;
+        .map_err(error_fn!(
+            Error::network,
+            "failed to parse lsp-cli-data release metadata"
+        ))?;
     let archive_url = release.tarball_url.or(release.zipball_url).ok_or_else(|| {
         Error::network("lsp-cli-data release does not provide a downloadable archive")
     })?;

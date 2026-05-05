@@ -1,4 +1,4 @@
-use crate::error::{Error, Result};
+use crate::error::{Error, Result, error_fn};
 use crate::hash::encode_hex;
 use crate::mason::http::{
     download_bytes as http_download_bytes, read_json as http_read_json, send as http_send,
@@ -66,7 +66,7 @@ fn refresh_registry_cache(state: &RuntimeState, now_epoch_seconds: u64) -> Resul
     let client = Client::builder()
         .user_agent(USER_AGENT)
         .build()
-        .map_err(|error| Error::network(format!("failed to create HTTP client: {error}")))?;
+        .map_err(error_fn!(Error::network, "failed to create HTTP client"))?;
 
     let release = fetch_latest_release(&client)?;
     let asset = release
@@ -148,26 +148,29 @@ fn verify_sha256(bytes: &[u8], digest: Option<&str>) -> Result<()> {
 
 fn unpack_registry_json(archive_bytes: &[u8]) -> Result<Vec<u8>> {
     let cursor = Cursor::new(archive_bytes);
-    let mut archive = ZipArchive::new(cursor).map_err(|error| {
-        Error::network(format!("failed to open Mason registry archive: {error}"))
-    })?;
-    let mut file = archive.by_name("registry.json").map_err(|error| {
-        Error::network(format!(
-            "failed to read registry.json from Mason archive: {error}"
-        ))
-    })?;
+    let mut archive = ZipArchive::new(cursor).map_err(error_fn!(
+        Error::network,
+        "failed to open Mason registry archive"
+    ))?;
+    let mut file = archive.by_name("registry.json").map_err(error_fn!(
+        Error::network,
+        "failed to read registry.json from Mason archive"
+    ))?;
     let mut registry_bytes = Vec::new();
-    file.read_to_end(&mut registry_bytes).map_err(|error| {
-        Error::network(format!("failed to unpack Mason registry data: {error}"))
-    })?;
+    file.read_to_end(&mut registry_bytes).map_err(error_fn!(
+        Error::network,
+        "failed to unpack Mason registry data"
+    ))?;
     Ok(registry_bytes)
 }
 
 fn read_registry_metadata(path: &Path) -> Result<Option<RegistryMetadata>> {
     match fs::read_to_string(path) {
-        Ok(contents) => serde_json::from_str(&contents).map(Some).map_err(|error| {
-            Error::unexpected(format!("failed to parse {}: {error}", path.display()))
-        }),
+        Ok(contents) => serde_json::from_str(&contents).map(Some).map_err(error_fn!(
+            Error::unexpected,
+            "failed to parse {}",
+            path.display()
+        )),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
         Err(error) => Err(Error::unexpected(format!(
             "failed to read {}: {error}",
@@ -184,21 +187,26 @@ fn write_bytes_file(path: &Path, bytes: &[u8]) -> Result<()> {
         )));
     };
 
-    fs::create_dir_all(parent).map_err(|error| {
-        Error::unexpected(format!("failed to create {}: {error}", parent.display()))
-    })?;
-    let mut temp = NamedTempFile::new_in(parent).map_err(|error| {
-        Error::unexpected(format!(
-            "failed to create temporary file in {}: {error}",
-            parent.display()
-        ))
-    })?;
-    temp.write_all(bytes).map_err(|error| {
-        Error::unexpected(format!("failed to write {}: {error}", path.display()))
-    })?;
-    temp.persist(path).map_err(|error| {
-        Error::unexpected(format!("failed to persist {}: {error}", path.display()))
-    })?;
+    fs::create_dir_all(parent).map_err(error_fn!(
+        Error::unexpected,
+        "failed to create {}",
+        parent.display()
+    ))?;
+    let mut temp = NamedTempFile::new_in(parent).map_err(error_fn!(
+        Error::unexpected,
+        "failed to create temporary file in {}",
+        parent.display()
+    ))?;
+    temp.write_all(bytes).map_err(error_fn!(
+        Error::unexpected,
+        "failed to write {}",
+        path.display()
+    ))?;
+    temp.persist(path).map_err(error_fn!(
+        Error::unexpected,
+        "failed to persist {}",
+        path.display()
+    ))?;
     Ok(())
 }
 
@@ -206,9 +214,11 @@ fn write_json_file<T>(path: &Path, value: &T) -> Result<()>
 where
     T: Serialize,
 {
-    let bytes = serde_json::to_vec_pretty(value).map_err(|error| {
-        Error::unexpected(format!("failed to serialize {}: {error}", path.display()))
-    })?;
+    let bytes = serde_json::to_vec_pretty(value).map_err(error_fn!(
+        Error::unexpected,
+        "failed to serialize {}",
+        path.display()
+    ))?;
     write_bytes_file(path, &bytes)
 }
 
@@ -216,5 +226,5 @@ fn unix_timestamp_now() -> Result<u64> {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_secs())
-        .map_err(|error| Error::unexpected(format!("failed to read system clock: {error}")))
+        .map_err(error_fn!(Error::unexpected, "failed to read system clock"))
 }

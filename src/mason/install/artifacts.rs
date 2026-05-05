@@ -1,4 +1,4 @@
-use crate::error::{Error, Result};
+use crate::error::{Error, Result, error_fn};
 use crate::mason::http::download_bytes as http_download_bytes;
 use crate::mason::install::join_relative_path;
 use crate::mason::platform::MasonPlatform;
@@ -220,7 +220,7 @@ pub(super) fn http_client() -> Result<Client> {
     Client::builder()
         .user_agent(USER_AGENT)
         .build()
-        .map_err(|error| Error::network(format!("failed to create HTTP client: {error}")))
+        .map_err(error_fn!(Error::network, "failed to create HTTP client"))
 }
 
 pub(super) fn download_bytes(
@@ -246,9 +246,11 @@ pub(super) fn install_downloaded_artifact(
     relative_name: &str,
     bytes: &[u8],
 ) -> Result<()> {
-    fs::create_dir_all(root).map_err(|error| {
-        Error::unexpected(format!("failed to create {}: {error}", root.display()))
-    })?;
+    fs::create_dir_all(root).map_err(error_fn!(
+        Error::unexpected,
+        "failed to create {}",
+        root.display()
+    ))?;
     let relative_name_lower = relative_name.to_ascii_lowercase();
     let extension = Path::new(relative_name)
         .extension()
@@ -283,12 +285,11 @@ fn extract_tar_gz(root: &Path, bytes: &[u8]) -> Result<()> {
             .map_err(format_root_error("failed to read tar entry path in", root))?;
         let output_path = join_relative_path(root, &entry_path.to_string_lossy())?;
         if entry.header().entry_type().is_dir() {
-            fs::create_dir_all(&output_path).map_err(|error| {
-                Error::unexpected(format!(
-                    "failed to create {}: {error}",
-                    output_path.display()
-                ))
-            })?;
+            fs::create_dir_all(&output_path).map_err(error_fn!(
+                Error::unexpected,
+                "failed to create {}",
+                output_path.display()
+            ))?;
             continue;
         }
 
@@ -298,16 +299,17 @@ fn extract_tar_gz(root: &Path, bytes: &[u8]) -> Result<()> {
         )?;
 
         if let Some(parent) = output_path.parent() {
-            fs::create_dir_all(parent).map_err(|error| {
-                Error::unexpected(format!("failed to create {}: {error}", parent.display()))
-            })?;
+            fs::create_dir_all(parent).map_err(error_fn!(
+                Error::unexpected,
+                "failed to create {}",
+                parent.display()
+            ))?;
         }
-        entry.unpack(&output_path).map_err(|error| {
-            Error::unexpected(format!(
-                "failed to extract {}: {error}",
-                output_path.display()
-            ))
-        })?;
+        entry.unpack(&output_path).map_err(error_fn!(
+            Error::unexpected,
+            "failed to extract {}",
+            output_path.display()
+        ))?;
     }
     Ok(())
 }
@@ -330,12 +332,11 @@ fn extract_zip(root: &Path, bytes: &[u8]) -> Result<()> {
         };
         let output_path = root.join(name);
         if file.is_dir() {
-            fs::create_dir_all(&output_path).map_err(|error| {
-                Error::unexpected(format!(
-                    "failed to create {}: {error}",
-                    output_path.display()
-                ))
-            })?;
+            fs::create_dir_all(&output_path).map_err(error_fn!(
+                Error::unexpected,
+                "failed to create {}",
+                output_path.display()
+            ))?;
             continue;
         }
         ensure_decompressed_size_limit(
@@ -343,34 +344,33 @@ fn extract_zip(root: &Path, bytes: &[u8]) -> Result<()> {
             &format!("zip entry {}", output_path.display()),
         )?;
         if let Some(parent) = output_path.parent() {
-            fs::create_dir_all(parent).map_err(|error| {
-                Error::unexpected(format!("failed to create {}: {error}", parent.display()))
-            })?;
+            fs::create_dir_all(parent).map_err(error_fn!(
+                Error::unexpected,
+                "failed to create {}",
+                parent.display()
+            ))?;
         }
-        let mut output = fs::File::create(&output_path).map_err(|error| {
-            Error::unexpected(format!(
-                "failed to create {}: {error}",
-                output_path.display()
-            ))
-        })?;
-        std::io::copy(&mut file, &mut output).map_err(|error| {
-            Error::unexpected(format!(
-                "failed to extract {}: {error}",
-                output_path.display()
-            ))
-        })?;
+        let mut output = fs::File::create(&output_path).map_err(error_fn!(
+            Error::unexpected,
+            "failed to create {}",
+            output_path.display()
+        ))?;
+        std::io::copy(&mut file, &mut output).map_err(error_fn!(
+            Error::unexpected,
+            "failed to extract {}",
+            output_path.display()
+        ))?;
         #[cfg(unix)]
         if let Some(mode) = file.unix_mode() {
             fs::set_permissions(
                 &output_path,
                 fs::Permissions::from_mode(owner_writable_mode(mode)),
             )
-            .map_err(|error| {
-                Error::unexpected(format!(
-                    "failed to set permissions on {}: {error}",
-                    output_path.display()
-                ))
-            })?;
+            .map_err(error_fn!(
+                Error::unexpected,
+                "failed to set permissions on {}",
+                output_path.display()
+            ))?;
         }
     }
     Ok(())
@@ -381,7 +381,11 @@ fn write_gzip_file(path: &Path, bytes: &[u8]) -> Result<()> {
     GzDecoder::new(Cursor::new(bytes))
         .take(MAX_DECOMPRESSED_BYTES + 1)
         .read_to_end(&mut output)
-        .map_err(|error| Error::network(format!("failed to unpack {}: {error}", path.display())))?;
+        .map_err(error_fn!(
+            Error::network,
+            "failed to unpack {}",
+            path.display()
+        ))?;
     ensure_decompressed_size_limit(output.len() as u64, &path.display().to_string())?;
     write_file(path, &output)
 }
@@ -415,11 +419,16 @@ fn write_file(path: &Path, bytes: &[u8]) -> Result<()> {
             path.display()
         )));
     };
-    fs::create_dir_all(parent).map_err(|error| {
-        Error::unexpected(format!("failed to create {}: {error}", parent.display()))
-    })?;
-    fs::write(path, bytes)
-        .map_err(|error| Error::unexpected(format!("failed to write {}: {error}", path.display())))
+    fs::create_dir_all(parent).map_err(error_fn!(
+        Error::unexpected,
+        "failed to create {}",
+        parent.display()
+    ))?;
+    fs::write(path, bytes).map_err(error_fn!(
+        Error::unexpected,
+        "failed to write {}",
+        path.display()
+    ))
 }
 
 pub(super) fn parse_archive_file_spec(file: &str) -> (&str, Option<&str>) {

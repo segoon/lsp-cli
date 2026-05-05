@@ -25,10 +25,7 @@ use std::sync::mpsc::{self, Receiver};
 use std::thread;
 use std::time::Instant;
 
-pub(super) fn resolve_target(
-    args: &DaemonArgs,
-    config: &ConfigStore,
-) -> Result<DaemonTarget> {
+pub(super) fn resolve_target(args: &DaemonArgs, config: &ConfigStore) -> Result<DaemonTarget> {
     let workspace = prepare_workspace(
         &args.path,
         args.server.server(),
@@ -47,8 +44,12 @@ pub(super) fn resolve_target(
     let root_uri = path_to_file_uri(&workspace_root)?;
     let workspace_name = workspace_name(&workspace_root);
     let socket_root = default_daemon_root()?;
-    fs::create_dir_all(&socket_root)
-        .map_err(|error| Error::unexpected(format!("failed to create {}: {error}", socket_root.display())))?;
+    fs::create_dir_all(&socket_root).map_err(|error| {
+        Error::unexpected(format!(
+            "failed to create {}: {error}",
+            socket_root.display()
+        ))
+    })?;
 
     #[cfg(unix)]
     {
@@ -80,10 +81,7 @@ pub(super) fn resolve_target(
     })
 }
 
-pub(super) fn launch_background(
-    args: &DaemonArgs,
-    target: &DaemonTarget,
-) -> Result<String> {
+pub(super) fn launch_background(args: &DaemonArgs, target: &DaemonTarget) -> Result<String> {
     launch_background_for_connection(
         &args.path,
         &target.server_name,
@@ -101,10 +99,11 @@ pub(super) fn launch_background_for_connection(
     debug: bool,
     idle_timeout: std::time::Duration,
 ) -> Result<()> {
-    let executable = std::env::current_exe()
-        .map_err(|error| Error::unexpected(format!("failed to resolve lsp-cli executable: {error}")))?;
-    let devnull =
-        File::open("/dev/null").map_err(|error| Error::unexpected(format!("failed to open /dev/null: {error}")))?;
+    let executable = std::env::current_exe().map_err(|error| {
+        Error::unexpected(format!("failed to resolve lsp-cli executable: {error}"))
+    })?;
+    let devnull = File::open("/dev/null")
+        .map_err(|error| Error::unexpected(format!("failed to open /dev/null: {error}")))?;
     let mut command = Command::new(executable);
     command
         .arg("daemon")
@@ -132,18 +131,20 @@ pub(super) fn launch_background_for_connection(
     let mut reader = BufReader::new(stdout);
     let mut status = String::new();
     let mut payload = String::new();
-    reader
-        .read_line(&mut status)
-        .map_err(|error| Error::unexpected(format!("failed to read daemon startup status: {error}")))?;
-    reader
-        .read_line(&mut payload)
-        .map_err(|error| Error::unexpected(format!("failed to read daemon startup payload: {error}")))?;
+    reader.read_line(&mut status).map_err(|error| {
+        Error::unexpected(format!("failed to read daemon startup status: {error}"))
+    })?;
+    reader.read_line(&mut payload).map_err(|error| {
+        Error::unexpected(format!("failed to read daemon startup payload: {error}"))
+    })?;
 
     match status.trim_end() {
         "READY" => {
             let payload = payload.trim_end().to_string();
             if payload.is_empty() {
-                return Err(Error::unexpected("daemon started without reporting a socket path"));
+                return Err(Error::unexpected(
+                    "daemon started without reporting a socket path",
+                ));
             }
             if payload != socket_path.display().to_string() {
                 return Err(Error::unexpected(format!(
@@ -154,14 +155,13 @@ pub(super) fn launch_background_for_connection(
             Ok(())
         }
         "ERROR" => Err(Error::unexpected(payload.trim_end().to_string())),
-        other => Err(Error::unexpected(format!("unexpected daemon startup status {other:?}"))),
+        other => Err(Error::unexpected(format!(
+            "unexpected daemon startup status {other:?}"
+        ))),
     }
 }
 
-pub(super) fn run_background(
-    args: &DaemonArgs,
-    target: DaemonTarget,
-) -> Result<String> {
+pub(super) fn run_background(args: &DaemonArgs, target: DaemonTarget) -> Result<String> {
     let mut daemon = match unsafe { setsid_wrapper() }
         .and_then(|()| Daemon::new(target, args.server.debug, args.idle_timeout))
     {
@@ -244,9 +244,9 @@ where
 
 impl ClientSession {
     pub(super) fn new(stream: UnixStream) -> Result<Self> {
-        let reader = stream
-            .try_clone()
-            .map_err(|error| Error::unexpected(format!("failed to clone client socket: {error}")))?;
+        let reader = stream.try_clone().map_err(|error| {
+            Error::unexpected(format!("failed to clone client socket: {error}"))
+        })?;
 
         Ok(Self {
             writer: stream,
@@ -262,8 +262,9 @@ impl ClientSession {
 
 impl UpstreamServer {
     pub(super) fn spawn(target: &DaemonTarget, debug: bool) -> Result<Self> {
-        let executable = std::env::current_exe()
-            .map_err(|error| Error::unexpected(format!("failed to resolve lsp-cli executable: {error}")))?;
+        let executable = std::env::current_exe().map_err(|error| {
+            Error::unexpected(format!("failed to resolve lsp-cli executable: {error}"))
+        })?;
         let mut command = Command::new(executable);
         command
             .arg("run")

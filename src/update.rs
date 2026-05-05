@@ -69,8 +69,12 @@ fn install_downloaded_data(state: &RuntimeState, archive: &[u8]) -> Result<()> {
     let final_root = state.data_dir();
     let replacement_root = temp_dir.path().join("validated-data");
     if replacement_root.exists() {
-        fs::remove_dir_all(&replacement_root)
-            .map_err(|error| Error::unexpected(format!("failed to remove {}: {error}", replacement_root.display())))?;
+        fs::remove_dir_all(&replacement_root).map_err(|error| {
+            Error::unexpected(format!(
+                "failed to remove {}: {error}",
+                replacement_root.display()
+            ))
+        })?;
     }
     fs::rename(&extracted_root, &replacement_root).map_err(|error| {
         Error::unexpected(format!(
@@ -79,11 +83,19 @@ fn install_downloaded_data(state: &RuntimeState, archive: &[u8]) -> Result<()> {
         ))
     })?;
     if final_root.exists() {
-        fs::remove_dir_all(&final_root)
-            .map_err(|error| Error::unexpected(format!("failed to remove {}: {error}", final_root.display())))?;
+        fs::remove_dir_all(&final_root).map_err(|error| {
+            Error::unexpected(format!(
+                "failed to remove {}: {error}",
+                final_root.display()
+            ))
+        })?;
     }
-    fs::rename(&replacement_root, &final_root)
-        .map_err(|error| Error::unexpected(format!("failed to install {}: {error}", final_root.display())))?;
+    fs::rename(&replacement_root, &final_root).map_err(|error| {
+        Error::unexpected(format!(
+            "failed to install {}: {error}",
+            final_root.display()
+        ))
+    })?;
     Ok(())
 }
 
@@ -92,10 +104,13 @@ fn locate_data_root(root: &Path) -> Result<PathBuf> {
         return Ok(root.to_path_buf());
     }
 
-    let entries = fs::read_dir(root)
-        .map_err(|error| Error::unexpected(format!("failed to read {}: {error}", root.display())))?;
+    let entries = fs::read_dir(root).map_err(|error| {
+        Error::unexpected(format!("failed to read {}: {error}", root.display()))
+    })?;
     for entry in entries {
-        let entry = entry.map_err(|error| Error::unexpected(format!("failed to read {}: {error}", root.display())))?;
+        let entry = entry.map_err(|error| {
+            Error::unexpected(format!("failed to read {}: {error}", root.display()))
+        })?;
         let path = entry.path();
         if path.is_dir() && has_config_dirs(&path) {
             return Ok(path);
@@ -147,17 +162,25 @@ fn extract_tar_gz(root: &Path, bytes: &[u8]) -> Result<()> {
         })?;
         let output_path = root.join(entry_path.as_ref());
         if entry.header().entry_type().is_dir() {
-            fs::create_dir_all(&output_path)
-                .map_err(|error| Error::unexpected(format!("failed to create {}: {error}", output_path.display())))?;
+            fs::create_dir_all(&output_path).map_err(|error| {
+                Error::unexpected(format!(
+                    "failed to create {}: {error}",
+                    output_path.display()
+                ))
+            })?;
             continue;
         }
         if let Some(parent) = output_path.parent() {
-            fs::create_dir_all(parent)
-                .map_err(|error| Error::unexpected(format!("failed to create {}: {error}", parent.display())))?;
+            fs::create_dir_all(parent).map_err(|error| {
+                Error::unexpected(format!("failed to create {}: {error}", parent.display()))
+            })?;
         }
-        entry
-            .unpack(&output_path)
-            .map_err(|error| Error::network(format!("failed to extract {}: {error}", output_path.display())))?;
+        entry.unpack(&output_path).map_err(|error| {
+            Error::network(format!(
+                "failed to extract {}: {error}",
+                output_path.display()
+            ))
+        })?;
     }
     Ok(())
 }
@@ -184,18 +207,31 @@ fn extract_zip(root: &Path, bytes: &[u8]) -> Result<()> {
         };
         let output_path = root.join(name);
         if file.is_dir() {
-            fs::create_dir_all(&output_path)
-                .map_err(|error| Error::unexpected(format!("failed to create {}: {error}", output_path.display())))?;
+            fs::create_dir_all(&output_path).map_err(|error| {
+                Error::unexpected(format!(
+                    "failed to create {}: {error}",
+                    output_path.display()
+                ))
+            })?;
             continue;
         }
         if let Some(parent) = output_path.parent() {
-            fs::create_dir_all(parent)
-                .map_err(|error| Error::unexpected(format!("failed to create {}: {error}", parent.display())))?;
+            fs::create_dir_all(parent).map_err(|error| {
+                Error::unexpected(format!("failed to create {}: {error}", parent.display()))
+            })?;
         }
-        let mut output = fs::File::create(&output_path)
-            .map_err(|error| Error::unexpected(format!("failed to create {}: {error}", output_path.display())))?;
-        std::io::copy(&mut file, &mut output)
-            .map_err(|error| Error::network(format!("failed to extract {}: {error}", output_path.display())))?;
+        let mut output = fs::File::create(&output_path).map_err(|error| {
+            Error::unexpected(format!(
+                "failed to create {}: {error}",
+                output_path.display()
+            ))
+        })?;
+        std::io::copy(&mut file, &mut output).map_err(|error| {
+            Error::network(format!(
+                "failed to extract {}: {error}",
+                output_path.display()
+            ))
+        })?;
     }
     Ok(())
 }
@@ -215,9 +251,9 @@ fn download_bytes(client: &Client, url: &str) -> Result<Vec<u8>> {
         .error_for_status()
         .map_err(|error| Error::network(format!("failed to download lsp-cli-data: {error}")))?;
     let mut bytes = Vec::new();
-    response
-        .read_to_end(&mut bytes)
-        .map_err(|error| Error::network(format!("failed to read lsp-cli-data download: {error}")))?;
+    response.read_to_end(&mut bytes).map_err(|error| {
+        Error::network(format!("failed to read lsp-cli-data download: {error}"))
+    })?;
     Ok(bytes)
 }
 
@@ -246,7 +282,11 @@ fn fetch_release(client: &Client, version: &str) -> Result<ReleaseDownload> {
         .error_for_status()
         .map_err(|error| Error::network(format!("failed to query lsp-cli-data releases: {error}")))?
         .json()
-        .map_err(|error| Error::network(format!("failed to parse lsp-cli-data release metadata: {error}")))?;
+        .map_err(|error| {
+            Error::network(format!(
+                "failed to parse lsp-cli-data release metadata: {error}"
+            ))
+        })?;
     let archive_url = release.tarball_url.or(release.zipball_url).ok_or_else(|| {
         Error::network("lsp-cli-data release does not provide a downloadable archive")
     })?;

@@ -3,8 +3,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use crate::error::{Error, Result};
 use crate::env_vars;
+use crate::error::{Error, Result};
 use crate::fs as path_fs;
 use regex::Regex;
 use serde::{Deserialize, de};
@@ -278,13 +278,17 @@ pub(crate) fn parse_timeout(value: &str) -> std::result::Result<Duration, String
     parse_timeout_value(value).map_err(|error| error.to_string())
 }
 
-fn deserialize_optional_timeout<'de, D>(deserializer: D) -> std::result::Result<Option<Duration>, D::Error>
+fn deserialize_optional_timeout<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<Duration>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
     let value = Option::<String>::deserialize(deserializer)?;
     value
-        .map(|value| parse_timeout_value(&value).map_err(|error| de::Error::custom(error.to_string())))
+        .map(|value| {
+            parse_timeout_value(&value).map_err(|error| de::Error::custom(error.to_string()))
+        })
         .transpose()
 }
 
@@ -300,14 +304,19 @@ fn load_filetypes(dir: &Path) -> Result<Vec<FiletypeConfig>> {
             let id = path
                 .file_stem()
                 .and_then(|value| value.to_str())
-                .ok_or_else(|| Error::config_format(format!("invalid filetype filename: {}", path.display())))?
+                .ok_or_else(|| {
+                    Error::config_format(format!("invalid filetype filename: {}", path.display()))
+                })?
                 .to_string();
             let patterns = file
                 .patterns
                 .into_iter()
                 .map(|pattern| {
                     Regex::new(&pattern).map_err(|error| {
-                        Error::config_format(format!("{}: invalid regex {pattern:?}: {error}", path.display()))
+                        Error::config_format(format!(
+                            "{}: invalid regex {pattern:?}: {error}",
+                            path.display()
+                        ))
                     })
                 })
                 .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -337,7 +346,9 @@ fn load_lsps(dir: &Path) -> Result<Vec<LspConfig>> {
             let id = path
                 .file_stem()
                 .and_then(|value| value.to_str())
-                .ok_or_else(|| Error::config_format(format!("invalid lsp filename: {}", path.display())))?
+                .ok_or_else(|| {
+                    Error::config_format(format!("invalid lsp filename: {}", path.display()))
+                })?
                 .to_string();
 
             Ok(LspConfig {
@@ -354,11 +365,17 @@ fn load_lsps(dir: &Path) -> Result<Vec<LspConfig>> {
 
 fn find_yaml_files_in(dir: &Path) -> Result<Vec<PathBuf>> {
     if !dir.exists() {
-        return Err(Error::unexpected(format!("missing directory {}", dir.display())));
+        return Err(Error::unexpected(format!(
+            "missing directory {}",
+            dir.display()
+        )));
     }
 
     if !dir.is_dir() {
-        return Err(Error::unexpected(format!("not a directory: {}", dir.display())));
+        return Err(Error::unexpected(format!(
+            "not a directory: {}",
+            dir.display()
+        )));
     }
 
     let mut paths = fs::read_dir(dir)
@@ -371,7 +388,10 @@ fn find_yaml_files_in(dir: &Path) -> Result<Vec<PathBuf>> {
     paths.sort();
 
     if paths.is_empty() {
-        return Err(Error::unexpected(format!("no yaml files found in {}", dir.display())));
+        return Err(Error::unexpected(format!(
+            "no yaml files found in {}",
+            dir.display()
+        )));
     }
 
     Ok(paths)
@@ -435,7 +455,10 @@ impl Default for CliConfigRoots {
 
         Self {
             global,
-            user: choose_cli_config_user_root(env_vars::xdg_config_home().as_deref(), home.as_deref()),
+            user: choose_cli_config_user_root(
+                env_vars::xdg_config_home().as_deref(),
+                home.as_deref(),
+            ),
         }
     }
 }

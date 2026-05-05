@@ -68,7 +68,9 @@ impl LspClient {
         timeout: Duration,
     ) -> Result<Self> {
         let Some(program) = command.first() else {
-            return Err(Error::unexpected("cannot start LSP server from empty command"));
+            return Err(Error::unexpected(
+                "cannot start LSP server from empty command",
+            ));
         };
 
         log_lsp_server_starting();
@@ -131,11 +133,7 @@ impl LspClient {
         })
     }
 
-    pub fn connect_unix(
-        socket_path: &Path,
-        debug: bool,
-        timeout: Duration,
-    ) -> Result<Self> {
+    pub fn connect_unix(socket_path: &Path, debug: bool, timeout: Duration) -> Result<Self> {
         let stream = UnixStream::connect(socket_path).map_err(|error| {
             Error::lsp(format!(
                 "failed to connect to daemon socket {}: {error}",
@@ -225,7 +223,8 @@ impl LspClient {
                     ));
                 }
                 Ok(IncomingMessage::Error(error)) => {
-                    let error = error.with_prefix(format!("failed to read LSP message for {}", R::METHOD));
+                    let error =
+                        error.with_prefix(format!("failed to read LSP message for {}", R::METHOD));
                     if error.should_log_as_unexpected() {
                         log_unexpected_error(&error.to_string());
                     }
@@ -237,7 +236,10 @@ impl LspClient {
                 Err(RecvTimeoutError::Disconnected) => {
                     return Err(self.format_transport_wait_error(
                         R::METHOD,
-                        Error::lsp(format!("LSP reader stopped while waiting for {}", R::METHOD)),
+                        Error::lsp(format!(
+                            "LSP reader stopped while waiting for {}",
+                            R::METHOD
+                        )),
                     ));
                 }
             }
@@ -306,9 +308,9 @@ impl LspClient {
                 }
                 Ok(None) | Err(TryRecvError::Empty) => break,
                 Err(TryRecvError::Disconnected) => {
-                    deferred.push_back(IncomingMessage::Error(
-                        Error::lsp("LSP reader stopped unexpectedly"),
-                    ));
+                    deferred.push_back(IncomingMessage::Error(Error::lsp(
+                        "LSP reader stopped unexpectedly",
+                    )));
                     break;
                 }
             }
@@ -399,7 +401,9 @@ impl LspClient {
                     }
                     Ok(None) => {}
                     Err(error) => {
-                        let error = Error::unexpected(format!("failed to wait for LSP server exit: {error}"));
+                        let error = Error::unexpected(format!(
+                            "failed to wait for LSP server exit: {error}"
+                        ));
                         log_unexpected_error(&error.to_string());
                         return Err(error);
                     }
@@ -426,9 +430,8 @@ impl LspClient {
                 Ok(IncomingMessage::EndOfStream)
                 | Err(RecvTimeoutError::Timeout | RecvTimeoutError::Disconnected) => {}
                 Ok(IncomingMessage::Error(error)) => {
-                    let error = error.with_prefix(
-                        "failed to read LSP message while waiting for server exit",
-                    );
+                    let error = error
+                        .with_prefix("failed to read LSP message while waiting for server exit");
                     if error.should_log_as_unexpected() {
                         log_unexpected_error(&error.to_string());
                     }
@@ -539,9 +542,9 @@ fn format_spawn_error(program: &str, error: &std::io::Error) -> Error {
                 "LSP server executable `{program}` is not installed or not in $PATH"
             ))
         }
-        std::io::ErrorKind::NotFound => {
-            Error::missing_executable(format!("configured LSP server executable `{program}` was not found"))
-        }
+        std::io::ErrorKind::NotFound => Error::missing_executable(format!(
+            "configured LSP server executable `{program}` was not found"
+        )),
         _ => Error::unexpected(format!("failed to start LSP server `{program}`: {error}")),
     }
 }

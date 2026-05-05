@@ -69,17 +69,19 @@ fn run_diagnostics_query(
         &config.filetypes,
         &workspace.allowed_filetypes,
     )
-    .map_err(|error| Error::unexpected(format!("failed to scan {}: {error}", query.directory.display())))?;
+    .map_err(|error| {
+        Error::unexpected(format!(
+            "failed to scan {}: {error}",
+            query.directory.display()
+        ))
+    })?;
 
-    let mut client = connect_lsp_client(
-        &workspace,
-        args.query.detach,
-        query.debug,
-        query.timeout,
-    )?;
+    let mut client = connect_lsp_client(&workspace, args.query.detach, query.debug, query.timeout)?;
     let initialize = client
         .initialize(&workspace.root_uri, &workspace.workspace_name, true)
-        .map_err(|error| error.with_prefix(format!("failed to initialize {}", workspace.server.server)))?;
+        .map_err(|error| {
+            error.with_prefix(format!("failed to initialize {}", workspace.server.server))
+        })?;
 
     let mut diagnostics = if diagnostics_supported(&initialize) {
         collect_pull_diagnostics(
@@ -106,7 +108,10 @@ fn run_diagnostics_query(
             .then(left.message.cmp(&right.message))
     });
     client.shutdown().map_err(|error| {
-        error.with_prefix(format!("failed to stop {} cleanly", workspace.server.server))
+        error.with_prefix(format!(
+            "failed to stop {} cleanly",
+            workspace.server.server
+        ))
     })?;
 
     Ok(DiagnosticsQueryResult {
@@ -127,7 +132,11 @@ fn collect_pull_diagnostics(
     for file in files {
         let uri = path_to_file_uri(file)?;
         client.open_document(file, &uri).map_err(|error| {
-            error.with_prefix(format!("failed to open {} with {}", file.display(), server_name))
+            error.with_prefix(format!(
+                "failed to open {} with {}",
+                file.display(),
+                server_name
+            ))
         })?;
         let response = client.document_diagnostic(&uri).map_err(|error| {
             error.with_prefix(format!(
@@ -156,7 +165,11 @@ fn collect_push_diagnostics(
     for file in files {
         let uri = path_to_file_uri(file)?;
         client.open_document(file, &uri).map_err(|error| {
-            error.with_prefix(format!("failed to open {} with {}", file.display(), server_name))
+            error.with_prefix(format!(
+                "failed to open {} with {}",
+                file.display(),
+                server_name
+            ))
         })?;
     }
 

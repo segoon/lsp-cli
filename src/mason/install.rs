@@ -1,3 +1,4 @@
+use crate::error::{Error, Result};
 use crate::mason::link::{
     finalize_install, is_resolved_program_runnable, join_relative_path, resolve_program,
 };
@@ -6,7 +7,6 @@ use crate::mason::registry::MasonPackage;
 use crate::mason::source::{SourceId, parse_source_id};
 use crate::mason::template::TemplateContext;
 use crate::runtime_state::RuntimeState;
-use crate::error::{Error, Result};
 use std::fs;
 use std::process::Command;
 
@@ -34,7 +34,8 @@ pub(crate) fn resolve_cached_program(
         | SourceId::Pypi { .. }
         | SourceId::Cargo { .. }
         | SourceId::Golang { .. } => {
-            let resolved_program = resolve_program(package, program, state, &TemplateContext::empty())?;
+            let resolved_program =
+                resolve_program(package, program, state, &TemplateContext::empty())?;
             Ok(is_resolved_program_runnable(&resolved_program)
                 .then(|| resolved_program.executable_path().to_path_buf()))
         }
@@ -101,8 +102,12 @@ fn install_npm_package(
 
     state.ensure_dirs()?;
     let install_dir = state.package_dir(&package.name);
-    fs::create_dir_all(&install_dir)
-        .map_err(|error| Error::unexpected(format!("failed to create {}: {error}", install_dir.display())))?;
+    fs::create_dir_all(&install_dir).map_err(|error| {
+        Error::unexpected(format!(
+            "failed to create {}: {error}",
+            install_dir.display()
+        ))
+    })?;
 
     #[cfg(test)]
     if fake_npm_install(&install_dir, program)? {
@@ -212,8 +217,12 @@ fn install_pypi_package(
 
     state.ensure_dirs()?;
     let install_dir = state.package_dir(&package.name);
-    fs::create_dir_all(&install_dir)
-        .map_err(|error| Error::unexpected(format!("failed to create {}: {error}", install_dir.display())))?;
+    fs::create_dir_all(&install_dir).map_err(|error| {
+        Error::unexpected(format!(
+            "failed to create {}: {error}",
+            install_dir.display()
+        ))
+    })?;
 
     let install_spec = if extras.is_empty() {
         format!("{package_name}=={version}")
@@ -262,8 +271,12 @@ fn install_cargo_package(
 
     state.ensure_dirs()?;
     let install_dir = state.package_dir(&package.name);
-    fs::create_dir_all(&install_dir)
-        .map_err(|error| Error::unexpected(format!("failed to create {}: {error}", install_dir.display())))?;
+    fs::create_dir_all(&install_dir).map_err(|error| {
+        Error::unexpected(format!(
+            "failed to create {}: {error}",
+            install_dir.display()
+        ))
+    })?;
 
     let output = Command::new("cargo")
         .arg("install")
@@ -311,8 +324,9 @@ fn install_golang_package(
             package.name
         ))
     })?;
-    fs::create_dir_all(bin_dir)
-        .map_err(|error| Error::unexpected(format!("failed to create {}: {error}", bin_dir.display())))?;
+    fs::create_dir_all(bin_dir).map_err(|error| {
+        Error::unexpected(format!("failed to create {}: {error}", bin_dir.display()))
+    })?;
 
     let output = Command::new("go")
         .arg("install")
@@ -397,8 +411,12 @@ fn install_generic_package(
 
     let client = http_client()?;
     let install_root = state.package_dir(&package.name);
-    fs::create_dir_all(&install_root)
-        .map_err(|error| Error::unexpected(format!("failed to create {}: {error}", install_root.display())))?;
+    fs::create_dir_all(&install_root).map_err(|error| {
+        Error::unexpected(format!(
+            "failed to create {}: {error}",
+            install_root.display()
+        ))
+    })?;
 
     for (relative_name, url_template) in &download.files {
         let relative_name = context.render(relative_name);

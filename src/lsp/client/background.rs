@@ -1,5 +1,5 @@
 use super::{IncomingMessage, LspClient, request_id};
-use crate::error::{Error, Result};
+use crate::error::{Error, Result, error_fn};
 use crate::lsp::{SERVER_STATUS_METHOD, ServerStatusParams};
 use serde::Deserialize;
 use serde_json::Value;
@@ -86,8 +86,11 @@ fn update_build_index_state(
         SERVER_STATUS_METHOD => {
             state.saw_server_status = true;
             let params = message.get("params").cloned().unwrap_or(Value::Null);
-            let status: ServerStatusParams = serde_json::from_value(params)
-                .map_err(|error| Error::lsp(format!("failed to decode {SERVER_STATUS_METHOD}: {error}")))?;
+            let status: ServerStatusParams = serde_json::from_value(params).map_err(error_fn!(
+                Error::lsp,
+                "failed to decode {}",
+                SERVER_STATUS_METHOD
+            ))?;
 
             if status.health == "error" {
                 return Ok(Some(Err(Error::lsp(status.message.unwrap_or_else(|| {
@@ -102,16 +105,17 @@ fn update_build_index_state(
         "window/workDoneProgress/create" => {
             let params = message.get("params").cloned().unwrap_or(Value::Null);
             let create: WorkDoneProgressCreateParams =
-                serde_json::from_value(params).map_err(|error| {
-                    Error::lsp(format!("failed to decode window/workDoneProgress/create: {error}"))
-                })?;
+                serde_json::from_value(params).map_err(error_fn!(
+                    Error::lsp,
+                    "failed to decode window/workDoneProgress/create"
+                ))?;
             state.saw_work_done_progress = true;
             let _ = create.token;
         }
         "$/progress" => {
             let params = message.get("params").cloned().unwrap_or(Value::Null);
             let progress: ProgressParams = serde_json::from_value(params)
-                .map_err(|error| Error::lsp(format!("failed to decode $/progress: {error}")))?;
+                .map_err(error_fn!(Error::lsp, "failed to decode $/progress"))?;
             state.saw_work_done_progress = true;
             let token = progress_token(&progress.token);
 

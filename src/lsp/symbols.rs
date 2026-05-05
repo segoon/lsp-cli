@@ -59,8 +59,9 @@ pub fn symbol_matches_from_response(response: &Value) -> Result<Vec<SymbolMatch>
         return Ok(Vec::new());
     }
 
-    let symbols: Vec<WorkspaceSymbolItem> = serde_json::from_value(response.clone())
-        .map_err(error_fn!(Error::lsp, "failed to decode workspace/symbol response"))?;
+    let symbols: Vec<WorkspaceSymbolItem> = serde_json::from_value(response.clone()).map_err(
+        error_fn!(Error::lsp, "failed to decode workspace/symbol response"),
+    )?;
     let mut source_cache = SourceCache::default();
 
     symbols
@@ -99,7 +100,7 @@ fn location_matches_from_response_with(
     }
 
     let response: LocationResponse = serde_json::from_value(response.clone())
-        .map_err(|error| Error::lsp(format!("failed to decode location response: {error}")))?;
+        .map_err(error_fn!(Error::lsp, "failed to decode location response"))?;
 
     match response {
         LocationResponse::Scalar(location) => Ok(vec![location_to_symbol_match(
@@ -141,11 +142,10 @@ pub fn prepare_call_hierarchy_response(response: &Value) -> Result<Vec<Value>> {
         return Ok(Vec::new());
     }
 
-    serde_json::from_value(response.clone()).map_err(|error| {
-        Error::lsp(format!(
-            "failed to decode textDocument/prepareCallHierarchy response: {error}"
-        ))
-    })
+    serde_json::from_value(response.clone()).map_err(error_fn!(
+        Error::lsp,
+        "failed to decode textDocument/prepareCallHierarchy response"
+    ))
 }
 
 pub fn call_hierarchy_matches_from_incoming_response(
@@ -156,8 +156,11 @@ pub fn call_hierarchy_matches_from_incoming_response(
         return Ok(Vec::new());
     }
 
-    let calls: Vec<CallHierarchyIncomingCall> = serde_json::from_value(response.clone())
-        .map_err(|error| Error::lsp(format!("failed to decode callHierarchy/incomingCalls response: {error}")))?;
+    let calls: Vec<CallHierarchyIncomingCall> =
+        serde_json::from_value(response.clone()).map_err(error_fn!(
+            Error::lsp,
+            "failed to decode callHierarchy/incomingCalls response"
+        ))?;
 
     calls
         .into_iter()
@@ -173,8 +176,11 @@ pub fn call_hierarchy_matches_from_outgoing_response(
         return Ok(Vec::new());
     }
 
-    let calls: Vec<CallHierarchyOutgoingCall> = serde_json::from_value(response.clone())
-        .map_err(|error| Error::lsp(format!("failed to decode callHierarchy/outgoingCalls response: {error}")))?;
+    let calls: Vec<CallHierarchyOutgoingCall> =
+        serde_json::from_value(response.clone()).map_err(error_fn!(
+            Error::lsp,
+            "failed to decode callHierarchy/outgoingCalls response"
+        ))?;
 
     calls
         .into_iter()
@@ -195,8 +201,11 @@ where
         return Ok(Vec::new());
     }
 
-    let response: DocumentSymbolResponse = serde_json::from_value(response.clone())
-        .map_err(|error| Error::lsp(format!("failed to decode textDocument/documentSymbol response: {error}")))?;
+    let response: DocumentSymbolResponse =
+        serde_json::from_value(response.clone()).map_err(error_fn!(
+            Error::lsp,
+            "failed to decode textDocument/documentSymbol response"
+        ))?;
 
     match response {
         DocumentSymbolResponse::Flat(symbols) => symbols
@@ -434,8 +443,8 @@ fn call_hierarchy_item_to_match(
 }
 
 fn line_col_and_index(line: u32, character: u32, path: &Path) -> Result<(u32, u32, usize)> {
-    let line_index =
-        usize::try_from(line).map_err(|_| Error::lsp(format!("line index overflow for {}", path.display())))?;
+    let line_index = usize::try_from(line)
+        .map_err(|_| Error::lsp(format!("line index overflow for {}", path.display())))?;
     Ok((line + 1, character + 1, line_index))
 }
 
@@ -447,10 +456,7 @@ enum WorkspaceSymbolItem {
 }
 
 impl WorkspaceSymbolItem {
-    fn into_symbol_match(
-        self,
-        source_cache: &mut SourceCache,
-    ) -> Option<Result<SymbolMatch>> {
+    fn into_symbol_match(self, source_cache: &mut SourceCache) -> Option<Result<SymbolMatch>> {
         match self {
             Self::SymbolInformation(symbol) => Some(location_to_symbol_match(
                 &symbol.location,

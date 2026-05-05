@@ -10,17 +10,9 @@ use std::collections::BTreeSet;
 pub(super) fn run(args: &DetectArgs, config: &ConfigStore) -> Result<String> {
     let server = &args.server;
     let (detection, suggestions) = analyze_path(&args.path, config)?;
-    let suggestions = filter_detect_suggestions(
-        &suggestions,
-        server.language(),
-        server.server(),
-    )?;
+    let suggestions = filter_detect_suggestions(&suggestions, server.language(), server.server())?;
     let suggestions = resolve_detect_suggestions(&suggestions, server.download)?;
-    ensure_requested_suggestions_resolved(
-        &suggestions,
-        server.language(),
-        server.server(),
-    )?;
+    ensure_requested_suggestions_resolved(&suggestions, server.language(), server.server())?;
 
     Ok(if args.json {
         render_json(&suggestions)

@@ -2,7 +2,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use std::path::{Path, PathBuf};
 
-use crate::error::{Error, Result};
+use crate::error::{Error, Result, error_fn};
 use crate::lsp::file_uri_to_path;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -56,8 +56,10 @@ fn diagnostic_params_from_notification(value: &Value) -> Result<PublishDiagnosti
         .get("params")
         .cloned()
         .ok_or_else(|| Error::lsp("publishDiagnostics notification is missing params"))?;
-    serde_json::from_value(params)
-        .map_err(|error| Error::lsp(format!("failed to decode publishDiagnostics params: {error}")))
+    serde_json::from_value(params).map_err(error_fn!(
+        Error::lsp,
+        "failed to decode publishDiagnostics params"
+    ))
 }
 
 fn diagnostic_matches_from_params(
@@ -99,8 +101,11 @@ pub fn diagnostic_matches_from_document_response(
     document_path: &Path,
     workspace_root: &Path,
 ) -> Result<Vec<DiagnosticMatch>> {
-    let report: DocumentDiagnosticReport = serde_json::from_value(value.clone())
-        .map_err(|error| Error::lsp(format!("failed to decode textDocument/diagnostic response: {error}")))?;
+    let report: DocumentDiagnosticReport =
+        serde_json::from_value(value.clone()).map_err(error_fn!(
+            Error::lsp,
+            "failed to decode textDocument/diagnostic response"
+        ))?;
 
     if report.kind == "unchanged" {
         return Ok(Vec::new());

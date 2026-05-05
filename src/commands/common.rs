@@ -1,7 +1,7 @@
 use crate::commands::daemon::launch_for_workspace;
 use crate::config::ConfigStore;
 use crate::detect::{DetectionResult, detect_workspace};
-use crate::error::{Error, Result};
+use crate::error::{Error, Result, error_fn};
 use crate::lsp::path_to_file_uri;
 use crate::mason::resolve_detect_suggestions;
 use crate::runtime_state::{daemon_socket_path, default_daemon_root};
@@ -34,8 +34,11 @@ pub(super) fn analyze_path(
     path: &Path,
     config: &ConfigStore,
 ) -> Result<(DetectionResult, Vec<SuggestedLanguage>)> {
-    let detection = detect_workspace(path, &config.filetypes)
-        .map_err(|error| Error::unexpected(format!("failed to scan {}: {error}", path.display())))?;
+    let detection = detect_workspace(path, &config.filetypes).map_err(error_fn!(
+        Error::unexpected,
+        "failed to scan {}",
+        path.display()
+    ))?;
     let mut suggestions = suggestions_for(&config.lsps, &detection, path)?;
     sort_suggestions(&mut suggestions, &config.cli.lsp_preferences, None);
 
@@ -59,12 +62,11 @@ pub(super) fn prepare_workspace(
         download,
     )?;
     let mut server = resolved.server;
-    server.workspace_root = fs::canonicalize(&server.workspace_root).map_err(|error| {
-        Error::unexpected(format!(
-            "failed to resolve {}: {error}",
-            server.workspace_root.display()
-        ))
-    })?;
+    server.workspace_root = fs::canonicalize(&server.workspace_root).map_err(error_fn!(
+        Error::unexpected,
+        "failed to resolve {}",
+        server.workspace_root.display()
+    ))?;
     let root_uri = path_to_file_uri(&server.workspace_root)?;
     let workspace_name = crate::lsp::workspace_name(&server.workspace_root);
     let (daemon_socket_path, daemon_socket_error) = match default_daemon_root() {
@@ -316,12 +318,16 @@ fn explicit_server_not_runnable_error(selected_server: &str, language: Option<&s
         Some(language) => Error::unexpected(format!(
             "requested LSP server {selected_server:?} is not runnable for language {language:?}"
         )),
-        None => Error::unexpected(format!("requested LSP server {selected_server:?} is not runnable")),
+        None => Error::unexpected(format!(
+            "requested LSP server {selected_server:?} is not runnable"
+        )),
     }
 }
 
 fn no_runnable_server_for_language_error(language: &str) -> Error {
-    Error::detection(format!("no runnable LSP server was found for language {language:?}"))
+    Error::detection(format!(
+        "no runnable LSP server was found for language {language:?}"
+    ))
 }
 
 fn no_resolved_server_error(detection: &DetectionResult, download: bool) -> Error {

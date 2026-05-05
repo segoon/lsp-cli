@@ -1,5 +1,5 @@
-use crate::runtime_state::RuntimeState;
 use crate::error::{Error, Result};
+use crate::runtime_state::RuntimeState;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs;
@@ -77,10 +77,13 @@ impl MasonRegistry {
     }
 
     fn from_registry_json_path(path: &Path) -> Result<Self> {
-        let contents = fs::read_to_string(path)
-            .map_err(|error| Error::unexpected(format!("failed to read {}: {error}", path.display())))?;
-        let package_values = serde_json::from_str::<Vec<serde_json::Value>>(&contents)
-            .map_err(|error| Error::unexpected(format!("failed to parse {}: {error}", path.display())))?;
+        let contents = fs::read_to_string(path).map_err(|error| {
+            Error::unexpected(format!("failed to read {}: {error}", path.display()))
+        })?;
+        let package_values =
+            serde_json::from_str::<Vec<serde_json::Value>>(&contents).map_err(|error| {
+                Error::unexpected(format!("failed to parse {}: {error}", path.display()))
+            })?;
         let mut packages = Vec::new();
         for value in package_values.into_iter().filter(is_lsp_package_value) {
             if let Ok(mut package) = serde_json::from_value::<MasonPackage>(value) {

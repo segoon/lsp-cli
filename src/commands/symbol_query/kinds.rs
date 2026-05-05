@@ -31,10 +31,7 @@ impl LocationQueryKind {
         }
     }
 
-    pub(super) fn ensure_support(
-        self,
-        initialize: &crate::lsp::InitializeResponse,
-    ) -> Result<()> {
+    pub(super) fn ensure_support(self, initialize: &crate::lsp::InitializeResponse) -> Result<()> {
         match self {
             Self::References => ensure_references_support(initialize),
             Self::Definition => ensure_definition_support(initialize),
@@ -52,7 +49,9 @@ impl LocationQueryKind {
             Self::References => {
                 client.references(uri, zero_based_line(anchor), zero_based_col(anchor), false)
             }
-            Self::Definition => client.definition(uri, zero_based_line(anchor), zero_based_col(anchor)),
+            Self::Definition => {
+                client.definition(uri, zero_based_line(anchor), zero_based_col(anchor))
+            }
             Self::Declaration => {
                 client.declaration(uri, zero_based_line(anchor), zero_based_col(anchor))
             }

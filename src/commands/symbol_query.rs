@@ -66,9 +66,9 @@ pub(super) fn run_workspace_symbol_query(
         config,
         |workspace, initialize, client| {
             ensure_workspace_symbol_support(initialize)?;
-            let response = client
-                .workspace_symbol(query)
-                .map_err(|error| error.with_prefix(format!("failed to query {}", workspace.server.server)))?;
+            let response = client.workspace_symbol(query).map_err(|error| {
+                error.with_prefix(format!("failed to query {}", workspace.server.server))
+            })?;
             symbol_matches_from_response(&response)
         },
     )?;
@@ -102,7 +102,12 @@ pub(super) fn run_document_symbol_query(
                 &config.filetypes,
                 &workspace.allowed_filetypes,
             )
-            .map_err(|error| Error::unexpected(format!("failed to scan {}: {error}", args.query.directory.display())))?;
+            .map_err(|error| {
+                Error::unexpected(format!(
+                    "failed to scan {}: {error}",
+                    args.query.directory.display()
+                ))
+            })?;
             let mut source_cache = SourceCache::default();
             let mut matches = Vec::new();
 
@@ -130,8 +135,7 @@ pub(super) fn run_document_symbol_query(
                     &response,
                     file,
                     &mut source_cache,
-                )
-                ?);
+                )?);
             }
 
             Ok(matches)
@@ -186,8 +190,11 @@ fn collect_list_symbol_matches(
     let files = match target {
         ListSymbolsTarget::File => vec![args.path.clone()],
         ListSymbolsTarget::Directory => {
-            matching_files(&args.path, &config.filetypes, &workspace.allowed_filetypes)
-                .map_err(|error| Error::unexpected(format!("failed to scan {}: {error}", args.path.display())))?
+            matching_files(&args.path, &config.filetypes, &workspace.allowed_filetypes).map_err(
+                |error| {
+                    Error::unexpected(format!("failed to scan {}: {error}", args.path.display()))
+                },
+            )?
         }
     };
 
@@ -223,8 +230,7 @@ fn collect_list_symbol_matches(
             &response,
             file,
             &mut source_cache,
-        )
-        ?);
+        )?);
     }
 
     Ok(matches)
@@ -298,7 +304,12 @@ pub(super) fn run_list_files_query(
         &config.filetypes,
         &workspace.allowed_filetypes,
     )
-    .map_err(|error| Error::unexpected(format!("failed to scan {}: {error}", args.directory.display())))?;
+    .map_err(|error| {
+        Error::unexpected(format!(
+            "failed to scan {}: {error}",
+            args.directory.display()
+        ))
+    })?;
 
     Ok(FileListQueryResult {
         detected_filetypes: workspace.detection.filetypes,
@@ -363,11 +374,7 @@ fn with_initialized_client<T, F>(
     run: F,
 ) -> Result<(PreparedWorkspace, T)>
 where
-    F: FnOnce(
-        &PreparedWorkspace,
-        &crate::lsp::InitializeResponse,
-        &mut LspClient,
-    ) -> Result<T>,
+    F: FnOnce(&PreparedWorkspace, &crate::lsp::InitializeResponse, &mut LspClient) -> Result<T>,
 {
     let workspace = prepare_workspace(path, selected_server, selected_language, download, config)?;
     let wait_for_index = wait_for_index_requested || workspace.server.wait_for_index;
@@ -379,7 +386,9 @@ where
             &workspace.workspace_name,
             wait_for_index,
         )
-        .map_err(|error| error.with_prefix(format!("failed to initialize {}", workspace.server.server)))?;
+        .map_err(|error| {
+            error.with_prefix(format!("failed to initialize {}", workspace.server.server))
+        })?;
 
     let response = (if wait_for_index {
         client.wait_for_background_work().map_err(|error| {
@@ -469,16 +478,14 @@ fn run_named_location_query(
                         &anchor.name,
                         anchor.kind,
                         &mut source_cache,
-                    )
-                    ?
+                    )?
                 } else {
                     location_matches_from_response(
                         &response,
                         &anchor.name,
                         anchor.kind,
                         &mut source_cache,
-                    )
-                    ?
+                    )?
                 });
             }
 
@@ -663,7 +670,12 @@ fn exact_named_document_anchors(
         &config.filetypes,
         &workspace.allowed_filetypes,
     )
-    .map_err(|error| Error::unexpected(format!("failed to scan {}: {error}", request.directory.display())))?;
+    .map_err(|error| {
+        Error::unexpected(format!(
+            "failed to scan {}: {error}",
+            request.directory.display()
+        ))
+    })?;
     let mut source_cache = SourceCache::default();
     let mut matches = Vec::new();
 
@@ -682,11 +694,9 @@ fn exact_named_document_anchors(
             Err(_) => continue,
         };
         let file_matches = if request.function_only {
-            function_matches_from_document_response(&response, file, &mut source_cache)
-                ?
+            function_matches_from_document_response(&response, file, &mut source_cache)?
         } else {
-            document_symbol_matches_from_response(&response, file, &mut source_cache)
-                ?
+            document_symbol_matches_from_response(&response, file, &mut source_cache)?
         };
         matches.extend(
             file_matches
@@ -730,8 +740,7 @@ fn fill_definition_full_content(
                 &matched.path,
                 matched,
                 source_cache,
-            )
-            ?
+            )?
             .or_else(|| matched.full_content.clone())
             .or_else(|| Some(matched.line_content.clone()));
         } else if matched.full_content.is_none() {

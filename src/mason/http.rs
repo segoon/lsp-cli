@@ -2,7 +2,7 @@ use reqwest::blocking::{Client, RequestBuilder, Response};
 use serde::de::DeserializeOwned;
 use std::io::Read;
 
-use crate::error::{Error, Result};
+use crate::error::{Error, Result, error_fn};
 
 pub(super) fn send(
     request: RequestBuilder,
@@ -11,9 +11,9 @@ pub(super) fn send(
 ) -> Result<Response> {
     request
         .send()
-        .map_err(|error| Error::network(format!("{send_error}: {error}")))?
+        .map_err(error_fn!(Error::network, "{}", send_error))?
         .error_for_status()
-        .map_err(|error| Error::network(format!("{status_error}: {error}")))
+        .map_err(error_fn!(Error::network, "{}", status_error))
 }
 
 pub(super) fn get(
@@ -29,7 +29,7 @@ pub(super) fn read_bytes(mut response: Response, read_error: &str) -> Result<Vec
     let mut bytes = Vec::new();
     response
         .read_to_end(&mut bytes)
-        .map_err(|error| Error::network(format!("{read_error}: {error}")))?;
+        .map_err(error_fn!(Error::network, "{}", read_error))?;
     Ok(bytes)
 }
 
@@ -50,5 +50,5 @@ where
 {
     response
         .json::<T>()
-        .map_err(|error| Error::network(format!("{parse_error}: {error}")))
+        .map_err(error_fn!(Error::network, "{}", parse_error))
 }

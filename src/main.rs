@@ -4,8 +4,8 @@ mod cli;
 mod commands;
 mod config;
 mod detect;
-mod error;
 mod env_vars;
+mod error;
 mod fs;
 mod hash;
 mod lsp;
@@ -79,8 +79,12 @@ fn run_with_loaded_config(raw_command: CliRawCommand) -> Result<String> {
     }
 
     let config_root = default_config_root()?;
-    let mut config = load_config_store(&config_root)
-        .map_err(|error| error.with_prefix(format!("failed to load config from {}", config_root.display())))?;
+    let mut config = load_config_store(&config_root).map_err(|error| {
+        error.with_prefix(format!(
+            "failed to load config from {}",
+            config_root.display()
+        ))
+    })?;
     let cli_roots = config::CliConfigRoots::default();
     config.cli = load_cli_config(&cli_roots.global, cli_roots.user.as_deref())
         .map_err(|error| error.with_prefix("failed to load lsp-cli defaults"))?;

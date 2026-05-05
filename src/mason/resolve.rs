@@ -1,9 +1,9 @@
+use crate::error::{Error, Result};
 use crate::mason::install::{resolve_cached_program, resolve_or_install_program};
 use crate::mason::link::{is_command_runnable, rewrite_program};
 use crate::mason::registry::MasonRegistry;
 use crate::runtime_state::{RuntimeState, default_runtime_state_root};
 use crate::suggest::SuggestedLanguage;
-use crate::error::{Error, Result};
 
 pub fn resolve_detect_suggestions(
     suggestions: &[SuggestedLanguage],
@@ -111,8 +111,9 @@ fn install_suggestion(
         )));
     }
 
-    let state = state
-        .ok_or_else(|| Error::unexpected("cannot install LSP servers automatically because $HOME is not set"))?;
+    let state = state.ok_or_else(|| {
+        Error::unexpected("cannot install LSP servers automatically because $HOME is not set")
+    })?;
     let registry = registry.get_or_insert(MasonRegistry::load(state)?);
     let package = registry
         .package_for_detected(&suggestion.config_id, &suggestion.server, program)
@@ -139,7 +140,11 @@ mod tests {
     fn prepare_registry_test_home(
         package_name: &str,
         packages: &[crate::mason::registry::MasonPackage],
-    ) -> (TestDir, std::path::PathBuf, crate::runtime_state::RuntimeState) {
+    ) -> (
+        TestDir,
+        std::path::PathBuf,
+        crate::runtime_state::RuntimeState,
+    ) {
         let dir = TestDir::new("mason-resolve");
         let home = dir.path().join("home");
         let state = runtime_state_in_home(&home);
@@ -152,7 +157,8 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn prefers_cached_direct_binary_when_path_misses() {
-        let (dir, package_dir, _state) = prepare_registry_test_home("pyright", &[pyright_package()]);
+        let (dir, package_dir, _state) =
+            prepare_registry_test_home("pyright", &[pyright_package()]);
         let home = dir.path().join("home");
         let cached = package_dir.join("node_modules/.bin/pyright-langserver");
         fs::create_dir_all(cached.parent().expect("parent should exist"))

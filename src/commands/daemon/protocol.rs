@@ -1,5 +1,5 @@
 use super::{BUSY_CLIENT_TIMEOUT, Daemon, DaemonTarget, INVALID_REQUEST, REQUEST_CANCELLED};
-use crate::error::{Error, Result};
+use crate::error::{Error, Result, error_fn};
 use crate::lsp::transport::{log_debug_message, read_message, write_message};
 use crate::lsp::{SERVER_STATUS_METHOD, ServerStatusParams, StopParams, jsonrpc, parse_lsp_uri};
 use lsp_types::{ApplyWorkspaceEditResponse, WorkspaceFolder};
@@ -114,9 +114,10 @@ pub(super) fn read_control_message(
     debug: bool,
 ) -> Result<Option<Value>> {
     let _ = stream.set_read_timeout(Some(timeout));
-    let reader = stream
-        .try_clone()
-        .map_err(|error| Error::unexpected(format!("failed to clone daemon control socket: {error}")))?;
+    let reader = stream.try_clone().map_err(error_fn!(
+        Error::unexpected,
+        "failed to clone daemon control socket"
+    ))?;
     let mut reader = BufReader::new(reader);
     let message = read_message(&mut reader)?;
     if let Some(message) = &message {
@@ -147,8 +148,10 @@ pub(super) fn respond_to_stop_request(
     };
     let response = success_response(&request_id, &Value::Null);
     log_debug_message(debug, "daemon control <- ", &response);
-    write_message(stream, &response)
-        .map_err(|error| Error::lsp(format!("failed to write daemon stop response: {error}")))
+    write_message(stream, &response).map_err(error_fn!(
+        Error::lsp,
+        "failed to write daemon stop response"
+    ))
 }
 
 pub(super) fn local_server_request_response(request_id: &Value, method: &str) -> Value {
@@ -194,8 +197,11 @@ pub(super) fn update_background_work_tracker(
     match method {
         SERVER_STATUS_METHOD => {
             let params = message.get("params").cloned().unwrap_or(Value::Null);
-            let status: ServerStatusParams = serde_json::from_value(params)
-                .map_err(|error| Error::lsp(format!("failed to decode {SERVER_STATUS_METHOD}: {error}")))?;
+            let status: ServerStatusParams = serde_json::from_value(params).map_err(error_fn!(
+                Error::lsp,
+                "failed to decode {}",
+                SERVER_STATUS_METHOD
+            ))?;
             tracker.state = if status.quiescent {
                 BackgroundWorkState::Quiescent
             } else {
@@ -208,7 +214,7 @@ pub(super) fn update_background_work_tracker(
         "$/progress" => {
             let params = message.get("params").cloned().unwrap_or(Value::Null);
             let progress: ProgressParams = serde_json::from_value(params)
-                .map_err(|error| Error::lsp(format!("failed to decode $/progress: {error}")))?;
+                .map_err(error_fn!(Error::lsp, "failed to decode $/progress"))?;
             let token = progress_token(&progress.token);
 
             match progress.value.kind.as_str() {
@@ -268,10 +274,7 @@ pub(super) fn background_work_ready_notification() -> Value {
         .expect("server status notification should encode")
 }
 
-pub(super) fn normalize_initialize_params(
-    params: &Value,
-    target: &DaemonTarget,
-) -> Result<Value> {
+pub(super) fn normalize_initialize_params(params: &Value, target: &DaemonTarget) -> Result<Value> {
     let Some(object) = params.as_object() else {
         return Err(Error::lsp("initialize params must be a JSON object"));
     };
@@ -300,7 +303,9 @@ pub(super) fn normalize_initialize_params(
         && !workspace_folders.is_null()
     {
         let Some(items) = workspace_folders.as_array() else {
-            return Err(Error::lsp("initialize workspaceFolders must be an array or null"));
+            return Err(Error::lsp(
+                "initialize workspaceFolders must be an array or null",
+            ));
         };
         if items.len() != 1
             || items[0].get("uri").and_then(Value::as_str) != Some(target.root_uri.as_str())

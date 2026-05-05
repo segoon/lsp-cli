@@ -1,9 +1,9 @@
 use crate::cli::{
     BuildIndexArgs, Command, CommandsArgs, DEFAULT_IDLE_TIMEOUT, DEFAULT_LIMIT, DEFAULT_TIMEOUT,
-    DaemonArgs, DeclarationArgs, DefinitionArgs, DetectArgs, DiagnosticsArgs, FormatArgs,
-    GrepArgs, InstallDebugArgs, LanguagesArgs, ListFilesArgs, ListFunctionsArgs,
-    ListSymbolsArgs, LspWorkspaceQueryArgs, RunArgs, SelectionArgs, ServerCapabilitiesArgs,
-    ServersArgs, StopAllArgs, StopArgs, SymbolQueryArgs, UpdateArgs, WorkspaceQueryArgs,
+    DaemonArgs, DeclarationArgs, DefinitionArgs, DetectArgs, DiagnosticsArgs, FormatArgs, GrepArgs,
+    InstallDebugArgs, LanguagesArgs, ListFilesArgs, ListFunctionsArgs, ListSymbolsArgs,
+    LspWorkspaceQueryArgs, RunArgs, SelectionArgs, ServerCapabilitiesArgs, ServersArgs,
+    StopAllArgs, StopArgs, SymbolQueryArgs, UpdateArgs, WorkspaceQueryArgs,
 };
 use crate::cli::{
     RawBuildIndexArgs, RawCommand, RawCommandsArgs, RawDaemonArgs, RawDeclarationArgs,
@@ -18,10 +18,7 @@ use crate::error::{Error, Result};
 #[cfg(test)]
 use crate::cli::parse_raw_args;
 
-pub(crate) fn resolve_command(
-    command: RawCommand,
-    defaults: &CliConfig,
-) -> Result<Command> {
+pub(crate) fn resolve_command(command: RawCommand, defaults: &CliConfig) -> Result<Command> {
     let command = match command {
         RawCommand::Commands(_) => Command::Commands(RawCommandsArgs::resolve()),
         RawCommand::Daemon(args) => Command::Daemon(args.resolve(defaults)),
@@ -70,13 +67,12 @@ impl RawDetectArgs {
     fn resolve(self, defaults: &CliConfig) -> DetectArgs {
         DetectArgs {
             path: self.path,
-            server: resolve_install_debug_args(
-                self.selector,
-                self.download,
-                self.debug,
-                defaults,
+            server: resolve_install_debug_args(self.selector, self.download, self.debug, defaults),
+            json: resolve_bool(
+                self.json.json,
+                self.json.no_json,
+                defaults.json.unwrap_or(false),
             ),
-            json: resolve_bool(self.json.json, self.json.no_json, defaults.json.unwrap_or(false)),
             quiet: resolve_bool(
                 self.quiet,
                 self.no_quiet,
@@ -92,7 +88,11 @@ impl RawWorkspaceQueryArgs {
             directory: self.directory,
             selector: resolve_selection_args(self.selector),
             wait_for_index: self.wait_for_index,
-            json: resolve_bool(self.json.json, self.json.no_json, defaults.json.unwrap_or(false)),
+            json: resolve_bool(
+                self.json.json,
+                self.json.no_json,
+                defaults.json.unwrap_or(false),
+            ),
             debug: resolve_bool(
                 self.debug.debug,
                 self.debug.no_debug,
@@ -150,18 +150,17 @@ impl RawFormatArgs {
     fn resolve(self, defaults: &CliConfig) -> FormatArgs {
         FormatArgs {
             path: self.path,
-            server: resolve_install_debug_args(
-                self.selector,
-                self.download,
-                self.debug,
-                defaults,
-            ),
+            server: resolve_install_debug_args(self.selector, self.download, self.debug, defaults),
             detach: resolve_bool(
                 self.detach.detach,
                 self.detach.no_detach,
                 defaults.detach.unwrap_or(false),
             ),
-            json: resolve_bool(self.json.json, self.json.no_json, defaults.json.unwrap_or(false)),
+            json: resolve_bool(
+                self.json.json,
+                self.json.no_json,
+                defaults.json.unwrap_or(false),
+            ),
             timeout: self
                 .timeout
                 .timeout
@@ -176,19 +175,18 @@ impl RawListSymbolsArgs {
     fn resolve(self, defaults: &CliConfig) -> ListSymbolsArgs {
         ListSymbolsArgs {
             path: self.path,
-            server: resolve_install_debug_args(
-                self.selector,
-                self.download,
-                self.debug,
-                defaults,
-            ),
+            server: resolve_install_debug_args(self.selector, self.download, self.debug, defaults),
             detach: resolve_bool(
                 self.detach.detach,
                 self.detach.no_detach,
                 defaults.detach.unwrap_or(false),
             ),
             wait_for_index: self.wait_for_index,
-            json: resolve_bool(self.json.json, self.json.no_json, defaults.json.unwrap_or(false)),
+            json: resolve_bool(
+                self.json.json,
+                self.json.no_json,
+                defaults.json.unwrap_or(false),
+            ),
             timeout: self
                 .timeout
                 .timeout
@@ -250,12 +248,7 @@ impl RawBuildIndexArgs {
     fn resolve(self, defaults: &CliConfig) -> BuildIndexArgs {
         BuildIndexArgs {
             directory: self.directory,
-            server: resolve_install_debug_args(
-                self.selector,
-                self.download,
-                self.debug,
-                defaults,
-            ),
+            server: resolve_install_debug_args(self.selector, self.download, self.debug, defaults),
             detach: resolve_bool(
                 self.detach.detach,
                 self.detach.no_detach,
@@ -273,12 +266,7 @@ impl RawRunArgs {
     fn resolve(self, defaults: &CliConfig) -> RunArgs {
         RunArgs {
             path: self.path,
-            server: resolve_install_debug_args(
-                self.selector,
-                self.download,
-                self.debug,
-                defaults,
-            ),
+            server: resolve_install_debug_args(self.selector, self.download, self.debug, defaults),
         }
     }
 }
@@ -287,12 +275,7 @@ impl RawDaemonArgs {
     fn resolve(self, defaults: &CliConfig) -> DaemonArgs {
         DaemonArgs {
             path: self.path,
-            server: resolve_install_debug_args(
-                self.selector,
-                self.download,
-                self.debug,
-                defaults,
-            ),
+            server: resolve_install_debug_args(self.selector, self.download, self.debug, defaults),
             idle_timeout: self
                 .idle_timeout
                 .unwrap_or(defaults.daemon.idle_timeout.unwrap_or(DEFAULT_IDLE_TIMEOUT)),
@@ -342,12 +325,7 @@ impl RawServerCapabilitiesArgs {
     fn resolve(self, defaults: &CliConfig) -> ServerCapabilitiesArgs {
         ServerCapabilitiesArgs {
             directory: self.directory,
-            server: resolve_install_debug_args(
-                self.selector,
-                self.download,
-                self.debug,
-                defaults,
-            ),
+            server: resolve_install_debug_args(self.selector, self.download, self.debug, defaults),
             detach: resolve_bool(
                 self.detach.detach,
                 self.detach.no_detach,

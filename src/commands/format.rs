@@ -1,7 +1,7 @@
 use crate::cli::FormatArgs;
 use crate::commands::common::{connect_lsp_client, prepare_workspace};
 use crate::config::ConfigStore;
-use crate::error::{Error, Result};
+use crate::error::{Error, Result, error_fn};
 use crate::lsp::{ensure_formatting_support, path_to_file_uri};
 use lsp_types::{Position, TextEdit};
 use serde_json::json;
@@ -22,11 +22,12 @@ pub(super) fn run(args: &FormatArgs, config: &ConfigStore) -> Result<String> {
         server.download,
         config,
     )?;
-    let mut client =
-        connect_lsp_client(&workspace, args.detach, server.debug, args.timeout)?;
+    let mut client = connect_lsp_client(&workspace, args.detach, server.debug, args.timeout)?;
     let initialize = client
         .initialize(&workspace.root_uri, &workspace.workspace_name, false)
-        .map_err(|error| error.with_prefix(format!("failed to initialize {}", workspace.server.server)))?;
+        .map_err(|error| {
+            error.with_prefix(format!("failed to initialize {}", workspace.server.server))
+        })?;
     ensure_formatting_support(&initialize).map_err(|_| {
         Error::lsp(format!(
             "{} does not support format because it does not advertise textDocument/formatting",
@@ -50,22 +51,34 @@ pub(super) fn run(args: &FormatArgs, config: &ConfigStore) -> Result<String> {
         ))
     })?;
 
-    let original = fs::read_to_string(&args.path)
-        .map_err(|error| Error::unexpected(format!("failed to read {}: {error}", args.path.display())))?;
+    let original = fs::read_to_string(&args.path).map_err(error_fn!(
+        Error::unexpected,
+        "failed to read {}",
+        args.path.display()
+    ))?;
     let formatted = apply_formatting_response(&response, &original, &args.path)?;
     let changed = formatted != original;
 
     if changed && !args.check && !args.stdout {
-        fs::write(&args.path, formatted.as_bytes())
-            .map_err(|error| Error::unexpected(format!("failed to write {}: {error}", args.path.display())))?;
+        fs::write(&args.path, formatted.as_bytes()).map_err(error_fn!(
+            Error::unexpected,
+            "failed to write {}",
+            args.path.display()
+        ))?;
     }
 
     client.shutdown().map_err(|error| {
-        error.with_prefix(format!("failed to stop {} cleanly", workspace.server.server))
+        error.with_prefix(format!(
+            "failed to stop {} cleanly",
+            workspace.server.server
+        ))
     })?;
 
     if args.check && changed {
-        return Err(Error::lsp(format!("{} is not formatted", args.path.display())));
+        return Err(Error::lsp(format!(
+            "{} is not formatted",
+            args.path.display()
+        )));
     }
 
     Ok(if args.stdout {
@@ -114,8 +127,11 @@ fn apply_formatting_response(
     source: &str,
     path: &Path,
 ) -> Result<String> {
-    let edits: Option<Vec<TextEdit>> = serde_json::from_value(response.clone())
-        .map_err(|error| Error::lsp(format!("failed to decode textDocument/formatting response: {error}")))?;
+    let edits: Option<Vec<TextEdit>> =
+        serde_json::from_value(response.clone()).map_err(error_fn!(
+            Error::lsp,
+            "failed to decode textDocument/formatting response"
+        ))?;
     apply_text_edits(source, edits.unwrap_or_default(), path)
 }
 

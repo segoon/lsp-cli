@@ -1,7 +1,7 @@
 use crate::cli::{CompletionArgs, clap_command};
 use crate::config::{default_config_root, load_config_store};
-use crate::error::{Error, Result};
 use crate::env_vars;
+use crate::error::{Error, Result};
 use clap::builder::PossibleValuesParser;
 use clap_complete::{Shell, generate};
 use std::collections::BTreeSet;
@@ -17,7 +17,9 @@ pub(super) fn run(args: CompletionArgs) -> Result<String> {
 
     String::from_utf8(output.into_inner())
         .map(|output| normalize_completion_output(shell, output, "lsp-cli"))
-        .map_err(|error| Error::unexpected(format!("completion output was not valid UTF-8: {error}")))
+        .map_err(|error| {
+            Error::unexpected(format!("completion output was not valid UTF-8: {error}"))
+        })
 }
 
 fn normalize_completion_output(shell: Shell, output: String, bin_name: &str) -> String {
@@ -44,7 +46,10 @@ fn load_completion_values() -> Result<CompletionValues> {
     let config_root = default_config_root()
         .map_err(|error| error.with_prefix("failed to resolve config root for completion"))?;
     let config = load_config_store(&config_root).map_err(|error| {
-        error.with_prefix(format!("failed to load completion values from {}", config_root.display()))
+        error.with_prefix(format!(
+            "failed to load completion values from {}",
+            config_root.display()
+        ))
     })?;
 
     Ok(CompletionValues {

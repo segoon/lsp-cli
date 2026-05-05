@@ -104,7 +104,6 @@ impl Error {
     pub(crate) fn contains(&self, needle: &str) -> bool {
         self.message().contains(needle)
     }
-
 }
 
 impl PartialEq<String> for Error {
@@ -143,5 +142,4 @@ mod tests {
         assert!(!Error::detection("detected").should_log_as_unexpected());
         assert!(Error::unexpected("boom").should_log_as_unexpected());
     }
-
 }

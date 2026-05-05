@@ -1,5 +1,5 @@
 use super::LspClient;
-use crate::error::{Error, Result};
+use crate::error::{Error, Result, error_fn};
 use crate::lsp::{InitializeResponse, parse_lsp_uri};
 use lsp_types::notification::{DidOpenTextDocument, Initialized};
 use lsp_types::request::{
@@ -25,8 +25,11 @@ impl LspClient {
             return Ok(());
         }
 
-        let text = std::fs::read_to_string(path)
-            .map_err(|error| Error::unexpected(format!("failed to read {}: {error}", path.display())))?;
+        let text = std::fs::read_to_string(path).map_err(error_fn!(
+            Error::unexpected,
+            "failed to read {}",
+            path.display()
+        ))?;
         let params = DidOpenTextDocumentParams {
             text_document: TextDocumentItem::new(
                 parse_lsp_uri(uri, "document")?,
@@ -87,8 +90,10 @@ impl LspClient {
             work_done_progress_params: WorkDoneProgressParams::default(),
         };
         let response = self.send_request::<Initialize>(&params)?;
-        let response = InitializeResponse::from_raw_value(response)
-            .map_err(|error| Error::lsp(format!("failed to decode initialize response: {error}")))?;
+        let response = InitializeResponse::from_raw_value(response).map_err(error_fn!(
+            Error::lsp,
+            "failed to decode initialize response"
+        ))?;
         self.send_notification::<Initialized>(&InitializedParams {})?;
         self.drain_pending_server_requests()?;
         Ok(response)
@@ -197,8 +202,10 @@ impl LspClient {
     }
 
     pub fn incoming_calls(&mut self, item: &Value) -> Result<Value> {
-        let item: CallHierarchyItem = serde_json::from_value(item.clone())
-            .map_err(|error| Error::lsp(format!("failed to decode call hierarchy item: {error}")))?;
+        let item: CallHierarchyItem = serde_json::from_value(item.clone()).map_err(error_fn!(
+            Error::lsp,
+            "failed to decode call hierarchy item"
+        ))?;
         let params = CallHierarchyIncomingCallsParams {
             item,
             work_done_progress_params: WorkDoneProgressParams::default(),
@@ -208,8 +215,10 @@ impl LspClient {
     }
 
     pub fn outgoing_calls(&mut self, item: &Value) -> Result<Value> {
-        let item: CallHierarchyItem = serde_json::from_value(item.clone())
-            .map_err(|error| Error::lsp(format!("failed to decode call hierarchy item: {error}")))?;
+        let item: CallHierarchyItem = serde_json::from_value(item.clone()).map_err(error_fn!(
+            Error::lsp,
+            "failed to decode call hierarchy item"
+        ))?;
         let params = CallHierarchyOutgoingCallsParams {
             item,
             work_done_progress_params: WorkDoneProgressParams::default(),

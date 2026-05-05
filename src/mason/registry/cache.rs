@@ -1,6 +1,8 @@
-use crate::hash::encode_hex;
 use crate::error::{Error, Result};
-use crate::mason::http::{download_bytes as http_download_bytes, read_json as http_read_json, send as http_send};
+use crate::hash::encode_hex;
+use crate::mason::http::{
+    download_bytes as http_download_bytes, read_json as http_read_json, send as http_send,
+};
 use crate::runtime_state::RuntimeState;
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
@@ -71,7 +73,9 @@ fn refresh_registry_cache(state: &RuntimeState, now_epoch_seconds: u64) -> Resul
         .assets
         .into_iter()
         .find(|asset| asset.name == REGISTRY_ASSET_NAME)
-        .ok_or_else(|| Error::network("Mason registry release does not include registry.json.zip"))?;
+        .ok_or_else(|| {
+            Error::network("Mason registry release does not include registry.json.zip")
+        })?;
     let metadata_path = state.registry_metadata_path();
     let registry_json_path = state.registry_json_path();
 
@@ -126,9 +130,11 @@ fn verify_sha256(bytes: &[u8], digest: Option<&str>) -> Result<()> {
     let Some(digest) = digest else {
         return Ok(());
     };
-    let expected = digest
-        .strip_prefix("sha256:")
-        .ok_or_else(|| Error::network(format!("unsupported Mason registry digest format: {digest}")))?;
+    let expected = digest.strip_prefix("sha256:").ok_or_else(|| {
+        Error::network(format!(
+            "unsupported Mason registry digest format: {digest}"
+        ))
+    })?;
     let actual = encode_hex(&Sha256::digest(bytes));
 
     if actual == expected {
@@ -142,24 +148,31 @@ fn verify_sha256(bytes: &[u8], digest: Option<&str>) -> Result<()> {
 
 fn unpack_registry_json(archive_bytes: &[u8]) -> Result<Vec<u8>> {
     let cursor = Cursor::new(archive_bytes);
-    let mut archive = ZipArchive::new(cursor)
-        .map_err(|error| Error::network(format!("failed to open Mason registry archive: {error}")))?;
-    let mut file = archive
-        .by_name("registry.json")
-        .map_err(|error| Error::network(format!("failed to read registry.json from Mason archive: {error}")))?;
+    let mut archive = ZipArchive::new(cursor).map_err(|error| {
+        Error::network(format!("failed to open Mason registry archive: {error}"))
+    })?;
+    let mut file = archive.by_name("registry.json").map_err(|error| {
+        Error::network(format!(
+            "failed to read registry.json from Mason archive: {error}"
+        ))
+    })?;
     let mut registry_bytes = Vec::new();
-    file.read_to_end(&mut registry_bytes)
-        .map_err(|error| Error::network(format!("failed to unpack Mason registry data: {error}")))?;
+    file.read_to_end(&mut registry_bytes).map_err(|error| {
+        Error::network(format!("failed to unpack Mason registry data: {error}"))
+    })?;
     Ok(registry_bytes)
 }
 
 fn read_registry_metadata(path: &Path) -> Result<Option<RegistryMetadata>> {
     match fs::read_to_string(path) {
-        Ok(contents) => serde_json::from_str(&contents)
-            .map(Some)
-            .map_err(|error| Error::unexpected(format!("failed to parse {}: {error}", path.display()))),
+        Ok(contents) => serde_json::from_str(&contents).map(Some).map_err(|error| {
+            Error::unexpected(format!("failed to parse {}: {error}", path.display()))
+        }),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
-        Err(error) => Err(Error::unexpected(format!("failed to read {}: {error}", path.display()))),
+        Err(error) => Err(Error::unexpected(format!(
+            "failed to read {}: {error}",
+            path.display()
+        ))),
     }
 }
 
@@ -171,18 +184,21 @@ fn write_bytes_file(path: &Path, bytes: &[u8]) -> Result<()> {
         )));
     };
 
-    fs::create_dir_all(parent)
-        .map_err(|error| Error::unexpected(format!("failed to create {}: {error}", parent.display())))?;
+    fs::create_dir_all(parent).map_err(|error| {
+        Error::unexpected(format!("failed to create {}: {error}", parent.display()))
+    })?;
     let mut temp = NamedTempFile::new_in(parent).map_err(|error| {
         Error::unexpected(format!(
             "failed to create temporary file in {}: {error}",
             parent.display()
         ))
     })?;
-    temp.write_all(bytes)
-        .map_err(|error| Error::unexpected(format!("failed to write {}: {error}", path.display())))?;
-    temp.persist(path)
-        .map_err(|error| Error::unexpected(format!("failed to persist {}: {error}", path.display())))?;
+    temp.write_all(bytes).map_err(|error| {
+        Error::unexpected(format!("failed to write {}: {error}", path.display()))
+    })?;
+    temp.persist(path).map_err(|error| {
+        Error::unexpected(format!("failed to persist {}: {error}", path.display()))
+    })?;
     Ok(())
 }
 
@@ -190,8 +206,9 @@ fn write_json_file<T>(path: &Path, value: &T) -> Result<()>
 where
     T: Serialize,
 {
-    let bytes = serde_json::to_vec_pretty(value)
-        .map_err(|error| Error::unexpected(format!("failed to serialize {}: {error}", path.display())))?;
+    let bytes = serde_json::to_vec_pretty(value).map_err(|error| {
+        Error::unexpected(format!("failed to serialize {}: {error}", path.display()))
+    })?;
     write_bytes_file(path, &bytes)
 }
 

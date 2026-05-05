@@ -78,7 +78,9 @@ pub fn ensure_declaration_support(initialize: &InitializeResponse) -> Result<()>
 
 pub fn ensure_call_hierarchy_support(initialize: &InitializeResponse) -> Result<()> {
     if !supports(initialize.capability(&["callHierarchyProvider"])) {
-        return Err(Error::lsp("selected LSP server does not support call hierarchy"));
+        return Err(Error::lsp(
+            "selected LSP server does not support call hierarchy",
+        ));
     }
 
     Ok(())

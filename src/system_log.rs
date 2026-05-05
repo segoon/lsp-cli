@@ -232,8 +232,7 @@ mod tests {
     #[test]
     fn does_not_warn_when_log_file_is_small_enough() {
         assert!(
-            log_size_warning_message(std::path::Path::new(SAMPLE_LOG_PATH), 10_485_760)
-                .is_none()
+            log_size_warning_message(std::path::Path::new(SAMPLE_LOG_PATH), 10_485_760).is_none()
         );
     }
 

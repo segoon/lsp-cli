@@ -244,11 +244,10 @@ fn materialize_share(
         let rendered_source = context.render(source);
         let target_is_dir = rendered_target.ends_with(MASON_PATH_SEPARATOR);
         let source_is_dir = rendered_source.ends_with(MASON_PATH_SEPARATOR);
-        let share_path =
-            join_relative_path(
-                &state.share_dir(),
-                rendered_target.trim_end_matches(MASON_PATH_SEPARATOR),
-            )?;
+        let share_path = join_relative_path(
+            &state.share_dir(),
+            rendered_target.trim_end_matches(MASON_PATH_SEPARATOR),
+        )?;
         let package_path = join_relative_path(
             &state.package_dir(&package.name),
             rendered_source.trim_end_matches(MASON_PATH_SEPARATOR),
@@ -293,17 +292,24 @@ fn copy_file(source: &Path, target: &Path) -> Result<()> {
 fn copy_directory_contents(source: &Path, target: &Path) -> Result<()> {
     let metadata = path_fs::metadata(source)?;
     if !metadata.is_dir() {
-        return Err(Error::unexpected(format!("expected directory at {}", source.display())));
+        return Err(Error::unexpected(format!(
+            "expected directory at {}",
+            source.display()
+        )));
     }
 
     path_fs::create_dir_all(target)?;
     for entry in path_fs::read_dir(source)? {
-        let entry = entry
-            .map_err(|error| Error::unexpected(format!("failed to read {}: {error}", source.display())))?;
+        let entry = entry.map_err(|error| {
+            Error::unexpected(format!("failed to read {}: {error}", source.display()))
+        })?;
         let source_path = entry.path();
         let target_path = target.join(entry.file_name());
         let metadata = entry.metadata().map_err(|error| {
-            Error::unexpected(format!("failed to inspect {}: {error}", source_path.display()))
+            Error::unexpected(format!(
+                "failed to inspect {}: {error}",
+                source_path.display()
+            ))
         })?;
         if metadata.is_dir() {
             copy_directory_contents(&source_path, &target_path)?;
@@ -436,12 +442,15 @@ fn write_receipt(
             path.display()
         )));
     };
-    fs::create_dir_all(parent)
-        .map_err(|error| Error::unexpected(format!("failed to create {}: {error}", parent.display())))?;
-    let bytes = serde_json::to_vec_pretty(&receipt)
-        .map_err(|error| Error::unexpected(format!("failed to serialize {}: {error}", path.display())))?;
-    fs::write(&path, bytes)
-        .map_err(|error| Error::unexpected(format!("failed to write {}: {error}", path.display())))?;
+    fs::create_dir_all(parent).map_err(|error| {
+        Error::unexpected(format!("failed to create {}: {error}", parent.display()))
+    })?;
+    let bytes = serde_json::to_vec_pretty(&receipt).map_err(|error| {
+        Error::unexpected(format!("failed to serialize {}: {error}", path.display()))
+    })?;
+    fs::write(&path, bytes).map_err(|error| {
+        Error::unexpected(format!("failed to write {}: {error}", path.display()))
+    })?;
     Ok(executable_path.to_path_buf())
 }
 

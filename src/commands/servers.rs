@@ -10,7 +10,9 @@ pub(super) fn run(args: &ServersArgs, config: &ConfigStore) -> Result<String> {
             .iter()
             .any(|filetype| filetype.id == language)
     {
-        return Err(Error::invalid_input(format!("unsupported language {language:?}")));
+        return Err(Error::invalid_input(format!(
+            "unsupported language {language:?}"
+        )));
     }
 
     let servers = config

@@ -1,6 +1,6 @@
-use crate::hash::encode_hex;
 use crate::env_vars;
 use crate::error::{Error, Result};
+use crate::hash::encode_hex;
 use std::fs;
 use std::os::unix::fs::FileTypeExt;
 use std::path::{Path, PathBuf};
@@ -89,8 +89,9 @@ impl RuntimeState {
             self.receipts_dir(),
             self.data_dir(),
         ] {
-            fs::create_dir_all(&path)
-                .map_err(|error| Error::unexpected(format!("failed to create {}: {error}", path.display())))?;
+            fs::create_dir_all(&path).map_err(|error| {
+                Error::unexpected(format!("failed to create {}: {error}", path.display()))
+            })?;
         }
 
         Ok(())
@@ -133,7 +134,9 @@ pub fn daemon_socket_paths(daemon_root: &Path) -> Result<Vec<PathBuf>> {
     }
 
     let mut paths = fs::read_dir(daemon_root)
-        .map_err(|error| Error::unexpected(format!("failed to read {}: {error}", daemon_root.display())))?
+        .map_err(|error| {
+            Error::unexpected(format!("failed to read {}: {error}", daemon_root.display()))
+        })?
         .filter_map(|entry| {
             let Ok(entry) = entry else {
                 return None;

@@ -1,6 +1,6 @@
 use crate::cli::DaemonArgs;
 use crate::config::ConfigStore;
-use crate::error::{Error, Result};
+use crate::error::{Error, Result, error_fn};
 use crate::lsp::transport::{log_debug_message, write_message};
 use crate::lsp::{STOP_METHOD, jsonrpc, parse_lsp_uri};
 use crate::server_stderr::CapturedStderr;
@@ -77,10 +77,7 @@ pub(super) enum StopSocketResult {
     NotRunning,
 }
 
-pub(super) fn stop_socket(
-    socket_path: &Path,
-    debug: bool,
-) -> Result<StopSocketResult> {
+pub(super) fn stop_socket(socket_path: &Path, debug: bool) -> Result<StopSocketResult> {
     if !socket_path.exists() {
         return Ok(StopSocketResult::NotRunning);
     }
@@ -103,13 +100,17 @@ pub(super) fn stop_socket(
 
     let request = stop_request();
     log_debug_message(debug, "daemon control <- ", &request);
-    write_message(&mut stream, &request)
-        .map_err(|error| Error::unexpected(format!("failed to write daemon stop request: {error}")))?;
-    let response = read_control_message(&stream, CONTROL_TIMEOUT, debug)?
-        .ok_or_else(|| Error::unexpected("daemon closed the stop control socket without replying"))?;
+    write_message(&mut stream, &request).map_err(|error| {
+        Error::unexpected(format!("failed to write daemon stop request: {error}"))
+    })?;
+    let response = read_control_message(&stream, CONTROL_TIMEOUT, debug)?.ok_or_else(|| {
+        Error::unexpected("daemon closed the stop control socket without replying")
+    })?;
 
     if response_id(&response) != stop_request_id(&request) {
-        return Err(Error::unexpected("daemon returned an unexpected stop response id"));
+        return Err(Error::unexpected(
+            "daemon returned an unexpected stop response id",
+        ));
     }
     if let Some(error) = response.get("error") {
         let message = error
@@ -320,7 +321,9 @@ impl Daemon {
                 }
                 ReaderEvent::Error(error) => {
                     self.disconnect_client()?;
-                    return Err(Error::lsp(format!("failed to read daemon client message: {error}")));
+                    return Err(Error::lsp(format!(
+                        "failed to read daemon client message: {error}"
+                    )));
                 }
             }
         }
@@ -621,18 +624,15 @@ impl Daemon {
 
         for uri in client.open_documents {
             let params = DidCloseTextDocumentParams {
-                text_document: TextDocumentIdentifier::new(
-                    parse_lsp_uri(&uri, "document")?,
-                ),
+                text_document: TextDocumentIdentifier::new(parse_lsp_uri(&uri, "document")?),
             };
-            let close = jsonrpc::<u64, _>(None, DidCloseTextDocument::METHOD, &params)
-                ?;
+            let close = jsonrpc::<u64, _>(None, DidCloseTextDocument::METHOD, &params)?;
             let _ = self.write_upstream_message(&close);
         }
 
         for request_key in client.forwarded_client_requests {
             let id = serde_json::from_value::<NumberOrString>(request_id_from_key(&request_key))
-                .map_err(|error| Error::lsp(format!("invalid cancel request id: {error}")))?;
+                .map_err(error_fn!(Error::lsp, "invalid cancel request id"))?;
             let params = CancelParams { id };
             let cancel = jsonrpc::<u64, _>(None, Cancel::METHOD, &params)?;
             let _ = self.write_upstream_message(&cancel);
@@ -667,8 +667,10 @@ impl Daemon {
         let Some(client) = self.active_client.as_mut() else {
             return Ok(());
         };
-        write_message(&mut client.writer, message)
-            .map_err(|error| Error::lsp(format!("failed to write daemon client message: {error}")))
+        write_message(&mut client.writer, message).map_err(error_fn!(
+            Error::lsp,
+            "failed to write daemon client message"
+        ))
     }
 
     fn write_upstream_message(&mut self, message: &Value) -> Result<()> {
@@ -677,7 +679,7 @@ impl Daemon {
         };
         log_debug_message(self.debug, "daemon upstream <- ", message);
         write_message(&mut upstream.stdin, message)
-            .map_err(|error| Error::lsp(format!("failed to write LSP server message: {error}")))
+            .map_err(error_fn!(Error::lsp, "failed to write LSP server message"))
     }
 
     fn shutdown_upstream(&mut self) -> Result<()> {

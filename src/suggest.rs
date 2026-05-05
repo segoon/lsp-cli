@@ -75,20 +75,32 @@ fn build_suggestion(
     detection: &DetectionResult,
     workspace: &Path,
 ) -> Result<SuggestedLanguage> {
-    let workspace_root = resolve_workspace_root(lsp, workspace)
-        .map_err(|error| Error::unexpected(format!("failed to resolve workspace for {}: {error}", lsp.name)))?;
-    let workspace_root = absolute_path(&workspace_root)
-        .map_err(|error| Error::unexpected(format!("failed to resolve workspace for {}: {error}", lsp.name)))?;
+    let workspace_root = resolve_workspace_root(lsp, workspace).map_err(|error| {
+        Error::unexpected(format!(
+            "failed to resolve workspace for {}: {error}",
+            lsp.name
+        ))
+    })?;
+    let workspace_root = absolute_path(&workspace_root).map_err(|error| {
+        Error::unexpected(format!(
+            "failed to resolve workspace for {}: {error}",
+            lsp.name
+        ))
+    })?;
     let workspace = workspace_root.to_string_lossy();
-    let template = shlex::split(&lsp.cmdline)
-        .ok_or_else(|| Error::config_format(format!("invalid cmdline for {}: {}", lsp.name, lsp.cmdline)))?;
+    let template = shlex::split(&lsp.cmdline).ok_or_else(|| {
+        Error::config_format(format!("invalid cmdline for {}: {}", lsp.name, lsp.cmdline))
+    })?;
     let command = template
         .into_iter()
         .map(|token| token.replace("$WORKSPACE", &workspace))
         .collect::<Vec<_>>();
 
     if command.is_empty() {
-        return Err(Error::config_format(format!("empty cmdline for {}", lsp.name)));
+        return Err(Error::config_format(format!(
+            "empty cmdline for {}",
+            lsp.name
+        )));
     }
 
     Ok(SuggestedLanguage {

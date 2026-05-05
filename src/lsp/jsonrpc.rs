@@ -1,7 +1,7 @@
 use serde::Serialize;
 use serde_json::{Map, Value};
 
-use crate::error::{Error, Result};
+use crate::error::{Error, Result, error_fn};
 
 pub fn jsonrpc<I, P>(id: Option<I>, method: &str, params: &P) -> Result<Value>
 where
@@ -15,14 +15,20 @@ where
     if let Some(id) = id {
         message.insert(
             "id".to_string(),
-            serde_json::to_value(id)
-                .map_err(|error| Error::lsp(format!("failed to encode JSON-RPC id for {method}: {error}")))?,
+            serde_json::to_value(id).map_err(error_fn!(
+                Error::lsp,
+                "failed to encode JSON-RPC id for {}",
+                method
+            ))?,
         );
     }
     message.insert(
         "params".to_string(),
-        serde_json::to_value(params)
-            .map_err(|error| Error::lsp(format!("failed to encode JSON-RPC params for {method}: {error}")))?,
+        serde_json::to_value(params).map_err(error_fn!(
+            Error::lsp,
+            "failed to encode JSON-RPC params for {}",
+            method
+        ))?,
     );
     Ok(Value::Object(message))
 }

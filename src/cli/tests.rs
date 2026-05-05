@@ -1,7 +1,6 @@
 use super::{
     BuildIndexArgs, Command, InstallDebugArgs, ListSymbolsArgs, LspWorkspaceQueryArgs,
-    SelectionArgs, WorkspaceQueryArgs, clap_command, parse_args, parse_raw_args,
-    resolve_command,
+    SelectionArgs, WorkspaceQueryArgs, clap_command, parse_args, parse_raw_args, resolve_command,
 };
 use crate::config::CliConfig;
 use crate::error::Result;

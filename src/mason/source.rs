@@ -33,27 +33,22 @@ pub(crate) enum SourceId {
 }
 
 pub(crate) fn parse_source_id(source_id: &str) -> Result<SourceId> {
-    let without_prefix = source_id
-        .strip_prefix("pkg:")
-        .ok_or_else(|| {
-            Error::unexpected(format!(
-                "unsupported Mason package source {source_id}: missing `pkg:` prefix"
-            ))
-        })?;
-    let (package_ref, version_with_qualifiers) = without_prefix
-        .rsplit_once('@')
-        .ok_or_else(|| {
+    let without_prefix = source_id.strip_prefix("pkg:").ok_or_else(|| {
+        Error::unexpected(format!(
+            "unsupported Mason package source {source_id}: missing `pkg:` prefix"
+        ))
+    })?;
+    let (package_ref, version_with_qualifiers) =
+        without_prefix.rsplit_once('@').ok_or_else(|| {
             Error::unexpected(format!(
                 "unsupported Mason package source {source_id}: missing `@version`"
             ))
         })?;
-    let (kind, name) = package_ref
-        .split_once('/')
-        .ok_or_else(|| {
-            Error::unexpected(format!(
-                "unsupported Mason package source {source_id}: missing source kind or package name"
-            ))
-        })?;
+    let (kind, name) = package_ref.split_once('/').ok_or_else(|| {
+        Error::unexpected(format!(
+            "unsupported Mason package source {source_id}: missing source kind or package name"
+        ))
+    })?;
     let decoded_name = percent_decode_component(name).ok_or_else(|| {
         Error::unexpected(format!(
             "unsupported Mason package source {source_id}: invalid percent-encoding in package name"
@@ -66,25 +61,19 @@ pub(crate) fn parse_source_id(source_id: &str) -> Result<SourceId> {
     };
 
     Ok(match kind {
-        "npm" => {
-            SourceId::Npm {
-                package_name: decoded_name,
-                version,
-            }
-        }
-        "pypi" => {
-            SourceId::Pypi {
-                package_name: decoded_name,
-                version,
-                extras: parse_pypi_extras(qualifiers),
-            }
-        }
-        "cargo" => {
-            SourceId::Cargo {
-                package_name: decoded_name,
-                version,
-            }
-        }
+        "npm" => SourceId::Npm {
+            package_name: decoded_name,
+            version,
+        },
+        "pypi" => SourceId::Pypi {
+            package_name: decoded_name,
+            version,
+            extras: parse_pypi_extras(qualifiers),
+        },
+        "cargo" => SourceId::Cargo {
+            package_name: decoded_name,
+            version,
+        },
         "golang" => SourceId::Golang {
             module_path: decoded_name,
             version,

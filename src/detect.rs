@@ -33,7 +33,7 @@ fn scan_path(
     filetypes: &[FiletypeConfig],
     detection: &mut DetectionResult,
 ) -> io::Result<()> {
-    let metadata = fs::symlink_metadata(path).map_err(path_error(path))?;
+    let metadata = fs::symlink_metadata(path).map_err(path_error_fn(path))?;
     let file_type = metadata.file_type();
 
     if file_type.is_symlink() {
@@ -46,10 +46,10 @@ fn scan_path(
     }
 
     if file_type.is_dir() {
-        let entries = fs::read_dir(path).map_err(path_error(path))?;
+        let entries = fs::read_dir(path).map_err(path_error_fn(path))?;
 
         for entry in entries {
-            let entry = entry.map_err(path_error(path))?;
+            let entry = entry.map_err(path_error_fn(path))?;
             scan_path(&entry.path(), filetypes, detection)?;
         }
     }
@@ -63,7 +63,7 @@ fn collect_matching_files(
     allowed_filetypes: &BTreeSet<String>,
     matches: &mut Vec<PathBuf>,
 ) -> io::Result<()> {
-    let metadata = fs::symlink_metadata(path).map_err(path_error(path))?;
+    let metadata = fs::symlink_metadata(path).map_err(path_error_fn(path))?;
     let file_type = metadata.file_type();
 
     if file_type.is_symlink() {
@@ -78,10 +78,10 @@ fn collect_matching_files(
     }
 
     if file_type.is_dir() {
-        let entries = fs::read_dir(path).map_err(path_error(path))?;
+        let entries = fs::read_dir(path).map_err(path_error_fn(path))?;
 
         for entry in entries {
-            let entry = entry.map_err(path_error(path))?;
+            let entry = entry.map_err(path_error_fn(path))?;
             collect_matching_files(&entry.path(), filetypes, allowed_filetypes, matches)?;
         }
     }
@@ -155,8 +155,7 @@ fn matching_filetypes(path: &Path, filetypes: &[FiletypeConfig]) -> Vec<String> 
         .collect()
 }
 
-// Q: rename to path_error_fn
-fn path_error(path: &Path) -> impl FnOnce(io::Error) -> io::Error + '_ {
+fn path_error_fn(path: &Path) -> impl FnOnce(io::Error) -> io::Error + '_ {
     move |error| io::Error::new(error.kind(), crate::fs::format_path_error(path, &error))
 }
 

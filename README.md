@@ -71,7 +71,7 @@ At a high level, `lsp-cli` usually does the following:
 2. detects matching languages from filenames
 3. chooses one or more configured LSP servers for those languages
 4. chooses a workspace root for the selected server
-5. downloads an LSP server if it is missing
+5. (downloads an LSP server if it is missing)[DOWNLOAD.md]
 6. starts the server, or reuses a matching daemon
 7. sends the requested LSP query
 8. prints a human-readable result or JSON

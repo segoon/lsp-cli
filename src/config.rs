@@ -301,13 +301,13 @@ fn load_filetypes(dir: &Path) -> Result<Vec<FiletypeConfig>> {
             let contents = path_fs::read_to_string(&path)?;
             let file: FiletypeFile = serde_yaml::from_str(&contents)
                 .map_err(|error| Error::config_format(path_fs::format_path_error(&path, error)))?;
-            let id = path
-                .file_stem()
-                .and_then(|value| value.to_str())
-                .ok_or_else(|| {
-                    Error::config_format(format!("invalid filetype filename: {}", path.display()))
-                })?
-                .to_string();
+            let Some(stem) = path.file_stem().and_then(|value| value.to_str()) else {
+                return Err(Error::config_format(format!(
+                    "invalid filetype filename: {}",
+                    path.display()
+                )));
+            };
+            let id = stem.to_string();
             let patterns = file
                 .patterns
                 .into_iter()
@@ -343,13 +343,13 @@ fn load_lsps(dir: &Path) -> Result<Vec<LspConfig>> {
             let contents = path_fs::read_to_string(&path)?;
             let file: LspFile = serde_yaml::from_str(&contents)
                 .map_err(|error| Error::config_format(path_fs::format_path_error(&path, error)))?;
-            let id = path
-                .file_stem()
-                .and_then(|value| value.to_str())
-                .ok_or_else(|| {
-                    Error::config_format(format!("invalid lsp filename: {}", path.display()))
-                })?
-                .to_string();
+            let Some(stem) = path.file_stem().and_then(|value| value.to_str()) else {
+                return Err(Error::config_format(format!(
+                    "invalid lsp filename: {}",
+                    path.display()
+                )));
+            };
+            let id = stem.to_string();
 
             Ok(LspConfig {
                 id,
@@ -440,17 +440,16 @@ impl Default for CliConfigRoots {
         let home = env_vars::home();
         let repo_data = repo_data_dir();
         let global = env_vars::lsp_data().unwrap_or_else(|| {
-            home.as_deref().map_or_else(
-                || repo_data.clone(),
-                |home| {
-                    let user_data = home_data_dir(home);
-                    if has_config_dirs(&user_data) {
-                        user_data
-                    } else {
-                        repo_data.clone()
-                    }
-                },
-            )
+            if let Some(home) = home.as_deref() {
+                let user_data = home_data_dir(home);
+                if has_config_dirs(&user_data) {
+                    user_data
+                } else {
+                    repo_data.clone()
+                }
+            } else {
+                repo_data.clone()
+            }
         });
 
         Self {

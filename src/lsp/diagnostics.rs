@@ -52,10 +52,11 @@ struct DocumentDiagnosticReport {
 }
 
 fn diagnostic_params_from_notification(value: &Value) -> Result<PublishDiagnosticsParams> {
-    let params = value
-        .get("params")
-        .cloned()
-        .ok_or_else(|| Error::lsp("publishDiagnostics notification is missing params"))?;
+    let Some(params) = value.get("params").cloned() else {
+        return Err(Error::lsp(
+            "publishDiagnostics notification is missing params",
+        ));
+    };
     serde_json::from_value(params).map_err(error_fn!(
         Error::lsp,
         "failed to decode publishDiagnostics params"
@@ -117,9 +118,11 @@ pub fn diagnostic_matches_from_document_response(
         )));
     }
 
-    let path = document_path
-        .strip_prefix(workspace_root)
-        .map_or_else(|_| document_path.to_path_buf(), Path::to_path_buf);
+    let path = if let Ok(stripped) = document_path.strip_prefix(workspace_root) {
+        stripped.to_path_buf()
+    } else {
+        document_path.to_path_buf()
+    };
 
     Ok(report
         .items

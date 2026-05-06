@@ -88,9 +88,12 @@ fn build_suggestion(
         ))
     })?;
     let workspace = workspace_root.to_string_lossy();
-    let template = shlex::split(&lsp.cmdline).ok_or_else(|| {
-        Error::config_format(format!("invalid cmdline for {}: {}", lsp.name, lsp.cmdline))
-    })?;
+    let Some(template) = shlex::split(&lsp.cmdline) else {
+        return Err(Error::config_format(format!(
+            "invalid cmdline for {}: {}",
+            lsp.name, lsp.cmdline
+        )));
+    };
     let command = template
         .into_iter()
         .map(|token| token.replace("$WORKSPACE", &workspace))
@@ -123,9 +126,13 @@ fn matching_languages(lsp: &LspConfig, detection: &DetectionResult) -> Vec<Strin
 
 fn resolve_workspace_root(lsp: &LspConfig, workspace: &Path) -> std::io::Result<PathBuf> {
     let start = match std::fs::metadata(workspace) {
-        Ok(metadata) if metadata.is_file() => workspace
-            .parent()
-            .map_or_else(|| workspace.to_path_buf(), Path::to_path_buf),
+        Ok(metadata) if metadata.is_file() => {
+            if let Some(parent) = workspace.parent() {
+                parent.to_path_buf()
+            } else {
+                workspace.to_path_buf()
+            }
+        }
         Ok(_) => workspace.to_path_buf(),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => workspace.to_path_buf(),
         Err(error) => return Err(error),

@@ -93,16 +93,16 @@ impl LspClient {
 
         log_lsp_server_started(child.id());
 
-        let stdin = child.stdin.take().ok_or_else(|| {
+        let Some(stdin) = child.stdin.take() else {
             let error = Error::unexpected(format!("failed to open stdin for {program}"));
             log_unexpected_error(&error.to_string());
-            error
-        })?;
-        let stdout = child.stdout.take().ok_or_else(|| {
+            return Err(error);
+        };
+        let Some(stdout) = child.stdout.take() else {
             let error = Error::unexpected(format!("failed to open stdout for {program}"));
             log_unexpected_error(&error.to_string());
-            error
-        })?;
+            return Err(error);
+        };
         let stderr = Some(CapturedStderr::spawn(
             child.stderr.take().ok_or_else(|| {
                 let error = Error::unexpected(format!("failed to open stderr for {program}"));
@@ -469,10 +469,9 @@ impl LspClient {
     }
 
     fn handle_server_request(&mut self, request_id: &Value, message: &Value) -> Result<()> {
-        let method = message
-            .get("method")
-            .and_then(Value::as_str)
-            .ok_or_else(|| Error::lsp("server request missing method"))?;
+        let Some(method) = message.get("method").and_then(Value::as_str) else {
+            return Err(Error::lsp("server request missing method"));
+        };
         let workspace_folders =
             serde_json::to_value(self.workspace_folders.clone()).map_err(error_fn!(
                 Error::lsp,
@@ -606,10 +605,11 @@ fn request_id(message: &Value) -> Option<Value> {
 }
 
 fn format_lsp_error(method: &str, error: &Value) -> String {
-    let code = error
-        .get("code")
-        .and_then(Value::as_i64)
-        .map_or_else(|| "unknown".to_string(), |value| value.to_string());
+    let code = if let Some(value) = error.get("code").and_then(Value::as_i64) {
+        value.to_string()
+    } else {
+        "unknown".to_string()
+    };
     let message = error
         .get("message")
         .and_then(Value::as_str)

@@ -106,7 +106,11 @@ fn append_stderr(state: &Arc<(Mutex<StderrState>, Condvar)>, chunk: &[u8], mirro
 fn finish_stderr(state: &Arc<(Mutex<StderrState>, Condvar)>) {
     let (lock, ready) = &**state;
     let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
-    let final_line = (!state.partial_line.is_empty()).then(|| take_line(&mut state.partial_line));
+    let final_line = if state.partial_line.is_empty() {
+        None
+    } else {
+        Some(take_line(&mut state.partial_line))
+    };
     state.finished = true;
     ready.notify_all();
     drop(state);

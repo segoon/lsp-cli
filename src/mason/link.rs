@@ -72,12 +72,12 @@ pub(crate) fn resolve_program(
     state: &RuntimeState,
     context: &TemplateContext<'_>,
 ) -> Result<ResolvedProgram> {
-    let target = package.bin.get(program).ok_or_else(|| {
-        Error::unexpected(format!(
+    let Some(target) = package.bin.get(program) else {
+        return Err(Error::unexpected(format!(
             "cannot install {} because Mason does not expose executable {program}",
             package.name
-        ))
-    })?;
+        )));
+    };
     let rendered = context.render(target);
 
     if let Some(relative) = rendered.strip_prefix("npm:") {

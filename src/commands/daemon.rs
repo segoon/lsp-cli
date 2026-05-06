@@ -445,10 +445,9 @@ impl Daemon {
         let Some(request_id) = request_id(message) else {
             return Ok(());
         };
-        let params = message
-            .get("params")
-            .cloned()
-            .ok_or_else(|| Error::lsp("initialize request is missing params"))?;
+        let Some(params) = message.get("params").cloned() else {
+            return Err(Error::lsp("initialize request is missing params"));
+        };
         let normalized = normalize_initialize_params(&params, &self.target)?;
         let fingerprint = fingerprint_value(&normalized);
         let wants_background_work = wants_background_work(&normalized);
@@ -474,11 +473,13 @@ impl Daemon {
             .and_then(|upstream| upstream.initialize_fingerprint.as_ref())
             .is_some()
         {
-            let result = self
+            let Some(result) = self
                 .upstream
                 .as_ref()
                 .and_then(|upstream| upstream.initialize_result.clone())
-                .ok_or_else(|| Error::unexpected("daemon lost cached initialize result"))?;
+            else {
+                return Err(Error::unexpected("daemon lost cached initialize result"));
+            };
             self.write_client_response(&success_response(&request_id, &result))?;
             if let Some(client) = self.active_client.as_mut() {
                 client.wants_background_work = wants_background_work;
@@ -489,10 +490,9 @@ impl Daemon {
             return Ok(());
         }
 
-        let upstream = self
-            .upstream
-            .as_mut()
-            .ok_or_else(|| Error::unexpected("daemon failed to start LSP server"))?;
+        let Some(upstream) = self.upstream.as_mut() else {
+            return Err(Error::unexpected("daemon failed to start LSP server"));
+        };
         upstream.initialize_fingerprint = Some(fingerprint);
 
         let forwarded = jsonrpc(Some(request_id.clone()), Initialize::METHOD, &normalized)?;

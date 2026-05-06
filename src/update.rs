@@ -281,9 +281,11 @@ fn fetch_release(client: &Client, version: &str) -> Result<ReleaseDownload> {
             Error::network,
             "failed to parse lsp-cli-data release metadata"
         ))?;
-    let archive_url = release.tarball_url.or(release.zipball_url).ok_or_else(|| {
-        Error::network("lsp-cli-data release does not provide a downloadable archive")
-    })?;
+    let Some(archive_url) = release.tarball_url.or(release.zipball_url) else {
+        return Err(Error::network(
+            "lsp-cli-data release does not provide a downloadable archive",
+        ));
+    };
     Ok(ReleaseDownload {
         version: release.tag_name,
         archive_url,

@@ -62,12 +62,14 @@ fn matching_document_symbol_content(
             && symbol.selection_range.start.character + 1 == target.col)
             || range_contains_match(&symbol.range, target));
 
-    let direct = direct_match.then(|| {
-        (
+    let direct = if direct_match {
+        Some((
             range_size(&symbol.range),
             source_cache.range_content_with_leading_comments(path, &symbol.range),
-        )
-    });
+        ))
+    } else {
+        None
+    };
 
     let nested = symbol
         .children

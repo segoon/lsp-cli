@@ -200,12 +200,12 @@ fn position_to_offset(
     let line_text = &source[line_start..line_end];
     let utf16_col = usize::try_from(position.character)
         .map_err(|_| Error::lsp(format!("column overflow for {}", path.display())))?;
-    let byte_in_line = utf16_column_to_byte(line_text, utf16_col).ok_or_else(|| {
-        Error::lsp(format!(
+    let Some(byte_in_line) = utf16_column_to_byte(line_text, utf16_col) else {
+        return Err(Error::lsp(format!(
             "textDocument/formatting returned a column outside {}",
             path.display()
-        ))
-    })?;
+        )));
+    };
     Ok(line_start + byte_in_line)
 }
 

@@ -10,7 +10,10 @@ use std::io::Cursor;
 use std::path::Path;
 
 pub(super) fn run(args: CompletionArgs) -> Result<String> {
-    let shell = args.shell.map_or_else(detect_current_shell, Ok)?;
+    let shell = match args.shell {
+        Some(shell) => shell,
+        None => detect_current_shell()?,
+    };
     let mut command = completion_command()?;
     let mut output = Cursor::new(Vec::new());
     generate(shell, &mut command, "lsp-cli", &mut output);
@@ -93,11 +96,11 @@ pub(super) fn detect_current_shell() -> Result<clap_complete::Shell> {
 }
 
 pub(super) fn detect_shell_from_env(shell: Option<&OsStr>) -> Result<clap_complete::Shell> {
-    let shell = shell.ok_or_else(|| {
-        Error::invalid_input(
+    let Some(shell) = shell else {
+        return Err(Error::invalid_input(
             "could not detect current shell from $SHELL; pass one explicitly like `lsp-cli completion bash`",
-        )
-    })?;
+        ));
+    };
     clap_complete::Shell::from_shell_path(shell).ok_or_else(|| {
         Error::invalid_input(format!(
             "could not map current shell from $SHELL={}; pass one explicitly like `lsp-cli completion bash`",

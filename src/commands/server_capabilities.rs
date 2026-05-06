@@ -339,16 +339,15 @@ fn render_output(
     fallback_server_name: &str,
     initialize: &InitializeResponse,
 ) -> String {
-    let server_name = initialize
-        .server_info()
-        .map_or(fallback_server_name, |info| info.name.as_str());
-    let server = initialize.server_info().map_or_else(
-        || server_name.to_string(),
-        |info| match info.version.as_deref() {
-            Some(version) => format!("{server_name} ({version})"),
-            None => server_name.to_string(),
-        },
-    );
+    let server = if let Some(info) = initialize.server_info() {
+        let name = info.name.as_str();
+        match info.version.as_deref() {
+            Some(version) => format!("{name} ({version})"),
+            None => name.to_string(),
+        }
+    } else {
+        fallback_server_name.to_string()
+    };
     let mut lines = vec![
         format!("cmdline: {}", display_command(command)),
         format!("server: {server}"),

@@ -69,13 +69,15 @@ fn refresh_registry_cache(state: &RuntimeState, now_epoch_seconds: u64) -> Resul
         .map_err(error_fn!(Error::network, "failed to create HTTP client"))?;
 
     let release = fetch_latest_release(&client)?;
-    let asset = release
+    let Some(asset) = release
         .assets
         .into_iter()
         .find(|asset| asset.name == REGISTRY_ASSET_NAME)
-        .ok_or_else(|| {
-            Error::network("Mason registry release does not include registry.json.zip")
-        })?;
+    else {
+        return Err(Error::network(
+            "Mason registry release does not include registry.json.zip",
+        ));
+    };
     let metadata_path = state.registry_metadata_path();
     let registry_json_path = state.registry_json_path();
 
@@ -130,11 +132,11 @@ fn verify_sha256(bytes: &[u8], digest: Option<&str>) -> Result<()> {
     let Some(digest) = digest else {
         return Ok(());
     };
-    let expected = digest.strip_prefix("sha256:").ok_or_else(|| {
-        Error::network(format!(
+    let Some(expected) = digest.strip_prefix("sha256:") else {
+        return Err(Error::network(format!(
             "unsupported Mason registry digest format: {digest}"
-        ))
-    })?;
+        )));
+    };
     let actual = encode_hex(&Sha256::digest(bytes));
 
     if actual == expected {

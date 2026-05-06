@@ -148,10 +148,11 @@ pub(crate) fn format_exit_status(status: ExitStatus) -> String {
         }
     }
 
-    status.code().map_or_else(
-        || "unknown status".to_string(),
-        |code| format!("exit code {code}"),
-    )
+    if let Some(code) = status.code() {
+        format!("exit code {code}")
+    } else {
+        "unknown status".to_string()
+    }
 }
 
 fn default_log_path() -> Option<PathBuf> {

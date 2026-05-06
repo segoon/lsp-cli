@@ -111,18 +111,20 @@ fn install_suggestion(
         )));
     }
 
-    let state = state.ok_or_else(|| {
-        Error::unexpected("cannot install LSP servers automatically because $HOME is not set")
-    })?;
+    let Some(state) = state else {
+        return Err(Error::unexpected(
+            "cannot install LSP servers automatically because $HOME is not set",
+        ));
+    };
     let registry = registry.get_or_insert(MasonRegistry::load(state)?);
-    let package = registry
-        .package_for_detected(&suggestion.config_id, &suggestion.server, program)
-        .ok_or_else(|| {
-            Error::unexpected(format!(
-                "no Mason install recipe is available for detected server {}",
-                suggestion.server
-            ))
-        })?;
+    let Some(package) =
+        registry.package_for_detected(&suggestion.config_id, &suggestion.server, program)
+    else {
+        return Err(Error::unexpected(format!(
+            "no Mason install recipe is available for detected server {}",
+            suggestion.server
+        )));
+    };
     let executable_path = resolve_or_install_program(state, package, program)?;
 
     Ok(rewrite_program(suggestion, &executable_path))

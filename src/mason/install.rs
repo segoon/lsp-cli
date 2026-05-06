@@ -39,8 +39,11 @@ pub(crate) fn resolve_cached_program(
         | SourceId::Golang { .. } => {
             let resolved_program =
                 resolve_program(package, program, state, &TemplateContext::empty())?;
-            Ok(is_resolved_program_runnable(&resolved_program)
-                .then(|| resolved_program.executable_path().to_path_buf()))
+            Ok(if is_resolved_program_runnable(&resolved_program) {
+                Some(resolved_program.executable_path().to_path_buf())
+            } else {
+                None
+            })
         }
         SourceId::Github { version, .. } => {
             resolve_cached_github_program(state, package, program, &version)
@@ -153,12 +156,12 @@ fn fake_npm_install(install_dir: &std::path::Path, program: &str) -> Result<bool
     }
 
     let executable = install_dir.join("node_modules/.bin").join(program);
-    let parent = executable.parent().ok_or_else(|| {
-        Error::unexpected(format!(
+    let Some(parent) = executable.parent() else {
+        return Err(Error::unexpected(format!(
             "failed to create fake npm output {}: no parent directory",
             executable.display()
-        ))
-    })?;
+        )));
+    };
     fs::create_dir_all(parent).map_err(|error| {
         Error::unexpected(format!(
             "failed to create fake npm output {}: {error}",
@@ -290,12 +293,12 @@ fn install_golang_package(
         |resolved_program| {
             require_command("go", package, program)?;
             state.ensure_dirs()?;
-            let bin_dir = resolved_program.executable_path().parent().ok_or_else(|| {
-                Error::unexpected(format!(
+            let Some(bin_dir) = resolved_program.executable_path().parent() else {
+                return Err(Error::unexpected(format!(
                     "failed to determine installation directory for {}",
                     package.name
-                ))
-            })?;
+                )));
+            };
             crate::fs::create_dir_all(bin_dir)?;
 
             let mut cmd = Command::new("go");
@@ -406,8 +409,11 @@ fn resolve_cached_github_program(
     let rendered_asset = render_asset_data(asset, version, program, &package.name)?;
     let context = rendered_asset.template_context(version);
     let resolved_program = resolve_program(package, program, state, &context)?;
-    Ok(is_resolved_program_runnable(&resolved_program)
-        .then(|| resolved_program.executable_path().to_path_buf()))
+    Ok(if is_resolved_program_runnable(&resolved_program) {
+        Some(resolved_program.executable_path().to_path_buf())
+    } else {
+        None
+    })
 }
 
 fn resolve_cached_generic_program(
@@ -421,8 +427,11 @@ fn resolve_cached_generic_program(
     let rendered_download = render_download_data(download, version);
     let context = rendered_download.template_context(version);
     let resolved_program = resolve_program(package, program, state, &context)?;
-    Ok(is_resolved_program_runnable(&resolved_program)
-        .then(|| resolved_program.executable_path().to_path_buf()))
+    Ok(if is_resolved_program_runnable(&resolved_program) {
+        Some(resolved_program.executable_path().to_path_buf())
+    } else {
+        None
+    })
 }
 
 fn use_cached_program_or<F>(

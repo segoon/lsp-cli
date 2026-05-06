@@ -41,7 +41,9 @@ pub fn parse_lsp_uri(uri: &str, context: &str) -> Result<Uri> {
 }
 
 pub fn workspace_name(path: &Path) -> String {
-    path.file_name()
-        .and_then(|value| value.to_str())
-        .map_or_else(|| path.display().to_string(), ToString::to_string)
+    if let Some(name) = path.file_name().and_then(|value| value.to_str()) {
+        name.to_string()
+    } else {
+        path.display().to_string()
+    }
 }

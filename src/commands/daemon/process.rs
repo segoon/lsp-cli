@@ -126,10 +126,11 @@ pub(super) fn launch_background_for_connection(
         Error::unexpected,
         "failed to start daemon process"
     ))?;
-    let stdout = child
-        .stdout
-        .take()
-        .ok_or_else(|| Error::unexpected("failed to capture daemon startup status"))?;
+    let Some(stdout) = child.stdout.take() else {
+        return Err(Error::unexpected(
+            "failed to capture daemon startup status",
+        ));
+    };
     let mut reader = BufReader::new(stdout);
     let mut status = String::new();
     let mut payload = String::new();
@@ -298,16 +299,16 @@ impl UpstreamServer {
             Error::unexpected(error)
         })?;
         log_lsp_server_started(child.id());
-        let stdin = child.stdin.take().ok_or_else(|| {
+        let Some(stdin) = child.stdin.take() else {
             let error = "failed to open LSP server stdin".to_string();
             log_unexpected_error(&error);
-            Error::unexpected(error)
-        })?;
-        let stdout = child.stdout.take().ok_or_else(|| {
+            return Err(Error::unexpected(error));
+        };
+        let Some(stdout) = child.stdout.take() else {
             let error = "failed to open LSP server stdout".to_string();
             log_unexpected_error(&error);
-            Error::unexpected(error)
-        })?;
+            return Err(Error::unexpected(error));
+        };
         let stderr = CapturedStderr::spawn(
             child.stderr.take().ok_or_else(|| {
                 let error = "failed to open LSP server stderr".to_string();

@@ -417,21 +417,32 @@ fn push_version_part(
     current: &mut String,
     current_is_digit: &mut Option<bool>,
 ) {
+    // tokenize_version always sets current_is_digit before appending the first
+    // character to `current`, so when we reach this function with content the
+    // signal is guaranteed to be Some. A None here implies an empty segment
+    // we can drop.
+    let Some(is_digit) = current_is_digit.take() else {
+        debug_assert!(current.is_empty());
+        return;
+    };
     if current.is_empty() {
-        *current_is_digit = None;
         return;
     }
 
-    if current_is_digit.unwrap_or(false) {
-        parts.push(VersionPart::Number(
-            current.parse::<u64>().unwrap_or(u64::MAX),
-        ));
+    if is_digit {
+        parts.push(VersionPart::Number(parse_version_segment_or_max(current)));
     } else {
         parts.push(VersionPart::Text(current.to_ascii_lowercase()));
     }
 
     current.clear();
-    *current_is_digit = None;
+}
+
+// Mason version segments are arbitrary user input. A numeric segment that
+// overflows u64 maps to u64::MAX so it still sorts greater than any
+// well-formed u64 segment, matching the "newer-or-larger wins" intent.
+fn parse_version_segment_or_max(text: &str) -> u64 {
+    text.parse::<u64>().unwrap_or(u64::MAX)
 }
 
 #[derive(Debug)]

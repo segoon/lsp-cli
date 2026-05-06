@@ -31,10 +31,6 @@
     clippy::panic,
     reason = "A few invariant checks still panic today and need a separate API design pass."
 )]
-#![expect(
-    clippy::unreachable,
-    reason = "Command dispatch still uses one invariant unreachable branch that should be revisited separately."
-)]
 
 mod cli;
 mod commands;

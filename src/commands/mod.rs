@@ -26,7 +26,7 @@ mod update;
 
 use crate::cli::{Command as CliCommand, CompletionArgs};
 use crate::config::ConfigStore;
-use crate::error::Result;
+use crate::error::{Error, Result};
 
 pub(crate) fn run(command: CliCommand, config: &ConfigStore) -> Result<String> {
     match command {
@@ -51,7 +51,9 @@ pub(crate) fn run(command: CliCommand, config: &ConfigStore) -> Result<String> {
         CliCommand::Declaration(args) => declaration::run(&args, config),
         CliCommand::BuildIndex(args) => build_index::run(&args, config),
         CliCommand::Update(args) => update::run(&args, config),
-        CliCommand::Completion(_) => unreachable!("completion handled before config loading"),
+        CliCommand::Completion(_) => Err(Error::unexpected(
+            "completion command should be dispatched before config loading",
+        )),
         CliCommand::AgentSkill(args) => agent_skill::run(&args),
         CliCommand::Run(args) => run::run(&args, config),
     }

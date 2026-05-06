@@ -26,9 +26,8 @@ use kinds::{CallHierarchyDirection, LocationQueryKind, zero_based_col, zero_base
 
 pub(super) use render::{
     render_file_list_json, render_list_symbols_json, render_paths_text,
-    render_symbol_match_paths_text, render_symbol_matches_text, render_symbol_matches_text_full,
-    render_symbol_names_text, render_workspace_symbol_json, render_workspace_symbol_json_full,
-    truncate_items,
+    render_symbol_match_paths_text, render_symbol_matches_text, render_symbol_names_text,
+    render_workspace_symbol_json, render_workspace_symbol_result, truncate_items,
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -95,31 +94,14 @@ pub(super) fn run_document_symbol_query(
         args.query.timeout,
         config,
         |workspace, initialize, client| {
-            ensure_list_functions_support(initialize, &workspace.server.server)?;
+            ensure_document_symbol_support(initialize, &workspace.server.server, "list-functions")?;
 
-            let files = matching_files(
-                &args.query.directory,
-                &config.filetypes,
-                &workspace.allowed_filetypes,
-            )
-            .map_err(|error| {
-                Error::unexpected(format!(
-                    "failed to scan {}: {error}",
-                    args.query.directory.display()
-                ))
-            })?;
+            let files = scan_workspace_files(&args.query.directory, config, workspace)?;
             let mut source_cache = SourceCache::default();
             let mut matches = Vec::new();
 
             for file in &files {
-                let uri = path_to_file_uri(file)?;
-                client.open_document(file, &uri).map_err(|error| {
-                    error.with_prefix(format!(
-                        "failed to open {} with {}",
-                        file.display(),
-                        workspace.server.server
-                    ))
-                })?;
+                let uri = open_document_for(client, file, &workspace.server.server)?;
                 let response = match client.document_symbol(&uri) {
                     Ok(response) => response,
                     Err(error) if should_skip_document_symbol_error(&error.to_string()) => continue,
@@ -185,31 +167,18 @@ fn collect_list_symbol_matches(
     initialize: &crate::lsp::InitializeResponse,
     client: &mut LspClient,
 ) -> Result<Vec<SymbolMatch>> {
-    ensure_list_symbols_support(initialize, &workspace.server.server)?;
+    ensure_document_symbol_support(initialize, &workspace.server.server, "list-symbols")?;
 
     let files = match target {
         ListSymbolsTarget::File => vec![args.path.clone()],
-        ListSymbolsTarget::Directory => {
-            matching_files(&args.path, &config.filetypes, &workspace.allowed_filetypes).map_err(
-                |error| {
-                    Error::unexpected(format!("failed to scan {}: {error}", args.path.display()))
-                },
-            )?
-        }
+        ListSymbolsTarget::Directory => scan_workspace_files(&args.path, config, workspace)?,
     };
 
     let mut source_cache = SourceCache::default();
     let mut matches = Vec::new();
 
     for file in &files {
-        let uri = path_to_file_uri(file)?;
-        client.open_document(file, &uri).map_err(|error| {
-            error.with_prefix(format!(
-                "failed to open {} with {}",
-                file.display(),
-                workspace.server.server
-            ))
-        })?;
+        let uri = open_document_for(client, file, &workspace.server.server)?;
         let response = match client.document_symbol(&uri) {
             Ok(response) => response,
             Err(error)
@@ -234,6 +203,27 @@ fn collect_list_symbol_matches(
     }
 
     Ok(matches)
+}
+
+fn scan_workspace_files(
+    directory: &Path,
+    config: &ConfigStore,
+    workspace: &PreparedWorkspace,
+) -> Result<Vec<PathBuf>> {
+    matching_files(directory, &config.filetypes, &workspace.allowed_filetypes).map_err(|error| {
+        Error::unexpected(format!("failed to scan {}: {error}", directory.display()))
+    })
+}
+
+fn open_document_for(client: &mut LspClient, path: &Path, server_name: &str) -> Result<String> {
+    let uri = path_to_file_uri(path)?;
+    client.open_document(path, &uri).map_err(|error| {
+        error.with_prefix(format!(
+            "failed to open {} with {server_name}",
+            path.display()
+        ))
+    })?;
+    Ok(uri)
 }
 
 pub(super) fn list_symbols_target(path: &Path) -> Result<ListSymbolsTarget> {
@@ -262,26 +252,14 @@ pub(super) fn list_symbols_target(path: &Path) -> Result<ListSymbolsTarget> {
     )))
 }
 
-fn ensure_list_functions_support(
+fn ensure_document_symbol_support(
     initialize: &crate::lsp::InitializeResponse,
     server_name: &str,
+    command: &str,
 ) -> Result<()> {
     if !document_symbol_supported(initialize) {
         return Err(Error::lsp(format!(
-            "{server_name} does not support list-functions because it does not advertise textDocument/documentSymbol"
-        )));
-    }
-
-    Ok(())
-}
-
-fn ensure_list_symbols_support(
-    initialize: &crate::lsp::InitializeResponse,
-    server_name: &str,
-) -> Result<()> {
-    if !document_symbol_supported(initialize) {
-        return Err(Error::lsp(format!(
-            "{server_name} does not support list-symbols because it does not advertise textDocument/documentSymbol"
+            "{server_name} does not support {command} because it does not advertise textDocument/documentSymbol"
         )));
     }
 
@@ -299,17 +277,7 @@ pub(super) fn run_list_files_query(
         false,
         config,
     )?;
-    let files = matching_files(
-        &args.directory,
-        &config.filetypes,
-        &workspace.allowed_filetypes,
-    )
-    .map_err(|error| {
-        Error::unexpected(format!(
-            "failed to scan {}: {error}",
-            args.directory.display()
-        ))
-    })?;
+    let files = scan_workspace_files(&args.directory, config, &workspace)?;
 
     Ok(FileListQueryResult {
         detected_filetypes: workspace.detection.filetypes,
@@ -485,14 +453,7 @@ fn collect_named_location_matches(
     let mut matches = Vec::new();
 
     for anchor in anchors {
-        let uri = path_to_file_uri(&anchor.path)?;
-        client.open_document(&anchor.path, &uri).map_err(|error| {
-            error.with_prefix(format!(
-                "failed to open {} with {}",
-                anchor.path.display(),
-                workspace.server.server
-            ))
-        })?;
+        let uri = open_document_for(client, &anchor.path, &workspace.server.server)?;
         // QD: avoid using Option::map_err()
         // A: The code was using `Result::map_err()`, not `Option::map_err()`.
         // A: I still applied the style request and rewrote it with explicit
@@ -568,14 +529,7 @@ fn collect_call_hierarchy_matches(
     let mut matches = Vec::new();
 
     for anchor in anchors {
-        let uri = path_to_file_uri(&anchor.path)?;
-        client.open_document(&anchor.path, &uri).map_err(|error| {
-            error.with_prefix(format!(
-                "failed to open {} with {}",
-                anchor.path.display(),
-                workspace.server.server
-            ))
-        })?;
+        let uri = open_document_for(client, &anchor.path, &workspace.server.server)?;
         let prepared = client
             .prepare_call_hierarchy(&uri, zero_based_line(&anchor), zero_based_col(&anchor))
             .map_err(|error| {
@@ -745,29 +699,12 @@ fn exact_named_document_anchors(
     config: &ConfigStore,
     request: NamedAnchorRequest<'_>,
 ) -> Result<Vec<SymbolMatch>> {
-    let files = matching_files(
-        request.directory,
-        &config.filetypes,
-        &workspace.allowed_filetypes,
-    )
-    .map_err(|error| {
-        Error::unexpected(format!(
-            "failed to scan {}: {error}",
-            request.directory.display()
-        ))
-    })?;
+    let files = scan_workspace_files(request.directory, config, workspace)?;
     let mut source_cache = SourceCache::default();
     let mut matches = Vec::new();
 
     for file in &files {
-        let uri = path_to_file_uri(file)?;
-        client.open_document(file, &uri).map_err(|error| {
-            error.with_prefix(format!(
-                "failed to open {} with {}",
-                file.display(),
-                workspace.server.server
-            ))
-        })?;
+        let uri = open_document_for(client, file, &workspace.server.server)?;
         let response = match client.document_symbol(&uri) {
             Ok(response) => response,
             Err(error) if should_skip_document_symbol_error(&error.to_string()) => continue,
@@ -798,14 +735,7 @@ fn fill_definition_full_content(
 
     for matched in matches {
         if !responses.contains_key(&matched.path) {
-            let uri = path_to_file_uri(&matched.path)?;
-            client.open_document(&matched.path, &uri).map_err(|error| {
-                error.with_prefix(format!(
-                    "failed to open {} with {}",
-                    matched.path.display(),
-                    workspace.server.server
-                ))
-            })?;
+            let uri = open_document_for(client, &matched.path, &workspace.server.server)?;
             let response = match client.document_symbol(&uri) {
                 Ok(response) => Some(response),
                 Err(error) if should_skip_document_symbol_error(&error.to_string()) => None,

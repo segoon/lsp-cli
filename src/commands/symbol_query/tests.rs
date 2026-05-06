@@ -1,9 +1,9 @@
+use super::render::{render_symbol_matches_text_full, render_workspace_symbol_json_full};
 use super::{
-    ListSymbolsTarget, dedupe_symbol_matches, ensure_list_functions_support,
-    ensure_list_symbols_support, list_symbols_target, preferred_function_name_matches,
-    preferred_name_matches, render_paths_text, render_symbol_match_paths_text,
-    render_symbol_matches_text, render_symbol_matches_text_full, render_symbol_names_text,
-    render_workspace_symbol_json_full, truncate_items,
+    ListSymbolsTarget, dedupe_symbol_matches, ensure_document_symbol_support, list_symbols_target,
+    preferred_function_name_matches, preferred_name_matches, render_paths_text,
+    render_symbol_match_paths_text, render_symbol_matches_text, render_symbol_names_text,
+    truncate_items,
 };
 use crate::lsp::SymbolMatch;
 use crate::suggest::SuggestedLanguage;
@@ -308,8 +308,9 @@ fn initialize_response(
 
 #[test]
 fn formats_list_functions_support_error_for_missing_document_symbol() {
-    let error = ensure_list_functions_support(&initialize_response(None), "harper-ls")
-        .expect_err("missing document symbol support should fail");
+    let error =
+        ensure_document_symbol_support(&initialize_response(None), "harper-ls", "list-functions")
+            .expect_err("missing document symbol support should fail");
 
     assert_eq!(
         error,
@@ -319,8 +320,9 @@ fn formats_list_functions_support_error_for_missing_document_symbol() {
 
 #[test]
 fn formats_list_symbols_support_error_for_missing_document_symbol() {
-    let error = ensure_list_symbols_support(&initialize_response(None), "harper-ls")
-        .expect_err("missing document symbol support should fail");
+    let error =
+        ensure_document_symbol_support(&initialize_response(None), "harper-ls", "list-symbols")
+            .expect_err("missing document symbol support should fail");
 
     assert_eq!(
         error,

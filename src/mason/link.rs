@@ -442,15 +442,11 @@ fn write_receipt(
             path.display()
         )));
     };
-    fs::create_dir_all(parent).map_err(|error| {
-        Error::unexpected(format!("failed to create {}: {error}", parent.display()))
-    })?;
+    path_fs::create_dir_all(parent)?;
     let bytes = serde_json::to_vec_pretty(&receipt).map_err(|error| {
         Error::unexpected(format!("failed to serialize {}: {error}", path.display()))
     })?;
-    fs::write(&path, bytes).map_err(|error| {
-        Error::unexpected(format!("failed to write {}: {error}", path.display()))
-    })?;
+    path_fs::write(&path, &bytes)?;
     Ok(executable_path.to_path_buf())
 }
 

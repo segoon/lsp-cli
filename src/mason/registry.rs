@@ -2,7 +2,6 @@ use crate::error::{Error, Result};
 use crate::runtime_state::RuntimeState;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use std::fs;
 use std::path::Path;
 
 mod cache;
@@ -77,9 +76,7 @@ impl MasonRegistry {
     }
 
     fn from_registry_json_path(path: &Path) -> Result<Self> {
-        let contents = fs::read_to_string(path).map_err(|error| {
-            Error::unexpected(format!("failed to read {}: {error}", path.display()))
-        })?;
+        let contents = crate::fs::read_to_string(path)?;
         let package_values =
             serde_json::from_str::<Vec<serde_json::Value>>(&contents).map_err(|error| {
                 Error::unexpected(format!("failed to parse {}: {error}", path.display()))

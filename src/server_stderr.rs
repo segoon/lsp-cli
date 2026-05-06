@@ -1,7 +1,7 @@
 use crate::system_log::{log_lsp_server_stderr_line, log_unexpected_error};
 use std::collections::VecDeque;
 use std::io::{Read, Write};
-use std::sync::{Arc, Condvar, Mutex};
+use std::sync::{Arc, Condvar, Mutex, PoisonError};
 use std::thread;
 use std::time::Duration;
 
@@ -53,15 +53,11 @@ impl CapturedStderr {
 
     pub(crate) fn summary(&self) -> Option<String> {
         let (lock, ready) = &*self.state;
-        let mut state = match lock.lock() {
-            Ok(state) => state,
-            Err(poisoned) => poisoned.into_inner(),
-        };
+        let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
         if !state.finished {
-            let result = match ready.wait_timeout(state, STDERR_FLUSH_WAIT) {
-                Ok(result) => result,
-                Err(poisoned) => poisoned.into_inner(),
-            };
+            let result = ready
+                .wait_timeout(state, STDERR_FLUSH_WAIT)
+                .unwrap_or_else(PoisonError::into_inner);
             state = result.0;
         }
 
@@ -85,10 +81,7 @@ fn append_stderr(state: &Arc<(Mutex<StderrState>, Condvar)>, chunk: &[u8], mirro
     }
 
     let (lock, _) = &**state;
-    let mut state = match lock.lock() {
-        Ok(state) => state,
-        Err(poisoned) => poisoned.into_inner(),
-    };
+    let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
     let mut completed_lines = Vec::new();
 
     for byte in chunk {
@@ -112,10 +105,7 @@ fn append_stderr(state: &Arc<(Mutex<StderrState>, Condvar)>, chunk: &[u8], mirro
 
 fn finish_stderr(state: &Arc<(Mutex<StderrState>, Condvar)>) {
     let (lock, ready) = &**state;
-    let mut state = match lock.lock() {
-        Ok(state) => state,
-        Err(poisoned) => poisoned.into_inner(),
-    };
+    let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
     let final_line = (!state.partial_line.is_empty()).then(|| take_line(&mut state.partial_line));
     state.finished = true;
     ready.notify_all();

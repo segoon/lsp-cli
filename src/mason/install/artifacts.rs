@@ -246,11 +246,7 @@ pub(super) fn install_downloaded_artifact(
     relative_name: &str,
     bytes: &[u8],
 ) -> Result<()> {
-    fs::create_dir_all(root).map_err(error_fn!(
-        Error::unexpected,
-        "failed to create {}",
-        root.display()
-    ))?;
+    crate::fs::create_dir_all(root)?;
     let relative_name_lower = relative_name.to_ascii_lowercase();
     let extension = Path::new(relative_name)
         .extension()
@@ -285,11 +281,7 @@ fn extract_tar_gz(root: &Path, bytes: &[u8]) -> Result<()> {
             .map_err(format_root_error("failed to read tar entry path in", root))?;
         let output_path = join_relative_path(root, &entry_path.to_string_lossy())?;
         if entry.header().entry_type().is_dir() {
-            fs::create_dir_all(&output_path).map_err(error_fn!(
-                Error::unexpected,
-                "failed to create {}",
-                output_path.display()
-            ))?;
+            crate::fs::create_dir_all(&output_path)?;
             continue;
         }
 
@@ -299,11 +291,7 @@ fn extract_tar_gz(root: &Path, bytes: &[u8]) -> Result<()> {
         )?;
 
         if let Some(parent) = output_path.parent() {
-            fs::create_dir_all(parent).map_err(error_fn!(
-                Error::unexpected,
-                "failed to create {}",
-                parent.display()
-            ))?;
+            crate::fs::create_dir_all(parent)?;
         }
         entry.unpack(&output_path).map_err(error_fn!(
             Error::unexpected,
@@ -332,11 +320,7 @@ fn extract_zip(root: &Path, bytes: &[u8]) -> Result<()> {
         };
         let output_path = root.join(name);
         if file.is_dir() {
-            fs::create_dir_all(&output_path).map_err(error_fn!(
-                Error::unexpected,
-                "failed to create {}",
-                output_path.display()
-            ))?;
+            crate::fs::create_dir_all(&output_path)?;
             continue;
         }
         ensure_decompressed_size_limit(
@@ -344,11 +328,7 @@ fn extract_zip(root: &Path, bytes: &[u8]) -> Result<()> {
             &format!("zip entry {}", output_path.display()),
         )?;
         if let Some(parent) = output_path.parent() {
-            fs::create_dir_all(parent).map_err(error_fn!(
-                Error::unexpected,
-                "failed to create {}",
-                parent.display()
-            ))?;
+            crate::fs::create_dir_all(parent)?;
         }
         let mut output = fs::File::create(&output_path).map_err(error_fn!(
             Error::unexpected,
@@ -419,16 +399,8 @@ fn write_file(path: &Path, bytes: &[u8]) -> Result<()> {
             path.display()
         )));
     };
-    fs::create_dir_all(parent).map_err(error_fn!(
-        Error::unexpected,
-        "failed to create {}",
-        parent.display()
-    ))?;
-    fs::write(path, bytes).map_err(error_fn!(
-        Error::unexpected,
-        "failed to write {}",
-        path.display()
-    ))
+    crate::fs::create_dir_all(parent)?;
+    crate::fs::write(path, bytes)
 }
 
 pub(super) fn parse_archive_file_spec(file: &str) -> (&str, Option<&str>) {

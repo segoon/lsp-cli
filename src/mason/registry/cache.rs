@@ -187,11 +187,7 @@ fn write_bytes_file(path: &Path, bytes: &[u8]) -> Result<()> {
         )));
     };
 
-    fs::create_dir_all(parent).map_err(error_fn!(
-        Error::unexpected,
-        "failed to create {}",
-        parent.display()
-    ))?;
+    crate::fs::create_dir_all(parent)?;
     let mut temp = NamedTempFile::new_in(parent).map_err(error_fn!(
         Error::unexpected,
         "failed to create temporary file in {}",

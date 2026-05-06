@@ -5,7 +5,6 @@ use crate::error::{Error, Result, error_fn};
 use crate::lsp::{ensure_formatting_support, path_to_file_uri};
 use lsp_types::{Position, TextEdit};
 use serde_json::json;
-use std::fs;
 use std::path::Path;
 
 #[cfg(test)]
@@ -51,20 +50,12 @@ pub(super) fn run(args: &FormatArgs, config: &ConfigStore) -> Result<String> {
         ))
     })?;
 
-    let original = fs::read_to_string(&args.path).map_err(error_fn!(
-        Error::unexpected,
-        "failed to read {}",
-        args.path.display()
-    ))?;
+    let original = crate::fs::read_to_string(&args.path)?;
     let formatted = apply_formatting_response(&response, &original, &args.path)?;
     let changed = formatted != original;
 
     if changed && !args.check && !args.stdout {
-        fs::write(&args.path, formatted.as_bytes()).map_err(error_fn!(
-            Error::unexpected,
-            "failed to write {}",
-            args.path.display()
-        ))?;
+        crate::fs::write(&args.path, formatted.as_bytes())?;
     }
 
     client.shutdown().map_err(|error| {
@@ -101,7 +92,7 @@ pub(super) fn run(args: &FormatArgs, config: &ConfigStore) -> Result<String> {
 }
 
 fn ensure_regular_file(path: &Path) -> Result<()> {
-    let metadata = fs::metadata(path).map_err(|error| {
+    let metadata = std::fs::metadata(path).map_err(|error| {
         if error.kind() == std::io::ErrorKind::NotFound {
             Error::invalid_input(format!(
                 "format expected a file path, but {} does not exist",

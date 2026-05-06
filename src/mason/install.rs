@@ -1,15 +1,18 @@
 use crate::error::{Error, Result};
 use crate::mason::link::{
-    finalize_install, is_resolved_program_runnable, join_relative_path, resolve_program,
+    ResolvedProgram, finalize_install, is_resolved_program_runnable, join_relative_path,
+    resolve_program,
 };
 use crate::mason::platform::MasonPlatform;
 use crate::mason::registry::MasonPackage;
 use crate::mason::source::{SourceId, parse_source_id};
 use crate::mason::template::TemplateContext;
 use crate::runtime_state::RuntimeState;
-use std::fs;
+use std::path::PathBuf;
 use std::process::Command;
 
+#[cfg(test)]
+use std::fs;
 #[cfg(all(test, unix))]
 use std::os::unix::fs::PermissionsExt;
 
@@ -93,58 +96,47 @@ fn install_npm_package(
     package_name: &str,
     version: &str,
     program: &str,
-) -> Result<std::path::PathBuf> {
-    let resolved_program = resolve_program(package, program, state, &TemplateContext::empty())?;
-    if is_resolved_program_runnable(&resolved_program) {
-        return Ok(resolved_program.executable_path().to_path_buf());
-    }
-    require_command("npm", package, program)?;
-
-    state.ensure_dirs()?;
-    let install_dir = state.package_dir(&package.name);
-    fs::create_dir_all(&install_dir).map_err(|error| {
-        Error::unexpected(format!(
-            "failed to create {}: {error}",
-            install_dir.display()
-        ))
-    })?;
-
-    #[cfg(test)]
-    if fake_npm_install(&install_dir, program)? {
-        return finalize_install(
-            state,
-            package,
-            program,
-            &resolved_program,
-            &TemplateContext::empty(),
-            "npm did not produce a runnable",
-        );
-    }
-
-    let install_spec = format!("{package_name}@{version}");
-    let output = Command::new("npm")
-        .arg("install")
-        .arg("--no-package-lock")
-        .arg("--prefix")
-        .arg(&install_dir)
-        .arg(&install_spec)
-        .args(&package.source.extra_packages)
-        .output()
-        .map_err(|error| {
-            Error::unexpected(format!(
-                "cannot install {} because npm could not start: {error}",
-                package.name
-            ))
-        })?;
-    ensure_command_success(&output, package, "npm")?;
-
-    finalize_install(
-        state,
+) -> Result<PathBuf> {
+    use_cached_program_or(
         package,
         program,
-        &resolved_program,
+        state,
         &TemplateContext::empty(),
-        "npm did not produce a runnable",
+        |resolved_program| {
+            require_command("npm", package, program)?;
+            let install_dir = prepare_install_dir(state, package)?;
+
+            #[cfg(test)]
+            if fake_npm_install(&install_dir, program)? {
+                return finalize_install(
+                    state,
+                    package,
+                    program,
+                    &resolved_program,
+                    &TemplateContext::empty(),
+                    "npm did not produce a runnable",
+                );
+            }
+
+            let install_spec = format!("{package_name}@{version}");
+            let mut cmd = Command::new("npm");
+            cmd.arg("install")
+                .arg("--no-package-lock")
+                .arg("--prefix")
+                .arg(&install_dir)
+                .arg(&install_spec)
+                .args(&package.source.extra_packages);
+            run_install_command(&mut cmd, package, "npm")?;
+
+            finalize_install(
+                state,
+                package,
+                program,
+                &resolved_program,
+                &TemplateContext::empty(),
+                "npm did not produce a runnable",
+            )
+        },
     )
 }
 
@@ -209,51 +201,40 @@ fn install_pypi_package(
     version: &str,
     extras: &[String],
     program: &str,
-) -> Result<std::path::PathBuf> {
-    let resolved_program = resolve_program(package, program, state, &TemplateContext::empty())?;
-    if is_resolved_program_runnable(&resolved_program) {
-        return Ok(resolved_program.executable_path().to_path_buf());
-    }
-    require_command("python3", package, program)?;
-
-    state.ensure_dirs()?;
-    let install_dir = state.package_dir(&package.name);
-    fs::create_dir_all(&install_dir).map_err(|error| {
-        Error::unexpected(format!(
-            "failed to create {}: {error}",
-            install_dir.display()
-        ))
-    })?;
-
-    let install_spec = if extras.is_empty() {
-        format!("{package_name}=={version}")
-    } else {
-        format!("{package_name}[{}]=={version}", extras.join(","))
-    };
-    let output = Command::new("python3")
-        .arg("-m")
-        .arg("pip")
-        .arg("install")
-        .arg("--disable-pip-version-check")
-        .arg("--prefix")
-        .arg(&install_dir)
-        .arg(&install_spec)
-        .output()
-        .map_err(|error| {
-            Error::unexpected(format!(
-                "cannot install {} because python3 -m pip could not start: {error}",
-                package.name
-            ))
-        })?;
-    ensure_command_success(&output, package, "python3 -m pip")?;
-
-    finalize_install(
-        state,
+) -> Result<PathBuf> {
+    use_cached_program_or(
         package,
         program,
-        &resolved_program,
+        state,
         &TemplateContext::empty(),
-        "pip did not produce a runnable",
+        |resolved_program| {
+            require_command("python3", package, program)?;
+            let install_dir = prepare_install_dir(state, package)?;
+
+            let install_spec = if extras.is_empty() {
+                format!("{package_name}=={version}")
+            } else {
+                format!("{package_name}[{}]=={version}", extras.join(","))
+            };
+            let mut cmd = Command::new("python3");
+            cmd.arg("-m")
+                .arg("pip")
+                .arg("install")
+                .arg("--disable-pip-version-check")
+                .arg("--prefix")
+                .arg(&install_dir)
+                .arg(&install_spec);
+            run_install_command(&mut cmd, package, "python3 -m pip")?;
+
+            finalize_install(
+                state,
+                package,
+                program,
+                &resolved_program,
+                &TemplateContext::empty(),
+                "pip did not produce a runnable",
+            )
+        },
     )
 }
 
@@ -263,45 +244,34 @@ fn install_cargo_package(
     package_name: &str,
     version: &str,
     program: &str,
-) -> Result<std::path::PathBuf> {
-    let resolved_program = resolve_program(package, program, state, &TemplateContext::empty())?;
-    if is_resolved_program_runnable(&resolved_program) {
-        return Ok(resolved_program.executable_path().to_path_buf());
-    }
-    require_command("cargo", package, program)?;
-
-    state.ensure_dirs()?;
-    let install_dir = state.package_dir(&package.name);
-    fs::create_dir_all(&install_dir).map_err(|error| {
-        Error::unexpected(format!(
-            "failed to create {}: {error}",
-            install_dir.display()
-        ))
-    })?;
-
-    let output = Command::new("cargo")
-        .arg("install")
-        .arg("--root")
-        .arg(&install_dir)
-        .arg("--version")
-        .arg(version)
-        .arg(package_name)
-        .output()
-        .map_err(|error| {
-            Error::unexpected(format!(
-                "cannot install {} because cargo could not start: {error}",
-                package.name
-            ))
-        })?;
-    ensure_command_success(&output, package, "cargo")?;
-
-    finalize_install(
-        state,
+) -> Result<PathBuf> {
+    use_cached_program_or(
         package,
         program,
-        &resolved_program,
+        state,
         &TemplateContext::empty(),
-        "cargo did not produce a runnable",
+        |resolved_program| {
+            require_command("cargo", package, program)?;
+            let install_dir = prepare_install_dir(state, package)?;
+
+            let mut cmd = Command::new("cargo");
+            cmd.arg("install")
+                .arg("--root")
+                .arg(&install_dir)
+                .arg("--version")
+                .arg(version)
+                .arg(package_name);
+            run_install_command(&mut cmd, package, "cargo")?;
+
+            finalize_install(
+                state,
+                package,
+                program,
+                &resolved_program,
+                &TemplateContext::empty(),
+                "cargo did not produce a runnable",
+            )
+        },
     )
 }
 
@@ -311,44 +281,38 @@ fn install_golang_package(
     module_path: &str,
     version: &str,
     program: &str,
-) -> Result<std::path::PathBuf> {
-    let resolved_program = resolve_program(package, program, state, &TemplateContext::empty())?;
-    if is_resolved_program_runnable(&resolved_program) {
-        return Ok(resolved_program.executable_path().to_path_buf());
-    }
-    require_command("go", package, program)?;
-
-    state.ensure_dirs()?;
-    let bin_dir = resolved_program.executable_path().parent().ok_or_else(|| {
-        Error::unexpected(format!(
-            "failed to determine installation directory for {}",
-            package.name
-        ))
-    })?;
-    fs::create_dir_all(bin_dir).map_err(|error| {
-        Error::unexpected(format!("failed to create {}: {error}", bin_dir.display()))
-    })?;
-
-    let output = Command::new("go")
-        .arg("install")
-        .arg(format!("{module_path}@{version}"))
-        .env("GOBIN", bin_dir)
-        .output()
-        .map_err(|error| {
-            Error::unexpected(format!(
-                "cannot install {} because go could not start: {error}",
-                package.name
-            ))
-        })?;
-    ensure_command_success(&output, package, "go")?;
-
-    finalize_install(
-        state,
+) -> Result<PathBuf> {
+    use_cached_program_or(
         package,
         program,
-        &resolved_program,
+        state,
         &TemplateContext::empty(),
-        "go did not produce a runnable",
+        |resolved_program| {
+            require_command("go", package, program)?;
+            state.ensure_dirs()?;
+            let bin_dir = resolved_program.executable_path().parent().ok_or_else(|| {
+                Error::unexpected(format!(
+                    "failed to determine installation directory for {}",
+                    package.name
+                ))
+            })?;
+            crate::fs::create_dir_all(bin_dir)?;
+
+            let mut cmd = Command::new("go");
+            cmd.arg("install")
+                .arg(format!("{module_path}@{version}"))
+                .env("GOBIN", bin_dir);
+            run_install_command(&mut cmd, package, "go")?;
+
+            finalize_install(
+                state,
+                package,
+                program,
+                &resolved_program,
+                &TemplateContext::empty(),
+                "go did not produce a runnable",
+            )
+        },
     )
 }
 
@@ -412,12 +376,7 @@ fn install_generic_package(
 
     let client = http_client()?;
     let install_root = state.package_dir(&package.name);
-    fs::create_dir_all(&install_root).map_err(|error| {
-        Error::unexpected(format!(
-            "failed to create {}: {error}",
-            install_root.display()
-        ))
-    })?;
+    crate::fs::create_dir_all(&install_root)?;
 
     for (relative_name, url_template) in &download.files {
         let relative_name = context.render(relative_name);
@@ -464,6 +423,40 @@ fn resolve_cached_generic_program(
     let resolved_program = resolve_program(package, program, state, &context)?;
     Ok(is_resolved_program_runnable(&resolved_program)
         .then(|| resolved_program.executable_path().to_path_buf()))
+}
+
+fn use_cached_program_or<F>(
+    package: &MasonPackage,
+    program: &str,
+    state: &RuntimeState,
+    context: &TemplateContext,
+    install: F,
+) -> Result<PathBuf>
+where
+    F: FnOnce(ResolvedProgram) -> Result<PathBuf>,
+{
+    let resolved_program = resolve_program(package, program, state, context)?;
+    if is_resolved_program_runnable(&resolved_program) {
+        return Ok(resolved_program.executable_path().to_path_buf());
+    }
+    install(resolved_program)
+}
+
+fn prepare_install_dir(state: &RuntimeState, package: &MasonPackage) -> Result<PathBuf> {
+    state.ensure_dirs()?;
+    let install_dir = state.package_dir(&package.name);
+    crate::fs::create_dir_all(&install_dir)?;
+    Ok(install_dir)
+}
+
+fn run_install_command(cmd: &mut Command, package: &MasonPackage, tool: &str) -> Result<()> {
+    let output = cmd.output().map_err(|error| {
+        Error::unexpected(format!(
+            "cannot install {} because {tool} could not start: {error}",
+            package.name
+        ))
+    })?;
+    ensure_command_success(&output, package, tool)
 }
 
 fn require_command(command: &str, package: &MasonPackage, program: &str) -> Result<()> {

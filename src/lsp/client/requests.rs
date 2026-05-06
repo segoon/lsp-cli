@@ -27,11 +27,7 @@ impl LspClient {
             return Ok(());
         }
 
-        let text = std::fs::read_to_string(path).map_err(error_fn!(
-            Error::unexpected,
-            "failed to read {}",
-            path.display()
-        ))?;
+        let text = crate::fs::read_to_string(path)?;
         let params = DidOpenTextDocumentParams {
             text_document: TextDocumentItem::new(
                 parse_lsp_uri(uri, "document")?,

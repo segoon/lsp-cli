@@ -168,19 +168,11 @@ fn extract_tar_gz(root: &Path, bytes: &[u8]) -> Result<()> {
         ))?;
         let output_path = root.join(entry_path.as_ref());
         if entry.header().entry_type().is_dir() {
-            fs::create_dir_all(&output_path).map_err(error_fn!(
-                Error::unexpected,
-                "failed to create {}",
-                output_path.display()
-            ))?;
+            crate::fs::create_dir_all(&output_path)?;
             continue;
         }
         if let Some(parent) = output_path.parent() {
-            fs::create_dir_all(parent).map_err(error_fn!(
-                Error::unexpected,
-                "failed to create {}",
-                parent.display()
-            ))?;
+            crate::fs::create_dir_all(parent)?;
         }
         entry.unpack(&output_path).map_err(error_fn!(
             Error::network,
@@ -212,19 +204,11 @@ fn extract_zip(root: &Path, bytes: &[u8]) -> Result<()> {
         };
         let output_path = root.join(name);
         if file.is_dir() {
-            fs::create_dir_all(&output_path).map_err(error_fn!(
-                Error::unexpected,
-                "failed to create {}",
-                output_path.display()
-            ))?;
+            crate::fs::create_dir_all(&output_path)?;
             continue;
         }
         if let Some(parent) = output_path.parent() {
-            fs::create_dir_all(parent).map_err(error_fn!(
-                Error::unexpected,
-                "failed to create {}",
-                parent.display()
-            ))?;
+            crate::fs::create_dir_all(parent)?;
         }
         let mut output = fs::File::create(&output_path).map_err(error_fn!(
             Error::unexpected,

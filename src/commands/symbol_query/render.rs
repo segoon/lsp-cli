@@ -1,8 +1,49 @@
-use super::SymbolMatch;
+use super::{SymbolMatch, WorkspaceSymbolQueryResult};
+use crate::cli::WorkspaceQueryArgs;
 use crate::suggest::SuggestedLanguage;
 use serde_json::{Value, json};
 use std::collections::{BTreeSet, HashSet};
 use std::path::{Path, PathBuf};
+
+pub(crate) fn render_workspace_symbol_result(
+    name: &str,
+    query: &WorkspaceQueryArgs,
+    files_with_matches: bool,
+    full: bool,
+    result: WorkspaceSymbolQueryResult,
+) -> String {
+    let matches = truncate_items(
+        result.matches,
+        query.limit,
+        if query.json { "items" } else { "lines" },
+    );
+
+    if query.json {
+        if full {
+            render_workspace_symbol_json_full(
+                name,
+                &query.directory,
+                &result.detected_filetypes,
+                &result.server,
+                &matches,
+            )
+        } else {
+            render_workspace_symbol_json(
+                name,
+                &query.directory,
+                &result.detected_filetypes,
+                &result.server,
+                &matches,
+            )
+        }
+    } else if files_with_matches {
+        render_symbol_match_paths_text(&matches)
+    } else if full {
+        render_symbol_matches_text_full(&matches)
+    } else {
+        render_symbol_matches_text(&matches)
+    }
+}
 
 pub(crate) fn truncate_items<T>(mut items: Vec<T>, limit: usize, unit: &str) -> Vec<T> {
     if items.len() > limit {

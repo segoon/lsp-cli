@@ -7,6 +7,7 @@ use crate::error::Result;
 
 pub(super) fn run(args: &ListFilesArgs, config: &ConfigStore) -> Result<String> {
     let result = run_list_files_query(&args.query, config)?;
+    // Q: move args.query to a local variable
     let files = truncate_items(
         result.files,
         args.query.limit,

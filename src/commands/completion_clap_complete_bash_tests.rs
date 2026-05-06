@@ -1,3 +1,4 @@
+// Q: is this file used at all?
 use clap::{Arg, Command};
 use clap_complete::{Shell, generate};
 use std::io::Cursor;

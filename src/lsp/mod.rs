@@ -15,7 +15,7 @@ pub use capabilities::{
     ensure_formatting_support, ensure_references_support, ensure_workspace_symbol_support,
 };
 pub use client::LspClient;
-pub use custom_types::{SERVER_STATUS_METHOD, STOP_METHOD, ServerStatusParams, StopParams};
+pub use custom_types::{SERVER_STATUS_METHOD, STOP_METHOD, ServerStatusParams};
 pub use diagnostics::{
     DiagnosticMatch, diagnostic_matches_from_document_response,
     diagnostic_matches_from_notification,

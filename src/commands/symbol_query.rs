@@ -430,6 +430,7 @@ fn run_named_location_query(
         args.query.debug,
         args.query.timeout,
         config,
+        // Q: move this lambda to an explicit function
         |workspace, initialize, client| {
             ensure_workspace_symbol_support(initialize)?;
             kind.ensure_support(initialize)?;
@@ -465,6 +466,7 @@ fn run_named_location_query(
                         workspace.server.server
                     ))
                 })?;
+                // Q: avoid using Option::map_err()
                 let response = kind.query(client, &uri, &anchor).map_err(|error| {
                     error.with_prefix(format!(
                         "failed to query {} for {} of {name:?}",
@@ -511,6 +513,7 @@ fn run_call_hierarchy_query(
     direction: CallHierarchyDirection,
     config: &ConfigStore,
 ) -> Result<WorkspaceSymbolQueryResult> {
+    // Q: args.query is duplicated
     let (workspace, matches) = with_initialized_client(
         &args.query.directory,
         args.query.selector.lsp.as_deref(),
@@ -521,6 +524,7 @@ fn run_call_hierarchy_query(
         args.query.debug,
         args.query.timeout,
         config,
+        // Q: move lambda to an explicit function
         |workspace, initialize, client| {
             ensure_workspace_symbol_support(initialize)?;
             ensure_call_hierarchy_support(initialize)?;

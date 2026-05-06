@@ -16,6 +16,7 @@ const DATA_REPOSITORY: &str = "segoon/lsp-cli-data";
 const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
 
 pub(crate) fn load_cli_defaults_for_update() -> Result<CliConfig> {
+    // Q: use crate::config::{...} at the top of the file
     let roots = crate::config::CliConfigRoots::default();
     load_cli_config(&roots.global, roots.user.as_deref())
         .map_err(|error| error.with_prefix("failed to load lsp-cli defaults"))
@@ -76,6 +77,7 @@ fn install_downloaded_data(state: &RuntimeState, archive: &[u8]) -> Result<()> {
             ))
         })?;
     }
+    // Q: use error_fn for lambdas in this file
     fs::rename(&extracted_root, &replacement_root).map_err(|error| {
         Error::unexpected(format!(
             "failed to prepare downloaded data in {}: {error}",

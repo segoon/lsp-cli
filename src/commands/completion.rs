@@ -15,6 +15,7 @@ pub(super) fn run(args: CompletionArgs) -> Result<String> {
     let mut output = Cursor::new(Vec::new());
     generate(shell, &mut command, "lsp-cli", &mut output);
 
+    // Q: error_fn can be used, fix here and in other files
     String::from_utf8(output.into_inner())
         .map(|output| normalize_completion_output(shell, output, "lsp-cli"))
         .map_err(|error| {

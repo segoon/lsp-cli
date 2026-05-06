@@ -9,6 +9,7 @@ use std::process::{Command, Stdio};
 use std::os::unix::process::CommandExt;
 
 pub(super) fn run(args: &RunArgs, config: &ConfigStore) -> Result<String> {
+    // Q: move args.server to a variable
     let workspace = prepare_workspace(
         &args.path,
         args.server.server(),

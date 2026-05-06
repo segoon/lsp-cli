@@ -1,4 +1,40 @@
 #![warn(clippy::pedantic)]
+#![expect(
+    clippy::allow_attributes,
+    reason = "Existing targeted suppressions predate workspace lint activation and will be migrated incrementally."
+)]
+#![expect(
+    clippy::allow_attributes_without_reason,
+    reason = "Existing targeted suppressions predate workspace lint activation and will be migrated incrementally."
+)]
+#![expect(
+    clippy::indexing_slicing,
+    reason = "Pre-existing indexing-heavy code needs a dedicated refactor to preserve behavior and readability."
+)]
+#![expect(
+    clippy::string_slice,
+    reason = "Pre-existing UTF-8-sensitive slicing code needs targeted review before rewriting."
+)]
+#![expect(
+    clippy::map_err_ignore,
+    reason = "Several user-facing parse errors intentionally replace low-level details and need a broader error-design pass."
+)]
+#![expect(
+    clippy::let_underscore_must_use,
+    reason = "Best-effort cleanup and notification paths intentionally ignore some must-use results until those flows are refactored."
+)]
+#![expect(
+    clippy::undocumented_unsafe_blocks,
+    reason = "Pre-existing unsafe call sites need targeted safety comments and review separate from this lint-activation change."
+)]
+#![expect(
+    clippy::panic,
+    reason = "A few invariant checks still panic today and need a separate API design pass."
+)]
+#![expect(
+    clippy::unreachable,
+    reason = "Command dispatch still uses one invariant unreachable branch that should be revisited separately."
+)]
 
 mod cli;
 mod commands;

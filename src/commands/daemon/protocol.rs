@@ -1,8 +1,8 @@
 use super::{BUSY_CLIENT_TIMEOUT, Daemon, DaemonTarget, INVALID_REQUEST, REQUEST_CANCELLED};
 use crate::error::{Error, Result, error_fn};
 use crate::lsp::transport::{log_debug_message, read_message, write_message};
-use crate::lsp::{SERVER_STATUS_METHOD, ServerStatusParams, StopParams, jsonrpc, parse_lsp_uri};
-use lsp_types::{ApplyWorkspaceEditResponse, WorkspaceFolder};
+use crate::lsp::{SERVER_STATUS_METHOD, ServerStatusParams, parse_lsp_uri};
+use lsp_types::WorkspaceFolder;
 use serde::Deserialize;
 use serde_json::{Value, json};
 use std::collections::BTreeSet;
@@ -127,7 +127,12 @@ pub(super) fn read_control_message(
 }
 
 pub(super) fn stop_request() -> Value {
-    jsonrpc(Some("lsp-cli/stop"), STOP_METHOD, &StopParams).expect("stop request should encode")
+    json!({
+        "jsonrpc": "2.0",
+        "id": "lsp-cli/stop",
+        "method": STOP_METHOD,
+        "params": {},
+    })
 }
 
 pub(super) fn stop_request_id(message: &Value) -> Option<Value> {
@@ -160,23 +165,17 @@ pub(super) fn local_server_request_response(request_id: &Value, method: &str) ->
         | "client/registerCapability"
         | "client/unregisterCapability"
         | "window/workDoneProgress/create" => success_response(request_id, &Value::Null),
-        "workspace/configuration" => success_response(request_id, &json!([])),
-        "workspace/workspaceFolders" => success_response(
-            request_id,
-            &serde_json::to_value(Vec::<WorkspaceFolder>::new())
-                .expect("workspace folders should serialize"),
-        ),
+        "workspace/configuration" | "workspace/workspaceFolders" => {
+            success_response(request_id, &json!([]))
+        }
         "workspace/applyEdit" => json!({
             "jsonrpc": "2.0",
             "id": request_id,
-            "result": serde_json::to_value(ApplyWorkspaceEditResponse {
-                applied: false,
-                failure_reason: Some(
-                    "no daemon client is connected to apply workspace edits".to_string(),
-                ),
-                failed_change: None,
-            })
-            .expect("applyEdit response should serialize")
+            "result": {
+                "applied": false,
+                "failureReason": "no daemon client is connected to apply workspace edits",
+                "failedChange": Value::Null,
+            }
         }),
         _ => error_response(
             request_id,
@@ -245,6 +244,7 @@ fn progress_token(token: &Value) -> String {
 }
 
 pub(super) fn wants_background_work(params: &Value) -> bool {
+    // Q: use if instead of is_some_and()
     params
         .get("capabilities")
         .and_then(Value::as_object)
@@ -265,13 +265,15 @@ pub(super) fn wants_background_work(params: &Value) -> bool {
 }
 
 pub(super) fn background_work_ready_notification() -> Value {
-    let params = ServerStatusParams {
-        health: "ok".to_string(),
-        quiescent: true,
-        message: None,
-    };
-    jsonrpc::<u64, _>(None, SERVER_STATUS_METHOD, &params)
-        .expect("server status notification should encode")
+    json!({
+        "jsonrpc": "2.0",
+        "method": SERVER_STATUS_METHOD,
+        "params": {
+            "health": "ok",
+            "quiescent": true,
+            "message": Value::Null,
+        },
+    })
 }
 
 pub(super) fn normalize_initialize_params(params: &Value, target: &DaemonTarget) -> Result<Value> {
@@ -337,7 +339,10 @@ pub(super) fn normalize_initialize_params(params: &Value, target: &DaemonTarget)
             uri: parse_lsp_uri(&target.root_uri, "workspace")?,
             name: target.workspace_name.clone(),
         }])
-        .expect("workspace folders should serialize"),
+        .map_err(error_fn!(
+            Error::lsp,
+            "failed to encode initialize workspaceFolders"
+        ))?,
     );
 
     Ok(Value::Object(normalized))

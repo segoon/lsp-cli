@@ -34,6 +34,8 @@ pub(super) fn analyze_path(
     path: &Path,
     config: &ConfigStore,
 ) -> Result<(DetectionResult, Vec<SuggestedLanguage>)> {
+    // Q: is it possible to avoid explicit .display() calling? it is used in format!(...).
+    // Fix the same .display() in other places and in other files.
     let detection = detect_workspace(path, &config.filetypes).map_err(error_fn!(
         Error::unexpected,
         "failed to scan {}",
@@ -117,6 +119,7 @@ pub(super) fn connect_lsp_client(
                 }
 
                 if !detach {
+                    // Q: use if (...) instead of .map_err()
                     return LspClient::new(
                         &workspace.server.command,
                         &workspace.server.workspace_root,
@@ -136,6 +139,7 @@ pub(super) fn connect_lsp_client(
     }
 
     if detach {
+        // Q: use if (...) instead of ok_or_else()
         let socket_path = workspace.daemon_socket_path.as_ref().ok_or_else(|| {
             let reason = workspace
                 .daemon_socket_error
@@ -143,6 +147,7 @@ pub(super) fn connect_lsp_client(
                 .unwrap_or("daemon socket path could not be prepared for this workspace");
             Error::unexpected(format!("cannot use --detach because {reason}"))
         })?;
+        // Q: workspace.server is duplicated, use local variable
         launch_for_workspace(
             &workspace.server.workspace_root,
             &workspace.server.server,
@@ -247,6 +252,7 @@ fn resolve_explicit_server(
     candidates.retain(|suggestion| suggestion.server == selected_server);
 
     if let Some(language) = selected_language {
+        // Q: is it possible to simplify to if (detected_candidates.any(...))?
         detected_candidates
             .retain(|suggestion| suggestion.languages.iter().any(|value| value == language));
         candidates.retain(|suggestion| suggestion.languages.iter().any(|value| value == language));
@@ -270,6 +276,7 @@ fn resolve_explicit_server(
             .iter()
             .map(|suggestion| suggestion.server.as_str())
             .collect::<Vec<_>>();
+        // Q: simplify to if (...) return ... else { return ... }
         return Err(if available.is_empty() {
             Error::detection(format!(
                 "requested LSP server {selected_server:?} is not available because no matching servers were detected"

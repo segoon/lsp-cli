@@ -24,6 +24,7 @@ pub(super) fn run(args: &StopArgs, config: &ConfigStore) -> Result<String> {
         false,
         config,
     )?;
+    // Q: use if (...) instead of ok_or_else()
     let socket_path = workspace.daemon_socket_path.as_ref().ok_or_else(|| {
         let reason = workspace
             .daemon_socket_error
@@ -57,6 +58,7 @@ fn run_for_languages(
 
     for language in languages {
         let workspace = prepare_workspace(&args.path, None, Some(language), false, config)?;
+        // Q: use if (...) instead of ok_or_else()
         let socket_path = workspace.daemon_socket_path.as_ref().ok_or_else(|| {
             let reason = workspace
                 .daemon_socket_error

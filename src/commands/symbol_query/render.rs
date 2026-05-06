@@ -14,6 +14,7 @@ pub(crate) fn truncate_items<T>(mut items: Vec<T>, limit: usize, unit: &str) -> 
 }
 
 pub(crate) fn render_symbol_matches_text(matches: &[SymbolMatch]) -> String {
+    // Q: use error_fn
     matches
         .iter()
         .map(|matched| {
@@ -41,6 +42,7 @@ pub(crate) fn render_symbol_match_paths_text(matches: &[SymbolMatch]) -> String 
 }
 
 pub(crate) fn render_symbol_matches_text_full(matches: &[SymbolMatch]) -> String {
+    // Q: use error_fn
     matches
         .iter()
         .map(|matched| {

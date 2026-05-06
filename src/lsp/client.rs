@@ -14,7 +14,7 @@ use super::{
     jsonrpc,
     transport::{log_debug_message, write_message},
 };
-use crate::error::{Error, Result};
+use crate::error::{Error, Result, error_fn};
 use crate::server_stderr::CapturedStderr;
 use crate::system_log::{
     log_lsp_server_cmdline, log_lsp_server_cwd, log_lsp_server_exit, log_lsp_server_started,
@@ -473,6 +473,11 @@ impl LspClient {
             .get("method")
             .and_then(Value::as_str)
             .ok_or_else(|| Error::lsp("server request missing method"))?;
+        let workspace_folders =
+            serde_json::to_value(self.workspace_folders.clone()).map_err(error_fn!(
+                Error::lsp,
+                "failed to encode workspace folders for server request"
+            ))?;
         let response = match method {
             "window/showMessageRequest" => json!({
                 "jsonrpc": "2.0",
@@ -487,8 +492,7 @@ impl LspClient {
             "workspace/workspaceFolders" => json!({
                 "jsonrpc": "2.0",
                 "id": request_id,
-                "result": serde_json::to_value(self.workspace_folders.clone())
-                    .expect("workspace folders should serialize"),
+                "result": workspace_folders,
             }),
             "client/registerCapability"
             | "client/unregisterCapability"

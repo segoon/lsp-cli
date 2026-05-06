@@ -161,12 +161,13 @@ fn fake_npm_install(install_dir: &std::path::Path, program: &str) -> Result<bool
     }
 
     let executable = install_dir.join("node_modules/.bin").join(program);
-    fs::create_dir_all(
-        executable
-            .parent()
-            .expect("fake npm executable should have a parent"),
-    )
-    .map_err(|error| {
+    let parent = executable.parent().ok_or_else(|| {
+        Error::unexpected(format!(
+            "failed to create fake npm output {}: no parent directory",
+            executable.display()
+        ))
+    })?;
+    fs::create_dir_all(parent).map_err(|error| {
         Error::unexpected(format!(
             "failed to create fake npm output {}: {error}",
             executable.display()

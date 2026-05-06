@@ -66,7 +66,10 @@ impl TemplateContext<'_> {
 
 fn template_regex() -> &'static Regex {
     static REGEX: OnceLock<Regex> = OnceLock::new();
-    REGEX.get_or_init(|| Regex::new(r"\{\{\s*(.*?)\s*\}\}").expect("template regex should compile"))
+    REGEX.get_or_init(|| match Regex::new(r"\{\{\s*(.*?)\s*\}\}") {
+        Ok(regex) => regex,
+        Err(error) => panic!("template regex should compile: {error}"),
+    })
 }
 
 #[cfg(test)]

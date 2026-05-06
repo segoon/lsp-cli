@@ -53,11 +53,15 @@ impl CapturedStderr {
 
     pub(crate) fn summary(&self) -> Option<String> {
         let (lock, ready) = &*self.state;
-        let mut state = lock.lock().expect("stderr state should lock");
+        let mut state = match lock.lock() {
+            Ok(state) => state,
+            Err(poisoned) => poisoned.into_inner(),
+        };
         if !state.finished {
-            let result = ready
-                .wait_timeout(state, STDERR_FLUSH_WAIT)
-                .expect("stderr wait should succeed");
+            let result = match ready.wait_timeout(state, STDERR_FLUSH_WAIT) {
+                Ok(result) => result,
+                Err(poisoned) => poisoned.into_inner(),
+            };
             state = result.0;
         }
 
@@ -76,12 +80,15 @@ impl CapturedStderr {
 fn append_stderr(state: &Arc<(Mutex<StderrState>, Condvar)>, chunk: &[u8], mirror_to_stderr: bool) {
     if mirror_to_stderr {
         let mut stderr = std::io::stderr().lock();
-        let _ = stderr.write_all(chunk);
-        let _ = stderr.flush();
+        let _write_result = stderr.write_all(chunk);
+        let _flush_result = stderr.flush();
     }
 
     let (lock, _) = &**state;
-    let mut state = lock.lock().expect("stderr state should lock");
+    let mut state = match lock.lock() {
+        Ok(state) => state,
+        Err(poisoned) => poisoned.into_inner(),
+    };
     let mut completed_lines = Vec::new();
 
     for byte in chunk {
@@ -105,7 +112,10 @@ fn append_stderr(state: &Arc<(Mutex<StderrState>, Condvar)>, chunk: &[u8], mirro
 
 fn finish_stderr(state: &Arc<(Mutex<StderrState>, Condvar)>) {
     let (lock, ready) = &**state;
-    let mut state = lock.lock().expect("stderr state should lock");
+    let mut state = match lock.lock() {
+        Ok(state) => state,
+        Err(poisoned) => poisoned.into_inner(),
+    };
     let final_line = (!state.partial_line.is_empty()).then(|| take_line(&mut state.partial_line));
     state.finished = true;
     ready.notify_all();

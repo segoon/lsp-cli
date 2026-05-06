@@ -4,6 +4,7 @@ use crate::config::ConfigStore;
 use crate::error::Result;
 
 pub(super) fn run(args: &BuildIndexArgs, config: &ConfigStore) -> Result<String> {
+    // Q: move args.server to a variable
     let workspace = prepare_workspace(
         &args.directory,
         args.server.server(),

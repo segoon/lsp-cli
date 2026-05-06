@@ -86,6 +86,7 @@ fn format_command(command: &[String]) -> String {
     shell_try_join(command.iter().map(String::as_str)).unwrap_or_else(|_| command.join(" "))
 }
 
+// Log file that is uniquily locked while edited
 struct LockedLogFile {
     file: std::fs::File,
 }
@@ -127,6 +128,7 @@ pub(crate) fn append_system_log_line_to_file(
 }
 
 pub(crate) fn log_size_warning_message(log_path: &Path, size: u64) -> Option<String> {
+    // Q: use if (...) instead of .then
     (size > MAX_LOG_FILE_SIZE).then(|| {
         format!(
             "warning: global log file {} is larger than 10 MiB",
@@ -152,6 +154,7 @@ pub(crate) fn format_exit_status(status: ExitStatus) -> String {
 }
 
 fn default_log_path() -> Option<PathBuf> {
+    // Q: rewrite using if (...)
     default_runtime_state_root()
         .ok()
         .map(RuntimeState::new)

@@ -4,6 +4,7 @@ use clap::Arg;
 use clap::Command as ClapCommand;
 use regex::Regex;
 use std::collections::{BTreeMap, BTreeSet};
+use std::sync::OnceLock;
 
 const TEMPLATE: &str = include_str!("agent_skill.template.md");
 const IGNORED_COMMANDS: &[&str] = &[
@@ -167,8 +168,7 @@ fn select_option_help(long: &str, variants: &BTreeMap<String, usize>) -> String 
 }
 
 fn render_template(template: &str, replacements: &BTreeMap<String, String>) -> String {
-    let placeholder_regex =
-        Regex::new(r"\{([A-Z0-9/_]+)\}").expect("placeholder regex should compile");
+    let placeholder_regex = placeholder_regex();
     let used = placeholder_regex
         .captures_iter(template)
         .map(|captures| captures[1].to_string())
@@ -198,7 +198,16 @@ fn render_template(template: &str, replacements: &BTreeMap<String, String>) -> S
         .into_owned()
 }
 
+fn placeholder_regex() -> &'static Regex {
+    static REGEX: OnceLock<Regex> = OnceLock::new();
+    REGEX.get_or_init(|| match Regex::new(r"\{([A-Z0-9/_]+)\}") {
+        Ok(regex) => regex,
+        Err(error) => panic!("placeholder regex should compile: {error}"),
+    })
+}
+
 fn command_about(command: &ClapCommand) -> String {
+    // Q: simplify to if (...)
     command.get_about().map_or_else(
         || "No summary available.".to_string(),
         clap::builder::StyledStr::to_string,
@@ -206,6 +215,7 @@ fn command_about(command: &ClapCommand) -> String {
 }
 
 fn option_help(arg: &Arg) -> String {
+    // Q: simplify to if (...)
     arg.get_help().map_or_else(
         || "No help available.".to_string(),
         clap::builder::StyledStr::to_string,

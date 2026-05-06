@@ -69,6 +69,7 @@ fn run_diagnostics_query(
         &config.filetypes,
         &workspace.allowed_filetypes,
     )
+    // Q: use error_fn
     .map_err(|error| {
         Error::unexpected(format!(
             "failed to scan {}: {error}",

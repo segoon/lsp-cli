@@ -5,9 +5,6 @@ use serde::{Deserialize, Serialize};
 pub const SERVER_STATUS_METHOD: &str = "experimental/serverStatus";
 pub const STOP_METHOD: &str = "$/lsp-cli/stop";
 
-#[derive(Debug, Default, Deserialize, Serialize)]
-pub struct StopParams;
-
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ServerStatusParams {
     pub health: String,

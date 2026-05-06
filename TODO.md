@@ -8,9 +8,6 @@
 - user-visible messages - more friendly/informative -> into explicit module
 
 - man
-- how to use with AI code agents + agent-skill
-
-- test on multiple rust versions
 
 
 # Features

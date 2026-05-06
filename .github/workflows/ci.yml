@@ -10,8 +10,13 @@ concurrency:
 
 jobs:
   rust:
-    name: Format, test, and lint
+    name: Format, test, and lint (${{ matrix.rust }})
     runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        rust: [stable, beta, "1.91"]
 
     steps:
       - name: Check out repository
@@ -20,21 +25,25 @@ jobs:
           submodules: recursive
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: ${{ matrix.rust }}
           components: rustfmt, clippy
 
       - name: Cache cargo artifacts
         uses: Swatinem/rust-cache@v2
 
       - name: Check formatting
+        if: matrix.rust == 'stable'
         run: cargo fmt --check
 
       - name: Check generated command reference
+        if: matrix.rust == 'stable'
         run: python3 scripts/update_readme_commands.py --check
 
       - name: Run tests
         run: cargo test --locked
 
       - name: Run clippy
+        if: matrix.rust == 'stable'
         run: cargo clippy --all-targets --all-features -- -D warnings

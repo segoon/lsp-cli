@@ -3,3 +3,7 @@ allow-indexing-slicing-in-tests = true
 allow-panic-in-tests = true
 allow-expect-in-tests = true
 allow-dbg-in-tests = true  
+
+cognitive-complexity-threshold = 20
+too-many-arguments-threshold = 7
+type-complexity-threshold = 250

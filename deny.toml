@@ -1,0 +1,20 @@
+[advisories]
+ignore = []
+
+[bans]
+multiple-versions = "allow"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+
+[licenses]
+allow = [
+  "MIT",
+  "Apache-2.0",
+  "Unicode-3.0",
+  "Zlib",
+  "CDLA-Permissive-2.0",
+  "BSD-3-Clause",
+  "ISC",
+]

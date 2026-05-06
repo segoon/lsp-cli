@@ -1,7 +1,7 @@
 use crate::cli::{CompletionArgs, clap_command};
 use crate::config::{default_config_root, load_config_store};
 use crate::env_vars;
-use crate::error::{Error, Result};
+use crate::error::{Error, Result, error_fn};
 use clap::builder::PossibleValuesParser;
 use clap_complete::{Shell, generate};
 use std::collections::BTreeSet;
@@ -15,12 +15,12 @@ pub(super) fn run(args: CompletionArgs) -> Result<String> {
     let mut output = Cursor::new(Vec::new());
     generate(shell, &mut command, "lsp-cli", &mut output);
 
-    // Q: error_fn can be used, fix here and in other files
     String::from_utf8(output.into_inner())
         .map(|output| normalize_completion_output(shell, output, "lsp-cli"))
-        .map_err(|error| {
-            Error::unexpected(format!("completion output was not valid UTF-8: {error}"))
-        })
+        .map_err(error_fn!(
+            Error::unexpected,
+            "completion output was not valid UTF-8"
+        ))
 }
 
 fn normalize_completion_output(shell: Shell, output: String, bin_name: &str) -> String {

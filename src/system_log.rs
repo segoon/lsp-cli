@@ -128,13 +128,14 @@ pub(crate) fn append_system_log_line_to_file(
 }
 
 pub(crate) fn log_size_warning_message(log_path: &Path, size: u64) -> Option<String> {
-    // Q: use if (...) instead of .then
-    (size > MAX_LOG_FILE_SIZE).then(|| {
-        format!(
+    if size > MAX_LOG_FILE_SIZE {
+        Some(format!(
             "warning: global log file {} is larger than 10 MiB",
             log_path.display()
-        )
-    })
+        ))
+    } else {
+        None
+    }
 }
 
 pub(crate) fn format_exit_status(status: ExitStatus) -> String {
@@ -154,11 +155,11 @@ pub(crate) fn format_exit_status(status: ExitStatus) -> String {
 }
 
 fn default_log_path() -> Option<PathBuf> {
-    // Q: rewrite using if (...)
-    default_runtime_state_root()
-        .ok()
-        .map(RuntimeState::new)
-        .map(|state| state.log_path())
+    if let Ok(root) = default_runtime_state_root() {
+        Some(RuntimeState::new(root).log_path())
+    } else {
+        None
+    }
 }
 
 #[cfg(test)]

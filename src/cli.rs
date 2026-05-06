@@ -60,7 +60,6 @@ pub struct SelectionArgs {
 }
 
 impl SelectionArgs {
-    // Q: use selected_server()/selected_language() across the codebase instead of hardcoding
     pub fn selected_language(&self) -> Option<&str> {
         self.lang.as_deref()
     }

@@ -4,16 +4,16 @@ use crate::config::ConfigStore;
 use crate::error::Result;
 
 pub(super) fn run(args: &BuildIndexArgs, config: &ConfigStore) -> Result<String> {
-    // Q: move args.server to a variable
+    let selected = &args.server;
     let workspace = prepare_workspace(
         &args.directory,
-        args.server.server(),
-        args.server.language(),
-        args.server.download,
+        selected.server(),
+        selected.language(),
+        selected.download,
         config,
     )?;
 
-    let mut client = connect_lsp_client(&workspace, args.detach, args.server.debug, args.timeout)?;
+    let mut client = connect_lsp_client(&workspace, args.detach, selected.debug, args.timeout)?;
     client
         .initialize(&workspace.root_uri, &workspace.workspace_name, true)
         .map_err(|error| {

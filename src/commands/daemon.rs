@@ -100,14 +100,18 @@ pub(super) fn stop_socket(socket_path: &Path, debug: bool) -> Result<StopSocketR
 
     let request = stop_request();
     log_debug_message(debug, "daemon control <- ", &request);
-    // Q: use if (...) instead of map_err()
-    write_message(&mut stream, &request).map_err(|error| {
-        Error::unexpected(format!("failed to write daemon stop request: {error}"))
-    })?;
-    // Q: use if (...) instead of ok_or_else()
-    let response = read_control_message(&stream, CONTROL_TIMEOUT, debug)?.ok_or_else(|| {
-        Error::unexpected("daemon closed the stop control socket without replying")
-    })?;
+
+    if let Err(error) = write_message(&mut stream, &request) {
+        return Err(Error::unexpected(format!(
+            "failed to write daemon stop request: {error}"
+        )));
+    }
+
+    let Some(response) = read_control_message(&stream, CONTROL_TIMEOUT, debug)? else {
+        return Err(Error::unexpected(
+            "daemon closed the stop control socket without replying",
+        ));
+    };
 
     if response_id(&response) != stop_request_id(&request) {
         return Err(Error::unexpected(

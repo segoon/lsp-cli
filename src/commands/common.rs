@@ -34,8 +34,6 @@ pub(super) fn analyze_path(
     path: &Path,
     config: &ConfigStore,
 ) -> Result<(DetectionResult, Vec<SuggestedLanguage>)> {
-    // Q: is it possible to avoid explicit .display() calling? it is used in format!(...).
-    // Fix the same .display() in other places and in other files.
     let detection = detect_workspace(path, &config.filetypes).map_err(error_fn!(
         Error::unexpected,
         "failed to scan {}",
@@ -119,45 +117,42 @@ pub(super) fn connect_lsp_client(
                 }
 
                 if !detach {
-                    // Q: use if (...) instead of .map_err()
-                    return LspClient::new(
+                    let client = LspClient::new(
                         &workspace.server.command,
                         &workspace.server.workspace_root,
                         debug,
                         timeout,
-                    )
-                    .map_err(|spawn_error| {
-                        Error::lsp(format!(
+                    );
+                    return match client {
+                        Ok(client) => Ok(client),
+                        Err(spawn_error) => Err(Error::lsp(format!(
                             "failed to use daemon socket {}: {connect_error}; failed to start {}: {spawn_error}",
                             socket_path.display(),
                             workspace.server.server
-                        ))
-                    });
+                        ))),
+                    };
                 }
             }
         }
     }
 
     if detach {
-        // Q: use if (...) instead of ok_or_else()
-        let socket_path = workspace.daemon_socket_path.as_ref().ok_or_else(|| {
+        let Some(socket_path) = workspace.daemon_socket_path.as_ref() else {
             let reason = workspace
                 .daemon_socket_error
                 .as_deref()
                 .unwrap_or("daemon socket path could not be prepared for this workspace");
-            Error::unexpected(format!("cannot use --detach because {reason}"))
-        })?;
-        // Q: workspace.server is duplicated, use local variable
-        launch_for_workspace(
-            &workspace.server.workspace_root,
-            &workspace.server.server,
-            socket_path,
-            debug,
-        )?;
+            return Err(Error::unexpected(format!(
+                "cannot use --detach because {reason}"
+            )));
+        };
+
+        let server = &workspace.server;
+        launch_for_workspace(&server.workspace_root, &server.server, socket_path, debug)?;
         return LspClient::connect_unix(socket_path, debug, timeout).map_err(|error| {
             Error::lsp(format!(
                 "failed to connect to detached daemon for {}: {error}",
-                workspace.server.server
+                server.server
             ))
         });
     }
@@ -244,7 +239,7 @@ fn resolve_explicit_server(
     lsp_preferences: &std::collections::BTreeMap<String, Vec<String>>,
     download: bool,
 ) -> Result<ResolvedServer> {
-    let mut detected_candidates = suggestions
+    let detected_candidates = suggestions
         .iter()
         .filter(|suggestion| suggestion.server == selected_server)
         .cloned()
@@ -252,11 +247,11 @@ fn resolve_explicit_server(
     candidates.retain(|suggestion| suggestion.server == selected_server);
 
     if let Some(language) = selected_language {
-        // Q: is it possible to simplify to if (detected_candidates.any(...))?
-        detected_candidates
-            .retain(|suggestion| suggestion.languages.iter().any(|value| value == language));
+        let detected_for_language = detected_candidates
+            .iter()
+            .any(|suggestion| suggestion.languages.iter().any(|value| value == language));
         candidates.retain(|suggestion| suggestion.languages.iter().any(|value| value == language));
-        if detected_candidates.is_empty() {
+        if !detected_for_language {
             return Err(Error::detection(format!(
                 "requested LSP server {selected_server:?} is not available for language {language:?}"
             )));
@@ -276,17 +271,16 @@ fn resolve_explicit_server(
             .iter()
             .map(|suggestion| suggestion.server.as_str())
             .collect::<Vec<_>>();
-        // Q: simplify to if (...) return ... else { return ... }
-        return Err(if available.is_empty() {
-            Error::detection(format!(
+
+        if available.is_empty() {
+            return Err(Error::detection(format!(
                 "requested LSP server {selected_server:?} is not available because no matching servers were detected"
-            ))
-        } else {
-            Error::detection(format!(
-                "requested LSP server {selected_server:?} is not in the detected server list: {}",
-                available.join(", ")
-            ))
-        });
+            )));
+        }
+        return Err(Error::detection(format!(
+            "requested LSP server {selected_server:?} is not in the detected server list: {}",
+            available.join(", ")
+        )));
     }
 
     if candidates.is_empty() {

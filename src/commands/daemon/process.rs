@@ -26,12 +26,12 @@ use std::thread;
 use std::time::Instant;
 
 pub(super) fn resolve_target(args: &DaemonArgs, config: &ConfigStore) -> Result<DaemonTarget> {
-    // Q: args.server is duplicated
+    let selected = &args.server;
     let workspace = prepare_workspace(
         &args.path,
-        args.server.server(),
-        args.server.language(),
-        args.server.download,
+        selected.server(),
+        selected.language(),
+        selected.download,
         config,
     )?;
     let server = workspace.server;

@@ -207,19 +207,19 @@ fn placeholder_regex() -> &'static Regex {
 }
 
 fn command_about(command: &ClapCommand) -> String {
-    // Q: simplify to if (...)
-    command.get_about().map_or_else(
-        || "No summary available.".to_string(),
-        clap::builder::StyledStr::to_string,
-    )
+    if let Some(about) = command.get_about() {
+        about.to_string()
+    } else {
+        "No summary available.".to_string()
+    }
 }
 
 fn option_help(arg: &Arg) -> String {
-    // Q: simplify to if (...)
-    arg.get_help().map_or_else(
-        || "No help available.".to_string(),
-        clap::builder::StyledStr::to_string,
-    )
+    if let Some(help) = arg.get_help() {
+        help.to_string()
+    } else {
+        "No help available.".to_string()
+    }
 }
 
 #[cfg(test)]

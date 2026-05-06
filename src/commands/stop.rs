@@ -9,7 +9,7 @@ use crate::suggest::SuggestedLanguage;
 use std::collections::BTreeSet;
 
 pub(super) fn run(args: &StopArgs, config: &ConfigStore) -> Result<String> {
-    if args.selector.lang.is_none() && args.selector.lsp.is_none() {
+    if args.selector.selected_language().is_none() && args.selector.selected_server().is_none() {
         let (detection, suggestions) = analyze_path(&args.path, config)?;
         let languages = implicit_stop_languages(&detection, &suggestions, config);
         if languages.len() > 1 {
@@ -19,19 +19,20 @@ pub(super) fn run(args: &StopArgs, config: &ConfigStore) -> Result<String> {
 
     let workspace = prepare_workspace(
         &args.path,
-        args.selector.lsp.as_deref(),
-        args.selector.lang.as_deref(),
+        args.selector.selected_server(),
+        args.selector.selected_language(),
         false,
         config,
     )?;
-    // Q: use if (...) instead of ok_or_else()
-    let socket_path = workspace.daemon_socket_path.as_ref().ok_or_else(|| {
+    let Some(socket_path) = workspace.daemon_socket_path.as_ref() else {
         let reason = workspace
             .daemon_socket_error
             .as_deref()
             .unwrap_or("daemon socket path could not be prepared for this workspace");
-        Error::unexpected(format!("cannot stop daemon because {reason}"))
-    })?;
+        return Err(Error::unexpected(format!(
+            "cannot stop daemon because {reason}"
+        )));
+    };
 
     match stop_socket(socket_path, args.debug)? {
         StopSocketResult::Stopped => Ok(format!(
@@ -58,14 +59,15 @@ fn run_for_languages(
 
     for language in languages {
         let workspace = prepare_workspace(&args.path, None, Some(language), false, config)?;
-        // Q: use if (...) instead of ok_or_else()
-        let socket_path = workspace.daemon_socket_path.as_ref().ok_or_else(|| {
+        let Some(socket_path) = workspace.daemon_socket_path.as_ref() else {
             let reason = workspace
                 .daemon_socket_error
                 .as_deref()
                 .unwrap_or("daemon socket path could not be prepared for this workspace");
-            Error::unexpected(format!("cannot stop daemon because {reason}"))
-        })?;
+            return Err(Error::unexpected(format!(
+                "cannot stop daemon because {reason}"
+            )));
+        };
         let socket_key = socket_path.display().to_string();
         if seen_sockets.contains(&socket_key) {
             continue;

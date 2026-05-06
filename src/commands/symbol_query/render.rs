@@ -14,20 +14,21 @@ pub(crate) fn truncate_items<T>(mut items: Vec<T>, limit: usize, unit: &str) -> 
 }
 
 pub(crate) fn render_symbol_matches_text(matches: &[SymbolMatch]) -> String {
-    // Q: use error_fn
     matches
         .iter()
-        .map(|matched| {
-            format!(
-                "{}:{}:{}:{}",
-                matched.path.display(),
-                matched.line,
-                matched.col,
-                matched.line_content
-            )
-        })
+        .map(render_symbol_match_text)
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+fn render_symbol_match_text(matched: &SymbolMatch) -> String {
+    format!(
+        "{}:{}:{}:{}",
+        matched.path.display(),
+        matched.line,
+        matched.col,
+        matched.line_content
+    )
 }
 
 pub(crate) fn render_symbol_match_paths_text(matches: &[SymbolMatch]) -> String {
@@ -42,23 +43,24 @@ pub(crate) fn render_symbol_match_paths_text(matches: &[SymbolMatch]) -> String 
 }
 
 pub(crate) fn render_symbol_matches_text_full(matches: &[SymbolMatch]) -> String {
-    // Q: use error_fn
     matches
         .iter()
-        .map(|matched| {
-            format!(
-                "{}:{}:{}:\n{}",
-                matched.path.display(),
-                matched.line,
-                matched.col,
-                matched
-                    .full_content
-                    .clone()
-                    .unwrap_or_else(|| matched.line_content.clone())
-            )
-        })
+        .map(render_symbol_match_text_full)
         .collect::<Vec<_>>()
         .join("\n\n")
+}
+
+fn render_symbol_match_text_full(matched: &SymbolMatch) -> String {
+    format!(
+        "{}:{}:{}:\n{}",
+        matched.path.display(),
+        matched.line,
+        matched.col,
+        matched
+            .full_content
+            .clone()
+            .unwrap_or_else(|| matched.line_content.clone())
+    )
 }
 
 pub(crate) fn render_symbol_names_text(matches: &[SymbolMatch]) -> String {

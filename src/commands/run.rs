@@ -9,12 +9,12 @@ use std::process::{Command, Stdio};
 use std::os::unix::process::CommandExt;
 
 pub(super) fn run(args: &RunArgs, config: &ConfigStore) -> Result<String> {
-    // Q: move args.server to a variable
+    let selected = &args.server;
     let workspace = prepare_workspace(
         &args.path,
-        args.server.server(),
-        args.server.language(),
-        args.server.download,
+        selected.server(),
+        selected.language(),
+        selected.download,
         config,
     )?;
     let server = workspace.server;
@@ -25,7 +25,7 @@ pub(super) fn run(args: &RunArgs, config: &ConfigStore) -> Result<String> {
         )));
     };
 
-    if args.server.debug {
+    if selected.debug {
         eprintln!("LSP server: {}", server.command.join(" "));
     }
 
@@ -37,7 +37,7 @@ pub(super) fn run(args: &RunArgs, config: &ConfigStore) -> Result<String> {
     command
         .args(&server.command[1..])
         .current_dir(&server.workspace_root)
-        .stderr(if args.server.debug {
+        .stderr(if selected.debug {
             Stdio::inherit()
         } else {
             Stdio::null()

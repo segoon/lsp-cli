@@ -8,7 +8,9 @@ use serde::Deserialize;
 use tar::Archive;
 use zip::ZipArchive;
 
-use crate::config::{CliConfig, load_cli_config, load_config_store};
+use crate::config::{
+    CliConfig, CliConfigRoots, default_config_root, load_cli_config, load_config_store,
+};
 use crate::error::{Error, Result, error_fn};
 use crate::runtime_state::{RuntimeState, default_runtime_state_root};
 
@@ -16,21 +18,20 @@ const DATA_REPOSITORY: &str = "segoon/lsp-cli-data";
 const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
 
 pub(crate) fn load_cli_defaults_for_update() -> Result<CliConfig> {
-    // Q: use crate::config::{...} at the top of the file
-    let roots = crate::config::CliConfigRoots::default();
+    let roots = CliConfigRoots::default();
     load_cli_config(&roots.global, roots.user.as_deref())
         .map_err(|error| error.with_prefix("failed to load lsp-cli defaults"))
 }
 
 pub(crate) fn ensure_data_available() -> Result<()> {
-    if crate::config::default_config_root().is_ok() {
+    if default_config_root().is_ok() {
         return Ok(());
     }
 
     let cli = load_cli_defaults_for_update()?;
     run_update_with_version(cli.download_version.as_deref().unwrap_or("latest"))?;
 
-    crate::config::default_config_root().map(|_| ())
+    default_config_root().map(|_| ())
 }
 
 pub(crate) fn run_update_with_cli(cli: &CliConfig) -> Result<String> {
@@ -54,12 +55,11 @@ fn install_downloaded_data(state: &RuntimeState, archive: &[u8]) -> Result<()> {
     let temp_dir = tempfile::Builder::new()
         .prefix("lsp-cli-data-")
         .tempdir_in(root)
-        .map_err(|error| {
-            Error::unexpected(format!(
-                "failed to create temporary directory in {}: {error}",
-                root.display()
-            ))
-        })?;
+        .map_err(error_fn!(
+            Error::unexpected,
+            "failed to create temporary directory in {}",
+            root.display()
+        ))?;
     extract_archive(temp_dir.path(), archive)?;
     let extracted_root = locate_data_root(temp_dir.path())?;
 
@@ -77,27 +77,24 @@ fn install_downloaded_data(state: &RuntimeState, archive: &[u8]) -> Result<()> {
             ))
         })?;
     }
-    // Q: use error_fn for lambdas in this file
-    fs::rename(&extracted_root, &replacement_root).map_err(|error| {
-        Error::unexpected(format!(
-            "failed to prepare downloaded data in {}: {error}",
-            replacement_root.display()
-        ))
-    })?;
+
+    fs::rename(&extracted_root, &replacement_root).map_err(error_fn!(
+        Error::unexpected,
+        "failed to prepare downloaded data in {}",
+        replacement_root.display()
+    ))?;
     if final_root.exists() {
-        fs::remove_dir_all(&final_root).map_err(|error| {
-            Error::unexpected(format!(
-                "failed to remove {}: {error}",
-                final_root.display()
-            ))
-        })?;
-    }
-    fs::rename(&replacement_root, &final_root).map_err(|error| {
-        Error::unexpected(format!(
-            "failed to install {}: {error}",
+        fs::remove_dir_all(&final_root).map_err(error_fn!(
+            Error::unexpected,
+            "failed to remove {}",
             final_root.display()
-        ))
-    })?;
+        ))?;
+    }
+    fs::rename(&replacement_root, &final_root).map_err(error_fn!(
+        Error::unexpected,
+        "failed to install {}",
+        final_root.display()
+    ))?;
     Ok(())
 }
 
@@ -106,13 +103,17 @@ fn locate_data_root(root: &Path) -> Result<PathBuf> {
         return Ok(root.to_path_buf());
     }
 
-    let entries = fs::read_dir(root).map_err(|error| {
-        Error::unexpected(format!("failed to read {}: {error}", root.display()))
-    })?;
+    let entries = fs::read_dir(root).map_err(error_fn!(
+        Error::unexpected,
+        "failed to read {}",
+        root.display()
+    ))?;
     for entry in entries {
-        let entry = entry.map_err(|error| {
-            Error::unexpected(format!("failed to read {}: {error}", root.display()))
-        })?;
+        let entry = entry.map_err(error_fn!(
+            Error::unexpected,
+            "failed to read {}",
+            root.display()
+        ))?;
         let path = entry.path();
         if path.is_dir() && has_config_dirs(&path) {
             return Ok(path);
@@ -144,63 +145,65 @@ fn is_zip(bytes: &[u8]) -> bool {
 fn extract_tar_gz(root: &Path, bytes: &[u8]) -> Result<()> {
     let reader = GzDecoder::new(std::io::Cursor::new(bytes));
     let mut archive = Archive::new(reader);
-    for entry in archive.entries().map_err(|error| {
-        Error::network(format!(
-            "failed to open downloaded tar archive in {}: {error}",
+
+    let entries = match archive.entries() {
+        Ok(entries) => entries,
+        Err(error) => {
+            return Err(Error::network(format!(
+                "failed to open downloaded tar archive in {}: {error}",
+                root.display()
+            )));
+        }
+    };
+    for entry in entries {
+        let mut entry = entry.map_err(error_fn!(
+            Error::network,
+            "failed to read downloaded tar archive in {}",
             root.display()
-        ))
-    })? {
-        let mut entry = entry.map_err(|error| {
-            Error::network(format!(
-                "failed to read downloaded tar archive in {}: {error}",
-                root.display()
-            ))
-        })?;
-        let entry_path = entry.path().map_err(|error| {
-            Error::network(format!(
-                "failed to read tar entry path in {}: {error}",
-                root.display()
-            ))
-        })?;
+        ))?;
+        let entry_path = entry.path().map_err(error_fn!(
+            Error::network,
+            "failed to read tar entry path in {}",
+            root.display()
+        ))?;
         let output_path = root.join(entry_path.as_ref());
         if entry.header().entry_type().is_dir() {
-            fs::create_dir_all(&output_path).map_err(|error| {
-                Error::unexpected(format!(
-                    "failed to create {}: {error}",
-                    output_path.display()
-                ))
-            })?;
+            fs::create_dir_all(&output_path).map_err(error_fn!(
+                Error::unexpected,
+                "failed to create {}",
+                output_path.display()
+            ))?;
             continue;
         }
         if let Some(parent) = output_path.parent() {
-            fs::create_dir_all(parent).map_err(|error| {
-                Error::unexpected(format!("failed to create {}: {error}", parent.display()))
-            })?;
+            fs::create_dir_all(parent).map_err(error_fn!(
+                Error::unexpected,
+                "failed to create {}",
+                parent.display()
+            ))?;
         }
-        entry.unpack(&output_path).map_err(|error| {
-            Error::network(format!(
-                "failed to extract {}: {error}",
-                output_path.display()
-            ))
-        })?;
+        entry.unpack(&output_path).map_err(error_fn!(
+            Error::network,
+            "failed to extract {}",
+            output_path.display()
+        ))?;
     }
     Ok(())
 }
 
 fn extract_zip(root: &Path, bytes: &[u8]) -> Result<()> {
-    let mut archive = ZipArchive::new(std::io::Cursor::new(bytes)).map_err(|error| {
-        Error::network(format!(
-            "failed to open downloaded zip archive in {}: {error}",
-            root.display()
-        ))
-    })?;
+    let mut archive = ZipArchive::new(std::io::Cursor::new(bytes)).map_err(error_fn!(
+        Error::network,
+        "failed to open downloaded zip archive in {}",
+        root.display()
+    ))?;
+
     for index in 0..archive.len() {
-        let mut file = archive.by_index(index).map_err(|error| {
-            Error::network(format!(
-                "failed to read downloaded zip archive in {}: {error}",
-                root.display()
-            ))
-        })?;
+        let mut file = archive.by_index(index).map_err(error_fn!(
+            Error::network,
+            "failed to read downloaded zip archive in {}",
+            root.display()
+        ))?;
         let Some(name) = file.enclosed_name() else {
             return Err(Error::config_format(format!(
                 "downloaded zip archive contains unsafe paths for {}",
@@ -209,31 +212,30 @@ fn extract_zip(root: &Path, bytes: &[u8]) -> Result<()> {
         };
         let output_path = root.join(name);
         if file.is_dir() {
-            fs::create_dir_all(&output_path).map_err(|error| {
-                Error::unexpected(format!(
-                    "failed to create {}: {error}",
-                    output_path.display()
-                ))
-            })?;
+            fs::create_dir_all(&output_path).map_err(error_fn!(
+                Error::unexpected,
+                "failed to create {}",
+                output_path.display()
+            ))?;
             continue;
         }
         if let Some(parent) = output_path.parent() {
-            fs::create_dir_all(parent).map_err(|error| {
-                Error::unexpected(format!("failed to create {}: {error}", parent.display()))
-            })?;
+            fs::create_dir_all(parent).map_err(error_fn!(
+                Error::unexpected,
+                "failed to create {}",
+                parent.display()
+            ))?;
         }
-        let mut output = fs::File::create(&output_path).map_err(|error| {
-            Error::unexpected(format!(
-                "failed to create {}: {error}",
-                output_path.display()
-            ))
-        })?;
-        std::io::copy(&mut file, &mut output).map_err(|error| {
-            Error::network(format!(
-                "failed to extract {}: {error}",
-                output_path.display()
-            ))
-        })?;
+        let mut output = fs::File::create(&output_path).map_err(error_fn!(
+            Error::unexpected,
+            "failed to create {}",
+            output_path.display()
+        ))?;
+        std::io::copy(&mut file, &mut output).map_err(error_fn!(
+            Error::network,
+            "failed to extract {}",
+            output_path.display()
+        ))?;
     }
     Ok(())
 }

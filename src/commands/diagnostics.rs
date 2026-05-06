@@ -3,7 +3,7 @@ use crate::commands::common::{connect_lsp_client, prepare_workspace};
 use crate::commands::symbol_query::{render_paths_text, truncate_items};
 use crate::config::ConfigStore;
 use crate::detect::matching_files;
-use crate::error::{Error, Result};
+use crate::error::{Error, Result, error_fn};
 use crate::lsp::{
     DiagnosticMatch, LspClient, diagnostic_matches_from_document_response,
     diagnostic_matches_from_notification, diagnostics_supported, path_to_file_uri,
@@ -69,13 +69,11 @@ fn run_diagnostics_query(
         &config.filetypes,
         &workspace.allowed_filetypes,
     )
-    // Q: use error_fn
-    .map_err(|error| {
-        Error::unexpected(format!(
-            "failed to scan {}: {error}",
-            query.directory.display()
-        ))
-    })?;
+    .map_err(error_fn!(
+        Error::unexpected,
+        "failed to scan {}",
+        query.directory.display()
+    ))?;
 
     let mut client = connect_lsp_client(&workspace, args.query.detach, query.debug, query.timeout)?;
     let initialize = client

@@ -244,24 +244,22 @@ fn progress_token(token: &Value) -> String {
 }
 
 pub(super) fn wants_background_work(params: &Value) -> bool {
-    // Q: use if instead of is_some_and()
-    params
-        .get("capabilities")
+    let Some(capabilities) = params.get("capabilities").and_then(Value::as_object) else {
+        return false;
+    };
+
+    capabilities
+        .get("window")
         .and_then(Value::as_object)
-        .is_some_and(|capabilities| {
-            capabilities
-                .get("window")
-                .and_then(Value::as_object)
-                .and_then(|window| window.get("workDoneProgress"))
-                .and_then(Value::as_bool)
-                .unwrap_or(false)
-                || capabilities
-                    .get("experimental")
-                    .and_then(Value::as_object)
-                    .and_then(|experimental| experimental.get("serverStatusNotification"))
-                    .and_then(Value::as_bool)
-                    .unwrap_or(false)
-        })
+        .and_then(|window| window.get("workDoneProgress"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+        || capabilities
+            .get("experimental")
+            .and_then(Value::as_object)
+            .and_then(|experimental| experimental.get("serverStatusNotification"))
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
 }
 
 pub(super) fn background_work_ready_notification() -> Value {

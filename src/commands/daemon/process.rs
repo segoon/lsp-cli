@@ -127,9 +127,7 @@ pub(super) fn launch_background_for_connection(
         "failed to start daemon process"
     ))?;
     let Some(stdout) = child.stdout.take() else {
-        return Err(Error::unexpected(
-            "failed to capture daemon startup status",
-        ));
+        return Err(Error::unexpected("failed to capture daemon startup status"));
     };
     let mut reader = BufReader::new(stdout);
     let mut status = String::new();

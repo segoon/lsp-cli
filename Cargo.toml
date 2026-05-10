@@ -13,7 +13,7 @@ exclude = ["data/**"]
 
 [dependencies]
 clap = { version = "4.5.38", features = ["derive", "string"] }
-clap_complete = "4.6.3"
+clap_complete = "4.6.4"
 flate2 = "1.1.5"
 humantime = "2.3.0"
 lsp-types = "0.97.0"

@@ -1,6 +1,6 @@
 [package]
 name = "lsp-cli"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2024"
 rust-version = "1.91"
 description = "Command-line tool for talking to Language Server Protocol (LSP) servers from the terminal."
@@ -9,7 +9,7 @@ repository = "https://github.com/segoon/lsp-cli"
 readme = "README.md"
 keywords = ["lsp", "cli", "language-server"]
 categories = ["command-line-utilities", "development-tools"]
-exclude = ["data/**"]
+exclude = ["data/**", "playground/rust/target/**", "playground/c/.cache/**", "playground/cpp/.cache"]
 
 [dependencies]
 clap = { version = "4.5.38", features = ["derive", "string"] }

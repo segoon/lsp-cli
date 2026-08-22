@@ -162,7 +162,7 @@ mod tests {
         let output = Command::new("/bin/bash")
             .arg("-lc")
             .arg(
-                "source /dev/stdin && COMP_WORDS=(lsp-cli detect playground/c --lsp \"\") && COMP_CWORD=4 && COMPREPLY=() && _lsp-cli lsp-cli \"\" --lsp && printf '%s\n' \"${COMPREPLY[@]}\"",
+                "source /dev/stdin && COMP_WORDS=(lsp-cli detect playground/c --lsp \"\") && COMP_CWORD=4 && COMPREPLY=() && _lsp__cli lsp-cli \"\" --lsp && printf '%s\n' \"${COMPREPLY[@]}\"",
             )
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())

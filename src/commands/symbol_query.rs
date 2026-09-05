@@ -5,11 +5,10 @@ use crate::detect::matching_files;
 use crate::error::{Error, Result};
 use crate::lsp::{
     LspClient, SourceCache, SymbolMatch, document_symbol_matches_from_response,
-    document_symbol_supported, ensure_call_hierarchy_support, ensure_workspace_symbol_support,
-    function_matches_from_document_response, is_function_symbol_kind,
-    location_matches_from_response, location_matches_from_response_with_full_content,
-    path_to_file_uri, prepare_call_hierarchy_response, should_skip_document_symbol_error,
-    symbol_full_content_from_document_response, symbol_matches_from_response,
+    document_symbol_supported, ensure_workspace_symbol_support,
+    function_matches_from_document_response, is_function_symbol_kind, path_to_file_uri,
+    should_skip_document_symbol_error, symbol_full_content_from_document_response,
+    symbol_matches_from_response,
 };
 use crate::suggest::SuggestedLanguage;
 use std::collections::{BTreeSet, HashSet};
@@ -17,12 +16,14 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 mod kinds;
+mod named;
+use named::{run_call_hierarchy_query, run_named_location_query};
 mod render;
 
 #[cfg(test)]
 mod tests;
 
-use kinds::{CallHierarchyDirection, LocationQueryKind, zero_based_col, zero_based_line};
+use kinds::{CallHierarchyDirection, LocationQueryKind};
 
 pub(super) use render::{
     render_file_list_json, render_list_symbols_json, render_paths_text,
@@ -412,217 +413,6 @@ where
     )
 }
 
-#[derive(Clone, Copy)]
-struct NamedLocationQueryContext<'a> {
-    config: &'a ConfigStore,
-    directory: &'a Path,
-    name: &'a str,
-    kind: LocationQueryKind,
-    include_full_content: bool,
-}
-
-fn collect_named_location_matches(
-    workspace: &PreparedWorkspace,
-    initialize: &crate::lsp::InitializeResponse,
-    client: &mut LspClient,
-    context: NamedLocationQueryContext<'_>,
-) -> Result<Vec<SymbolMatch>> {
-    ensure_workspace_symbol_support(initialize)?;
-    context.kind.ensure_support(initialize)?;
-
-    let anchors = client.workspace_symbol(context.name).map_err(|error| {
-        Error::lsp(format!(
-            "failed to find matching symbols for {:?} with {}: {error}",
-            context.name, workspace.server.server
-        ))
-    })?;
-    let workspace_anchors = symbol_matches_from_response(&anchors)?;
-    let anchors = select_named_anchors(
-        workspace,
-        initialize,
-        client,
-        context.config,
-        NamedAnchorRequest {
-            directory: context.directory,
-            name: context.name,
-            function_only: false,
-        },
-        workspace_anchors,
-    )?;
-    let mut source_cache = SourceCache::default();
-    let mut matches = Vec::new();
-
-    for anchor in anchors {
-        let uri = open_document_for(client, &anchor.path, &workspace.server.server)?;
-        // QD: avoid using Option::map_err()
-        // A: The code was using `Result::map_err()`, not `Option::map_err()`.
-        // A: I still applied the style request and rewrote it with explicit
-        // A: control flow so the failure branch is easier to read.
-        let response = match context.kind.query(client, &uri, &anchor) {
-            Ok(response) => response,
-            Err(error) => {
-                return Err(error.with_prefix(format!(
-                    "failed to query {} for {} of {:?}",
-                    workspace.server.server,
-                    context.kind.label(),
-                    context.name
-                )));
-            }
-        };
-        matches.extend(if context.include_full_content {
-            location_matches_from_response_with_full_content(
-                &response,
-                &anchor.name,
-                anchor.kind,
-                &mut source_cache,
-            )?
-        } else {
-            location_matches_from_response(&response, &anchor.name, anchor.kind, &mut source_cache)?
-        });
-    }
-
-    let mut matches = dedupe_symbol_matches(matches);
-    if context.include_full_content && document_symbol_supported(initialize) {
-        fill_definition_full_content(workspace, client, &mut source_cache, &mut matches)?;
-    }
-
-    Ok(matches)
-}
-
-#[derive(Clone, Copy)]
-struct CallHierarchyQueryContext<'a> {
-    config: &'a ConfigStore,
-    directory: &'a Path,
-    name: &'a str,
-    direction: CallHierarchyDirection,
-}
-
-fn collect_call_hierarchy_matches(
-    workspace: &PreparedWorkspace,
-    initialize: &crate::lsp::InitializeResponse,
-    client: &mut LspClient,
-    context: CallHierarchyQueryContext<'_>,
-) -> Result<Vec<SymbolMatch>> {
-    ensure_workspace_symbol_support(initialize)?;
-    ensure_call_hierarchy_support(initialize)?;
-
-    let anchors = client.workspace_symbol(context.name).map_err(|error| {
-        Error::lsp(format!(
-            "failed to find matching symbols for {:?} with {}: {error}",
-            context.name, workspace.server.server
-        ))
-    })?;
-    let workspace_anchors = symbol_matches_from_response(&anchors)?;
-    let anchors = select_named_anchors(
-        workspace,
-        initialize,
-        client,
-        context.config,
-        NamedAnchorRequest {
-            directory: context.directory,
-            name: context.name,
-            function_only: true,
-        },
-        workspace_anchors,
-    )?;
-    let mut source_cache = SourceCache::default();
-    let mut matches = Vec::new();
-
-    for anchor in anchors {
-        let uri = open_document_for(client, &anchor.path, &workspace.server.server)?;
-        let prepared = client
-            .prepare_call_hierarchy(&uri, zero_based_line(&anchor), zero_based_col(&anchor))
-            .map_err(|error| {
-                error.with_prefix(format!(
-                    "failed to prepare call hierarchy with {} for {:?}",
-                    workspace.server.server, context.name
-                ))
-            })?;
-        let items = prepare_call_hierarchy_response(&prepared)?;
-
-        for item in &items {
-            let response = context.direction.query(client, item).map_err(|error| {
-                error.with_prefix(format!(
-                    "failed to query {} for {} of {:?}",
-                    workspace.server.server,
-                    context.direction.label(),
-                    context.name
-                ))
-            })?;
-            matches.extend(context.direction.decode(&response, &mut source_cache)?);
-        }
-    }
-
-    Ok(dedupe_symbol_matches(matches))
-}
-
-fn run_named_location_query(
-    args: &LspWorkspaceQueryArgs,
-    name: &str,
-    kind: LocationQueryKind,
-    include_full_content: bool,
-    config: &ConfigStore,
-) -> Result<WorkspaceSymbolQueryResult> {
-    let (workspace, matches) = with_initialized_client_context(
-        &args.query.directory,
-        args.query.selector.selected_server(),
-        args.query.selector.selected_language(),
-        args.detach,
-        args.download,
-        args.query.wait_for_index,
-        args.query.debug,
-        args.query.timeout,
-        config,
-        NamedLocationQueryContext {
-            config,
-            directory: &args.query.directory,
-            name,
-            kind,
-            include_full_content,
-        },
-        collect_named_location_matches,
-    )?;
-
-    Ok(WorkspaceSymbolQueryResult {
-        detected_filetypes: workspace.detection.filetypes,
-        server: workspace.server,
-        matches,
-    })
-}
-
-fn run_call_hierarchy_query(
-    args: &LspWorkspaceQueryArgs,
-    name: &str,
-    direction: CallHierarchyDirection,
-    config: &ConfigStore,
-) -> Result<WorkspaceSymbolQueryResult> {
-    let query = &args.query;
-    let (workspace, matches) = with_initialized_client_context(
-        &query.directory,
-        query.selector.selected_server(),
-        query.selector.selected_language(),
-        args.detach,
-        args.download,
-        query.wait_for_index,
-        query.debug,
-        query.timeout,
-        config,
-        CallHierarchyQueryContext {
-            config,
-            directory: &query.directory,
-            name,
-            direction,
-        },
-        collect_call_hierarchy_matches,
-    )?;
-
-    Ok(WorkspaceSymbolQueryResult {
-        detected_filetypes: workspace.detection.filetypes,
-        server: workspace.server,
-        matches,
-    })
-}
-
 fn dedupe_symbol_matches(matches: Vec<SymbolMatch>) -> Vec<SymbolMatch> {
     let mut seen = HashSet::new();
     let mut deduped = Vec::new();
@@ -701,28 +491,32 @@ fn exact_named_document_anchors(
 ) -> Result<Vec<SymbolMatch>> {
     let files = scan_workspace_files(request.directory, config, workspace)?;
     let mut source_cache = SourceCache::default();
-    let mut matches = Vec::new();
+    let matches = client
+        .document_symbols_window(
+            &files,
+            config.cli.max_requests_in_flight(),
+            |file, response| {
+                let file_matches = if request.function_only {
+                    function_matches_from_document_response(response, file, &mut source_cache)?
+                } else {
+                    document_symbol_matches_from_response(response, file, &mut source_cache)?
+                };
+                Ok(file_matches
+                    .into_iter()
+                    .filter(|matched| matched.name == request.name)
+                    .collect::<Vec<_>>())
+            },
+        )
+        .map_err(|error| {
+            error.with_prefix(format!(
+                "failed to discover symbols with {}",
+                workspace.server.server
+            ))
+        })?;
 
-    for file in &files {
-        let uri = open_document_for(client, file, &workspace.server.server)?;
-        let response = match client.document_symbol(&uri) {
-            Ok(response) => response,
-            Err(error) if should_skip_document_symbol_error(&error.to_string()) => continue,
-            Err(_) => continue,
-        };
-        let file_matches = if request.function_only {
-            function_matches_from_document_response(&response, file, &mut source_cache)?
-        } else {
-            document_symbol_matches_from_response(&response, file, &mut source_cache)?
-        };
-        matches.extend(
-            file_matches
-                .into_iter()
-                .filter(|matched| matched.name == request.name),
-        );
-    }
-
-    Ok(dedupe_symbol_matches(matches))
+    Ok(dedupe_symbol_matches(
+        matches.into_iter().flatten().collect(),
+    ))
 }
 
 fn fill_definition_full_content(

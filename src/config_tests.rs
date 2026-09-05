@@ -334,3 +334,42 @@ fn fails_on_invalid_regex() {
 
     assert!(error.contains("invalid regex"));
 }
+
+fn request_window_config(global_value: &str, user_value: &str) -> super::Result<super::CliConfig> {
+    let global = TestDir::new("request-window-global");
+    let user = TestDir::new("request-window-user");
+    global.write_file("lsp-cli.yaml", global_value);
+    user.write_file("lsp-cli.yaml", user_value);
+    load_cli_config(global.path(), Some(user.path()))
+}
+
+#[test]
+fn resolves_request_window_defaults_and_overrides() {
+    for (global, user, expected) in [
+        ("{}", "{}", 20),
+        ("max-requests-in-flight: 7", "{}", 7),
+        ("max-requests-in-flight: 7", "max-requests-in-flight: 3", 3),
+        ("{}", "max-requests-in-flight: 1", 1),
+    ] {
+        let config = request_window_config(global, user).expect("valid config");
+        assert_eq!(config.max_requests_in_flight().get(), expected);
+    }
+}
+
+#[test]
+fn rejects_invalid_request_window_sizes() {
+    for value in [
+        "0",
+        "-1",
+        "1.5",
+        "nope",
+        "true",
+        "[]",
+        "18446744073709551616",
+    ] {
+        let error = request_window_config("{}", &format!("max-requests-in-flight: {value}"))
+            .expect_err("invalid window must fail");
+        assert!(error.contains("lsp-cli.yaml"));
+        assert!(error.contains("max-requests-in-flight must be a positive integer"));
+    }
+}

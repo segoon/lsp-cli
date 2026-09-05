@@ -1,3 +1,5 @@
+pub(crate) mod lsp_peer;
+
 use crate::detect::DetectionResult;
 use crate::mason::registry::{MasonDownload, MasonNeovim, MasonPackage, MasonSource, OneOrMany};
 use crate::runtime_state::RuntimeState;

@@ -1,0 +1,11 @@
+schema-version: 1
+coverage: partial
+
+languages:
+  - id: rust
+    kind: source
+    project: playground/rust
+
+pairs:
+  - language: rust
+    server: rust_analyzer

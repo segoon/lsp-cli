@@ -216,6 +216,11 @@ documented exclusions. A validation test should fail when:
 - two cases select the same user-visible server ambiguously;
 - a new top-level subcommand has no assigned coverage class.
 
+The version 1 manifest starts with `coverage: partial`, which validates every declared entry
+against the pinned data without requiring unfinished matrix entries. Phase 4 adds the remaining
+entries and switches it to `coverage: complete`; complete mode enforces every detectable language
+and compatible pair.
+
 ## Special command strategies
 
 ### `run`
@@ -355,7 +360,7 @@ that class of defect easier to diagnose.
 ### Phase 1: foundation
 
 - [x] Add `tests/e2e.rs` and compact harness modules.
-- [ ] Add the initial manifest schema and validation.
+- [x] Add the initial manifest schema and validation.
 - [ ] Isolate all environment and runtime state.
 - [ ] Implement deadlines, cleanup guards, JSON helpers, and useful failure diagnostics.
 - [ ] Prove the harness with Rust/rust-analyzer.

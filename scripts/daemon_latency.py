@@ -114,6 +114,44 @@ def connect(path):
             yield Peer(reader, writer)
 
 
+@contextlib.contextmanager
+def raw_connection(path):
+    with socket.socket(socket.AF_UNIX) as stream:
+        stream.settimeout(5)
+        stream.connect(str(path))
+        yield stream
+
+
+def handshake_smoke(path, peer):
+    """Exercise the independent handshake readers outside the latency sample interval."""
+    import threading
+
+    with raw_connection(path) as silent, raw_connection(path) as trickling:
+        trickling.sendall(b"Content-Length: 10000\r\n\r\n")
+        stopped = threading.Event()
+
+        def trickle():
+            while not stopped.wait(.01):
+                try:
+                    trickling.sendall(b" ")
+                except OSError:
+                    return
+
+        writer = threading.Thread(target=trickle)
+        writer.start()
+        try:
+            for index in range(20):
+                assert peer.request("latency/echo", index)["result"] == index
+            # Receiving EOF verifies absolute expiry despite bytes arriving on every read.
+            assert trickling.recv(1) == b"", "trickling peer did not expire"
+            assert silent.recv(1) == b"", "silent peer did not expire"
+            assert peer.request("latency/echo", "after-expiry")["result"] == "after-expiry"
+        finally:
+            stopped.set()
+            writer.join(timeout=5)
+            assert not writer.is_alive(), "trickle writer did not finish"
+
+
 def report(peer, samples, pipeline):
     def percentile(values, fraction):
         return round(sorted(values)[max(0, math.ceil(len(values) * fraction) - 1)], 3)
@@ -136,7 +174,7 @@ def report(peer, samples, pipeline):
     return results
 
 
-def benchmark(binary, workspace, samples, pipeline):
+def benchmark(binary, workspace, samples, pipeline, check_handshakes):
     with tempfile.TemporaryDirectory(prefix="lsp-latency-") as temporary:
         root = Path(temporary)
         data = root / "data"
@@ -173,6 +211,8 @@ def benchmark(binary, workspace, samples, pipeline):
             with connect(path) as peer:
                 assert peer.initialize(workspace) == pid, "warm upstream was not reused"
                 measurements = report(peer, samples, pipeline)
+                if check_handshakes:
+                    handshake_smoke(path, peer)
                 peer.request("latency/register")
                 peer.finish()
             time.sleep(.1)
@@ -205,9 +245,10 @@ def benchmark(binary, workspace, samples, pipeline):
                 time.sleep(.1)
             with connect(path) as peer:
                 peer.initialize(workspace)
-                # Stop through a secondary connection while a client remains active.
-                subprocess.run([str(binary), "stop", str(workspace), "--lsp", "latency-fixture"],
-                               env=env, capture_output=True, timeout=15, check=True)
+                # A silent connection must not delay a later stop control connection.
+                with raw_connection(path):
+                    subprocess.run([str(binary), "stop", str(workspace), "--lsp", "latency-fixture"],
+                                   env=env, capture_output=True, timeout=15, check=True)
             assert not path.exists(), "daemon socket survived stop"
             return measurements
         except Exception:
@@ -227,6 +268,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--server", action="store_true", help="Run the immediate-reply test LSP server on stdio")
     parser.add_argument("--binary", type=Path, action="append", help="Binary to measure (repeat to compare builds)")
+    parser.add_argument("--skip-handshake-checks", action="store_true",
+                        help="Skip absolute handshake deadline checks when comparing binaries predating this feature")
     parser.add_argument("--workspace", type=Path, default=Path(__file__).resolve().parents[1] / "playground/rust")
     parser.add_argument("--samples", type=int, default=100, help="Number of batches at each pipeline width")
     parser.add_argument("--pipeline", type=int, default=16, help="Requests per pipelined batch")
@@ -245,7 +288,7 @@ def main():
         direct.finish()
         server.wait(timeout=5)
     for binary in args.binary or [Path("target/debug/lsp-cli")]:
-        print(json.dumps({str(binary): benchmark(binary.resolve(), workspace, args.samples, args.pipeline)}), flush=True)
+        print(json.dumps({str(binary): benchmark(binary.resolve(), workspace, args.samples, args.pipeline, not args.skip_handshake_checks)}), flush=True)
 
 
 if __name__ == "__main__":

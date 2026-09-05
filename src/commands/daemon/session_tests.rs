@@ -9,21 +9,21 @@ use std::sync::mpsc;
 
 const TIMEOUT: Duration = Duration::from_secs(3);
 
-struct Fixture {
-    daemon: Daemon,
-    peer: BufReader<UnixStream>,
+pub(super) struct Fixture {
+    pub(super) daemon: Daemon,
+    pub(super) peer: BufReader<UnixStream>,
     _dir: TestDir,
 }
 
 impl Fixture {
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
         let dir = TestDir::new("daemon-session");
         let target = tests::daemon_target(&dir);
         let mut events = EventQueue::new();
         let upstream = fake_upstream(&mut events);
         let (socket, peer) = UnixStream::pair().expect("client pair");
         peer.set_read_timeout(Some(TIMEOUT)).expect("read timeout");
-        let client = ClientSession::new(socket, &mut events).expect("client");
+        let client = ClientSession::new(socket, &mut events, None).expect("client");
         Self {
             daemon: Daemon {
                 accept_worker: None,
@@ -34,6 +34,7 @@ impl Fixture {
                 idle_timeout: TIMEOUT,
                 upstream: Some(upstream),
                 active_client: Some(client),
+                pending_connections: BTreeMap::new(),
                 orphaned_client_requests: BTreeSet::new(),
                 idle_since: Instant::now(),
                 stop_requested: false,
@@ -43,11 +44,11 @@ impl Fixture {
         }
     }
 
-    fn send(&mut self, message: &Value) {
+    pub(super) fn send(&mut self, message: &Value) {
         write_message(self.peer.get_mut(), message).expect("client write");
     }
 
-    fn step(&mut self) {
+    pub(super) fn step(&mut self) {
         let delivery = self
             .daemon
             .events
@@ -58,13 +59,13 @@ impl Fixture {
         result.expect("dispatch event");
     }
 
-    fn read(&mut self) -> Value {
+    pub(super) fn read(&mut self) -> Value {
         read_message(&mut self.peer)
             .expect("read response")
             .expect("response")
     }
 
-    fn initialize(&mut self, reused: bool) -> Value {
+    pub(super) fn initialize(&mut self, reused: bool) -> Value {
         self.send(
             &json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
                 "rootUri": self.daemon.target.root_uri, "capabilities": {}
@@ -80,12 +81,13 @@ impl Fixture {
         response
     }
 
-    fn replace_client(&mut self) {
+    pub(super) fn replace_client(&mut self) {
         self.daemon.disconnect_client().expect("disconnect");
         let (socket, peer) = UnixStream::pair().expect("replacement pair");
         peer.set_read_timeout(Some(TIMEOUT)).expect("read timeout");
-        self.daemon.active_client =
-            Some(ClientSession::new(socket, &mut self.daemon.events).expect("replacement client"));
+        self.daemon.active_client = Some(
+            ClientSession::new(socket, &mut self.daemon.events, None).expect("replacement client"),
+        );
         self.peer = BufReader::new(peer);
     }
 }

@@ -254,26 +254,6 @@ fn stop_socket_removes_stale_socket() {
 }
 
 #[test]
-fn busy_stop_request_receives_success_response() {
-    let dir = TestDir::new("daemon-stop-busy");
-    let socket_path = dir.path().join("daemon.sock");
-    let listener = UnixListener::bind(&socket_path).expect("socket should bind");
-
-    let server = thread::spawn(move || {
-        let (stream, _) = listener.accept().expect("client should connect");
-        let handled = super::protocol::handle_busy_connection(stream, false)
-            .expect("busy connection should parse");
-        assert!(handled, "stop request should be handled as busy control");
-    });
-
-    assert!(matches!(
-        stop_socket(&socket_path, false).expect("stop should succeed"),
-        StopSocketResult::Stopped
-    ));
-    server.join().expect("server thread should finish");
-}
-
-#[test]
 fn stop_socket_returns_not_running_when_socket_is_missing() {
     let dir = TestDir::new("daemon-stop-missing");
     let socket_path = dir.path().join("daemon.sock");

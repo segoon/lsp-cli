@@ -210,10 +210,10 @@ fn listener_bounds_accepted_sockets_and_cancels_in_both_wait_states() {
                 events.receiver.try_recv(),
                 Err(mpsc::TryRecvError::Empty)
             ));
-            assert!(matches!(first.event, Event::Accepted(_)));
+            assert!(matches!(first.event, Event::Accepted { .. }));
             first.acknowledge.send(()).expect("admit second socket");
             let second = events.receive(Some(TIMEOUT)).expect("second accepted");
-            assert!(matches!(second.event, Event::Accepted(_)));
+            assert!(matches!(second.event, Event::Accepted { .. }));
             // Teardown must release admission even while this delivery remains unacknowledged.
             drop(worker);
             assert!(second.acknowledge.send(()).is_err());

@@ -1,7 +1,9 @@
 use super::protocol::ReaderEvent;
+use super::socket_reader::SocketReader;
 use crate::error::{Error, Result};
 use crate::lsp::transport::read_message;
 use crate::system_log::log_unexpected_error;
+use serde_json::Value;
 use std::collections::VecDeque;
 use std::io::{BufReader, Read};
 use std::net::Shutdown;
@@ -20,7 +22,10 @@ pub(super) enum Source {
 }
 
 pub(super) enum Event {
-    Accepted(UnixStream),
+    Accepted {
+        stream: UnixStream,
+        accepted_at: Instant,
+    },
     AcceptError(String),
     Reader(Source, ReaderEvent),
 }
@@ -164,14 +169,22 @@ impl ReaderWorker {
         source: Source,
         events: &EventQueue,
     ) -> Result<Self> {
+        let mut reader = BufReader::new(reader);
+        Self::spawn_messages(move || read_message(&mut reader), source, events)
+    }
+
+    fn spawn_messages(
+        mut next_message: impl FnMut() -> Result<Option<Value>> + Send + 'static,
+        source: Source,
+        events: &EventQueue,
+    ) -> Result<Self> {
         let (mut worker, admission) = Self::admission(events);
         worker.thread = Some(
             thread::Builder::new()
                 .name("daemon-reader".into())
                 .spawn(move || {
-                    let mut reader = BufReader::new(reader);
                     while !admission.cancelled.load(Ordering::Acquire) {
-                        let event = match read_message(&mut reader) {
+                        let event = match next_message() {
                             Ok(Some(message)) => ReaderEvent::Message(message),
                             Ok(None) => ReaderEvent::EndOfStream,
                             Err(error) => ReaderEvent::Error(error.to_string()),
@@ -189,11 +202,22 @@ impl ReaderWorker {
         Ok(worker)
     }
 
+    #[cfg(test)]
     pub(super) fn socket(socket: UnixStream, source: Source, events: &EventQueue) -> Result<Self> {
+        Self::socket_with_deadline(socket, source, events, None)
+    }
+
+    pub(super) fn socket_with_deadline(
+        socket: UnixStream,
+        source: Source,
+        events: &EventQueue,
+        deadline: Option<Instant>,
+    ) -> Result<Self> {
         let reader = socket.try_clone().map_err(|error| {
             Error::unexpected(format!("failed to clone daemon client socket: {error}"))
         })?;
-        let mut worker = Self::spawn(reader, source, events)?;
+        let mut reader = SocketReader::new(reader, deadline);
+        let mut worker = Self::spawn_messages(move || reader.next_message(), source, events)?;
         worker.socket = Some(socket);
         Ok(worker)
     }
@@ -239,7 +263,10 @@ impl AcceptWorker {
                 .spawn(move || {
                     while !admission.cancelled.load(Ordering::Acquire) {
                         let event = match listener.accept() {
-                            Ok((stream, _)) => Event::Accepted(stream),
+                            Ok((stream, _)) => Event::Accepted {
+                                stream,
+                                accepted_at: Instant::now(),
+                            },
                             Err(error) if error.kind() == std::io::ErrorKind::Interrupted => {
                                 continue;
                             }

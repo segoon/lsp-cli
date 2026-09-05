@@ -1,4 +1,4 @@
-use super::{BUSY_CLIENT_TIMEOUT, Daemon, DaemonTarget, INVALID_REQUEST, REQUEST_CANCELLED};
+use super::{Daemon, DaemonTarget, INVALID_REQUEST};
 use crate::error::{Error, Result, error_fn};
 use crate::lsp::transport::{log_debug_message, read_message, write_message};
 use crate::lsp::{SERVER_STATUS_METHOD, ServerStatusParams, parse_lsp_uri};
@@ -74,38 +74,6 @@ impl Daemon {
         // Emit a synthetic quiescent notification so wait_for_background_work sees the warm state.
         self.write_client_response(&background_work_ready_notification())
     }
-}
-
-pub(super) fn handle_busy_connection(mut stream: UnixStream, debug: bool) -> Result<bool> {
-    let _ = stream.set_read_timeout(Some(BUSY_CLIENT_TIMEOUT));
-    let Ok(reader_stream) = stream.try_clone() else {
-        return Ok(false);
-    };
-    let mut reader = BufReader::new(reader_stream);
-    let Ok(Some(message)) = read_message(&mut reader) else {
-        return Ok(false);
-    };
-    log_debug_message(debug, "daemon busy client <- ", &message);
-
-    if stop_request_id(&message).is_some() {
-        respond_to_stop_request(&mut stream, &message, debug)?;
-        return Ok(true);
-    }
-
-    let Some(request_id) = request_id(&message) else {
-        return Ok(false);
-    };
-    if message_method(&message) != Some("initialize") {
-        return Ok(false);
-    }
-
-    let response = error_response(
-        &request_id,
-        REQUEST_CANCELLED,
-        "another daemon client is already connected",
-    );
-    let _ = write_message(&mut stream, &response);
-    Ok(false)
 }
 
 pub(super) fn read_control_message(

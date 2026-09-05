@@ -168,6 +168,11 @@ lsp-cli stop-all
 
 The same background daemon is spawned and left idle after `lsp-cli <CMD> --detach` is finished.
 
+A new connection has two seconds to send its first complete message. Silent or
+incomplete connections are closed without interrupting the active client. Up to
+16 connections can wait to start a session; additional connections are closed,
+including `stop` connections while all 16 slots are occupied.
+
 
 ## Configuration Files
 

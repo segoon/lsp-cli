@@ -19,26 +19,28 @@ use std::sync::mpsc::RecvTimeoutError;
 use std::thread;
 use std::time::{Duration, Instant};
 
+mod connections;
 mod events;
 mod forwarding;
 mod process;
 mod protocol;
+mod socket_reader;
 
 #[cfg(test)]
 mod session_tests;
 #[cfg(test)]
 mod tests;
 
+use connections::PendingConnection;
 use events::{AcceptWorker, Event, EventQueue, ReaderWorker, Source};
 use process::{bind_listener, launch_background, resolve_target, run_background};
 use protocol::{
-    BackgroundWorkTracker, ReaderEvent, error_response, handle_busy_connection,
-    read_control_message, request_id_from_key, response_id, stop_request, stop_request_id,
+    BackgroundWorkTracker, ReaderEvent, error_response, read_control_message, request_id_from_key,
+    response_id, stop_request, stop_request_id,
 };
 
 const BACKGROUND_ENV: &str = "LSP_CLI_DAEMON_BACKGROUND";
 const POLL_INTERVAL: Duration = Duration::from_millis(25);
-const BUSY_CLIENT_TIMEOUT: Duration = Duration::from_millis(250);
 const CONTROL_TIMEOUT: Duration = Duration::from_secs(2);
 const DETACHED_IDLE_TIMEOUT: Duration = Duration::from_mins(1);
 const STOP_COMPLETION_TIMEOUT: Duration = Duration::from_secs(5);
@@ -178,6 +180,7 @@ struct Daemon {
     idle_timeout: Duration,
     upstream: Option<UpstreamServer>,
     active_client: Option<ClientSession>,
+    pending_connections: BTreeMap<u64, PendingConnection>,
     orphaned_client_requests: BTreeSet<String>,
     idle_since: Instant,
     stop_requested: bool,
@@ -226,6 +229,7 @@ impl Daemon {
             idle_timeout,
             upstream: None,
             active_client: None,
+            pending_connections: BTreeMap::new(),
             orphaned_client_requests: BTreeSet::new(),
             idle_since: Instant::now(),
             stop_requested: false,
@@ -245,14 +249,11 @@ impl Daemon {
 
     fn serve(&mut self) -> Result<()> {
         loop {
+            self.expire_pending_connections(Instant::now());
             if self.stop_requested || self.idle_expired() {
                 return self.stop();
             }
-            let timeout = if self.active_client.is_none() {
-                Some(self.idle_timeout.saturating_sub(self.idle_since.elapsed()))
-            } else {
-                None
-            };
+            let timeout = self.next_event_timeout(Instant::now());
             match self.events.receive(timeout) {
                 Ok(event) => {
                     if self.idle_expired() {
@@ -281,15 +282,17 @@ impl Daemon {
     }
 
     fn dispatch(&mut self, event: Event) -> Result<()> {
+        // Deadline expiry wins over a queued first message, including during sustained traffic.
+        self.expire_pending_connections(Instant::now());
         match event {
-            Event::Accepted(stream) => {
-                if self.active_client.is_some() {
-                    if handle_busy_connection(stream, self.debug)? {
-                        self.stop_requested = true;
-                    }
-                } else {
-                    self.active_client = Some(ClientSession::new(stream, &mut self.events)?);
-                }
+            Event::Accepted {
+                stream,
+                accepted_at,
+            } => self.accept_pending_connection(stream, accepted_at)?,
+            Event::Reader(Source::Client(generation), event)
+                if self.pending_connections.contains_key(&generation) =>
+            {
+                self.handle_pending_message(generation, event)?;
             }
             Event::AcceptError(error) => {
                 return Err(Error::unexpected(format!(
@@ -420,6 +423,7 @@ impl Daemon {
         self.stop_requested = true;
         // Stop accepting before unlinking the socket, so the wakeup still reaches our listener.
         self.accept_worker.take();
+        self.pending_connections.clear();
         self.disconnect_client()?;
         self.shutdown_upstream()?;
         match fs::remove_file(&self.target.socket_path) {
@@ -465,6 +469,7 @@ impl Drop for Daemon {
     fn drop(&mut self) {
         // Error exits must also wake acceptance before removing its socket path.
         self.accept_worker.take();
+        self.pending_connections.clear();
         self.active_client.take();
         self.upstream.take();
         // Normal stop already unlinked our socket; a replacement daemon may own that path now.

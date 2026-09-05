@@ -40,16 +40,20 @@ python3 scripts/daemon_latency.py --binary target/debug/lsp-cli --samples 100 --
 ```
 
 Run this from the repository root. Add another `--binary /path/to/baseline/lsp-cli`
-to compare builds. The script uses `playground/rust` with temporary server
+to compare builds; use `--skip-handshake-checks` for binaries predating independent
+handshakes. The script uses `playground/rust` with temporary server
 configuration and sockets; it requires Python 3 but no installed language server.
 It reports direct and warm-daemon p50/p95/p99 request latency in milliseconds,
 with sample counts for sequential requests and batches of 16 pipelined requests.
 Initialization is outside the measured interval. It also checks busy rejection,
 warm reuse, restart after capability changes or dynamic registration,
-initialization-failure recovery, and stop with an active client.
+initialization-failure recovery, silent/trickling handshake expiration while active
+requests continue, and stop behind a silent connection.
 
 The daemon uses one outstanding event per reader or accept worker, keeping event
 backlog bounded without a forwarding-loop polling delay. Individual message sizes
-are not capped, and handshakes, writes, logging, and upstream shutdown still run
-synchronously. These measurements describe an immediate-reply fixture, not a
+are not capped. First-message reads run independently with a two-second absolute
+deadline and at most 16 pending handshakes. Excess connections are closed, including
+stop connections when all slots are occupied. Writes, logging, and upstream
+shutdown still run synchronously. These measurements describe an immediate-reply fixture, not a
 latency guarantee for real language servers or stalled peers.

@@ -222,13 +222,22 @@ pub(super) fn bind_listener(socket_path: &Path) -> Result<UnixListener> {
 }
 
 impl ClientSession {
-    pub(super) fn new(stream: UnixStream, events: &mut EventQueue) -> Result<Self> {
+    pub(super) fn new(
+        stream: UnixStream,
+        events: &mut EventQueue,
+        deadline: Option<Instant>,
+    ) -> Result<Self> {
         let reader = stream.try_clone().map_err(|error| {
             Error::unexpected(format!("failed to clone client socket: {error}"))
         })?;
 
         let generation = events.next_generation()?;
-        let worker = ReaderWorker::socket(reader, Source::Client(generation), events)?;
+        let worker = ReaderWorker::socket_with_deadline(
+            reader,
+            Source::Client(generation),
+            events,
+            deadline,
+        )?;
         Ok(Self {
             writer: stream,
             generation,

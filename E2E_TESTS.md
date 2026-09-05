@@ -74,9 +74,9 @@ Reuse the projects under `playground/` for:
 | `rust` | `playground/rust` |
 | `typescript` | `playground/typescript` |
 
-### Projects to add
+### Additional projects
 
-Add source projects for:
+Source projects are committed for:
 
 - `playground/cuda`
 - `playground/kotlin`
@@ -417,7 +417,7 @@ that class of defect easier to diagnose.
 
 - [x] Audit the ten existing playgrounds against the common semantic requirements.
 - [x] Remove duplicated setup patterns within each class of fixture.
-- [ ] Add CUDA, Kotlin, Objective-C, and Objective-C++ projects.
+- [x] Add CUDA, Kotlin, Objective-C, and Objective-C++ projects.
 - [ ] Add `gomod` and `gowork` detection fixtures.
 - [ ] Update `playground/README.md` with manual reproduction commands.
 - [ ] Run each relevant command manually against every new project.

@@ -28,6 +28,18 @@ commands:
   - { name: update, strategy: update-fixture }
 
 languages:
+  - id: cuda
+    kind: source
+    project: playground/cuda
+  - id: kotlin
+    kind: source
+    project: playground/kotlin
+  - id: objc
+    kind: source
+    project: playground/objc
+  - id: objcpp
+    kind: source
+    project: playground/objcpp
   - id: rust
     kind: source
     project: playground/rust

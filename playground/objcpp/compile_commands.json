@@ -1,0 +1,17 @@
+[
+  {
+    "directory": ".",
+    "arguments": ["clang++", "-x", "objective-c++", "-std=c++17", "-Iinclude", "-fsyntax-only", "src/main.mm"],
+    "file": "src/main.mm"
+  },
+  {
+    "directory": ".",
+    "arguments": ["clang++", "-x", "objective-c++", "-std=c++17", "-Iinclude", "-fsyntax-only", "src/Order.mm"],
+    "file": "src/Order.mm"
+  },
+  {
+    "directory": ".",
+    "arguments": ["clang++", "-x", "objective-c++", "-std=c++17", "-Iinclude", "-fsyntax-only", "src/OrderFormatter.mm"],
+    "file": "src/OrderFormatter.mm"
+  }
+]

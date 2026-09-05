@@ -1,0 +1,17 @@
+[
+  {
+    "directory": ".",
+    "arguments": ["clang", "-x", "objective-c", "-Iinclude", "-fsyntax-only", "src/main.m"],
+    "file": "src/main.m"
+  },
+  {
+    "directory": ".",
+    "arguments": ["clang", "-x", "objective-c", "-Iinclude", "-fsyntax-only", "src/Order.m"],
+    "file": "src/Order.m"
+  },
+  {
+    "directory": ".",
+    "arguments": ["clang", "-x", "objective-c", "-Iinclude", "-fsyntax-only", "src/OrderFormatter.m"],
+    "file": "src/OrderFormatter.m"
+  }
+]

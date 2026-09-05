@@ -1,10 +1,11 @@
 use std::ffi::OsStr;
 use std::fs;
 use std::io;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Duration;
 
+use fs_extra::dir::CopyOptions;
 use serde::de::DeserializeOwned;
 use tempfile::TempDir;
 
@@ -26,6 +27,7 @@ pub(crate) struct E2eContext {
     runtime_dir: PathBuf,
     workspace: PathBuf,
     bin_dir: PathBuf,
+    build_dir: PathBuf,
     data_dir: PathBuf,
 }
 
@@ -51,9 +53,10 @@ impl E2eContext {
         let config_home = sandbox.path().join("config");
         let workspace = sandbox.path().join("workspace");
         let bin_dir = sandbox.path().join("bin");
+        let build_dir = sandbox.path().join("build");
         let runtime_dir = runtime_sandbox.path().to_path_buf();
 
-        for directory in [&home, &config_home, &workspace, &bin_dir] {
+        for directory in [&home, &config_home, &workspace, &bin_dir, &build_dir] {
             fs::create_dir(directory)?;
         }
 
@@ -65,8 +68,102 @@ impl E2eContext {
             runtime_dir,
             workspace,
             bin_dir,
+            build_dir,
             data_dir: PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data"),
         })
+    }
+
+    pub(crate) fn copy_project(&self, source: &Path) -> Result<(), String> {
+        let options = CopyOptions::new().content_only(true);
+        fs_extra::dir::copy(source, &self.workspace, &options)
+            .map(|_copied_bytes| ())
+            .map_err(|error| {
+                format!(
+                    "failed to copy E2E project {} into {}: {error}",
+                    source.display(),
+                    self.workspace.display()
+                )
+            })
+    }
+
+    pub(crate) fn stage_host_program(
+        &self,
+        name: &str,
+        resolver: &[String],
+        deadline: Duration,
+    ) -> Result<(), String> {
+        let (program, args) = resolver
+            .split_first()
+            .ok_or_else(|| format!("host program {name:?} has no resolver command"))?;
+        let mut command = Command::new(program);
+        command.args(args).current_dir(env!("CARGO_MANIFEST_DIR"));
+        let output = process::run(&mut command, deadline)
+            .map_err(|failure| failure.diagnostic(&runtime_state(&self.runtime_dir)))?;
+        if !output.status().success() {
+            return Err(output.diagnostic(
+                &format!("failed to resolve required host program {name:?}"),
+                &runtime_state(&self.runtime_dir),
+            ));
+        }
+        let stdout = std::str::from_utf8(output.stdout()).map_err(|error| {
+            output.diagnostic(
+                &format!("resolver output for host program {name:?} is not UTF-8: {error}"),
+                &runtime_state(&self.runtime_dir),
+            )
+        })?;
+        let paths = stdout
+            .lines()
+            .filter(|line| !line.is_empty())
+            .collect::<Vec<_>>();
+        let [resolved] = paths.as_slice() else {
+            return Err(output.diagnostic(
+                &format!(
+                    "resolver for host program {name:?} must print exactly one non-empty path"
+                ),
+                &runtime_state(&self.runtime_dir),
+            ));
+        };
+        let resolved = Path::new(resolved);
+        if !resolved.is_file() {
+            return Err(output.diagnostic(
+                &format!(
+                    "resolver for host program {name:?} returned {}, which is not a file",
+                    resolved.display()
+                ),
+                &runtime_state(&self.runtime_dir),
+            ));
+        }
+        let resolved = resolved.canonicalize().map_err(|error| {
+            output.diagnostic(
+                &format!(
+                    "failed to resolve host program {name:?} path {}: {error}",
+                    resolved.display()
+                ),
+                &runtime_state(&self.runtime_dir),
+            )
+        })?;
+
+        self.link_host_program(&resolved, &self.bin_dir.join(name))
+            .map_err(|error| {
+                format!(
+                    "failed to stage host program {name:?} from {}: {error}",
+                    resolved.display()
+                )
+            })
+    }
+
+    #[cfg(unix)]
+    fn link_host_program(&self, source: &Path, destination: &Path) -> io::Result<()> {
+        std::os::unix::fs::symlink(source, destination)
+    }
+
+    #[cfg(not(unix))]
+    fn link_host_program(&self, source: &Path, destination: &Path) -> io::Result<()> {
+        fs::copy(source, destination).map(|_copied_bytes| ())
+    }
+
+    pub(crate) fn home(&self) -> &Path {
+        &self.home
     }
 
     pub(crate) fn run(&self, args: &[&str]) -> E2eOutput {
@@ -74,10 +171,18 @@ impl E2eContext {
     }
 
     pub(crate) fn run_with_deadline(&self, args: &[&str], deadline: Duration) -> E2eOutput {
+        self.try_run_with_deadline(args, deadline)
+            .unwrap_or_else(|diagnostic| panic!("{diagnostic}"))
+    }
+
+    pub(crate) fn try_run_with_deadline(
+        &self,
+        args: &[&str],
+        deadline: Duration,
+    ) -> Result<E2eOutput, String> {
         let mut command = self.command();
         command.args(args);
         self.run_command(&mut command, deadline)
-            .unwrap_or_else(|diagnostic| panic!("{diagnostic}"))
     }
 
     fn command(&self) -> Command {
@@ -89,6 +194,7 @@ impl E2eContext {
         command
             .env_clear()
             .env("HOME", &self.home)
+            .env("CARGO_TARGET_DIR", &self.build_dir)
             .env("XDG_CONFIG_HOME", &self.config_home)
             .env("XDG_RUNTIME_DIR", &self.runtime_dir)
             .env("LSP_DATA", &self.data_dir)
@@ -151,11 +257,16 @@ impl Drop for E2eContext {
 
 impl E2eOutput {
     pub(crate) fn assert_success(&self) {
-        assert!(
-            self.process.status().success(),
-            "{}",
-            self.diagnostic("lsp-cli exited unsuccessfully")
-        );
+        self.ensure_success()
+            .unwrap_or_else(|diagnostic| panic!("{diagnostic}"));
+    }
+
+    pub(crate) fn ensure_success(&self) -> Result<(), String> {
+        if self.process.status().success() {
+            Ok(())
+        } else {
+            Err(self.diagnostic("lsp-cli exited unsuccessfully"))
+        }
     }
 
     pub(crate) fn stdout_text(&self) -> &str {
@@ -186,7 +297,7 @@ impl E2eOutput {
             .diagnostic(reason, &runtime_state(&self.runtime_dir))
     }
 
-    fn try_json<T: DeserializeOwned>(&self) -> Result<T, String> {
+    pub(crate) fn try_json<T: DeserializeOwned>(&self) -> Result<T, String> {
         serde_json::from_slice(self.process.stdout())
             .map_err(|error| self.diagnostic(&format!("stdout is not valid JSON: {error}")))
     }
@@ -261,6 +372,10 @@ mod tests {
             .map(|(name, value)| (name.to_os_string(), value.map(OsString::from)))
             .collect::<BTreeMap<_, _>>();
         let expected = [
+            (
+                "CARGO_TARGET_DIR",
+                context.build_dir.as_os_str().to_os_string(),
+            ),
             ("HOME", context.home.as_os_str().to_os_string()),
             ("LANG", OsString::from("C")),
             ("LC_ALL", OsString::from("C")),

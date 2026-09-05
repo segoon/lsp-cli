@@ -11,3 +11,5 @@ mod harness;
 mod manifest;
 #[path = "e2e/process.rs"]
 mod process;
+#[path = "e2e/real_servers.rs"]
+mod real_servers;

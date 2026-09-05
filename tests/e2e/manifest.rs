@@ -9,7 +9,7 @@ const MANIFEST_SCHEMA_VERSION: u32 = 1;
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
-struct Manifest {
+pub(crate) struct Manifest {
     schema_version: u32,
     coverage: Coverage,
     languages: Vec<LanguageCase>,
@@ -47,11 +47,67 @@ impl ProjectKind {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 struct PairCase {
     language: String,
     server: String,
+    smoke: Option<SmokeCase>,
+}
+
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+struct PairKey {
+    language: String,
+    server: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+struct SmokeCase {
+    provision: Provision,
+    query: Query,
+    expected_names: Vec<String>,
+    #[serde(default)]
+    host_programs: Vec<HostProgram>,
+    lsp_timeout_seconds: u64,
+    deadline_seconds: u64,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+struct Provision {
+    method: ProvisionMethod,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) enum ProvisionMethod {
+    Download,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+struct Query {
+    kind: QueryKind,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) enum QueryKind {
+    ListSymbols,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+struct HostProgram {
+    name: String,
+    resolve: Vec<String>,
+}
+
+pub(crate) struct RealServerCase<'a> {
+    language: &'a LanguageCase,
+    pair: &'a PairCase,
+    smoke: &'a SmokeCase,
 }
 
 #[derive(Deserialize)]
@@ -72,6 +128,7 @@ impl FiletypeConfig {
 struct LspConfig {
     #[serde(default)]
     filetypes: Vec<String>,
+    name: String,
 }
 
 impl Manifest {
@@ -102,6 +159,27 @@ impl Manifest {
             Self::validate_complete_coverage(&data, &declared_languages, &declared_pairs)?;
         }
         Ok(())
+    }
+
+    pub(crate) fn load_validated(repository: &Path) -> Result<Self, String> {
+        let manifest = Self::load()?;
+        manifest.validate(repository)?;
+        Ok(manifest)
+    }
+
+    pub(crate) fn real_server_smoke_cases(&self) -> impl Iterator<Item = RealServerCase<'_>> {
+        self.pairs.iter().filter_map(|pair| {
+            let smoke = pair.smoke.as_ref()?;
+            let language = self
+                .languages
+                .iter()
+                .find(|language| language.id == pair.language)?;
+            Some(RealServerCase {
+                language,
+                pair,
+                smoke,
+            })
+        })
     }
 
     fn validate_languages(
@@ -136,7 +214,7 @@ impl Manifest {
         &self,
         data: &Path,
         declared_languages: &BTreeSet<String>,
-    ) -> Result<BTreeSet<PairCase>, String> {
+    ) -> Result<BTreeSet<PairKey>, String> {
         let mut declared = BTreeSet::new();
         for pair in &self.pairs {
             validate_config_id("server", &pair.server)?;
@@ -146,7 +224,7 @@ impl Manifest {
                     pair.language, pair.server
                 ));
             }
-            if !declared.insert(pair.clone()) {
+            if !declared.insert(pair.key()) {
                 return Err(format!(
                     "E2E manifest declares pair {}/{} more than once",
                     pair.language, pair.server
@@ -161,6 +239,9 @@ impl Manifest {
                     pair.server, pair.language
                 ));
             }
+            if let Some(smoke) = &pair.smoke {
+                smoke.validate(pair)?;
+            }
         }
         Ok(declared)
     }
@@ -168,7 +249,7 @@ impl Manifest {
     fn validate_complete_coverage(
         data: &Path,
         declared_languages: &BTreeSet<String>,
-        declared_pairs: &BTreeSet<PairCase>,
+        declared_pairs: &BTreeSet<PairKey>,
     ) -> Result<(), String> {
         let detectable = detectable_languages(data)?;
         let missing_languages = detectable
@@ -194,6 +275,101 @@ impl Manifest {
             ));
         }
         Ok(())
+    }
+}
+
+impl PairCase {
+    fn key(&self) -> PairKey {
+        PairKey {
+            language: self.language.clone(),
+            server: self.server.clone(),
+        }
+    }
+}
+
+impl SmokeCase {
+    fn validate(&self, pair: &PairCase) -> Result<(), String> {
+        let label = format!("{}/{}", pair.language, pair.server);
+        if self.expected_names.is_empty() || self.expected_names.iter().any(String::is_empty) {
+            return Err(format!(
+                "E2E smoke case {label} must declare non-empty expected names"
+            ));
+        }
+        if self.lsp_timeout_seconds == 0 || self.deadline_seconds == 0 {
+            return Err(format!("E2E smoke case {label} deadlines must be positive"));
+        }
+        if self.deadline_seconds < self.lsp_timeout_seconds {
+            return Err(format!(
+                "E2E smoke case {label} deadline must not be shorter than its LSP timeout"
+            ));
+        }
+
+        let mut names = BTreeSet::new();
+        for program in &self.host_programs {
+            validate_config_id("host program", &program.name)?;
+            if !names.insert(&program.name) {
+                return Err(format!(
+                    "E2E smoke case {label} declares host program {:?} more than once",
+                    program.name
+                ));
+            }
+            if program.resolve.is_empty() || program.resolve.iter().any(String::is_empty) {
+                return Err(format!(
+                    "E2E host program {:?} for {label} must have a non-empty resolver command",
+                    program.name
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl RealServerCase<'_> {
+    pub(crate) fn label(&self) -> String {
+        format!("{}/{}", self.pair.language, self.pair.server)
+    }
+
+    pub(crate) fn language(&self) -> &str {
+        &self.language.id
+    }
+
+    pub(crate) fn server_name(&self, repository: &Path) -> Result<String, String> {
+        let path = repository
+            .join("data/lsp")
+            .join(format!("{}.yaml", self.pair.server));
+        let config: LspConfig = read_yaml(&path)?;
+        Ok(config.name)
+    }
+
+    pub(crate) fn project(&self) -> &Path {
+        &self.language.project
+    }
+
+    pub(crate) fn provision_method(&self) -> ProvisionMethod {
+        self.smoke.provision.method
+    }
+
+    pub(crate) fn query_kind(&self) -> QueryKind {
+        self.smoke.query.kind
+    }
+
+    pub(crate) fn expected_names(&self) -> &[String] {
+        &self.smoke.expected_names
+    }
+
+    pub(crate) fn host_programs(&self) -> impl Iterator<Item = (&str, &[String])> {
+        self.smoke
+            .host_programs
+            .iter()
+            .map(|program| (program.name.as_str(), program.resolve.as_slice()))
+    }
+
+    pub(crate) fn lsp_timeout_seconds(&self) -> u64 {
+        self.smoke.lsp_timeout_seconds
+    }
+
+    pub(crate) fn deadline_seconds(&self) -> u64 {
+        self.smoke.deadline_seconds
     }
 }
 
@@ -250,14 +426,14 @@ fn detectable_languages(data: &Path) -> Result<BTreeSet<String>, String> {
 fn compatible_pairs(
     data: &Path,
     detectable: &BTreeSet<String>,
-) -> Result<BTreeSet<PairCase>, String> {
+) -> Result<BTreeSet<PairKey>, String> {
     let mut pairs = BTreeSet::new();
     for path in yaml_paths(&data.join("lsp"))? {
         let config: LspConfig = read_yaml(&path)?;
         let server = file_stem(&path)?;
         for language in config.filetypes {
             if detectable.contains(&language) {
-                pairs.insert(PairCase {
+                pairs.insert(PairKey {
                     language,
                     server: server.clone(),
                 });
@@ -309,72 +485,6 @@ fn validate_config_id(kind: &str, value: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn repository_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-}
-
-#[test]
-fn partial_manifest_matches_pinned_data() {
-    Manifest::load()
-        .expect("E2E manifest should parse")
-        .validate(&repository_root())
-        .expect("E2E manifest should be valid");
-}
-
-#[test]
-fn complete_mode_rejects_the_partial_matrix() {
-    let mut manifest = Manifest::load().expect("E2E manifest should parse");
-    manifest.coverage = Coverage::Complete;
-
-    let error = manifest
-        .validate(&repository_root())
-        .expect_err("partial matrix should not satisfy complete coverage");
-
-    assert!(error.contains("complete E2E manifest is missing languages"));
-}
-
-#[test]
-fn complete_mode_rejects_missing_server_pairs() {
-    let data = repository_root().join("data");
-    let detectable = detectable_languages(&data).expect("filetype configs should load");
-    let declared_pairs = BTreeSet::from([PairCase {
-        language: "rust".to_string(),
-        server: "rust_analyzer".to_string(),
-    }]);
-
-    let error = Manifest::validate_complete_coverage(&data, &detectable, &declared_pairs)
-        .expect_err("partial server matrix should not satisfy complete coverage");
-
-    assert!(error.contains("complete E2E manifest is missing pairs"));
-}
-
-#[test]
-fn manifest_rejects_unknown_fields() {
-    let error = serde_yaml::from_str::<Manifest>(
-        "schema-version: 1\ncoverage: partial\nlanguages: []\npairs: []\nunknown: true\n",
-    )
-    .expect_err("unknown manifest fields should fail");
-
-    assert!(error.to_string().contains("unknown field `unknown`"));
-}
-
-#[test]
-fn manifest_rejects_config_path_traversal() {
-    let mut manifest = Manifest::load().expect("E2E manifest should parse");
-    manifest
-        .languages
-        .first_mut()
-        .expect("manifest should contain a language")
-        .id = "../rust".to_string();
-    manifest
-        .pairs
-        .first_mut()
-        .expect("manifest should contain a pair")
-        .language = "../rust".to_string();
-
-    let error = manifest
-        .validate(&repository_root())
-        .expect_err("config path traversal should fail");
-
-    assert!(error.contains("must be one normalized path component"));
-}
+#[cfg(test)]
+#[path = "manifest_tests.rs"]
+mod tests;

@@ -221,6 +221,24 @@ against the pinned data without requiring unfinished matrix entries. Phase 4 add
 entries and switches it to `coverage: complete`; complete mode enforces every detectable language
 and compatible pair.
 
+### Extending the manifest
+
+To cover an existing filetype, add its small project under `playground/`, declare it once under
+`languages`, then add a `pairs` entry for each compatible server. To introduce a genuinely new
+filetype or server, first add its YAML config and commit it in the `data` submodule, then update the
+submodule revision and the E2E manifest in this repository.
+
+Pair entries use the LSP YAML filename stem as their stable config ID. The test runner loads the
+configured user-visible server name for `--lsp`; do not duplicate it in the manifest. Each optional
+`smoke` block declares a generic provisioning method, query kind, semantic expectations, runtime
+host programs, and deadlines. Language-specific prerequisites and expected symbols belong in YAML,
+not in the Rust runner. The first provisioning method is `download`; add other mechanisms as typed
+methods when needed instead of branching on server names.
+
+In `coverage: complete` mode, manifest validation makes a new detectable filetype or compatible
+filetype/server relationship fail until its project and pair are declared. Partial mode intentionally
+allows the matrix to grow incrementally.
+
 ## Special command strategies
 
 ### `run`
@@ -363,7 +381,7 @@ that class of defect easier to diagnose.
 - [x] Add the initial manifest schema and validation.
 - [x] Isolate all environment and runtime state.
 - [x] Implement deadlines, cleanup guards, JSON helpers, and useful failure diagnostics.
-- [ ] Prove the harness with Rust/rust-analyzer.
+- [x] Prove the harness with Rust/rust-analyzer.
 - [ ] Cover all 24 subcommand paths with either a real server or a deterministic local fixture.
 
 ### Phase 2: projects

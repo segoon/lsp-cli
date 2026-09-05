@@ -44,6 +44,13 @@ jobs:
       - name: Run tests
         run: cargo test --locked
 
+      - name: Run real-server E2E smoke tests
+        if: matrix.rust == 'stable'
+        run: >-
+          cargo test --locked --test e2e
+          real_servers::manifest_real_server_smoke_cases
+          -- --ignored --exact --nocapture
+
       - name: Run clippy
         if: matrix.rust == 'stable'
         run: cargo clippy --all-targets --all-features -- -D warnings

@@ -4,18 +4,12 @@ use crate::harness::E2eContext;
 fn commands_lists_every_canonical_subcommand() {
     let output = E2eContext::new()
         .expect("E2E context should initialize")
-        .run(&["commands"])
-        .expect("lsp-cli commands should run");
+        .run(&["commands"]);
 
-    assert!(
-        output.status.success(),
-        "lsp-cli commands failed: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
+    output.assert_success();
+    assert!(output.stderr_text().is_empty());
     assert_eq!(
-        String::from_utf8(output.stdout)
-            .expect("lsp-cli commands output should be UTF-8")
-            .trim_end(),
+        output.stdout_text().trim_end(),
         concat!(
             "commands\n",
             "daemon\n",

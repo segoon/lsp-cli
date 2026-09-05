@@ -1,14 +1,22 @@
+use std::ffi::OsStr;
 use std::fs;
 use std::io;
 use std::path::PathBuf;
-use std::process::{Command, Output};
+use std::process::Command;
+use std::time::Duration;
 
+use serde::de::DeserializeOwned;
 use tempfile::TempDir;
+
+use crate::process::{self, ProcessOutput};
 
 #[path = "../../src/test_support/temp_root.rs"]
 mod temp_root;
 
 use self::temp_root::{test_temp_base, test_temp_root};
+
+const DEFAULT_COMMAND_DEADLINE: Duration = Duration::from_secs(30);
+const DAEMON_CLEANUP_DEADLINE: Duration = Duration::from_secs(5);
 
 pub(crate) struct E2eContext {
     _sandbox: TempDir,
@@ -19,6 +27,11 @@ pub(crate) struct E2eContext {
     workspace: PathBuf,
     bin_dir: PathBuf,
     data_dir: PathBuf,
+}
+
+pub(crate) struct E2eOutput {
+    process: ProcessOutput,
+    runtime_dir: PathBuf,
 }
 
 impl E2eContext {
@@ -56,12 +69,23 @@ impl E2eContext {
         })
     }
 
-    pub(crate) fn run(&self, args: &[&str]) -> io::Result<Output> {
-        self.command().args(args).output()
+    pub(crate) fn run(&self, args: &[&str]) -> E2eOutput {
+        self.run_with_deadline(args, DEFAULT_COMMAND_DEADLINE)
+    }
+
+    pub(crate) fn run_with_deadline(&self, args: &[&str], deadline: Duration) -> E2eOutput {
+        let mut command = self.command();
+        command.args(args);
+        self.run_command(&mut command, deadline)
+            .unwrap_or_else(|diagnostic| panic!("{diagnostic}"))
     }
 
     fn command(&self) -> Command {
-        let mut command = Command::new(env!("CARGO_BIN_EXE_lsp-cli"));
+        self.command_for(env!("CARGO_BIN_EXE_lsp-cli"))
+    }
+
+    fn command_for(&self, program: impl AsRef<OsStr>) -> Command {
+        let mut command = Command::new(program);
         command
             .env_clear()
             .env("HOME", &self.home)
@@ -75,18 +99,162 @@ impl E2eContext {
             .current_dir(&self.workspace);
         command
     }
+
+    fn run_command(&self, command: &mut Command, deadline: Duration) -> Result<E2eOutput, String> {
+        process::run(command, deadline)
+            .map(|process| E2eOutput {
+                process,
+                runtime_dir: self.runtime_dir.clone(),
+            })
+            .map_err(|failure| failure.diagnostic(&runtime_state(&self.runtime_dir)))
+    }
+
+    #[cfg(test)]
+    fn run_test_program(
+        &self,
+        program: impl AsRef<OsStr>,
+        args: &[&str],
+        deadline: Duration,
+    ) -> Result<E2eOutput, String> {
+        let mut command = self.command_for(program);
+        command.args(args);
+        self.run_command(&mut command, deadline)
+    }
+}
+
+impl Drop for E2eContext {
+    fn drop(&mut self) {
+        let daemon_root = self.runtime_dir.join("lsp-cli");
+        if !daemon_root.exists() {
+            return;
+        }
+
+        // Detached daemons outlive command process groups, so the context must stop them explicitly.
+        let mut command = self.command();
+        command.args(["stop-all", "--debug"]);
+        let cleanup = process::run(&mut command, DAEMON_CLEANUP_DEADLINE);
+        let diagnostic = match cleanup {
+            Ok(output) if output.status().success() => return,
+            Ok(output) => output.diagnostic(
+                "E2E daemon cleanup exited unsuccessfully",
+                &runtime_state(&self.runtime_dir),
+            ),
+            Err(failure) => failure.diagnostic(&runtime_state(&self.runtime_dir)),
+        };
+        if std::thread::panicking() {
+            eprintln!("E2E daemon cleanup failed:\n{diagnostic}");
+        } else {
+            panic!("E2E daemon cleanup failed:\n{diagnostic}");
+        }
+    }
+}
+
+impl E2eOutput {
+    pub(crate) fn assert_success(&self) {
+        assert!(
+            self.process.status().success(),
+            "{}",
+            self.diagnostic("lsp-cli exited unsuccessfully")
+        );
+    }
+
+    pub(crate) fn stdout_text(&self) -> &str {
+        std::str::from_utf8(self.process.stdout()).unwrap_or_else(|error| {
+            panic!(
+                "{}",
+                self.diagnostic(&format!("stdout is not valid UTF-8: {error}"))
+            )
+        })
+    }
+
+    pub(crate) fn stderr_text(&self) -> &str {
+        std::str::from_utf8(self.process.stderr()).unwrap_or_else(|error| {
+            panic!(
+                "{}",
+                self.diagnostic(&format!("stderr is not valid UTF-8: {error}"))
+            )
+        })
+    }
+
+    pub(crate) fn json<T: DeserializeOwned>(&self) -> T {
+        self.try_json()
+            .unwrap_or_else(|diagnostic| panic!("{diagnostic}"))
+    }
+
+    fn diagnostic(&self, reason: &str) -> String {
+        self.process
+            .diagnostic(reason, &runtime_state(&self.runtime_dir))
+    }
+
+    fn try_json<T: DeserializeOwned>(&self) -> Result<T, String> {
+        serde_json::from_slice(self.process.stdout())
+            .map_err(|error| self.diagnostic(&format!("stdout is not valid JSON: {error}")))
+    }
+}
+
+fn runtime_state(runtime_dir: &std::path::Path) -> String {
+    let daemon_root = runtime_dir.join("lsp-cli");
+    let entries = match fs::read_dir(&daemon_root) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            return format!("{} does not exist", daemon_root.display());
+        }
+        Err(error) => return format!("failed to read {}: {error}", daemon_root.display()),
+    };
+    let mut paths = entries
+        .map(|entry| match entry {
+            Ok(entry) => entry.path().display().to_string(),
+            Err(error) => format!("<failed to read entry: {error}>"),
+        })
+        .collect::<Vec<_>>();
+    paths.sort();
+    if paths.is_empty() {
+        format!("{} is empty", daemon_root.display())
+    } else {
+        paths.join("\n")
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
     use std::ffi::OsString;
+    #[cfg(target_os = "linux")]
+    use std::path::Path;
+    #[cfg(target_os = "linux")]
+    use std::time::Instant;
 
     use super::*;
 
+    fn context() -> E2eContext {
+        E2eContext::new().expect("E2E context should initialize")
+    }
+
+    fn run_shell(
+        context: &E2eContext,
+        script: &str,
+        deadline: Duration,
+    ) -> Result<E2eOutput, String> {
+        context.run_test_program("/bin/sh", &["-c", script], deadline)
+    }
+
+    #[cfg(target_os = "linux")]
+    fn assert_recorded_process_is_gone(pid_file: &Path) {
+        let pid = fs::read_to_string(pid_file).expect("descendant PID should be recorded");
+        let process = Path::new("/proc").join(&pid);
+        let reaping_deadline = Instant::now() + Duration::from_secs(1);
+        while process.exists() && Instant::now() < reaping_deadline {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        assert!(
+            !process.exists(),
+            "descendant process {pid} survived group cleanup"
+        );
+    }
+
     #[test]
     fn command_isolated_from_ambient_process_state() {
-        let context = E2eContext::new().expect("E2E context should initialize");
+        let context = context();
         let command = context.command();
         let actual = command
             .get_envs()
@@ -122,7 +290,7 @@ mod tests {
     fn runtime_directory_has_room_for_daemon_socket_name() {
         use std::os::unix::net::UnixListener;
 
-        let context = E2eContext::new().expect("E2E context should initialize");
+        let context = context();
         let daemon_root = context.runtime_dir.join("lsp-cli");
         fs::create_dir(&daemon_root).expect("daemon root should be created");
         let socket_path = daemon_root.join(format!("{}-{}.sock", "s".repeat(32), "f".repeat(24)));
@@ -132,5 +300,106 @@ mod tests {
                 socket_path.display()
             )
         });
+    }
+
+    #[test]
+    fn captures_large_stdout_and_stderr_without_deadlock() {
+        let context = context();
+        let output = run_shell(
+            &context,
+            "i=0; while [ \"$i\" -lt 100000 ]; do printf o; printf e >&2; i=$((i + 1)); done",
+            Duration::from_secs(5),
+        )
+        .expect("output fixture should finish");
+
+        assert_eq!(output.process.stdout().len(), 100_000);
+        assert_eq!(output.process.stderr().len(), 100_000);
+    }
+
+    #[test]
+    fn deadline_kills_the_command_process_group() {
+        let context = context();
+        let pid_file = context.workspace.join("descendant.pid");
+        let script = format!(
+            "/bin/sleep 30 & child=$!; printf '%s' \"$child\" > {}; wait",
+            pid_file.display()
+        );
+        let diagnostic = run_shell(&context, &script, Duration::from_millis(100))
+            .err()
+            .expect("stalled fixture should exceed its deadline");
+
+        assert!(diagnostic.contains("process exceeded its deadline"));
+        assert!(diagnostic.contains("process group killed and reaped"));
+        #[cfg(target_os = "linux")]
+        assert_recorded_process_is_gone(&pid_file);
+    }
+
+    #[test]
+    fn deadline_includes_output_pipes_held_by_descendants() {
+        let context = context();
+        let pid_file = context.workspace.join("pipe-holder.pid");
+        let script = format!(
+            "/bin/sleep 30 & child=$!; printf '%s' \"$child\" > {}",
+            pid_file.display()
+        );
+        let diagnostic = run_shell(&context, &script, Duration::from_millis(100))
+            .err()
+            .expect("inherited pipe should keep the process group beyond its deadline");
+
+        assert!(diagnostic.contains("remained open after the command deadline"));
+        assert!(diagnostic.contains("process group killed and reaped"));
+        #[cfg(target_os = "linux")]
+        assert_recorded_process_is_gone(&pid_file);
+    }
+
+    #[test]
+    fn parses_json_output_into_requested_type() {
+        let context = context();
+        let output = run_shell(
+            &context,
+            "printf '%s' '{\"answer\":42}'",
+            Duration::from_secs(1),
+        )
+        .expect("JSON fixture should finish");
+        let value: serde_json::Value = output.json();
+
+        assert_eq!(value, serde_json::json!({"answer": 42}));
+    }
+
+    #[test]
+    fn invalid_json_reports_command_and_captured_output() {
+        let context = context();
+        let output = run_shell(&context, "printf not-json", Duration::from_secs(1))
+            .expect("invalid JSON fixture should finish");
+        let diagnostic = output
+            .try_json::<serde_json::Value>()
+            .expect_err("invalid JSON should be rejected");
+
+        assert!(diagnostic.contains("stdout is not valid JSON"));
+        assert!(diagnostic.contains("command: \"/bin/sh\" \"-c\""));
+        assert!(diagnostic.contains("not-json"));
+    }
+
+    #[test]
+    fn failed_command_diagnostic_includes_execution_context_and_output() {
+        let context = context();
+        let output = run_shell(
+            &context,
+            "printf stdout-marker; printf stderr-marker >&2; exit 7",
+            Duration::from_secs(1),
+        )
+        .expect("failure fixture should finish");
+        let diagnostic = output.diagnostic("fixture failed");
+
+        assert!(diagnostic.contains("fixture failed"));
+        assert!(diagnostic.contains("command: \"/bin/sh\" \"-c\""));
+        assert!(diagnostic.contains(&format!(
+            "working directory: {}",
+            context.workspace.display()
+        )));
+        assert!(diagnostic.contains("status: exit status: 7"));
+        assert!(diagnostic.contains("stdout-marker"));
+        assert!(diagnostic.contains("stderr-marker"));
+        assert!(diagnostic.contains("runtime state:"));
     }
 }

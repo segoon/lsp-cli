@@ -102,6 +102,39 @@ it should contain:
 Prefer equivalent domain concepts and symbol names across projects when natural. Do not force a
 language into constructs it does not support merely to make fixtures textually identical.
 
+### Existing playground audit
+
+The ten existing playgrounds were audited against these requirements on 2026-09-05. `Present`
+means the committed source provides the semantic shape; `missing` identifies follow-up work;
+`unverified` means the required compiler or runtime was not installed for this audit. Under the
+strict declaration rule, an interface, trait, protocol, or declaration file is required when the
+language can express one without relying on comments or third-party syntax.
+
+| Project | Valid, small, multi-file | Stable workspace symbol | Functions and methods | Separate declaration | Cross-file references | Caller/callee chain | Types and fields | Formatting mutation | Diagnostic mutation |
+|---|---|---|---|---|---|---|---|---|---|
+| C | Present, but compilation database is not portable | `Order` | Functions present; methods not applicable | Present in `order.h` | Present | Present | Present | Missing recipe; baseline is not formatter-clean | Missing recipe |
+| C++ | **Invalid:** undefined `f()` and `g()` prevent linking; compilation database is not portable | `playground::Order` | Present | Present in `order.hpp` | Present | Present | Present | Missing recipe; baseline is not formatter-clean | Missing recipe |
+| C# | Unverified; `dotnet` unavailable | `Order` | Present | **Missing:** an interface can provide it | Present | Present | Present | Missing recipe | Missing recipe |
+| Go | Unverified; `go` unavailable | `Order` | Present | **Missing:** an interface can provide it | Present | Present | Present | Missing recipe; baseline is visibly not `gofmt`-clean | Missing recipe |
+| Java | Unverified; JDK and Maven unavailable | `Order` | Present | **Missing:** an interface can provide it | Present | Present | Present | Missing recipe | Missing recipe |
+| JavaScript | Present; exercised with Node.js | `Order` | Present | **Missing:** a declaration file can provide it | Present | Present | Present | Missing recipe | Missing recipe |
+| Lua | Unverified; Lua unavailable | **Missing:** only local functions are declared | Functions present; methods missing | Not applicable: Lua has no native declaration construct | Present for `format_timestamp` | Present | Partial: a module table field exists, but no structured domain type | Missing recipe | Missing recipe |
+| Python | Present; exercised with Python | `Order` | Present | **Missing:** a protocol or abstract base can provide it | Present | Present | Present | Missing recipe; baseline is visibly not formatter-clean | Missing recipe |
+| Rust | **Invalid as a standalone project:** Cargo treats it as an undeclared root-workspace member | `Order` | Present | **Missing:** a trait can provide it | Present | Present | Present | Missing recipe | Missing recipe |
+| TypeScript | Unverified; local TypeScript compiler unavailable | `Order` | Present | **Missing:** an interface can provide it | Present | Present | Present | Missing recipe | Missing recipe |
+
+The C sources compile and link, while the C++ sources compile but fail at link time because the
+calls added in `main.cpp` have no definitions. JavaScript and Python execute successfully. The Rust
+check fails before compilation because the nested package is neither a root-workspace member nor
+excluded from that workspace. C and C++ also embed an old absolute checkout path in
+`compile_commands.json`; language servers may therefore ignore their intended include paths after
+the repository is moved or copied into an isolated E2E sandbox.
+
+No playground currently defines the exact source edit and expected diagnostic needed for a stable
+mutation test. Those recipes should live in manifest data rather than language-specific Rust test
+code. The next project-phase item will repair and normalize the fixtures; this audit intentionally
+does not mix those changes with the inventory.
+
 Tests securely create randomized sandboxes with the `tempfile` crate under the user's
 `XDG_RUNTIME_DIR`, `XDG_CACHE_HOME`, or `$HOME/.cache`, in that order, then copy a project there
 before formatting it or introducing diagnostics. Real test state must not use the ambient system
@@ -382,7 +415,7 @@ that class of defect easier to diagnose.
 
 ### Phase 2: projects
 
-- [ ] Audit the ten existing playgrounds against the common semantic requirements.
+- [x] Audit the ten existing playgrounds against the common semantic requirements.
 - [ ] Remove duplicated setup patterns within each class of fixture.
 - [ ] Add CUDA, Kotlin, Objective-C, and Objective-C++ projects.
 - [ ] Add `gomod` and `gowork` detection fixtures.

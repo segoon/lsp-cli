@@ -1,5 +1,6 @@
 use super::*;
 use crate::repository_root;
+use std::fs;
 
 fn first_smoke(manifest: &mut Manifest) -> &mut SmokeCase {
     manifest
@@ -18,6 +19,41 @@ fn partial_manifest_matches_pinned_data() {
         .expect("E2E manifest should parse")
         .validate(repository_root())
         .expect("E2E manifest should be valid");
+}
+
+#[test]
+fn copied_projects_do_not_contain_checkout_bound_compilation_databases() {
+    let manifest = Manifest::load().expect("E2E manifest should parse");
+    let repository = repository_root();
+
+    for language in &manifest.languages {
+        let project = repository.join(&language.project);
+        let databases = files_named(&project, "compile_commands.json");
+        assert!(
+            databases.is_empty(),
+            "E2E project {} contains compilation databases that cannot remain valid when copied: {databases:?}",
+            language.project.display()
+        );
+    }
+}
+
+fn files_named(directory: &Path, expected: &str) -> Vec<PathBuf> {
+    let mut matches = Vec::new();
+    let entries = fs::read_dir(directory)
+        .unwrap_or_else(|error| panic!("failed to read {}: {error}", directory.display()));
+    for entry in entries {
+        let entry = entry.expect("project directory entry should be readable");
+        let file_type = entry
+            .file_type()
+            .expect("project directory entry type should be readable");
+        let path = entry.path();
+        if file_type.is_dir() {
+            matches.extend(files_named(&path, expected));
+        } else if path.file_name().and_then(|name| name.to_str()) == Some(expected) {
+            matches.push(path);
+        }
+    }
+    matches
 }
 
 #[test]

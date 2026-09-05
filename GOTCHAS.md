@@ -77,6 +77,11 @@
 - The Mason package exposes Kotlin LSP as `intellij-server`, not `kotlin-lsp`. The data config must
   use the packaged launcher name so `--download` can resolve it; a display name or upstream product
   name is not necessarily an executable name.
+- The Mason generic package uses `{{ version | strip_prefix "kotlin-lsp/v" }}` in its download URL
+  and executable path. lsp-cli currently only recognizes the `strip_prefix "v"` form, leaves the
+  longer-prefix expression unresolved, and receives HTTP 404 before the server starts. Supporting
+  arbitrary Mason template filters is a downloader compatibility decision, not a Kotlin server
+  workaround.
 
 ## roslyn-language-server
 
@@ -118,6 +123,14 @@
   `lsp-cli` currently expects for `wait-for-index`/`build-index` flows. Keep normal symbol-query
   configs on `wait-for-index: false` unless that progress reporting is confirmed for the target
   `clangd` setup.
+- `compile_commands.json` requires absolute working directories, which makes a committed database
+  stale when an E2E project is copied. Portable clangd fixtures should use `compile_flags.txt` or
+  generate the database after copying instead of committing checkout-specific paths or a relative
+  `directory` value.
+- clangd 22.1.6 returned document symbols, definitions, references, and call hierarchy for the
+  CUDA, Objective-C, and Objective-C++ playgrounds, but an immediate `workspace/symbol` query
+  returned no matches. It also exposed no progress signal usable by `build-index`; capability-aware
+  tests need an explicit bounded policy rather than a fixed indexing sleep.
 - `clangd` may expose diagnostics only through delayed `textDocument/publishDiagnostics` even when
   it does send `$/progress`, and in some setups it does not advertise `diagnosticProvider` for
   pull diagnostics at all. For `lsp-cli diag`, prefer pull diagnostics when the capability is

@@ -1,0 +1,7 @@
+-x
+c++
+-std=c++17
+-Iinclude
+-D__host__=
+-D__device__=
+-D__global__=

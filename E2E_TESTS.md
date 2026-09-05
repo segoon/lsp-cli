@@ -113,8 +113,8 @@ language can express one without relying on comments or third-party syntax.
 
 | Project | Valid, small, multi-file | Stable workspace symbol | Functions and methods | Separate declaration | Cross-file references | Caller/callee chain | Types and fields | Formatting mutation | Diagnostic mutation |
 |---|---|---|---|---|---|---|---|---|---|
-| C | Present, but compilation database is not portable | `Order` | Functions present; methods not applicable | Present in `order.h` | Present | Present | Present | Missing recipe; baseline is not formatter-clean | Missing recipe |
-| C++ | **Invalid:** undefined `f()` and `g()` prevent linking; compilation database is not portable | `playground::Order` | Present | Present in `order.hpp` | Present | Present | Present | Missing recipe; baseline is not formatter-clean | Missing recipe |
+| C | Present; portable `compile_flags.txt` configures clangd | `Order` | Functions present; methods not applicable | Present in `order.h` | Present | Present | Present | Missing recipe; baseline is not formatter-clean | Missing recipe |
+| C++ | **Invalid:** undefined `f()` and `g()` prevent linking; portable `compile_flags.txt` configures clangd | `playground::Order` | Present | Present in `order.hpp` | Present | Present | Present | Missing recipe; baseline is not formatter-clean | Missing recipe |
 | C# | Unverified; `dotnet` unavailable | `Order` | Present | **Missing:** an interface can provide it | Present | Present | Present | Missing recipe | Missing recipe |
 | Go | Unverified; `go` unavailable | `Order` | Present | **Missing:** an interface can provide it | Present | Present | Present | Missing recipe; baseline is visibly not `gofmt`-clean | Missing recipe |
 | Java | Unverified; JDK and Maven unavailable | `Order` | Present | **Missing:** an interface can provide it | Present | Present | Present | Missing recipe | Missing recipe |
@@ -127,9 +127,9 @@ language can express one without relying on comments or third-party syntax.
 The C sources compile and link, while the C++ sources compile but fail at link time because the
 calls added in `main.cpp` have no definitions. JavaScript and Python execute successfully. The Rust
 check fails before compilation because the nested package is neither a root-workspace member nor
-excluded from that workspace. C and C++ also embed an old absolute checkout path in
-`compile_commands.json`; language servers may therefore ignore their intended include paths after
-the repository is moved or copied into an isolated E2E sandbox.
+excluded from that workspace. C and C++ now use portable `compile_flags.txt` files because a
+tracked compilation database cannot keep its required absolute directory valid after the fixture
+is copied into an isolated E2E sandbox.
 
 No playground currently defines the exact source edit and expected diagnostic needed for a stable
 mutation test. Those recipes should live in manifest data rather than language-specific Rust test
@@ -450,9 +450,28 @@ that class of defect easier to diagnose.
 Manual LSP verification follows server selection and downloader support so it runs against servers
 resolved by the same current Mason registry used in CI rather than ambient installations.
 
+The 2026-09-05 manual survey used isolated `tempfile` sandboxes and current Mason packages. No
+survey state used the ambient system `/tmp` or modified a tracked playground.
+
+| Project | Server source | Verified behavior | Remaining blocker or limitation |
+|---|---|---|---|
+| CUDA | `pkg:github/clangd/clangd@22.1.6` | Detection, files, capabilities, diagnostics, document symbols/functions, definition/declaration, references, callers/callees, `format --stdout`, direct execution, daemon reuse, and stop | Immediate `grep Order` returned no workspace symbols; `build-index` reported no background-work progress |
+| Objective-C | `pkg:github/clangd/clangd@22.1.6` | Same applicable paths as CUDA, with clean diagnostics and semantic results | Immediate workspace-symbol grep was empty; `build-index` exposed no progress |
+| Objective-C++ | `pkg:github/clangd/clangd@22.1.6` | Same applicable paths as Objective-C, with clean diagnostics and semantic results | Immediate workspace-symbol grep was empty; `build-index` exposed no progress |
+| Kotlin | Mason generic `kotlin-lsp` package | Every applicable command was attempted | Provisioning left `strip_prefix "kotlin-lsp/v"` templates unresolved, so the generated download URL returned HTTP 404 before server startup |
+| Go module metadata | `pkg:golang/golang.org/x/tools/gopls@v0.23.0` | Detection, file listing, and initialization were attempted | The approved environment has no Go SDK, so Mason could not install `gopls`; lifecycle remains blocked |
+| Go workspace metadata | `pkg:golang/golang.org/x/tools/gopls@v0.23.0` | Detection, file listing, and initialization were attempted | The approved environment has no Go SDK, so Mason could not install `gopls`; lifecycle remains blocked |
+
+The clangd projects use portable `compile_flags.txt` files. CUDA is parsed as C++ with its CUDA
+qualifiers defined as empty macros, keeping semantic queries deterministic without requiring a
+CUDA SDK; this fixture validates lsp-cli/LSP behavior, not CUDA compilation. Committed playgrounds
+must not contain `compile_commands.json`, whose required absolute working directories become stale
+when the harness copies a project.
+
 - [x] Configure one production preference per source language and derive the smoke matrix from it.
 - [x] Provision servers through `--download`; add no separate installers or Rust dependencies.
-- [ ] Run each relevant command manually against every new project.
+- [ ] Run each relevant command manually against every new project (survey recorded; Kotlin and Go
+  provisioning blockers remain, and clangd workspace indexing needs an asserted policy).
 - [ ] Implement capability-aware query assertions.
 - [ ] Implement direct/detached lifecycle scenarios.
 - [ ] Add the pull-request E2E job.

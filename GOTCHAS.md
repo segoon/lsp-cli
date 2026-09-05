@@ -4,9 +4,10 @@
 
 - Some servers send client requests such as `client/registerCapability` immediately after the
   `initialize` response and expect those requests to be answered before later client traffic.
-  lsp-cli therefore drains and replies to queued server requests right after `initialized` and
-  before sending later requests, instead of assuming request-response traffic is strictly
-  one-directional.
+  lsp-cli therefore drains and replies to requests already queued after `initialized` and before
+  later outgoing operations. Requests that race with the next client request are answered while
+  that request is outstanding, instead of assuming request-response traffic is strictly
+  one-directional or waiting for a fixed post-initialization quiet period.
 
 
 ## Diagnostics
@@ -30,6 +31,10 @@
 
 
 # Daemon gotchas
+
+- Daemon initialization compares workspace URIs literally. Directory URIs produced by
+  `path_to_file_uri` end with `/`; raw socket clients and fixtures must use the same trailing
+  slash in `rootUri` and workspace folder URIs, or initialization is rejected.
 
 - LSP 3.17 assumes one server serves one tool. `lsp-cli daemon` therefore implements a
   conservative proxy policy instead of transparent multi-client sharing: only one client may be

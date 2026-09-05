@@ -1,3 +1,5 @@
+#[cfg(unix)]
+use super::test_support::{expect_method, read_existing_message};
 use super::{ClientTransport, LspClient, format_spawn_error};
 #[cfg(unix)]
 use crate::lsp::transport::{read_message, write_message};
@@ -7,8 +9,6 @@ use crate::test_support::{
     subprocess_helper_env, with_env_vars,
 };
 #[cfg(unix)]
-use serde_json::Value;
-#[cfg(unix)]
 use serde_json::json;
 use std::fs;
 use std::time::Duration;
@@ -16,9 +16,9 @@ use std::time::Duration;
 #[cfg(unix)]
 use std::fs::File;
 #[cfg(unix)]
-use std::io::Write;
+use std::io::BufReader;
 #[cfg(unix)]
-use std::io::{BufReader, Read};
+use std::io::Write;
 #[cfg(unix)]
 use std::os::fd::AsRawFd;
 #[cfg(unix)]
@@ -35,33 +35,6 @@ fn formats_missing_binary_error() {
     assert_eq!(
         format_spawn_error("ast-grep", &error),
         "LSP server executable `ast-grep` is not installed or not in $PATH"
-    );
-}
-
-#[cfg(unix)]
-fn read_existing_message<R: Read>(
-    reader: &mut BufReader<R>,
-    parse_context: &str,
-    missing_context: &str,
-) -> Value {
-    read_message(reader)
-        .expect(parse_context)
-        .expect(missing_context)
-}
-
-#[cfg(unix)]
-fn expect_method(message: &Value, expected: &str) {
-    assert_eq!(
-        message.get("method").and_then(serde_json::Value::as_str),
-        Some(expected)
-    );
-}
-
-#[cfg(unix)]
-fn expect_id(message: &Value, expected: &str) {
-    assert_eq!(
-        message.get("id").and_then(serde_json::Value::as_str),
-        Some(expected)
     );
 }
 
@@ -136,225 +109,6 @@ fn hides_server_stderr_without_debug() {
 #[test]
 fn keeps_server_stderr_visible_with_debug() {
     assert!(captured_server_stderr(true).contains("server stderr\n"));
-}
-
-#[cfg(unix)]
-#[test]
-fn initialize_replies_to_queued_server_requests_before_next_request() {
-    let dir = TestDir::new("client-init-queue");
-    let socket_path = dir.path().join("server.sock");
-    let listener = UnixListener::bind(&socket_path).expect("socket should bind");
-
-    let server = thread::spawn(move || {
-        let (stream, _) = listener.accept().expect("client should connect");
-        let reader_stream = stream.try_clone().expect("stream should clone");
-        let mut reader = BufReader::new(reader_stream);
-        let mut writer = stream;
-
-        let initialize = read_existing_message(
-            &mut reader,
-            "initialize should parse",
-            "initialize should exist",
-        );
-        assert_eq!(
-            initialize.get("method").and_then(serde_json::Value::as_str),
-            Some("initialize")
-        );
-        write_message(
-            &mut writer,
-            &json!({
-                "jsonrpc": "2.0",
-                "id": initialize.get("id").cloned().expect("initialize id should exist"),
-                "result": {
-                    "capabilities": {
-                        "documentSymbolProvider": true,
-                    }
-                },
-            }),
-        )
-        .expect("initialize response should write");
-        write_message(
-            &mut writer,
-            &json!({
-                "jsonrpc": "2.0",
-                "id": "register-1",
-                "method": "client/registerCapability",
-                "params": {
-                    "registrations": [{
-                        "id": "watcher",
-                        "method": "workspace/didChangeWatchedFiles",
-                        "registerOptions": {
-                            "watchers": [{"globPattern": "**/*", "kind": 4}]
-                        }
-                    }]
-                }
-            }),
-        )
-        .expect("registerCapability request should write");
-
-        let initialized = read_message(&mut reader)
-            .expect("initialized should parse")
-            .expect("initialized should exist");
-        assert_eq!(
-            initialized
-                .get("method")
-                .and_then(serde_json::Value::as_str),
-            Some("initialized")
-        );
-
-        let register_response = read_message(&mut reader)
-            .expect("register response should parse")
-            .expect("register response should exist");
-        assert_eq!(
-            register_response
-                .get("id")
-                .and_then(serde_json::Value::as_str),
-            Some("register-1")
-        );
-        assert!(register_response.get("result").is_some());
-
-        let shutdown = read_message(&mut reader)
-            .expect("shutdown should parse")
-            .expect("shutdown should exist");
-        assert_eq!(
-            shutdown.get("method").and_then(serde_json::Value::as_str),
-            Some("shutdown")
-        );
-        write_message(
-            &mut writer,
-            &json!({
-                "jsonrpc": "2.0",
-                "id": shutdown.get("id").cloned().expect("shutdown id should exist"),
-                "result": null,
-            }),
-        )
-        .expect("shutdown response should write");
-
-        let exit = read_message(&mut reader)
-            .expect("exit should parse")
-            .expect("exit should exist");
-        assert_eq!(
-            exit.get("method").and_then(serde_json::Value::as_str),
-            Some("exit")
-        );
-    });
-
-    let mut client =
-        LspClient::connect_unix(&socket_path, false, Duration::from_secs(1)).expect("connect");
-    client
-        .initialize("file:///workspace", "workspace", false)
-        .expect("initialize should succeed");
-    client.shutdown().expect("shutdown should succeed");
-
-    server.join().expect("server thread should finish");
-}
-
-#[cfg(unix)]
-#[test]
-fn initialize_advertises_and_returns_workspace_folders() {
-    let dir = TestDir::new("client-init-workspace-folders");
-    let socket_path = dir.path().join("server.sock");
-    let listener = UnixListener::bind(&socket_path).expect("socket should bind");
-
-    let server = thread::spawn(move || {
-        let (stream, _) = listener.accept().expect("client should connect");
-        let reader_stream = stream.try_clone().expect("stream should clone");
-        let mut reader = BufReader::new(reader_stream);
-        let mut writer = stream;
-
-        let initialize = read_message(&mut reader)
-            .expect("initialize should parse")
-            .expect("initialize should exist");
-        let params = initialize
-            .get("params")
-            .cloned()
-            .expect("initialize params should exist");
-        assert_eq!(
-            params
-                .get("capabilities")
-                .and_then(|value| value.get("workspace"))
-                .and_then(|value| value.get("workspaceFolders"))
-                .and_then(serde_json::Value::as_bool),
-            Some(true)
-        );
-        let workspace_folders = params
-            .get("workspaceFolders")
-            .cloned()
-            .expect("workspaceFolders should exist");
-
-        write_message(
-            &mut writer,
-            &json!({
-                "jsonrpc": "2.0",
-                "id": initialize.get("id").cloned().expect("initialize id should exist"),
-                "result": {
-                    "capabilities": {
-                        "documentSymbolProvider": true,
-                    }
-                },
-            }),
-        )
-        .expect("initialize response should write");
-        write_message(
-            &mut writer,
-            &json!({
-                "jsonrpc": "2.0",
-                "id": "folders-1",
-                "method": "workspace/workspaceFolders",
-            }),
-        )
-        .expect("workspaceFolders request should write");
-
-        expect_method(
-            &read_existing_message(
-                &mut reader,
-                "initialized should parse",
-                "initialized should exist",
-            ),
-            "initialized",
-        );
-
-        let workspace_folders_response = read_existing_message(
-            &mut reader,
-            "workspaceFolders response should parse",
-            "workspaceFolders response should exist",
-        );
-        expect_id(&workspace_folders_response, "folders-1");
-        assert_eq!(
-            workspace_folders_response.get("result").cloned(),
-            Some(workspace_folders)
-        );
-
-        let shutdown = read_existing_message(
-            &mut reader,
-            "shutdown should parse",
-            "shutdown should exist",
-        );
-        expect_method(&shutdown, "shutdown");
-        write_message(
-            &mut writer,
-            &json!({
-                "jsonrpc": "2.0",
-                "id": shutdown.get("id").cloned().expect("shutdown id should exist"),
-                "result": null,
-            }),
-        )
-        .expect("shutdown response should write");
-
-        expect_method(
-            &read_existing_message(&mut reader, "exit should parse", "exit should exist"),
-            "exit",
-        );
-    });
-
-    let mut client =
-        LspClient::connect_unix(&socket_path, false, Duration::from_secs(1)).expect("connect");
-    client
-        .initialize("file:///workspace", "workspace", false)
-        .expect("initialize should succeed");
-    client.shutdown().expect("shutdown should succeed");
-
-    server.join().expect("server thread should finish");
 }
 
 #[cfg(unix)]

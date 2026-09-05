@@ -168,6 +168,11 @@ lsp-cli stop-all
 
 The same background daemon is spawned and left idle after `lsp-cli <CMD> --detach` is finished.
 
+A new connection has two seconds to send its first complete message. Silent or
+incomplete connections are closed without interrupting the active client. Up to
+16 connections can wait to start a session; additional connections are closed,
+including `stop` connections while all 16 slots are occupied.
+
 
 ## Configuration Files
 
@@ -246,6 +251,8 @@ detect:
 daemon:
   # Shut down an idle daemon after this much time.
   idle-timeout: "60"
+  # Disconnect an output peer that remains backlogged for this long. Default: 2 seconds.
+  write-stall-timeout: "2"
 
 lsp:
   # Example server preference list for C++.
@@ -258,6 +265,20 @@ lsp:
     - pyright-langserver
     - jedi-language-server
 ```
+
+Each daemon output uses an ordered writer queue. A queue is marked stalled at 64
+messages or 8 MiB of framed data and unmarked after both values fall below those
+limits. The daemon continues accepting messages during the grace period, so memory
+can grow if traffic continues; it disconnects a slow client or stops an unresponsive
+server if the queue stays marked for `write-stall-timeout`. A message larger than
+8 MiB is allowed and begins writing after earlier messages on that output.
+Server restart and shutdown also advance through daemon events. The daemon keeps
+accepting control traffic while a process starts or exits; an unresponsive server
+is force-stopped after the existing two-second shutdown and exit deadlines.
+Daemon traffic, lifecycle, error, and captured-server-stderr logs use a 64-record
+worker queue, so formatting, stderr, and the global log file do not block forwarding.
+New records are dropped when this queue is full, and the daemon reports the count
+after logging resumes. Normal shutdown waits at most 100 milliseconds for logs.
 
 ## Language Configs: filetypes/*.yaml
 

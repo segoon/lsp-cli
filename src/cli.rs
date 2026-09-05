@@ -21,6 +21,7 @@ pub(crate) use resolve::parse_args;
 pub(crate) const DEFAULT_TIMEOUT: Duration = Duration::from_secs(10);
 pub(crate) const DEFAULT_LIMIT: usize = 100;
 pub(crate) const DEFAULT_IDLE_TIMEOUT: Duration = Duration::from_mins(1);
+pub(crate) const DEFAULT_WRITE_STALL_TIMEOUT: Duration = Duration::from_secs(2);
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Command {
@@ -208,6 +209,7 @@ pub struct DaemonArgs {
     pub path: PathBuf,
     pub server: InstallDebugArgs,
     pub idle_timeout: Duration,
+    pub write_stall_timeout: Duration,
 }
 
 #[derive(Debug, Eq, PartialEq)]

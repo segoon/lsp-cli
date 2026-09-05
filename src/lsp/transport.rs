@@ -58,15 +58,21 @@ pub(crate) fn write_message<W>(writer: &mut W, message: &Value) -> Result<()>
 where
     W: Write,
 {
+    let frame = frame_message(message)?;
+    writer
+        .write_all(&frame)
+        .and_then(|()| writer.flush())
+        .map_err(error_fn!(Error::lsp, "failed to write JSON-RPC message"))
+}
+
+pub(crate) fn frame_message(message: &Value) -> Result<Vec<u8>> {
     let body = serde_json::to_vec(message).map_err(error_fn!(
         Error::lsp,
         "failed to serialize JSON-RPC message"
     ))?;
-    writer
-        .write_all(format!("Content-Length: {}\r\n\r\n", body.len()).as_bytes())
-        .and_then(|()| writer.write_all(&body))
-        .and_then(|()| writer.flush())
-        .map_err(error_fn!(Error::lsp, "failed to write JSON-RPC message"))
+    let mut frame = format!("Content-Length: {}\r\n\r\n", body.len()).into_bytes();
+    frame.extend_from_slice(&body);
+    Ok(frame)
 }
 
 pub(crate) fn serialize_debug_message(message: &Value) -> String {

@@ -174,6 +174,7 @@ fn loads_layered_cli_config_with_user_overrides() {
             "  quiet: true\n",
             "daemon:\n",
             "  idle-timeout: 5\n",
+            "  write-stall-timeout: 2.5\n",
             "lsp:\n",
             "  cpp:\n",
             "    - clangd\n",
@@ -189,6 +190,7 @@ fn loads_layered_cli_config_with_user_overrides() {
             "limit: 50\n",
             "daemon:\n",
             "  idle-timeout: 10\n",
+            "  write-stall-timeout: 3\n",
             "lsp:\n",
             "  python:\n",
             "    - ty\n",
@@ -209,6 +211,10 @@ fn loads_layered_cli_config_with_user_overrides() {
     assert_eq!(
         config.daemon.idle_timeout,
         Some(std::time::Duration::from_secs(10))
+    );
+    assert_eq!(
+        config.daemon.write_stall_timeout,
+        Some(std::time::Duration::from_secs(3))
     );
     assert_eq!(
         config.lsp_preferences,

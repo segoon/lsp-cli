@@ -28,7 +28,11 @@ mod rpc;
 mod window;
 
 #[cfg(test)]
+mod test_support;
+#[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_initialization;
 #[cfg(test)]
 mod tests_initialize_stderr;
 #[cfg(test)]

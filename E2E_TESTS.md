@@ -102,8 +102,11 @@ it should contain:
 Prefer equivalent domain concepts and symbol names across projects when natural. Do not force a
 language into constructs it does not support merely to make fixtures textually identical.
 
-Tests copy a project into a temporary directory before formatting it or introducing diagnostics.
-This keeps the repository clean and allows safe parallel execution.
+Tests securely create randomized sandboxes with the `tempfile` crate under the user's
+`XDG_RUNTIME_DIR`, `XDG_CACHE_HOME`, or `$HOME/.cache`, in that order, then copy a project there
+before formatting it or introducing diagnostics. Real test state must not use the ambient system
+`/tmp`. This keeps the repository clean, avoids uncontrolled parent root markers, keeps Unix socket
+paths short, and allows safe parallel execution.
 
 Pros of committed playgrounds: humans can reproduce failures with the same projects. Cons: each
 language fixture must evolve with its toolchain and server ecosystem.

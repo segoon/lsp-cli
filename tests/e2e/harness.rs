@@ -5,6 +5,11 @@ use std::process::{Command, Output};
 
 use tempfile::TempDir;
 
+#[path = "../../src/test_support/temp_root.rs"]
+mod temp_root;
+
+use self::temp_root::test_temp_root;
+
 pub(crate) struct E2eContext {
     _sandbox: TempDir,
     home: PathBuf,
@@ -15,7 +20,11 @@ pub(crate) struct E2eContext {
 
 impl E2eContext {
     pub(crate) fn new() -> io::Result<Self> {
-        let sandbox = tempfile::Builder::new().prefix("lsp-cli-e2e-").tempdir()?;
+        let test_temp_root = test_temp_root()?;
+        fs::create_dir_all(&test_temp_root)?;
+        let sandbox = tempfile::Builder::new()
+            .prefix("lsp-cli-e2e-")
+            .tempdir_in(test_temp_root)?;
         let home = sandbox.path().join("home");
         let config_home = sandbox.path().join("config");
         let runtime_dir = sandbox.path().join("runtime");

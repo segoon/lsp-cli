@@ -20,7 +20,7 @@ impl Fixture {
         let dir = TestDir::new("daemon-session");
         let target = tests::daemon_target(&dir);
         let mut events = EventQueue::new();
-        let upstream = fake_upstream(&mut events);
+        let (upstream, process) = fake_upstream(&mut events);
         let (socket, peer) = UnixStream::pair().expect("client pair");
         peer.set_read_timeout(Some(TIMEOUT)).expect("read timeout");
         let client = ClientSession::new(socket, &mut events, None).expect("client");
@@ -34,6 +34,9 @@ impl Fixture {
                 idle_timeout: TIMEOUT,
                 write_stall_timeout: TIMEOUT,
                 upstream: Some(upstream),
+                process: Some(process),
+                lifecycle: LifecycleState::Running,
+                pending_initialize: None,
                 active_client: Some(client),
                 pending_connections: BTreeMap::new(),
                 orphaned_client_requests: BTreeSet::new(),
@@ -149,8 +152,8 @@ impl Fixture {
     }
 }
 
-fn fake_upstream(events: &mut EventQueue) -> UpstreamServer {
-    let mut child = with_env_vars(&[], || {
+fn fake_upstream(events: &mut EventQueue) -> (UpstreamServer, ProcessWorker) {
+    let child = with_env_vars(&[], || {
         Command::new("python3")
             .arg(concat!(
                 env!("CARGO_MANIFEST_DIR"),
@@ -163,25 +166,10 @@ fn fake_upstream(events: &mut EventQueue) -> UpstreamServer {
             .spawn()
             .expect("fake server")
     });
-    let stdin = child.stdin.take().expect("stdin");
-    let stdout = child.stdout.take().expect("stdout");
-    let stderr = CapturedStderr::spawn(child.stderr.take().expect("stderr"), false);
     let generation = events.next_generation().expect("upstream generation");
-    let reader =
-        ReaderWorker::spawn(stdout, Source::Upstream(generation), events).expect("upstream reader");
-    let writer =
-        WriterWorker::spawn(stdin, Source::Upstream(generation), events).expect("upstream writer");
-    UpstreamServer {
-        child,
-        writer,
-        stderr,
-        generation,
-        reader,
-        initialize_fingerprint: None,
-        initialize_result: None,
-        restart_required: false,
-        background_work: BackgroundWorkTracker::default(),
-    }
+    let (process, io) = ProcessWorker::adopt(child, generation, events);
+    let upstream = UpstreamServer::from_io(io, generation, false, events).expect("upstream");
+    (upstream, process)
 }
 
 #[test]
@@ -229,7 +217,11 @@ fn stale_generations_cannot_modify_replacement_sessions() {
         .generation;
     fixture.replace_client();
     fixture.daemon.upstream.take();
-    fixture.daemon.upstream = Some(fake_upstream(&mut fixture.daemon.events));
+    fixture.daemon.process.take();
+    let (upstream, process) = fake_upstream(&mut fixture.daemon.events);
+    fixture.daemon.upstream = Some(upstream);
+    fixture.daemon.process = Some(process);
+    fixture.daemon.lifecycle = LifecycleState::Running;
     let client = fixture
         .daemon
         .active_client
@@ -276,20 +268,33 @@ fn stale_generations_cannot_modify_replacement_sessions() {
 }
 
 #[test]
-fn shutdown_preserves_unrelated_client_message_for_dispatch() {
+fn shutdown_keeps_dispatching_unrelated_client_messages() {
     let mut fixture = Fixture::new();
     fixture.initialize(false);
     fixture.send(&json!({"jsonrpc": "2.0", "method": "exit"}));
     fixture
         .daemon
-        .shutdown_upstream()
-        .expect("shutdown reply through event queue");
-    assert!(fixture.daemon.upstream.is_none());
-    fixture.step();
+        .begin_stop()
+        .expect("begin event-driven stop");
+    for _ in 0..20 {
+        if fixture.daemon.lifecycle == LifecycleState::Stopped {
+            break;
+        }
+        fixture.step();
+    }
     assert!(
         fixture.daemon.active_client.is_none(),
         "queued client exit was preserved"
     );
+}
+
+#[test]
+fn idle_deadline_does_not_discard_shutdown_events() {
+    let mut fixture = Fixture::new();
+    fixture.daemon.disconnect_client().expect("disconnect");
+    fixture.daemon.idle_timeout = Duration::ZERO;
+    fixture.daemon.begin_stop().expect("begin stop");
+    assert!(!fixture.daemon.idle_stop_due());
 }
 
 #[test]
@@ -354,7 +359,10 @@ fn dropping_stopped_daemon_preserves_replacement_socket() {
     daemon.accept_worker =
         Some(AcceptWorker::spawn(listener, &path, &daemon.events).expect("accept worker"));
     daemon.upstream.take();
-    daemon.stop().expect("stop removes owned socket");
+    daemon.process.take();
+    daemon.lifecycle = LifecycleState::Absent;
+    daemon.begin_stop().expect("begin stop");
+    daemon.finish_stop().expect("stop removes owned socket");
     let _replacement = UnixListener::bind(&path).expect("replacement listener");
     // Explicit teardown reproduces another daemon binding between normal stop and destruction.
     drop(daemon);

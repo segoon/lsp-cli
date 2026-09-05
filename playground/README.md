@@ -67,7 +67,8 @@ the coordinator. An output is flagged at 64 queued messages or 8 MiB of framed d
 it is unflagged after both values fall below their limits, or disconnected after the
 configured `daemon.write-stall-timeout` (two seconds by default). Messages continue
 to queue during that grace period, so memory use can temporarily exceed both limits.
-Logging and process-exit waits still run synchronously. These measurements describe an immediate-reply fixture, not a
+Process start, shutdown, exit monitoring, and reaping run through a lifecycle worker;
+logging remains synchronous. These measurements describe an immediate-reply fixture, not a
 latency guarantee for real language servers or stalled peers.
 
 The Lua playground exercises discovery of the local `normalize_timestamp` function,

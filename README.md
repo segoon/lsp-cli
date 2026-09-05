@@ -272,6 +272,9 @@ limits. The daemon continues accepting messages during the grace period, so memo
 can grow if traffic continues; it disconnects a slow client or stops an unresponsive
 server if the queue stays marked for `write-stall-timeout`. A message larger than
 8 MiB is allowed and begins writing after earlier messages on that output.
+Server restart and shutdown also advance through daemon events. The daemon keeps
+accepting control traffic while a process starts or exits; an unresponsive server
+is force-stopped after the existing two-second shutdown and exit deadlines.
 
 ## Language Configs: filetypes/*.yaml
 

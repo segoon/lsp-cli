@@ -71,49 +71,6 @@ fn reader_admission_preserves_order_and_opposite_direction_opportunities() {
 }
 
 #[test]
-fn shutdown_defers_other_sources_without_releasing_admission() {
-    let client = Source::Client(1);
-    let upstream = Source::Upstream(2);
-    let retired = Source::Upstream(0);
-    let mut fixture = Fixture::new(&[client, upstream, retired]);
-    fixture.send(0, &json!("first"));
-    // Synchronize publication before queuing the next source, retaining FIFO order.
-    let first = fixture.receive();
-    fixture.send(2, &json!("stale"));
-    let stale = fixture.receive();
-    fixture
-        .events
-        .sender
-        .send(first)
-        .expect("restore first delivery");
-    fixture
-        .events
-        .sender
-        .send(stale)
-        .expect("restore stale delivery");
-    assert!(matches!(
-        fixture
-            .events
-            .receive_upstream(2, Duration::from_millis(20)),
-        Err(RecvTimeoutError::Timeout)
-    ));
-    assert_eq!(fixture.events.deferred.len(), 2);
-    fixture.send(0, &json!("second"));
-    fixture.send(1, &json!({"id": "shutdown", "result": null}));
-    assert!(matches!(
-        fixture.events.receive_upstream(2, TIMEOUT),
-        Ok(UpstreamEvent::Reader(ReaderEvent::Message(_)))
-    ));
-    assert!(matches!(
-        fixture.events.receiver.try_recv(),
-        Err(mpsc::TryRecvError::Empty)
-    ));
-    assert_eq!(message(fixture.receive(), client), json!("first"));
-    assert_eq!(message(fixture.receive(), retired), json!("stale"));
-    assert_eq!(message(fixture.receive(), client), json!("second"));
-}
-
-#[test]
 fn cancellation_releases_unacknowledged_reader() {
     let mut fixture = Fixture::new(&[Source::Client(1)]);
     fixture.send(0, &json!(1));

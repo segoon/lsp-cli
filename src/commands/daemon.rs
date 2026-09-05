@@ -4,7 +4,7 @@ use crate::error::{Error, Result, error_fn};
 use crate::lsp::transport::{log_debug_message, write_message};
 use crate::lsp::{jsonrpc, parse_lsp_uri};
 use crate::server_stderr::CapturedStderr;
-use crate::system_log::{log_lsp_server_exit, log_unexpected_error};
+use crate::system_log::log_unexpected_error;
 use lsp_types::notification::{Cancel, DidCloseTextDocument, Notification};
 use lsp_types::{CancelParams, DidCloseTextDocumentParams, NumberOrString, TextDocumentIdentifier};
 use serde_json::Value;
@@ -14,7 +14,6 @@ use std::io::ErrorKind;
 use std::os::unix::net::UnixStream;
 use std::path::Path;
 use std::path::PathBuf;
-use std::process::Child;
 use std::sync::mpsc::RecvTimeoutError;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -22,7 +21,10 @@ use std::time::{Duration, Instant};
 mod connections;
 mod events;
 mod forwarding;
+mod lifecycle;
+mod outputs;
 mod process;
+mod process_worker;
 mod protocol;
 mod socket_reader;
 mod writer;
@@ -35,11 +37,12 @@ mod tests;
 use connections::PendingConnection;
 use events::{AcceptWorker, Event, EventQueue, ReaderWorker, Source};
 use process::{bind_listener, launch_background, resolve_target, run_background};
+use process_worker::ProcessWorker;
 use protocol::{
     BackgroundWorkTracker, ReaderEvent, error_response, read_control_message, request_id_from_key,
     response_id, stop_request, stop_request_id,
 };
-use writer::{WriteId, WriterEvent, WriterWorker};
+use writer::{WriteId, WriterWorker};
 
 const BACKGROUND_ENV: &str = "LSP_CLI_DAEMON_BACKGROUND";
 const POLL_INTERVAL: Duration = Duration::from_millis(25);
@@ -50,6 +53,7 @@ const UPSTREAM_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);
 const SERVER_NOT_INITIALIZED: i64 = -32002;
 const INVALID_REQUEST: i64 = -32600;
 const REQUEST_CANCELLED: i64 = -32800;
+const INTERNAL_ERROR: i64 = -32603;
 
 pub(super) fn run(args: &DaemonArgs, config: &ConfigStore) -> Result<String> {
     let target = resolve_target(args, config)?;
@@ -182,6 +186,9 @@ struct Daemon {
     idle_timeout: Duration,
     write_stall_timeout: Duration,
     upstream: Option<UpstreamServer>,
+    process: Option<ProcessWorker>,
+    lifecycle: LifecycleState,
+    pending_initialize: Option<PendingInitialize>,
     active_client: Option<ClientSession>,
     pending_connections: BTreeMap<u64, PendingConnection>,
     orphaned_client_requests: BTreeSet<String>,
@@ -190,11 +197,10 @@ struct Daemon {
 }
 
 struct UpstreamServer {
-    child: Child,
     writer: WriterWorker,
     stderr: CapturedStderr,
     generation: u64,
-    reader: ReaderWorker,
+    _reader: ReaderWorker,
     initialize_fingerprint: Option<String>,
     initialize_result: Option<Value>,
     restart_required: bool,
@@ -211,14 +217,61 @@ struct ClientSession {
     pending_server_requests: BTreeMap<String, Value>,
     open_documents: BTreeSet<String>,
     stop_after_write: Option<WriteId>,
+    disconnect_after_write: Option<WriteId>,
 }
 
 #[derive(Clone, Copy)]
 enum ClientPhase {
     WaitingForInitialize,
+    WaitingForUpstream,
     WaitingForInitialized { forward_to_upstream: bool },
     Ready,
     WaitingForExit,
+}
+
+struct PendingInitialize {
+    request_id: Value,
+    normalized: Value,
+    fingerprint: String,
+    wants_background_work: bool,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum AfterExit {
+    Restart,
+    Stop,
+    Absent,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum LifecycleState {
+    Starting {
+        generation: u64,
+        initial: bool,
+    },
+    Running,
+    AwaitingShutdownReply {
+        generation: u64,
+        deadline: Instant,
+        after: AfterExit,
+    },
+    AwaitingExitWrite {
+        generation: u64,
+        write_id: WriteId,
+        deadline: Instant,
+        after: AfterExit,
+    },
+    AwaitingExit {
+        generation: u64,
+        deadline: Instant,
+        after: AfterExit,
+    },
+    Killing {
+        generation: u64,
+        after: AfterExit,
+    },
+    Absent,
+    Stopped,
 }
 
 impl Daemon {
@@ -238,17 +291,17 @@ impl Daemon {
             idle_timeout,
             write_stall_timeout,
             upstream: None,
+            process: None,
+            lifecycle: LifecycleState::Absent,
+            pending_initialize: None,
             active_client: None,
             pending_connections: BTreeMap::new(),
             orphaned_client_requests: BTreeSet::new(),
             idle_since: Instant::now(),
             stop_requested: false,
         };
-        daemon.upstream = Some(UpstreamServer::spawn(
-            &daemon.target,
-            debug,
-            &mut daemon.events,
-        )?);
+        daemon.start_upstream(true)?;
+        daemon.wait_for_initial_upstream()?;
         daemon.accept_worker = Some(AcceptWorker::spawn(
             listener,
             &daemon.target.socket_path,
@@ -262,17 +315,22 @@ impl Daemon {
             let now = Instant::now();
             self.expire_pending_connections(now);
             self.expire_stalled_outputs(now)?;
-            if self.stop_requested || self.idle_expired() {
-                return self.stop();
+            self.advance_lifecycle_deadline(now);
+            if (self.stop_requested && !self.lifecycle.is_stopping()) || self.idle_stop_due() {
+                self.begin_stop()?;
+            }
+            if self.lifecycle == LifecycleState::Stopped {
+                return self.finish_stop();
             }
             let timeout = self.next_event_timeout(Instant::now());
             match self.events.receive(timeout) {
                 Ok(event) => {
-                    if self.idle_expired() {
+                    if self.idle_stop_due() {
                         // A received event may coincide with the deadline. Release its producer
                         // before shutdown starts consuming upstream events from the same queue.
                         let _ = event.acknowledge.send(());
-                        return self.stop();
+                        self.begin_stop()?;
+                        continue;
                     }
                     let result = self.dispatch(event.event);
                     // Release admission even when dispatch fails; cancellation handles retired readers.
@@ -291,6 +349,10 @@ impl Daemon {
 
     fn idle_expired(&self) -> bool {
         self.active_client.is_none() && self.idle_since.elapsed() >= self.idle_timeout
+    }
+
+    fn idle_stop_due(&self) -> bool {
+        self.idle_expired() && !self.lifecycle.is_stopping()
     }
 
     fn dispatch(&mut self, event: Event) -> Result<()> {
@@ -319,10 +381,14 @@ impl Daemon {
                     .is_some_and(|upstream| upstream.generation == generation) =>
             {
                 match event {
-                    ReaderEvent::Message(message) => self.handle_upstream_message(&message)?,
-                    ReaderEvent::EndOfStream => self.upstream_died(),
+                    ReaderEvent::Message(message) => {
+                        if !self.handle_lifecycle_message(&message)? {
+                            self.handle_upstream_message(&message)?;
+                        }
+                    }
+                    ReaderEvent::EndOfStream => self.upstream_failed(),
                     ReaderEvent::Error(error) => {
-                        self.upstream_died();
+                        self.upstream_failed();
                         let error = format!("failed to read LSP server message: {error}");
                         log_unexpected_error(&error);
                         return Err(Error::unexpected(error));
@@ -347,6 +413,7 @@ impl Daemon {
                 }
             }
             Event::Writer(source, event) => self.handle_writer_event(source, event)?,
+            Event::Process(generation, event) => self.handle_process_event(generation, event)?,
             // Retired workers can still publish a final event while cancellation races with I/O.
             Event::Reader(_, _) => {}
         }
@@ -392,12 +459,7 @@ impl Daemon {
                 .as_ref()
                 .is_some_and(|upstream| upstream.restart_required)
         {
-            self.shutdown_upstream()?;
-            self.upstream = Some(UpstreamServer::spawn(
-                &self.target,
-                self.debug,
-                &mut self.events,
-            )?);
+            self.begin_restart()?;
         }
 
         self.idle_since = Instant::now();
@@ -431,112 +493,7 @@ impl Daemon {
             .map_err(error_fn!(Error::lsp, "failed to queue LSP server message"))
     }
 
-    fn handle_writer_event(&mut self, source: Source, event: WriterEvent) -> Result<()> {
-        match (source, event) {
-            (Source::Client(generation), WriterEvent::Completed { id, completed_at }) => {
-                if let Some(pending) = self.pending_connections.get_mut(&generation) {
-                    pending.client.writer.refresh_flag(completed_at);
-                    if pending.close_after_write == Some(id) {
-                        let stop = pending.stop_after_write;
-                        self.pending_connections.remove(&generation);
-                        self.stop_requested |= stop;
-                    }
-                } else if let Some(client) = self.active_client.as_mut()
-                    && client.generation == generation
-                {
-                    client.writer.refresh_flag(completed_at);
-                    if client.stop_after_write == Some(id) {
-                        self.stop_requested = true;
-                    }
-                }
-            }
-            (Source::Client(generation), WriterEvent::Failed { id, error }) => {
-                log_unexpected_error(&format!(
-                    "daemon client output failed while writing message {id}: {error}"
-                ));
-                if self.pending_connections.remove(&generation).is_none()
-                    && self
-                        .active_client
-                        .as_ref()
-                        .is_some_and(|client| client.generation == generation)
-                {
-                    self.disconnect_client()?;
-                }
-            }
-            (Source::Upstream(generation), WriterEvent::Completed { completed_at, .. }) => {
-                if let Some(upstream) = self.upstream.as_mut()
-                    && upstream.generation == generation
-                {
-                    upstream.writer.refresh_flag(completed_at);
-                }
-            }
-            (Source::Upstream(generation), WriterEvent::Failed { id, error }) => {
-                if self
-                    .upstream
-                    .as_ref()
-                    .is_some_and(|upstream| upstream.generation == generation)
-                {
-                    log_unexpected_error(&format!(
-                        "LSP server stopped accepting message {id}: {error}"
-                    ));
-                    self.upstream_died();
-                }
-            }
-        }
-        Ok(())
-    }
-
-    fn expire_stalled_outputs(&mut self, now: Instant) -> Result<()> {
-        let stalled_pending: Vec<_> = self
-            .pending_connections
-            .iter_mut()
-            .filter_map(|(generation, pending)| {
-                pending
-                    .client
-                    .writer
-                    .timed_out(now, self.write_stall_timeout)
-                    .then_some(*generation)
-            })
-            .collect();
-        for generation in stalled_pending {
-            self.pending_connections.remove(&generation);
-        }
-        if self
-            .active_client
-            .as_mut()
-            .is_some_and(|client| client.writer.timed_out(now, self.write_stall_timeout))
-        {
-            log_unexpected_error(
-                "daemon client was disconnected because it stopped reading output",
-            );
-            self.disconnect_client()?;
-        }
-        if self
-            .upstream
-            .as_mut()
-            .is_some_and(|upstream| upstream.writer.timed_out(now, self.write_stall_timeout))
-        {
-            log_unexpected_error("LSP server was stopped because it stopped reading daemon output");
-            self.upstream_died();
-        }
-        Ok(())
-    }
-
-    fn shutdown_upstream(&mut self) -> Result<()> {
-        if let Some(mut upstream) = self.upstream.take() {
-            upstream.shutdown(self.debug, &mut self.events)?;
-        }
-        self.orphaned_client_requests.clear();
-        Ok(())
-    }
-
-    fn stop(&mut self) -> Result<()> {
-        self.stop_requested = true;
-        // Stop accepting before unlinking the socket, so the wakeup still reaches our listener.
-        self.accept_worker.take();
-        self.pending_connections.clear();
-        self.disconnect_client()?;
-        self.shutdown_upstream()?;
+    fn finish_stop(&mut self) -> Result<()> {
         match fs::remove_file(&self.target.socket_path) {
             Ok(()) => self.socket_owned = false,
             Err(error) if error.kind() == ErrorKind::NotFound => self.socket_owned = false,
@@ -547,33 +504,6 @@ impl Daemon {
         }
         Ok(())
     }
-
-    fn restart_upstream(&mut self) -> Result<()> {
-        self.shutdown_upstream()?;
-        self.upstream = Some(UpstreamServer::spawn(
-            &self.target,
-            self.debug,
-            &mut self.events,
-        )?);
-        Ok(())
-    }
-
-    fn upstream_died(&mut self) {
-        if let Some(mut upstream) = self.upstream.take() {
-            let _ = upstream.stderr.summary();
-            match upstream.child.try_wait() {
-                Ok(Some(status)) => log_lsp_server_exit(status),
-                Ok(None) => {}
-                Err(error) => {
-                    log_unexpected_error(&format!("failed to inspect LSP server process: {error}"));
-                }
-            }
-        }
-        self.upstream = None;
-        self.active_client = None;
-        self.orphaned_client_requests.clear();
-        self.idle_since = Instant::now();
-    }
 }
 
 impl Drop for Daemon {
@@ -583,6 +513,7 @@ impl Drop for Daemon {
         self.pending_connections.clear();
         self.active_client.take();
         self.upstream.take();
+        self.process.take();
         // Normal stop already unlinked our socket; a replacement daemon may own that path now.
         if self.socket_owned {
             let _ = fs::remove_file(&self.target.socket_path);

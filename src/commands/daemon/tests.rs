@@ -266,10 +266,8 @@ fn stop_socket_returns_not_running_when_socket_is_missing() {
 }
 
 fn window_fixture() -> (super::Daemon, UnixStream, TestDir) {
-    use super::events::{EventQueue, ReaderWorker, Source};
-    use super::writer::WriterWorker;
+    use super::events::EventQueue;
     use super::{ClientPhase, ClientSession, Daemon, UpstreamServer};
-    use crate::server_stderr::CapturedStderr;
     use std::collections::{BTreeMap, BTreeSet};
     use std::process::{Command, Stdio};
     use std::time::{Duration, Instant};
@@ -278,36 +276,15 @@ fn window_fixture() -> (super::Daemon, UnixStream, TestDir) {
     let target = daemon_target(&dir);
     let mut events = EventQueue::new();
     // Echo upstream bytes so the test can inspect forwarding without a real LSP.
-    let mut child = Command::new("/bin/cat")
+    let child = Command::new("/bin/cat")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
         .expect("start echo process");
     let generation = events.next_generation().expect("generation");
-    let reader = ReaderWorker::spawn(
-        child.stdout.take().expect("stdout"),
-        Source::Upstream(generation),
-        &events,
-    )
-    .expect("reader");
-    let writer = WriterWorker::spawn(
-        child.stdin.take().expect("stdin"),
-        Source::Upstream(generation),
-        &events,
-    )
-    .expect("writer");
-    let upstream = UpstreamServer {
-        writer,
-        reader,
-        generation,
-        stderr: CapturedStderr::spawn(child.stderr.take().expect("stderr"), false),
-        child,
-        initialize_fingerprint: None,
-        initialize_result: None,
-        restart_required: false,
-        background_work: BackgroundWorkTracker::default(),
-    };
+    let (process, io) = super::ProcessWorker::adopt(child, generation, &events);
+    let upstream = UpstreamServer::from_io(io, generation, false, &events).expect("upstream");
     let (client, proxy) = UnixStream::pair().expect("client socket pair");
     client
         .set_read_timeout(Some(Duration::from_secs(3)))
@@ -323,6 +300,9 @@ fn window_fixture() -> (super::Daemon, UnixStream, TestDir) {
         idle_timeout: Duration::from_secs(60),
         write_stall_timeout: Duration::from_secs(2),
         upstream: Some(upstream),
+        process: Some(process),
+        lifecycle: super::LifecycleState::Running,
+        pending_initialize: None,
         active_client: Some(session),
         pending_connections: BTreeMap::new(),
         orphaned_client_requests: BTreeSet::new(),
@@ -406,8 +386,91 @@ fn forwards_multiple_requests_and_out_of_order_responses() {
             .forwarded_client_requests
             .is_empty()
     );
-    // Child handles do not stop/reap processes automatically; finish the echo helper.
-    let upstream = daemon.upstream.as_mut().expect("upstream");
-    upstream.child.kill().expect("stop echo process");
-    upstream.child.wait().expect("reap echo process");
+    daemon.upstream_failed();
+    while daemon.lifecycle != super::LifecycleState::Absent {
+        let delivery = daemon
+            .events
+            .receive(Some(Duration::from_secs(3)))
+            .expect("process exit");
+        daemon
+            .dispatch(delivery.event)
+            .expect("dispatch process exit");
+        let _ = delivery.acknowledge.send(());
+    }
+}
+
+#[test]
+fn shutdown_deadline_forces_process_exit_without_blocking_dispatch() {
+    use std::time::{Duration, Instant};
+
+    let (mut daemon, _client, _dir) = window_fixture();
+    daemon
+        .upstream
+        .as_mut()
+        .expect("upstream")
+        .initialize_fingerprint = Some("initialized".into());
+    daemon.begin_stop().expect("begin stop");
+    assert!(matches!(
+        daemon.lifecycle,
+        super::LifecycleState::AwaitingShutdownReply { .. }
+    ));
+    daemon.advance_lifecycle_deadline(Instant::now() + Duration::from_secs(3));
+    assert!(matches!(
+        daemon.lifecycle,
+        super::LifecycleState::Killing { .. }
+    ));
+    while daemon.lifecycle != super::LifecycleState::Stopped {
+        let delivery = daemon
+            .events
+            .receive(Some(Duration::from_secs(3)))
+            .expect("lifecycle event");
+        daemon.dispatch(delivery.event).expect("dispatch lifecycle");
+        let _ = delivery.acknowledge.send(());
+    }
+}
+
+#[test]
+fn replacement_start_failure_replies_and_keeps_daemon_available() {
+    use super::process_worker::ProcessEvent;
+    use std::time::Duration;
+
+    let (mut daemon, client, _dir) = window_fixture();
+    let generation = daemon.process.as_ref().expect("process").generation();
+    daemon.upstream.take();
+    daemon.lifecycle = super::LifecycleState::Starting {
+        generation,
+        initial: false,
+    };
+    daemon.pending_initialize = Some(super::PendingInitialize {
+        request_id: json!(42),
+        normalized: json!({}),
+        fingerprint: "replacement".into(),
+        wants_background_work: false,
+    });
+    daemon
+        .handle_process_event(generation, ProcessEvent::StartFailed("not found".into()))
+        .expect("handle start failure");
+
+    let mut reader = BufReader::new(client);
+    let response = read_message(&mut reader)
+        .expect("read failure response")
+        .expect("failure response");
+    assert_eq!(response["id"], 42);
+    assert_eq!(response["error"]["code"], super::INTERNAL_ERROR);
+    assert!(
+        response["error"]["message"]
+            .as_str()
+            .expect("message")
+            .contains("failed to start LSP server")
+    );
+
+    while daemon.active_client.is_some() {
+        let delivery = daemon
+            .events
+            .receive(Some(Duration::from_secs(3)))
+            .expect("client close event");
+        daemon.dispatch(delivery.event).expect("dispatch close");
+        let _ = delivery.acknowledge.send(());
+    }
+    assert_eq!(daemon.lifecycle, super::LifecycleState::Absent);
 }

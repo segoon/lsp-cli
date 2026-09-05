@@ -96,6 +96,7 @@ impl Daemon {
             .map(|pending| pending.deadline.saturating_duration_since(now))
             .chain(idle)
             .chain(output_deadlines.map(|deadline| deadline.saturating_duration_since(now)))
+            .chain(self.lifecycle_timeout(now))
             .min()
     }
 

@@ -3,7 +3,9 @@ use super::protocol::{
     normalize_initialize_params, request_id, response_id, stop_request_id, success_response,
     update_background_work_tracker, wants_background_work,
 };
-use super::{ClientPhase, Daemon, INVALID_REQUEST, SERVER_NOT_INITIALIZED};
+use super::{
+    ClientPhase, Daemon, INTERNAL_ERROR, INVALID_REQUEST, PendingInitialize, SERVER_NOT_INITIALIZED,
+};
 use crate::error::{Error, Result};
 use crate::lsp::transport::log_debug_message;
 use crate::lsp::{STOP_METHOD, jsonrpc};
@@ -77,6 +79,9 @@ impl Daemon {
 
                 return Ok(());
             }
+            Some(ClientPhase::WaitingForUpstream) => {
+                return self.handle_waiting_for_upstream(message, method, request_id);
+            }
             Some(ClientPhase::WaitingForExit) => {
                 if method == Some("exit") {
                     self.disconnect_client()?;
@@ -117,6 +122,28 @@ impl Daemon {
         self.write_upstream_message(message)
     }
 
+    fn handle_waiting_for_upstream(
+        &mut self,
+        message: &Value,
+        method: Option<&str>,
+        request_id: Option<Value>,
+    ) -> Result<()> {
+        if stop_request_id(message).is_some() {
+            return self.handle_stop_request(message);
+        }
+        if method == Some("exit") {
+            return self.disconnect_client();
+        }
+        if let Some(request_id) = request_id {
+            return self.write_client_response(&error_response(
+                &request_id,
+                SERVER_NOT_INITIALIZED,
+                "daemon is waiting for the LSP server to restart",
+            ));
+        }
+        Ok(())
+    }
+
     fn handle_initialize_request(&mut self, message: &Value) -> Result<()> {
         let Some(request_id) = request_id(message) else {
             return Ok(());
@@ -140,7 +167,17 @@ impl Daemon {
         };
 
         if should_restart {
-            self.restart_upstream()?;
+            self.pending_initialize = Some(PendingInitialize {
+                request_id,
+                normalized,
+                fingerprint,
+                wants_background_work,
+            });
+            if let Some(client) = self.active_client.as_mut() {
+                client.phase = ClientPhase::WaitingForUpstream;
+            }
+            self.begin_restart()?;
+            return Ok(());
         }
 
         if self
@@ -166,19 +203,58 @@ impl Daemon {
             return Ok(());
         }
 
+        self.forward_initialize(PendingInitialize {
+            request_id,
+            normalized,
+            fingerprint,
+            wants_background_work,
+        })
+    }
+
+    pub(super) fn resume_pending_initialize(&mut self) -> Result<()> {
+        let Some(initialize) = self.pending_initialize.take() else {
+            return Ok(());
+        };
+        if self.active_client.is_none() {
+            return Ok(());
+        }
+        self.forward_initialize(initialize)
+    }
+
+    fn forward_initialize(&mut self, initialize: PendingInitialize) -> Result<()> {
         let Some(upstream) = self.upstream.as_mut() else {
             return Err(Error::unexpected("daemon failed to start LSP server"));
         };
-        upstream.initialize_fingerprint = Some(fingerprint);
-
-        let forwarded = jsonrpc(Some(request_id.clone()), Initialize::METHOD, &normalized)?;
+        upstream.initialize_fingerprint = Some(initialize.fingerprint);
+        let forwarded = jsonrpc(
+            Some(initialize.request_id.clone()),
+            Initialize::METHOD,
+            &initialize.normalized,
+        )?;
         self.write_upstream_message(&forwarded)?;
         if let Some(client) = self.active_client.as_mut() {
-            client.wants_background_work = wants_background_work;
+            client.wants_background_work = initialize.wants_background_work;
             client.phase = ClientPhase::WaitingForInitialized {
                 forward_to_upstream: true,
             };
-            client.forwarded_client_requests.insert(id_key(&request_id));
+            client
+                .forwarded_client_requests
+                .insert(id_key(&initialize.request_id));
+        }
+        Ok(())
+    }
+
+    pub(super) fn fail_pending_initialize(&mut self, message: &str) -> Result<()> {
+        let Some(initialize) = self.pending_initialize.take() else {
+            return Ok(());
+        };
+        let response = error_response(&initialize.request_id, INTERNAL_ERROR, message);
+        let Some(write_id) = self.enqueue_client_response(&response)? else {
+            return Ok(());
+        };
+        if let Some(client) = self.active_client.as_mut() {
+            client.phase = ClientPhase::WaitingForExit;
+            client.disconnect_after_write = Some(write_id);
         }
         Ok(())
     }

@@ -4,7 +4,6 @@ use crate::error::{Error, Result};
 use crate::lsp::transport::read_message;
 use crate::system_log::log_unexpected_error;
 use serde_json::Value;
-use std::collections::VecDeque;
 use std::io::{BufReader, Read};
 use std::net::Shutdown;
 use std::os::unix::net::{UnixListener, UnixStream};
@@ -29,11 +28,7 @@ pub(super) enum Event {
     AcceptError(String),
     Reader(Source, ReaderEvent),
     Writer(Source, super::writer::WriterEvent),
-}
-
-pub(super) enum UpstreamEvent {
-    Reader(ReaderEvent),
-    Writer(super::writer::WriterEvent),
+    Process(u64, super::process_worker::ProcessEvent),
 }
 
 pub(super) struct Delivery {
@@ -44,7 +39,6 @@ pub(super) struct Delivery {
 pub(super) struct EventQueue {
     sender: Sender<Delivery>,
     receiver: Receiver<Delivery>,
-    deferred: VecDeque<Delivery>,
     generation: u64,
 }
 
@@ -54,7 +48,6 @@ impl EventQueue {
         Self {
             sender,
             receiver,
-            deferred: VecDeque::new(),
             generation: 0,
         }
     }
@@ -85,47 +78,12 @@ impl EventQueue {
         &mut self,
         timeout: Option<Duration>,
     ) -> std::result::Result<Delivery, RecvTimeoutError> {
-        if let Some(event) = self.deferred.pop_front() {
-            return Ok(event);
-        }
         match timeout {
             Some(timeout) => self.receiver.recv_timeout(timeout),
             None => self
                 .receiver
                 .recv()
                 .map_err(|_| RecvTimeoutError::Disconnected),
-        }
-    }
-
-    pub(super) fn receive_upstream(
-        &mut self,
-        generation: u64,
-        timeout: Duration,
-    ) -> std::result::Result<UpstreamEvent, RecvTimeoutError> {
-        let started = Instant::now();
-        loop {
-            let remaining = timeout
-                .checked_sub(started.elapsed())
-                .ok_or(RecvTimeoutError::Timeout)?;
-            let delivery = self.receiver.recv_timeout(remaining)?;
-            match delivery.event {
-                Event::Reader(Source::Upstream(id), event) if id == generation => {
-                    let _ = delivery.acknowledge.send(());
-                    return Ok(UpstreamEvent::Reader(event));
-                }
-                Event::Writer(Source::Upstream(id), event) if id == generation => {
-                    let _ = delivery.acknowledge.send(());
-                    return Ok(UpstreamEvent::Writer(event));
-                }
-                event => {
-                    // Withhold admission while shutdown is synchronous. At most one event per
-                    // other producer can be deferred, and normal dispatch retains their order.
-                    self.deferred.push_back(Delivery {
-                        event,
-                        acknowledge: delivery.acknowledge,
-                    });
-                }
-            }
         }
     }
 }

@@ -1,7 +1,7 @@
-use super::super::ClientPhase;
 use super::super::events::{Event, Source};
 use super::super::protocol::stop_request;
 use super::super::session_tests::Fixture;
+use super::super::{ClientPhase, LifecycleState};
 use super::*;
 use crate::lsp::transport::read_message;
 use crate::lsp::transport::write_message;
@@ -411,7 +411,8 @@ fn stop_and_error_teardown_close_all_pending_readers() {
             .write_all(b"Content-Len")
             .expect("partial header");
         if normal_stop {
-            fixture.daemon.stop().expect("normal stop");
+            fixture.daemon.begin_stop().expect("begin normal stop");
+            fixture.pump_until(|daemon| daemon.lifecycle == LifecycleState::Stopped);
             assert!(fixture.daemon.pending_connections.is_empty());
         }
         // Explicit destruction also exercises error-exit cleanup with live pending readers.

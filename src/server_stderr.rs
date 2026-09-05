@@ -61,6 +61,16 @@ impl CapturedStderr {
             state = result.0;
         }
 
+        Self::format_summary(&state)
+    }
+
+    pub(crate) fn summary_now(&self) -> Option<String> {
+        let (lock, _) = &*self.state;
+        let state = lock.lock().unwrap_or_else(PoisonError::into_inner);
+        Self::format_summary(&state)
+    }
+
+    fn format_summary(state: &StderrState) -> Option<String> {
         let stderr = String::from_utf8_lossy(&state.tail.iter().copied().collect::<Vec<_>>())
             .split_whitespace()
             .collect::<Vec<_>>()

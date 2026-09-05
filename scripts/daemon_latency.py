@@ -40,6 +40,7 @@ def write_message(writer, message):
 
 
 def serve():
+    hang_shutdown = False
     while message := read_message(sys.stdin.buffer):
         method = message.get("method")
         if method == "exit":
@@ -54,6 +55,11 @@ def serve():
             else:
                 result = {"capabilities": {}, "serverInfo": {"name": "latency-fixture", "version": str(os.getpid())}}
         elif method == "shutdown":
+            if hang_shutdown:
+                continue
+            result = None
+        elif method == "latency/hangShutdown":
+            hang_shutdown = True
             result = None
         elif method == "latency/register":
             write_message(sys.stdout.buffer, {"jsonrpc": "2.0", "id": "registration", "method": "client/registerCapability", "params": {"registrations": []}})
@@ -245,10 +251,13 @@ def benchmark(binary, workspace, samples, pipeline, check_handshakes):
                 time.sleep(.1)
             with connect(path) as peer:
                 peer.initialize(workspace)
+                peer.request("latency/hangShutdown")
                 # A silent connection must not delay a later stop control connection.
                 with raw_connection(path):
+                    started = time.monotonic()
                     subprocess.run([str(binary), "stop", str(workspace), "--lsp", "latency-fixture"],
                                    env=env, capture_output=True, timeout=15, check=True)
+                    assert time.monotonic() - started < 5, "daemon stop exceeded lifecycle deadline"
             assert not path.exists(), "daemon socket survived stop"
             return measurements
         except Exception:

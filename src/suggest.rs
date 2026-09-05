@@ -191,7 +191,7 @@ mod tests {
         LspConfig {
             id: "example_lsp".to_string(),
             filetypes: vec!["alpha".to_string(), "beta".to_string()],
-            root_markers: vec![".workspace-root".to_string(), ".git".to_string()],
+            root_markers: vec![".workspace-root".to_string()],
             name: "example-lsp".to_string(),
             cmdline: "example-lsp --stdio $WORKSPACE".to_string(),
             wait_for_index: false,

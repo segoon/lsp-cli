@@ -1,0 +1,8 @@
+language:
+  id: javascript
+  kind: source
+  project: playground/js
+
+pairs:
+  - language: javascript
+    server: ts_ls

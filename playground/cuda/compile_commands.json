@@ -1,0 +1,50 @@
+[
+  {
+    "directory": ".",
+    "arguments": [
+      "clang++",
+      "-x",
+      "cuda",
+      "--cuda-host-only",
+      "-nocudainc",
+      "-nocudalib",
+      "-std=c++17",
+      "-Iinclude",
+      "-fsyntax-only",
+      "src/main.cu"
+    ],
+    "file": "src/main.cu"
+  },
+  {
+    "directory": ".",
+    "arguments": [
+      "clang++",
+      "-x",
+      "cuda",
+      "--cuda-host-only",
+      "-nocudainc",
+      "-nocudalib",
+      "-std=c++17",
+      "-Iinclude",
+      "-fsyntax-only",
+      "src/order.cu"
+    ],
+    "file": "src/order.cu"
+  },
+  {
+    "directory": ".",
+    "arguments": [
+      "clang++",
+      "-x",
+      "cuda",
+      "--cuda-host-only",
+      "-nocudainc",
+      "-nocudalib",
+      "-std=c++17",
+      "-Iinclude",
+      "-fsyntax-only",
+      "src/report/formatter.cu"
+    ],
+    "file": "src/report/formatter.cu"
+  }
+]

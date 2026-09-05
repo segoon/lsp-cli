@@ -1,0 +1,8 @@
+language:
+  id: kotlin
+  kind: source
+  project: playground/kotlin
+
+pairs:
+  - language: kotlin
+    server: kotlin_lsp

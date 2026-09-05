@@ -115,6 +115,16 @@ pub(crate) fn resolve_program(
         ));
     }
 
+    if let Some(relative) = rendered.strip_prefix("nuget:") {
+        let executable = format!("{relative}{}", std::env::consts::EXE_SUFFIX);
+        return Ok(ResolvedProgram::Direct(
+            state
+                .package_dir(&package.name)
+                .join("bin")
+                .join(executable),
+        ));
+    }
+
     if let Some(relative) = rendered.strip_prefix("python:") {
         return Ok(ResolvedProgram::Wrapper(WrapperProgram {
             launcher_path: state.bin_dir().join(program),

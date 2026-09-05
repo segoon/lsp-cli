@@ -1,4 +1,5 @@
 pub(crate) mod lsp_peer;
+mod temp_root;
 
 use crate::detect::DetectionResult;
 use crate::mason::registry::{MasonDownload, MasonNeovim, MasonPackage, MasonSource, OneOrMany};
@@ -11,6 +12,8 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tempfile::TempDir;
+
+use self::temp_root::test_temp_root;
 
 pub(crate) const LOCAL_SHARE_LSP_CLI: &str = ".local/share/lsp-cli";
 #[cfg(test)]
@@ -30,9 +33,11 @@ pub(crate) struct TestDir {
 
 impl TestDir {
     pub(crate) fn new(prefix: &str) -> Self {
+        let test_temp_root = test_temp_root().expect("secure test temp root should be selected");
+        fs::create_dir_all(&test_temp_root).expect("test temp root should be created");
         let dir = tempfile::Builder::new()
             .prefix(&format!("lsp-cli-{prefix}-test-"))
-            .tempdir()
+            .tempdir_in(test_temp_root)
             .expect("temp dir should be created");
         Self { dir }
     }
@@ -173,6 +178,28 @@ pub(crate) fn pyright_package() -> MasonPackage {
     }
 }
 
+pub(crate) fn roslyn_package() -> MasonPackage {
+    MasonPackage {
+        name: "roslyn-language-server".to_string(),
+        categories: vec!["LSP".to_string()],
+        source: MasonSource {
+            id: "pkg:nuget/roslyn-language-server@5.11.0-1.26380.4".to_string(),
+            extra_packages: Vec::new(),
+            asset: None,
+            download: None,
+            version_overrides: Vec::new(),
+        },
+        bin: BTreeMap::from([(
+            "roslyn-language-server".to_string(),
+            "nuget:roslyn-language-server".to_string(),
+        )]),
+        share: BTreeMap::new(),
+        neovim: MasonNeovim {
+            lspconfig: Some("roslyn_ls".to_string()),
+        },
+    }
+}
+
 pub(crate) fn jdtls_package() -> MasonPackage {
     MasonPackage {
         name: "jdtls".to_string(),
@@ -279,10 +306,21 @@ pub(crate) fn make_executable(path: &Path) {
 mod tests {
     use super::{
         SUBPROCESS_HELPER_EXIT_CODE_ENV, SUBPROCESS_HELPER_MODE_ENV,
-        SUBPROCESS_HELPER_OUTPUT_PATH_ENV, SUBPROCESS_HELPER_STDERR_ENV,
+        SUBPROCESS_HELPER_OUTPUT_PATH_ENV, SUBPROCESS_HELPER_STDERR_ENV, TestDir, test_temp_root,
     };
     use std::fs;
     use std::io::Write as _;
+
+    #[test]
+    fn creates_test_directories_in_secure_selected_root() {
+        let dir = TestDir::new("secure-root");
+
+        assert!(
+            dir.path()
+                .starts_with(test_temp_root().expect("secure test temp root should be selected"))
+        );
+        assert!(!dir.path().starts_with("/tmp"));
+    }
 
     #[test]
     #[ignore = "subprocess helper"]

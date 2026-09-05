@@ -1,0 +1,8 @@
+language:
+  id: cs
+  kind: source
+  project: playground/csharp
+
+pairs:
+  - language: cs
+    server: roslyn_ls

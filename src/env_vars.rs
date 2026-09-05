@@ -19,6 +19,9 @@ pub(crate) const PATH: &str = "PATH";
 /// Current interactive shell used for shell auto-detection in completion output.
 pub(crate) const SHELL: &str = "SHELL";
 
+/// Override the release metadata endpoint, primarily for isolated update testing.
+pub(crate) const DATA_RELEASE_API_URL: &str = "LSP_CLI_DATA_RELEASE_API_URL";
+
 #[cfg(test)]
 /// Test-only override that tells fake npm installs which executable to materialize.
 pub(crate) const TEST_FAKE_NPM_PROGRAM: &str = "LSP_CLI_TEST_FAKE_NPM_PROGRAM";
@@ -49,6 +52,10 @@ pub(crate) fn path() -> Option<OsString> {
 
 pub(crate) fn shell() -> Option<OsString> {
     std::env::var_os(SHELL)
+}
+
+pub(crate) fn data_release_api_url() -> Option<String> {
+    std::env::var(DATA_RELEASE_API_URL).ok()
 }
 
 #[cfg(test)]

@@ -1,0 +1,11 @@
+[package]
+name = "lsp-cli-e2e-fake-lsp"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.91"
+publish = false
+
+[dependencies]
+serde_json = "=1.0.150"
+
+[workspace]

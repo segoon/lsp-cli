@@ -1,0 +1,4 @@
+language:
+  id: gomod
+  kind: metadata
+  project: playground/gomod

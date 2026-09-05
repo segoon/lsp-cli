@@ -72,6 +72,18 @@
 
 # LSP server implementations
 
+## kotlin-lsp
+
+- The Mason package exposes Kotlin LSP as `intellij-server`, not `kotlin-lsp`. The data config must
+  use the packaged launcher name so `--download` can resolve it; a display name or upstream product
+  name is not necessarily an executable name.
+
+## roslyn-language-server
+
+- The Mason package exposes Roslyn through the `roslyn-language-server` .NET tool launcher. A data
+  config containing a literal installation placeholder cannot work with generic `--download`;
+  launch the Mason-exposed command and let the NuGet backend manage its concrete installation path.
+
 ## lua-language-server
 
 - Opening every source file for symbol discovery also triggers diagnostics. The installed

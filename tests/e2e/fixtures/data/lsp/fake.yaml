@@ -1,0 +1,7 @@
+filetypes:
+  - "fake"
+root_markers:
+  - "fixture.root"
+name: "e2e-fake-lsp"
+cmdline: "e2e-fake-lsp"
+wait-for-index: false

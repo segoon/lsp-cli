@@ -30,6 +30,11 @@ thiserror = "2.0.17"
 url = "2.5.7"
 zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
 
+[dev-dependencies]
+command-group = "5.0.1"
+fs_extra = "1.3.0"
+wait-timeout = "0.2.1"
+
 [lints]
 workspace = true
 

@@ -9,8 +9,8 @@ use crate::mason::registry::{
 use crate::mason::template::TemplateContext;
 use crate::runtime_state::RuntimeState;
 use crate::test_support::{
-    TestDir, env_var, jdtls_package, make_executable, pyright_package, suggested_language,
-    with_env_vars,
+    TestDir, env_var, jdtls_package, make_executable, pyright_package, roslyn_package,
+    suggested_language, with_env_vars,
 };
 use std::collections::BTreeMap;
 use std::fs;
@@ -193,6 +193,29 @@ fn resolves_npm_program_path() {
             .join("node_modules")
             .join(".bin")
             .join("pyright-langserver")
+    );
+}
+
+#[test]
+fn resolves_nuget_program_path() {
+    let dir = TestDir::new("mason-link");
+    let state = RuntimeState::new(dir.path().join("state"));
+
+    assert_eq!(
+        resolve_program_path(
+            &roslyn_package(),
+            "roslyn-language-server",
+            &state,
+            &TemplateContext::empty(),
+        )
+        .expect("NuGet path should resolve"),
+        state
+            .package_dir("roslyn-language-server")
+            .join("bin")
+            .join(format!(
+                "roslyn-language-server{}",
+                std::env::consts::EXE_SUFFIX
+            ))
     );
 }
 

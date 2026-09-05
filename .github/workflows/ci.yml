@@ -35,15 +35,19 @@ jobs:
 
       - name: Check formatting
         if: matrix.rust == 'stable'
-        run: cargo fmt --check
+        run: make check-format
 
       - name: Check generated command reference
         if: matrix.rust == 'stable'
-        run: python3 scripts/update_readme_commands.py --check
+        run: make check-readme
 
       - name: Run tests
-        run: cargo test --locked
+        run: make check-tests
+
+      - name: Run real-server E2E smoke tests
+        if: matrix.rust == 'stable'
+        run: make test-real-server-e2e
 
       - name: Run clippy
         if: matrix.rust == 'stable'
-        run: cargo clippy --all-targets --all-features -- -D warnings
+        run: make check-clippy

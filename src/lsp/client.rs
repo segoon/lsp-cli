@@ -24,6 +24,8 @@ use crate::system_log::{
 mod background;
 mod process_io;
 mod requests;
+mod rpc;
+mod window;
 
 #[cfg(test)]
 mod tests;
@@ -182,70 +184,6 @@ impl LspClient {
         Ok(())
     }
 
-    fn send_request<R>(&mut self, params: &R::Params) -> Result<Value>
-    where
-        R: Request,
-    {
-        if R::METHOD != Initialize::METHOD {
-            self.drain_pending_server_requests()?;
-        }
-
-        let id = self.next_request_id;
-        self.next_request_id += 1;
-
-        let message = jsonrpc(Some(id), R::METHOD, params)?;
-        log_debug_message(self.debug, "-> ", &message);
-        self.write_transport_message(&message)?;
-
-        loop {
-            match self.recv_message(self.timeout) {
-                Ok(IncomingMessage::Message(message)) => {
-                    if let Some(response_id) = response_id(&message) {
-                        if response_id == id {
-                            if let Some(error) = message.get("error") {
-                                return Err(Error::lsp(format_lsp_error(R::METHOD, error)));
-                            }
-
-                            return Ok(message.get("result").cloned().unwrap_or(Value::Null));
-                        }
-
-                        continue;
-                    }
-
-                    if let Some(request_id) = request_id(&message) {
-                        self.handle_server_request(&request_id, &message)?;
-                    }
-                }
-                Ok(IncomingMessage::EndOfStream) => {
-                    return Err(self.format_transport_wait_error(
-                        R::METHOD,
-                        Error::lsp(format!("LSP server closed while waiting for {}", R::METHOD)),
-                    ));
-                }
-                Ok(IncomingMessage::Error(error)) => {
-                    let error =
-                        error.with_prefix(format!("failed to read LSP message for {}", R::METHOD));
-                    if error.should_log_as_unexpected() {
-                        log_unexpected_error(&error.to_string());
-                    }
-                    return Err(error);
-                }
-                Err(RecvTimeoutError::Timeout) => {
-                    return Err(Error::lsp(format!("timed out waiting for {}", R::METHOD)));
-                }
-                Err(RecvTimeoutError::Disconnected) => {
-                    return Err(self.format_transport_wait_error(
-                        R::METHOD,
-                        Error::lsp(format!(
-                            "LSP reader stopped while waiting for {}",
-                            R::METHOD
-                        )),
-                    ));
-                }
-            }
-        }
-    }
-
     fn send_notification<N>(&mut self, params: &N::Params) -> Result<()>
     where
         N: Notification,
@@ -254,6 +192,10 @@ impl LspClient {
             self.drain_pending_server_requests()?;
         }
 
+        self.write_notification::<N>(params)
+    }
+
+    fn write_notification<N: Notification>(&mut self, params: &N::Params) -> Result<()> {
         let message = jsonrpc::<u64, _>(None, N::METHOD, params)?;
         log_debug_message(self.debug, "-> ", &message);
         self.write_transport_message(&message)

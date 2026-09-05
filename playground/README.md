@@ -31,3 +31,14 @@ cargo run -- stop playground/python
 
 The projects reuse a similar domain across languages so symbol names are easy to remember
 while trying different LSP servers.
+
+The Lua playground exercises discovery of the local `normalize_timestamp` function,
+which may be absent from LuaLS workspace-symbol results:
+
+```sh
+cargo run -- references normalize_timestamp playground/lua --lsp lua-language-server --detach
+```
+
+Compare runs with `max-requests-in-flight: 1` and `max-requests-in-flight: 20` in
+`lsp-cli.yaml`. Both should report the call in `timestamp.lua`; the setting changes
+how many file-symbol requests can be outstanding, not which files are searched.

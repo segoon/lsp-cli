@@ -52,8 +52,40 @@
   command line; use `stop-all` when config changes make the exact match ambiguous.
 - `workspace/applyEdit` only works while a client is actively connected. If no client is connected,
   lsp-cli rejects the request instead of editing files behind the client's back.
+- During the LuaLS request-window benchmark, one `stop-all` cleanup reported an unexpected
+  stop-response ID even though the daemon exited. Retrying against the same isolated runtime
+  directory removed its stale socket. The unexpected response was not diagnosed; a failed stop
+  response does not necessarily mean the daemon remains alive.
+- Release profiling also reproduced a daemon exit after a successful query with
+  `failed to write daemon client message: failed to write JSON-RPC message: Broken pipe`.
+  Upstream notifications can race with client disconnect: the coordinator drains upstream
+  traffic before client events, and a failed downstream write propagates out of `serve`.
+  This can leave a stale socket and lose the indexed server between commands. Repeated commands
+  must not be described as warm measurements without verifying process reuse. A regression
+  test for a fix should close the client while an upstream notification is queued and verify
+  that the daemon remains available to a subsequent client.
 
 # LSP server implementations
+
+## lua-language-server
+
+- Opening every source file for symbol discovery also triggers diagnostics. The installed
+  LuaLS `textDocument/didOpen` handler opens and compiles the file; its diagnostic provider
+  runs diagnostics on file-open events. In a release-build `parley.nvim` experiment with 193
+  Lua files and a request window of 20, an explicit temporary configuration with diagnostics
+  enabled took 12.57/12.37 seconds; disabling only diagnostics took 4.50/2.84 seconds with
+  identical reference matches. Traces showed zero diagnostic notifications in the disabled
+  case. This is a server-specific experimental control, not a recommendation to silently
+  disable diagnostics for normal commands or shared sessions.
+- In a September 2026 investigation against `parley.nvim`, `workspace/symbol` returned null for
+  the local function `normalize_timestamp`, while `textDocument/documentSymbol` exposed it and
+  `textDocument/references` found its call site. Workspace-symbol results alone therefore cannot
+  replace document-symbol discovery for this query.
+- Two direct-process runs in that investigation completed their queries but failed while waiting
+  for LuaLS to exit, adding the configured 30-second timeout. The debug trace showed a successful
+  `shutdown` response followed by an `exit` notification. The cause of the process staying alive
+  was not established; detached runs completed successfully. Do not assume switching off detach
+  is a reliable performance workaround for this setup.
 
 ## rust-analyzer
 

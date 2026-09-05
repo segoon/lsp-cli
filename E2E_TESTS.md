@@ -425,12 +425,15 @@ that class of defect easier to diagnose.
 - [x] Add CUDA, Kotlin, Objective-C, and Objective-C++ projects.
 - [x] Add `gomod` and `gowork` detection fixtures.
 - [x] Update `playground/README.md` with manual reproduction commands.
-- [ ] Run each relevant command manually against every new project.
 
 ### Phase 3: preferred-server smoke matrix
 
+Manual LSP verification follows server selection and provisioning so it runs against reproducible,
+runnable servers rather than ambient or unpinned installations.
+
 - [ ] Select and pin one preferred server for each source language.
 - [ ] Add provisioning scripts without new Rust dependencies.
+- [ ] Run each relevant command manually against every new project.
 - [ ] Implement capability-aware query assertions.
 - [ ] Implement direct/detached lifecycle scenarios.
 - [ ] Add the pull-request E2E job.

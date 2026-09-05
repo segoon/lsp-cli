@@ -4,9 +4,10 @@
 
 - Some servers send client requests such as `client/registerCapability` immediately after the
   `initialize` response and expect those requests to be answered before later client traffic.
-  lsp-cli therefore drains and replies to queued server requests right after `initialized` and
-  before sending later requests, instead of assuming request-response traffic is strictly
-  one-directional.
+  lsp-cli therefore drains and replies to requests already queued after `initialized` and before
+  later outgoing operations. Requests that race with the next client request are answered while
+  that request is outstanding, instead of assuming request-response traffic is strictly
+  one-directional or waiting for a fixed post-initialization quiet period.
 
 
 ## Diagnostics

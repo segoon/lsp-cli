@@ -167,7 +167,7 @@ impl ReaderWorker {
                 .spawn(move || {
                     while !admission.cancelled.load(Ordering::Acquire) {
                         let event = match next_message() {
-                            Ok(Some(message)) => ReaderEvent::Message(message),
+                            Ok(Some(message)) => ReaderEvent::Message(Arc::new(message)),
                             Ok(None) => ReaderEvent::EndOfStream,
                             Err(error) => ReaderEvent::Error(error.to_string()),
                         };

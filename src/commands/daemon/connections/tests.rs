@@ -279,7 +279,7 @@ fn deadline_includes_accept_queue_time_and_ignores_late_events() {
     let _replacement = fixture.connect();
     let replacement = fixture.latest_pending();
     for event in [
-        ReaderEvent::Message(fixture.initialize_message()),
+        ReaderEvent::Message(fixture.initialize_message().into()),
         ReaderEvent::EndOfStream,
         ReaderEvent::Error("expired".into()),
     ] {
@@ -313,7 +313,7 @@ fn expiry_wins_over_first_message_and_runs_during_other_events() {
         .daemon
         .dispatch(Event::Reader(
             Source::Client(generation),
-            ReaderEvent::Message(fixture.initialize_message()),
+            ReaderEvent::Message(fixture.initialize_message().into()),
         ))
         .expect("expired first message");
     peer.assert_closed();
@@ -330,7 +330,7 @@ fn expiry_wins_over_first_message_and_runs_during_other_events() {
         .daemon
         .dispatch(Event::Reader(
             Source::Upstream(999),
-            ReaderEvent::Message(json!({"method": "notification"})),
+            ReaderEvent::Message(json!({"method": "notification"}).into()),
         ))
         .expect("continuous unrelated traffic still checks expiry");
     peer.assert_closed();

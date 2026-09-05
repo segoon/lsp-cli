@@ -2,7 +2,6 @@ use super::Daemon;
 use super::events::Source;
 use super::writer::WriterEvent;
 use crate::error::Result;
-use crate::system_log::log_unexpected_error;
 use std::time::Instant;
 
 impl Daemon {
@@ -29,7 +28,7 @@ impl Daemon {
                 }
             }
             (Source::Client(generation), WriterEvent::Failed { id, error }) => {
-                log_unexpected_error(&format!(
+                self.logger.unexpected(format!(
                     "daemon client output failed while writing message {id}: {error}"
                 ));
                 if self.pending_connections.remove(&generation).is_none()
@@ -55,7 +54,7 @@ impl Daemon {
                     .as_ref()
                     .is_some_and(|upstream| upstream.generation == generation)
                 {
-                    log_unexpected_error(&format!(
+                    self.logger.unexpected(format!(
                         "LSP server stopped accepting message {id}: {error}"
                     ));
                     self.upstream_failed();
@@ -85,9 +84,8 @@ impl Daemon {
             .as_mut()
             .is_some_and(|client| client.writer.timed_out(now, self.write_stall_timeout))
         {
-            log_unexpected_error(
-                "daemon client was disconnected because it stopped reading output",
-            );
+            self.logger
+                .unexpected("daemon client was disconnected because it stopped reading output");
             self.disconnect_client()?;
         }
         if self
@@ -95,7 +93,8 @@ impl Daemon {
             .as_mut()
             .is_some_and(|upstream| upstream.writer.timed_out(now, self.write_stall_timeout))
         {
-            log_unexpected_error("LSP server was stopped because it stopped reading daemon output");
+            self.logger
+                .unexpected("LSP server was stopped because it stopped reading daemon output");
             self.upstream_failed();
         }
         Ok(())

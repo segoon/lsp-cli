@@ -5,9 +5,9 @@ use super::protocol::{
 use super::writer::WriteId;
 use super::{ClientSession, Daemon, INVALID_REQUEST, REQUEST_CANCELLED, SERVER_NOT_INITIALIZED};
 use crate::error::Result;
-use crate::lsp::transport::log_debug_message;
 use serde_json::Value;
 use std::os::unix::net::UnixStream;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 pub(super) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(2);
@@ -21,10 +21,12 @@ pub(super) struct PendingConnection {
 }
 
 impl PendingConnection {
-    fn reject(&mut self, id: &Value, code: i64, reason: &str, debug: bool) -> Result<WriteId> {
+    fn reject(&mut self, id: &Value, code: i64, reason: &str) -> Result<(WriteId, Value)> {
         let response = error_response(id, code, reason);
-        log_debug_message(debug, "daemon pending client -> ", &response);
-        self.client.writer.enqueue(&response)
+        self.client
+            .writer
+            .enqueue(&response)
+            .map(|write_id| (write_id, response))
     }
 }
 
@@ -112,10 +114,12 @@ impl Daemon {
             // Malformed frames and EOF belong to this unadmitted connection only.
             return Ok(());
         };
-        log_debug_message(self.debug, "daemon pending client <- ", &message);
+        self.logger
+            .debug("daemon pending client <- ", Arc::clone(&message));
         if let Some(id) = stop_request_id(&message) {
             let response = success_response(&id, &Value::Null);
-            log_debug_message(self.debug, "daemon pending client -> ", &response);
+            self.logger
+                .debug_value("daemon pending client -> ", &response);
             if let Ok(write_id) = pending.client.writer.enqueue(&response) {
                 pending.close_after_write = Some(write_id);
                 pending.stop_after_write = true;
@@ -127,24 +131,26 @@ impl Daemon {
             return Ok(());
         };
         if message_method(&message) != Some("initialize") {
-            if let Ok(write_id) = pending.reject(
+            if let Ok((write_id, response)) = pending.reject(
                 &id,
                 SERVER_NOT_INITIALIZED,
                 "daemon client must initialize before sending requests",
-                self.debug,
             ) {
+                self.logger
+                    .debug_value("daemon pending client -> ", &response);
                 pending.close_after_write = Some(write_id);
                 self.pending_connections.insert(generation, pending);
             }
             return Ok(());
         }
         if self.active_client.is_some() {
-            if let Ok(write_id) = pending.reject(
+            if let Ok((write_id, response)) = pending.reject(
                 &id,
                 REQUEST_CANCELLED,
                 "another daemon client is already connected",
-                self.debug,
             ) {
+                self.logger
+                    .debug_value("daemon pending client -> ", &response);
                 pending.close_after_write = Some(write_id);
                 self.pending_connections.insert(generation, pending);
             }
@@ -152,9 +158,11 @@ impl Daemon {
         }
         let params = message.get("params").unwrap_or(&Value::Null);
         if let Err(error) = normalize_initialize_params(params, &self.target) {
-            if let Ok(write_id) =
-                pending.reject(&id, INVALID_REQUEST, &error.to_string(), self.debug)
+            if let Ok((write_id, response)) =
+                pending.reject(&id, INVALID_REQUEST, &error.to_string())
             {
+                self.logger
+                    .debug_value("daemon pending client -> ", &response);
                 pending.close_after_write = Some(write_id);
                 self.pending_connections.insert(generation, pending);
             }

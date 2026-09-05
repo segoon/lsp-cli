@@ -20,7 +20,9 @@ impl Fixture {
         let dir = TestDir::new("daemon-session");
         let target = tests::daemon_target(&dir);
         let mut events = EventQueue::new();
-        let (upstream, process) = fake_upstream(&mut events);
+        let logger_worker = LoggerWorker::spawn(false).expect("logger");
+        let logger = logger_worker.logger();
+        let (upstream, process) = fake_upstream(&mut events, logger.clone());
         let (socket, peer) = UnixStream::pair().expect("client pair");
         peer.set_read_timeout(Some(TIMEOUT)).expect("read timeout");
         let client = ClientSession::new(socket, &mut events, None).expect("client");
@@ -31,6 +33,8 @@ impl Fixture {
                 socket_owned: true,
                 target,
                 debug: false,
+                logger,
+                logger_worker,
                 idle_timeout: TIMEOUT,
                 write_stall_timeout: TIMEOUT,
                 upstream: Some(upstream),
@@ -152,7 +156,7 @@ impl Fixture {
     }
 }
 
-fn fake_upstream(events: &mut EventQueue) -> (UpstreamServer, ProcessWorker) {
+fn fake_upstream(events: &mut EventQueue, logger: Logger) -> (UpstreamServer, ProcessWorker) {
     let child = with_env_vars(&[], || {
         Command::new("python3")
             .arg(concat!(
@@ -168,7 +172,7 @@ fn fake_upstream(events: &mut EventQueue) -> (UpstreamServer, ProcessWorker) {
     });
     let generation = events.next_generation().expect("upstream generation");
     let (process, io) = ProcessWorker::adopt(child, generation, events);
-    let upstream = UpstreamServer::from_io(io, generation, false, events).expect("upstream");
+    let upstream = UpstreamServer::from_io(io, generation, logger, events).expect("upstream");
     (upstream, process)
 }
 
@@ -218,7 +222,8 @@ fn stale_generations_cannot_modify_replacement_sessions() {
     fixture.replace_client();
     fixture.daemon.upstream.take();
     fixture.daemon.process.take();
-    let (upstream, process) = fake_upstream(&mut fixture.daemon.events);
+    let (upstream, process) =
+        fake_upstream(&mut fixture.daemon.events, fixture.daemon.logger.clone());
     fixture.daemon.upstream = Some(upstream);
     fixture.daemon.process = Some(process);
     fixture.daemon.lifecycle = LifecycleState::Running;
@@ -236,7 +241,7 @@ fn stale_generations_cannot_modify_replacement_sessions() {
         .generation;
     for source in [Source::Client(old_client), Source::Upstream(old_upstream)] {
         for event in [
-            ReaderEvent::Message(json!({"id": 9, "method": "exit"})),
+            ReaderEvent::Message(json!({"id": 9, "method": "exit"}).into()),
             ReaderEvent::EndOfStream,
             ReaderEvent::Error("retired".into()),
         ] {

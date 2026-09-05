@@ -4,7 +4,6 @@ use crate::error::{Error, Result, error_fn};
 use crate::lsp::transport::{log_debug_message, write_message};
 use crate::lsp::{jsonrpc, parse_lsp_uri};
 use crate::server_stderr::CapturedStderr;
-use crate::system_log::log_unexpected_error;
 use lsp_types::notification::{Cancel, DidCloseTextDocument, Notification};
 use lsp_types::{CancelParams, DidCloseTextDocumentParams, NumberOrString, TextDocumentIdentifier};
 use serde_json::Value;
@@ -14,6 +13,7 @@ use std::io::ErrorKind;
 use std::os::unix::net::UnixStream;
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::sync::mpsc::RecvTimeoutError;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -22,6 +22,7 @@ mod connections;
 mod events;
 mod forwarding;
 mod lifecycle;
+mod logger;
 mod outputs;
 mod process;
 mod process_worker;
@@ -36,6 +37,7 @@ mod tests;
 
 use connections::PendingConnection;
 use events::{AcceptWorker, Event, EventQueue, ReaderWorker, Source};
+use logger::{LOG_SHUTDOWN_TIMEOUT, Logger, LoggerWorker};
 use process::{bind_listener, launch_background, resolve_target, run_background};
 use process_worker::ProcessWorker;
 use protocol::{
@@ -183,6 +185,8 @@ struct Daemon {
     socket_owned: bool,
     target: DaemonTarget,
     debug: bool,
+    logger: Logger,
+    logger_worker: LoggerWorker,
     idle_timeout: Duration,
     write_stall_timeout: Duration,
     upstream: Option<UpstreamServer>,
@@ -281,6 +285,8 @@ impl Daemon {
         idle_timeout: Duration,
         write_stall_timeout: Duration,
     ) -> Result<Self> {
+        let logger_worker = LoggerWorker::spawn(debug)?;
+        let logger = logger_worker.logger();
         let listener = bind_listener(&target.socket_path)?;
         let mut daemon = Self {
             accept_worker: None,
@@ -288,6 +294,8 @@ impl Daemon {
             socket_owned: true,
             target,
             debug,
+            logger,
+            logger_worker,
             idle_timeout,
             write_stall_timeout,
             upstream: None,
@@ -390,7 +398,7 @@ impl Daemon {
                     ReaderEvent::Error(error) => {
                         self.upstream_failed();
                         let error = format!("failed to read LSP server message: {error}");
-                        log_unexpected_error(&error);
+                        self.logger.unexpected(&error);
                         return Err(Error::unexpected(error));
                     }
                 }
@@ -471,7 +479,18 @@ impl Daemon {
     }
 
     fn enqueue_client_response(&mut self, message: &Value) -> Result<Option<WriteId>> {
-        log_debug_message(self.debug, "daemon client -> ", message);
+        self.logger.debug_value("daemon client -> ", message);
+        let Some(client) = self.active_client.as_mut() else {
+            return Ok(None);
+        };
+        client.writer.enqueue(message).map(Some).map_err(error_fn!(
+            Error::lsp,
+            "failed to queue daemon client message"
+        ))
+    }
+
+    fn enqueue_client_message(&mut self, message: &Arc<Value>) -> Result<Option<WriteId>> {
+        self.logger.debug("daemon client -> ", Arc::clone(message));
         let Some(client) = self.active_client.as_mut() else {
             return Ok(None);
         };
@@ -485,7 +504,20 @@ impl Daemon {
         let Some(upstream) = self.upstream.as_mut() else {
             return Err(Error::unexpected("LSP server is not running"));
         };
-        log_debug_message(self.debug, "daemon upstream <- ", message);
+        self.logger.debug_value("daemon upstream <- ", message);
+        upstream
+            .writer
+            .enqueue(message)
+            .map(|_| ())
+            .map_err(error_fn!(Error::lsp, "failed to queue LSP server message"))
+    }
+
+    fn write_upstream_shared(&mut self, message: &Arc<Value>) -> Result<()> {
+        let Some(upstream) = self.upstream.as_mut() else {
+            return Err(Error::unexpected("LSP server is not running"));
+        };
+        self.logger
+            .debug("daemon upstream <- ", Arc::clone(message));
         upstream
             .writer
             .enqueue(message)
@@ -502,6 +534,7 @@ impl Daemon {
                 self.target.socket_path.display()
             )))?,
         }
+        self.logger_worker.finish(LOG_SHUTDOWN_TIMEOUT);
         Ok(())
     }
 }

@@ -275,6 +275,10 @@ server if the queue stays marked for `write-stall-timeout`. A message larger tha
 Server restart and shutdown also advance through daemon events. The daemon keeps
 accepting control traffic while a process starts or exits; an unresponsive server
 is force-stopped after the existing two-second shutdown and exit deadlines.
+Daemon traffic, lifecycle, error, and captured-server-stderr logs use a 64-record
+worker queue, so formatting, stderr, and the global log file do not block forwarding.
+New records are dropped when this queue is full, and the daemon reports the count
+after logging resumes. Normal shutdown waits at most 100 milliseconds for logs.
 
 ## Language Configs: filetypes/*.yaml
 

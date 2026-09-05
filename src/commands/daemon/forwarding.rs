@@ -7,14 +7,14 @@ use super::{
     ClientPhase, Daemon, INTERNAL_ERROR, INVALID_REQUEST, PendingInitialize, SERVER_NOT_INITIALIZED,
 };
 use crate::error::{Error, Result};
-use crate::lsp::transport::log_debug_message;
 use crate::lsp::{STOP_METHOD, jsonrpc};
 use lsp_types::request::{Initialize, Request};
 use serde_json::Value;
+use std::sync::Arc;
 
 impl Daemon {
-    pub(super) fn handle_client_message(&mut self, message: &Value) -> Result<()> {
-        log_debug_message(self.debug, "daemon client <- ", message);
+    pub(super) fn handle_client_message(&mut self, message: &Arc<Value>) -> Result<()> {
+        self.logger.debug("daemon client <- ", Arc::clone(message));
         let method = message_method(message);
         let request_id = request_id(message);
         let response_id = response_id(message);
@@ -25,7 +25,7 @@ impl Daemon {
             };
             let key = id_key(&response_id);
             if client.pending_server_requests.remove(&key).is_some() {
-                self.write_upstream_message(message)?;
+                self.write_upstream_shared(message)?;
             }
             return Ok(());
         }
@@ -60,7 +60,7 @@ impl Daemon {
             }) => {
                 if method == Some("initialized") {
                     if forward_to_upstream {
-                        self.write_upstream_message(message)?;
+                        self.write_upstream_shared(message)?;
                     }
                     if let Some(client) = self.active_client.as_mut() {
                         client.phase = ClientPhase::Ready;
@@ -119,7 +119,7 @@ impl Daemon {
             client.forwarded_client_requests.insert(id_key(&request_id));
         }
 
-        self.write_upstream_message(message)
+        self.write_upstream_shared(message)
     }
 
     fn handle_waiting_for_upstream(
@@ -273,8 +273,9 @@ impl Daemon {
         Ok(())
     }
 
-    pub(super) fn handle_upstream_message(&mut self, message: &Value) -> Result<()> {
-        log_debug_message(self.debug, "daemon upstream -> ", message);
+    pub(super) fn handle_upstream_message(&mut self, message: &Arc<Value>) -> Result<()> {
+        self.logger
+            .debug("daemon upstream -> ", Arc::clone(message));
 
         if let Some(upstream) = self.upstream.as_mut() {
             update_background_work_tracker(message, &mut upstream.background_work)?;
@@ -314,7 +315,7 @@ impl Daemon {
             }
 
             if forwarded_client_request {
-                return self.write_client_response(message);
+                return self.enqueue_client_message(message).map(|_| ());
             }
 
             return Ok(());
@@ -337,7 +338,7 @@ impl Daemon {
                 client
                     .pending_server_requests
                     .insert(id_key(&request_id), request_id.clone());
-                return self.write_client_response(message);
+                return self.enqueue_client_message(message).map(|_| ());
             }
 
             let response = local_server_request_response(&request_id, method);
@@ -345,7 +346,7 @@ impl Daemon {
         }
 
         if self.active_client.is_some() {
-            return self.write_client_response(message);
+            return self.enqueue_client_message(message).map(|_| ());
         }
 
         Ok(())

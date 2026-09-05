@@ -10,6 +10,7 @@ use serde_json::json;
 use std::fs;
 use std::io::BufReader;
 use std::os::unix::net::{UnixListener, UnixStream};
+use std::sync::Arc;
 use std::thread;
 
 pub(super) fn daemon_target(dir: &TestDir) -> super::DaemonTarget {
@@ -275,6 +276,8 @@ fn window_fixture() -> (super::Daemon, UnixStream, TestDir) {
     let dir = TestDir::new("daemon-window");
     let target = daemon_target(&dir);
     let mut events = EventQueue::new();
+    let logger_worker = super::LoggerWorker::spawn(false).expect("logger");
+    let logger = logger_worker.logger();
     // Echo upstream bytes so the test can inspect forwarding without a real LSP.
     let child = Command::new("/bin/cat")
         .stdin(Stdio::piped())
@@ -284,7 +287,8 @@ fn window_fixture() -> (super::Daemon, UnixStream, TestDir) {
         .expect("start echo process");
     let generation = events.next_generation().expect("generation");
     let (process, io) = super::ProcessWorker::adopt(child, generation, &events);
-    let upstream = UpstreamServer::from_io(io, generation, false, &events).expect("upstream");
+    let upstream =
+        UpstreamServer::from_io(io, generation, logger.clone(), &events).expect("upstream");
     let (client, proxy) = UnixStream::pair().expect("client socket pair");
     client
         .set_read_timeout(Some(Duration::from_secs(3)))
@@ -297,6 +301,8 @@ fn window_fixture() -> (super::Daemon, UnixStream, TestDir) {
         socket_owned: false,
         target,
         debug: false,
+        logger,
+        logger_worker,
         idle_timeout: Duration::from_secs(60),
         write_stall_timeout: Duration::from_secs(2),
         upstream: Some(upstream),
@@ -324,7 +330,7 @@ fn receive_forwarded(daemon: &mut super::Daemon, expected: &serde_json::Value) {
             .expect("forwarded message");
         match delivery.event {
             Event::Reader(Source::Upstream(_), ReaderEvent::Message(message)) => {
-                assert_eq!(message, *expected);
+                assert_eq!(*message, *expected);
                 let _ = delivery.acknowledge.send(());
                 return;
             }
@@ -346,7 +352,7 @@ fn forwards_multiple_requests_and_out_of_order_responses() {
     for id in 1..=20 {
         let request = json!({"jsonrpc":"2.0","id":id,"method":"textDocument/documentSymbol", "params":{"textDocument":{"uri":format!("file:///{id}.lua")}}});
         daemon
-            .handle_client_message(&request)
+            .handle_client_message(&Arc::new(request.clone()))
             .expect("forward request");
         receive_forwarded(&mut daemon, &request);
         expected.insert(id, json!({"jsonrpc":"2.0","id":id,"result":[]}));
@@ -363,7 +369,7 @@ fn forwards_multiple_requests_and_out_of_order_responses() {
     let mut reader = BufReader::new(client);
     for response in expected.values().rev() {
         daemon
-            .handle_upstream_message(response)
+            .handle_upstream_message(&Arc::new(response.clone()))
             .expect("forward response");
         assert_eq!(
             read_message(&mut reader).expect("read").expect("response"),

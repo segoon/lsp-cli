@@ -8,6 +8,7 @@ Uses isolated temporary configuration and sockets, with playground/rust as works
 
 import argparse
 import contextlib
+import fcntl
 import json
 import math
 import os
@@ -60,6 +61,11 @@ def serve():
             result = None
         elif method == "latency/hangShutdown":
             hang_shutdown = True
+            result = None
+        elif method == "latency/logBurst":
+            for index in range(256):
+                print(f"latency log line {index}: {'x' * 256}", file=sys.stderr)
+            sys.stderr.flush()
             result = None
         elif method == "latency/register":
             write_message(sys.stdout.buffer, {"jsonrpc": "2.0", "id": "registration", "method": "client/registerCapability", "params": {"registrations": []}})
@@ -183,6 +189,10 @@ def report(peer, samples, pipeline):
 def benchmark(binary, workspace, samples, pipeline, check_handshakes):
     with tempfile.TemporaryDirectory(prefix="lsp-latency-") as temporary:
         root = Path(temporary)
+        home = root / "home"
+        log_path = home / ".local" / "share" / "lsp-cli" / "lsp-cli.log"
+        log_path.parent.mkdir(parents=True)
+        log_path.touch()
         data = root / "data"
         (data / "filetypes").mkdir(parents=True)
         (data / "lsp").mkdir()
@@ -193,9 +203,9 @@ def benchmark(binary, workspace, samples, pipeline, check_handshakes):
             f'cmdline: {json.dumps(command)}\nwait-for-index: false\n'
         )
         (data / "lsp-cli.yaml").write_text("download: false\ndetach: false\n")
-        env = {**os.environ, "LSP_DATA": str(data), "XDG_CONFIG_HOME": str(root / "config"),
+        env = {**os.environ, "HOME": str(home), "LSP_DATA": str(data), "XDG_CONFIG_HOME": str(root / "config"),
                "XDG_RUNTIME_DIR": str(root / "run")}
-        args = [str(binary), "daemon", str(workspace), "--lsp", "latency-fixture", "--idle-timeout", "30"]
+        args = [str(binary), "daemon", str(workspace), "--lsp", "latency-fixture", "--debug", "--idle-timeout", "30"]
         stderr = (root / "daemon.stderr").open("w+")
         daemon = subprocess.Popen(args, env={**env, "LSP_CLI_DAEMON_BACKGROUND": "1"},
                                   stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=stderr, text=True)
@@ -217,6 +227,15 @@ def benchmark(binary, workspace, samples, pipeline, check_handshakes):
             with connect(path) as peer:
                 assert peer.initialize(workspace) == pid, "warm upstream was not reused"
                 measurements = report(peer, samples, pipeline)
+                with log_path.open("a+") as locked_log:
+                    fcntl.flock(locked_log, fcntl.LOCK_EX)
+                    peer.request("latency/logBurst")
+                    assert peer.request("latency/echo", "logging-stalled")["result"] == "logging-stalled"
+                    fcntl.flock(locked_log, fcntl.LOCK_UN)
+                deadline = time.monotonic() + 2
+                while "daemon logger dropped" not in log_path.read_text() and time.monotonic() < deadline:
+                    time.sleep(.01)
+                assert "daemon logger dropped" in log_path.read_text(), "lost log records were not reported"
                 if check_handshakes:
                     handshake_smoke(path, peer)
                 peer.request("latency/register")
@@ -254,9 +273,11 @@ def benchmark(binary, workspace, samples, pipeline, check_handshakes):
                 peer.request("latency/hangShutdown")
                 # A silent connection must not delay a later stop control connection.
                 with raw_connection(path):
-                    started = time.monotonic()
-                    subprocess.run([str(binary), "stop", str(workspace), "--lsp", "latency-fixture"],
-                                   env=env, capture_output=True, timeout=15, check=True)
+                    with log_path.open("a+") as locked_log:
+                        fcntl.flock(locked_log, fcntl.LOCK_EX)
+                        started = time.monotonic()
+                        subprocess.run([str(binary), "stop", str(workspace), "--lsp", "latency-fixture"],
+                                       env=env, capture_output=True, timeout=15, check=True)
                     assert time.monotonic() - started < 5, "daemon stop exceeded lifecycle deadline"
             assert not path.exists(), "daemon socket survived stop"
             return measurements

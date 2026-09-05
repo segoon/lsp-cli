@@ -4,10 +4,6 @@ use super::{
 };
 use crate::error::{Error, Result};
 use crate::lsp::jsonrpc;
-use crate::lsp::transport::log_debug_message;
-use crate::system_log::{
-    log_lsp_server_exit, log_lsp_server_started, log_lsp_server_starting, log_unexpected_error,
-};
 use lsp_types::notification::{Exit, Notification};
 use lsp_types::request::{Request, Shutdown};
 use serde_json::Value;
@@ -68,7 +64,7 @@ impl Daemon {
     pub(super) fn start_upstream(&mut self, initial: bool) -> Result<()> {
         let generation = self.events.next_generation()?;
         let spec = self.target.process_spec(self.debug)?;
-        log_lsp_server_starting();
+        self.logger.server_starting();
         self.process = Some(ProcessWorker::spawn(spec, generation, &self.events)?);
         self.lifecycle = LifecycleState::Starting {
             generation,
@@ -108,11 +104,11 @@ impl Daemon {
                 ) {
                     return Ok(());
                 }
-                log_lsp_server_started(io.pid);
+                self.logger.server_started(io.pid);
                 self.upstream = Some(UpstreamServer::from_io(
                     io,
                     generation,
-                    self.debug,
+                    self.logger.clone(),
                     &self.events,
                 )?);
                 self.lifecycle = LifecycleState::Running;
@@ -135,7 +131,7 @@ impl Daemon {
                 if initial {
                     return Err(Error::unexpected(message));
                 }
-                log_unexpected_error(&message);
+                self.logger.unexpected(&message);
                 self.fail_pending_initialize(&message)?;
             }
             ProcessEvent::Exited(result) => self.handle_process_exit(generation, result)?,
@@ -178,8 +174,8 @@ impl Daemon {
         }
         self.process.take();
         match result {
-            Ok(status) => log_lsp_server_exit(status),
-            Err(error) => log_unexpected_error(&error),
+            Ok(status) => self.logger.server_exited(status),
+            Err(error) => self.logger.unexpected(error),
         }
         self.orphaned_client_requests.clear();
         match after {
@@ -288,7 +284,7 @@ impl Daemon {
             Shutdown::METHOD,
             &(),
         )?;
-        log_debug_message(self.debug, "daemon upstream <- ", &shutdown);
+        self.logger.debug_value("daemon upstream <- ", &shutdown);
         if upstream.writer.enqueue(&shutdown).is_err() {
             self.force_stop(generation, after);
             return Ok(());
@@ -315,7 +311,7 @@ impl Daemon {
             return Ok(true);
         };
         let exit = jsonrpc::<u64, _>(None, Exit::METHOD, &())?;
-        log_debug_message(self.debug, "daemon upstream <- ", &exit);
+        self.logger.debug_value("daemon upstream <- ", &exit);
         let Some(upstream) = self.upstream.as_mut() else {
             self.force_stop(generation, after);
             return Ok(true);
@@ -407,7 +403,7 @@ impl Daemon {
         if let Some(process) = self.process.as_ref()
             && let Err(error) = process.force_stop()
         {
-            log_unexpected_error(&error.to_string());
+            self.logger.unexpected(error);
         }
         self.lifecycle = LifecycleState::Killing { generation, after };
     }
@@ -417,10 +413,10 @@ impl UpstreamServer {
     pub(super) fn from_io(
         io: super::process_worker::ProcessIo,
         generation: u64,
-        debug: bool,
+        logger: super::Logger,
         events: &super::events::EventQueue,
     ) -> Result<Self> {
-        let stderr = crate::server_stderr::CapturedStderr::spawn(io.stderr, debug);
+        let stderr = crate::server_stderr::CapturedStderr::spawn_with(io.stderr, logger);
         let reader = super::events::ReaderWorker::spawn(
             io.stdout,
             super::events::Source::Upstream(generation),

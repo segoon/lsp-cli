@@ -46,7 +46,7 @@ fn message(delivery: Delivery, source: Source) -> Value {
     };
     assert_eq!(actual_source, source);
     delivery.acknowledge.send(()).expect("acknowledge");
-    value
+    Arc::unwrap_or_clone(value)
 }
 
 #[test]

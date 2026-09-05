@@ -8,12 +8,13 @@ use serde_json::{Value, json};
 use std::collections::BTreeSet;
 use std::io::BufReader;
 use std::os::unix::net::UnixStream;
+use std::sync::Arc;
 use std::time::Duration;
 
 pub(super) use crate::lsp::STOP_METHOD;
 
 pub(super) enum ReaderEvent {
-    Message(Value),
+    Message(Arc<Value>),
     EndOfStream,
     Error(String),
 }

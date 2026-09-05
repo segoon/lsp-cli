@@ -2,3 +2,9 @@ language:
   id: objc
   kind: source
   project: playground/objc
+
+pairs:
+  - language: objc
+    server: clangd
+    preferred:
+      version: "22.1.6"

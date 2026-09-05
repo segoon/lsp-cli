@@ -67,6 +67,21 @@
 
 # LSP server implementations
 
+## kotlin-lsp
+
+- The `kotlin_lsp` data config starts `kotlin-lsp --stdio`, while the Mason package currently
+  exposes its launcher as `intellij-server`. Selecting the official server is therefore possible,
+  but `lsp-cli --download` cannot launch it without a data-config correction or a provisioning
+  alias. Do not treat the preferred-server pin as a runnable smoke case until that mismatch is
+  resolved.
+
+## roslyn-language-server
+
+- The `roslyn_ls` data config starts `dotnet` with a literal `<my_folder>` DLL placeholder, while
+  the Mason package exposes a `roslyn-language-server` launcher. The official C# server needs a
+  concrete installed DLL path or corrected launcher command before it can participate in automated
+  smoke tests.
+
 ## lua-language-server
 
 - Opening every source file for symbol discovery also triggers diagnostics. The installed

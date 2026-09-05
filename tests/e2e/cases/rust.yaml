@@ -6,6 +6,8 @@ language:
 pairs:
   - language: rust
     server: rust_analyzer
+    preferred:
+      version: "2026-08-31"
     smoke:
       provision:
         method: download

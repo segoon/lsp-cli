@@ -4,11 +4,20 @@ use crate::repository_root;
 fn first_smoke(manifest: &mut Manifest) -> &mut SmokeCase {
     manifest
         .pairs
-        .first_mut()
-        .expect("manifest should contain a pair")
+        .iter_mut()
+        .find(|pair| pair.smoke.is_some())
+        .expect("manifest should contain a smoke pair")
         .smoke
         .as_mut()
-        .expect("first pair should have a smoke case")
+        .expect("selected pair should have a smoke case")
+}
+
+fn preferred_pair_mut<'a>(manifest: &'a mut Manifest, language: &str) -> &'a mut PairCase {
+    manifest
+        .pairs
+        .iter_mut()
+        .find(|pair| pair.language == language && pair.preferred.is_some())
+        .expect("language should have a preferred pair")
 }
 
 #[test]
@@ -20,6 +29,50 @@ fn partial_manifest_matches_pinned_data() {
 }
 
 #[test]
+fn source_languages_select_the_approved_preferred_servers() {
+    let manifest = Manifest::load().expect("E2E manifest should parse");
+    let expected = [
+        ("c", "clangd", "22.1.6"),
+        ("cpp", "clangd", "22.1.6"),
+        ("cs", "roslyn_ls", "5.11.0-1.26380.4"),
+        ("cuda", "clangd", "22.1.6"),
+        ("go", "gopls", "v0.23.0"),
+        ("java", "jdtls", "v1.60.0"),
+        ("javascript", "ts_ls", "6.0.0"),
+        ("kotlin", "kotlin_lsp", "kotlin-lsp/v262.9593.0"),
+        ("lua", "lua_ls", "3.19.1"),
+        ("objc", "clangd", "22.1.6"),
+        ("objcpp", "clangd", "22.1.6"),
+        ("python", "pyright", "1.1.413"),
+        ("rust", "rust_analyzer", "2026-08-31"),
+        ("typescript", "ts_ls", "6.0.0"),
+    ];
+
+    for (language, server, version) in expected {
+        let pair = manifest
+            .pairs
+            .iter()
+            .find(|pair| pair.language == language && pair.preferred.is_some())
+            .expect("source language should have a preferred pair");
+        assert_eq!(pair.server, server);
+        assert_eq!(
+            pair.preferred
+                .as_ref()
+                .expect("pair should be preferred")
+                .version,
+            version
+        );
+    }
+
+    let preferred_count = manifest
+        .pairs
+        .iter()
+        .filter(|pair| pair.preferred.is_some())
+        .count();
+    assert_eq!(preferred_count, expected.len());
+}
+
+#[test]
 fn complete_mode_rejects_the_partial_matrix() {
     let mut manifest = Manifest::load().expect("E2E manifest should parse");
     manifest.coverage = Coverage::Complete;
@@ -28,7 +81,7 @@ fn complete_mode_rejects_the_partial_matrix() {
         .validate(repository_root())
         .expect_err("partial matrix should not satisfy complete coverage");
 
-    assert!(error.contains("complete E2E manifest is missing languages"));
+    assert!(error.contains("complete E2E manifest is missing pairs"));
 }
 
 #[test]
@@ -49,11 +102,74 @@ fn complete_mode_rejects_missing_server_pairs() {
 #[test]
 fn manifest_rejects_unknown_fields() {
     let error = serde_yaml::from_str::<SuiteFile>(
-        "schema-version: 2\ncoverage: partial\ncommands: []\nunknown: true\n",
+        "schema-version: 3\ncoverage: partial\ncommands: []\nunknown: true\n",
     )
     .expect_err("unknown manifest fields should fail");
 
     assert!(error.to_string().contains("unknown field `unknown`"));
+}
+
+#[test]
+fn manifest_rejects_a_source_language_without_a_preferred_server() {
+    let mut manifest = Manifest::load().expect("E2E manifest should parse");
+    preferred_pair_mut(&mut manifest, "c").preferred = None;
+
+    let error = manifest
+        .validate(repository_root())
+        .expect_err("source language should require one preferred server");
+
+    assert!(error.contains("must select exactly one preferred server; found 0"));
+}
+
+#[test]
+fn manifest_rejects_multiple_preferred_servers_for_one_language() {
+    let mut manifest = Manifest::load().expect("E2E manifest should parse");
+    let mut duplicate = preferred_pair_mut(&mut manifest, "c").clone();
+    duplicate.server = "ccls".to_string();
+    manifest.pairs.push(duplicate);
+
+    let error = manifest
+        .validate(repository_root())
+        .expect_err("source language should have only one preferred server");
+
+    assert!(error.contains("must select exactly one preferred server; found 2"));
+}
+
+#[test]
+fn manifest_rejects_a_preferred_server_for_metadata() {
+    let mut manifest = Manifest::load().expect("E2E manifest should parse");
+    manifest.pairs.push(PairCase {
+        language: "gomod".to_string(),
+        server: "gopls".to_string(),
+        preferred: Some(PreferredServer {
+            version: "v0.23.0".to_string(),
+        }),
+        smoke: None,
+    });
+
+    let error = manifest
+        .validate(repository_root())
+        .expect_err("metadata language should not select a preferred server");
+
+    assert!(error.contains("must not select a preferred server"));
+}
+
+#[test]
+fn manifest_rejects_non_exact_preferred_versions() {
+    for version in ["", " latest", "latest", "stable"] {
+        let mut manifest = Manifest::load().expect("E2E manifest should parse");
+        preferred_pair_mut(&mut manifest, "c")
+            .preferred
+            .as_mut()
+            .expect("pair should be preferred")
+            .version = version.to_string();
+
+        let error = manifest
+            .validate(repository_root())
+            .expect_err("preferred version should be exact");
+
+        assert!(error.contains("preferred E2E server c/clangd"));
+    }
 }
 
 #[test]

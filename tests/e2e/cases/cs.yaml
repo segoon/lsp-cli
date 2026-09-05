@@ -1,0 +1,10 @@
+language:
+  id: cs
+  kind: source
+  project: playground/csharp
+
+pairs:
+  - language: cs
+    server: roslyn_ls
+    preferred:
+      version: "5.11.0-1.26380.4"

@@ -1,10 +1,10 @@
 language:
-  id: objcpp
+  id: cpp
   kind: source
-  project: playground/objcpp
+  project: playground/cpp
 
 pairs:
-  - language: objcpp
+  - language: cpp
     server: clangd
     preferred:
       version: "22.1.6"

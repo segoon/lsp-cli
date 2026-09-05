@@ -4,9 +4,12 @@ use std::path::{Component, Path, PathBuf};
 use serde::Deserialize;
 
 use crate::case_files::{file_stem, read_yaml, yaml_paths};
+use crate::manifest_data::{
+    FiletypeConfig, LspConfig, PairKey, compatible_pairs, detectable_languages,
+};
 use crate::repository_root;
 
-const MANIFEST_SCHEMA_VERSION: u32 = 2;
+const MANIFEST_SCHEMA_VERSION: u32 = 3;
 
 #[derive(Clone, Debug)]
 pub(crate) struct Manifest {
@@ -65,7 +68,7 @@ struct LanguageCase {
     project: PathBuf,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 enum ProjectKind {
     Source,
@@ -86,13 +89,14 @@ impl ProjectKind {
 struct PairCase {
     language: String,
     server: String,
+    preferred: Option<PreferredServer>,
     smoke: Option<SmokeCase>,
 }
 
-#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
-struct PairKey {
-    language: String,
-    server: String,
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+struct PreferredServer {
+    version: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -142,27 +146,6 @@ pub(crate) struct RealServerCase<'a> {
     language: &'a LanguageCase,
     pair: &'a PairCase,
     smoke: &'a SmokeCase,
-}
-
-#[derive(Deserialize)]
-struct FiletypeConfig {
-    #[serde(default)]
-    extensions: Vec<String>,
-    #[serde(default)]
-    patterns: Vec<String>,
-}
-
-impl FiletypeConfig {
-    fn is_detectable(&self) -> bool {
-        !self.extensions.is_empty() || !self.patterns.is_empty()
-    }
-}
-
-#[derive(Deserialize)]
-struct LspConfig {
-    #[serde(default)]
-    filetypes: Vec<String>,
-    name: String,
 }
 
 impl Manifest {
@@ -215,6 +198,7 @@ impl Manifest {
         let data = repository.join("data");
         let declared_languages = self.validate_languages(repository, &data)?;
         let declared_pairs = self.validate_pairs(&data, &declared_languages)?;
+        self.validate_preferred_servers()?;
 
         if self.coverage == Coverage::Complete {
             Self::validate_complete_coverage(&data, &declared_languages, &declared_pairs)?;
@@ -338,8 +322,37 @@ impl Manifest {
             if let Some(smoke) = &pair.smoke {
                 smoke.validate(pair)?;
             }
+            if let Some(preferred) = &pair.preferred {
+                preferred.validate(pair)?;
+            }
         }
         Ok(declared)
+    }
+
+    fn validate_preferred_servers(&self) -> Result<(), String> {
+        for language in &self.languages {
+            let count = self
+                .pairs
+                .iter()
+                .filter(|pair| pair.language == language.id && pair.preferred.is_some())
+                .count();
+            match (language.kind, count) {
+                (ProjectKind::Source, 1) | (ProjectKind::Metadata, 0) => {}
+                (ProjectKind::Source, _) => {
+                    return Err(format!(
+                        "E2E source language {:?} must select exactly one preferred server; found {count}",
+                        language.id
+                    ));
+                }
+                (ProjectKind::Metadata, _) => {
+                    return Err(format!(
+                        "E2E metadata language {:?} must not select a preferred server",
+                        language.id
+                    ));
+                }
+            }
+        }
+        Ok(())
     }
 
     fn validate_complete_coverage(
@@ -409,6 +422,25 @@ impl PairCase {
             language: self.language.clone(),
             server: self.server.clone(),
         }
+    }
+}
+
+impl PreferredServer {
+    fn validate(&self, pair: &PairCase) -> Result<(), String> {
+        let version = self.version.trim();
+        if version.is_empty() || version != self.version {
+            return Err(format!(
+                "preferred E2E server {}/{} must have a non-empty, trimmed version",
+                pair.language, pair.server
+            ));
+        }
+        if version.eq_ignore_ascii_case("latest") || version.eq_ignore_ascii_case("stable") {
+            return Err(format!(
+                "preferred E2E server {}/{} must use an exact version instead of {:?}",
+                pair.language, pair.server, self.version
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -535,37 +567,6 @@ impl LanguageCase {
         }
         Ok(())
     }
-}
-
-fn detectable_languages(data: &Path) -> Result<BTreeSet<String>, String> {
-    let mut languages = BTreeSet::new();
-    for path in yaml_paths(&data.join("filetypes"))? {
-        let config: FiletypeConfig = read_yaml(&path)?;
-        if config.is_detectable() {
-            languages.insert(file_stem(&path)?);
-        }
-    }
-    Ok(languages)
-}
-
-fn compatible_pairs(
-    data: &Path,
-    detectable: &BTreeSet<String>,
-) -> Result<BTreeSet<PairKey>, String> {
-    let mut pairs = BTreeSet::new();
-    for path in yaml_paths(&data.join("lsp"))? {
-        let config: LspConfig = read_yaml(&path)?;
-        let server = file_stem(&path)?;
-        for language in config.filetypes {
-            if detectable.contains(&language) {
-                pairs.insert(PairKey {
-                    language,
-                    server: server.clone(),
-                });
-            }
-        }
-    }
-    Ok(pairs)
 }
 
 fn validate_config_id(kind: &str, value: &str) -> Result<(), String> {

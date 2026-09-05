@@ -254,7 +254,8 @@ validation test should fail when:
 - two cases select the same user-visible server ambiguously;
 - a new top-level subcommand has no assigned coverage class.
 
-The version 2 manifest assigns every canonical command to a coverage strategy and keeps
+The version 3 manifest assigns every canonical command to a coverage strategy, selects one pinned
+preferred server for every source-language project, and keeps
 `coverage: partial`, which validates every declared language/server entry
 against the pinned data without requiring unfinished matrix entries. Phase 4 adds the remaining
 entries and switches it to `coverage: complete`; complete mode enforces every detectable language
@@ -268,11 +269,35 @@ genuinely new filetype or server, first add its YAML config and commit it in the
 then update the submodule revision and the E2E cases in this repository.
 
 Pair entries use the LSP YAML filename stem as their stable config ID. The test runner loads the
-configured user-visible server name for `--lsp`; do not duplicate it in the manifest. Each optional
+configured user-visible server name for `--lsp`; do not duplicate it in the manifest. A
+`preferred` block marks a source language's merge-gate server and records its exact version. Every
+source language must have exactly one; metadata-only filetypes must not have one. Each optional
 `smoke` block declares a generic provisioning method, query kind, semantic expectations, runtime
 host programs, and deadlines. Language-specific prerequisites and expected symbols belong in YAML,
 not in the Rust runner. The first provisioning method is `download`; add other mechanisms as typed
 methods when needed instead of branching on server names.
+
+### Preferred server pins
+
+The initial pins come from Mason registry release `2026-09-05-weary-okapi`, whose registry archive
+digest is `sha256:ecbd69b9f967754250413ac92dc9b0301d6b95699882554b234e2f832ca2b7f0`.
+Versions are recorded per pair because multiple languages may deliberately reuse one server.
+
+| Languages | LSP config ID | Pinned version |
+| --- | --- | --- |
+| C, C++, CUDA, Objective-C, Objective-C++ | `clangd` | `22.1.6` |
+| C# | `roslyn_ls` | `5.11.0-1.26380.4` |
+| Go | `gopls` | `v0.23.0` |
+| Java | `jdtls` | `v1.60.0` |
+| JavaScript, TypeScript | `ts_ls` | `6.0.0` |
+| Kotlin | `kotlin_lsp` | `kotlin-lsp/v262.9593.0` |
+| Lua | `lua_ls` | `3.19.1` |
+| Python | `pyright` | `1.1.413` |
+| Rust | `rust_analyzer` | `2026-08-31` |
+
+These selections are manifest data, not language-specific runner branches. The provisioning phase
+must consume the exact versions rather than treating them as documentation or requesting the
+registry's current version.
 
 In `coverage: complete` mode, manifest validation makes a new detectable filetype or compatible
 filetype/server relationship fail until its project and pair are declared. Partial mode intentionally
@@ -431,7 +456,7 @@ that class of defect easier to diagnose.
 Manual LSP verification follows server selection and provisioning so it runs against reproducible,
 runnable servers rather than ambient or unpinned installations.
 
-- [ ] Select and pin one preferred server for each source language.
+- [x] Select and pin one preferred server for each source language.
 - [ ] Add provisioning scripts without new Rust dependencies.
 - [ ] Run each relevant command manually against every new project.
 - [ ] Implement capability-aware query assertions.

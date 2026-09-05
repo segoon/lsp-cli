@@ -1,0 +1,10 @@
+language:
+  id: lua
+  kind: source
+  project: playground/lua
+
+pairs:
+  - language: lua
+    server: lua_ls
+    preferred:
+      version: "3.19.1"

@@ -2,3 +2,9 @@ language:
   id: cuda
   kind: source
   project: playground/cuda
+
+pairs:
+  - language: cuda
+    server: clangd
+    preferred:
+      version: "22.1.6"

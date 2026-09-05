@@ -1,0 +1,10 @@
+language:
+  id: go
+  kind: source
+  project: playground/go
+
+pairs:
+  - language: go
+    server: gopls
+    preferred:
+      version: "v0.23.0"

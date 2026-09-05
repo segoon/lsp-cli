@@ -1,0 +1,10 @@
+language:
+  id: java
+  kind: source
+  project: playground/java
+
+pairs:
+  - language: java
+    server: jdtls
+    preferred:
+      version: "v1.60.0"

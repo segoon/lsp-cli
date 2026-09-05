@@ -83,9 +83,10 @@ Source projects are committed for:
 - `playground/objc`
 - `playground/objcpp`
 
-Add minimal detection fixtures for `gomod` and `gowork`. These IDs describe Go workspace metadata,
-not source languages, so they can cover detection, file listing, server selection, initialization,
-and lifecycle, but cannot independently provide meaningful symbol or call-hierarchy assertions.
+Minimal detection fixtures are committed under `playground/gomod` and `playground/gowork`. These
+IDs describe Go workspace metadata, not source languages, so they can cover detection, file
+listing, server selection, initialization, and lifecycle, but cannot independently provide
+meaningful symbol or call-hierarchy assertions.
 
 Every source-language project should be small, valid, and multi-file. Where the language permits,
 it should contain:
@@ -212,7 +213,9 @@ tests/
     queries.rs
     lifecycle.rs
     update.rs
-    cases.yaml
+    cases/
+      suite.yaml
+      <language>.yaml
 ```
 
 Keep every Rust file under 600 lines. Move repeated process setup and assertions into helpers as
@@ -239,8 +242,10 @@ Each test process should set at least:
 Do not rely on a developer's user configuration, downloaded server cache, daemon sockets, current
 shell, or ambient server versions.
 
-The manifest should include stable case data, provisioning metadata, expected capabilities, and
-documented exclusions. A validation test should fail when:
+The manifest directory should include stable case data, provisioning metadata, expected
+capabilities, and documented exclusions. `tests/e2e/cases/suite.yaml` owns global command coverage,
+while each `tests/e2e/cases/<language>.yaml` owns one project and all of its server pairs. A
+validation test should fail when:
 
 - a detectable filetype lacks a project;
 - a compatible pair lacks a manifest entry;
@@ -257,10 +262,10 @@ and compatible pair.
 
 ### Extending the manifest
 
-To cover an existing filetype, add its small project under `playground/`, declare it once under
-`languages`, then add a `pairs` entry for each compatible server. To introduce a genuinely new
-filetype or server, first add its YAML config and commit it in the `data` submodule, then update the
-submodule revision and the E2E manifest in this repository.
+To cover an existing filetype, add its small project under `playground/`, add one case file named
+after the filetype ID, then add a `pairs` entry there for each compatible server. To introduce a
+genuinely new filetype or server, first add its YAML config and commit it in the `data` submodule,
+then update the submodule revision and the E2E cases in this repository.
 
 Pair entries use the LSP YAML filename stem as their stable config ID. The test runner loads the
 configured user-visible server name for `--lsp`; do not duplicate it in the manifest. Each optional
@@ -418,7 +423,7 @@ that class of defect easier to diagnose.
 - [x] Audit the ten existing playgrounds against the common semantic requirements.
 - [x] Remove duplicated setup patterns within each class of fixture.
 - [x] Add CUDA, Kotlin, Objective-C, and Objective-C++ projects.
-- [ ] Add `gomod` and `gowork` detection fixtures.
+- [x] Add `gomod` and `gowork` detection fixtures.
 - [ ] Update `playground/README.md` with manual reproduction commands.
 - [ ] Run each relevant command manually against every new project.
 

@@ -1,19 +1,35 @@
 use std::collections::BTreeSet;
-use std::fs;
 use std::path::{Component, Path, PathBuf};
 
 use serde::Deserialize;
-use serde::de::DeserializeOwned;
+
+use crate::case_files::{file_stem, read_yaml, yaml_paths};
+use crate::repository_root;
 
 const MANIFEST_SCHEMA_VERSION: u32 = 2;
 
-#[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+#[derive(Clone, Debug)]
 pub(crate) struct Manifest {
     schema_version: u32,
     coverage: Coverage,
     commands: Vec<CommandCase>,
     languages: Vec<LanguageCase>,
+    pairs: Vec<PairCase>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+struct SuiteFile {
+    schema_version: u32,
+    coverage: Coverage,
+    commands: Vec<CommandCase>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+struct LanguageFile {
+    language: LanguageCase,
+    #[serde(default)]
     pairs: Vec<PairCase>,
 }
 
@@ -151,8 +167,34 @@ struct LspConfig {
 
 impl Manifest {
     fn load() -> Result<Self, String> {
-        serde_yaml::from_str(include_str!("cases.yaml"))
-            .map_err(|error| format!("failed to parse E2E manifest: {error}"))
+        Self::load_cases(repository_root())
+    }
+
+    fn load_cases(repository: &Path) -> Result<Self, String> {
+        let directory = repository.join("tests/e2e/cases");
+        let suite_path = directory.join("suite.yaml");
+        let suite: SuiteFile = read_yaml(&suite_path)?;
+        let mut languages = Vec::new();
+        let mut pairs = Vec::new();
+
+        for path in yaml_paths(&directory)? {
+            if path == suite_path {
+                continue;
+            }
+            let case_id = file_stem(&path)?;
+            let case: LanguageFile = read_yaml(&path)?;
+            let (language, mut language_pairs) = case.into_parts(&case_id, &path)?;
+            languages.push(language);
+            pairs.append(&mut language_pairs);
+        }
+
+        Ok(Self {
+            schema_version: suite.schema_version,
+            coverage: suite.coverage,
+            commands: suite.commands,
+            languages,
+            pairs,
+        })
     }
 
     fn validate(&self, repository: &Path) -> Result<(), String> {
@@ -181,13 +223,13 @@ impl Manifest {
     }
 
     pub(crate) fn load_validated(repository: &Path) -> Result<Self, String> {
-        let manifest = Self::load()?;
+        let manifest = Self::load_cases(repository)?;
         manifest.validate(repository)?;
         Ok(manifest)
     }
 
     pub(crate) fn load_repository() -> Result<Self, String> {
-        Self::load_validated(Path::new(env!("CARGO_MANIFEST_DIR")))
+        Self::load_validated(repository_root())
     }
 
     pub(crate) fn real_server_smoke_cases(&self) -> impl Iterator<Item = RealServerCase<'_>> {
@@ -329,6 +371,35 @@ impl Manifest {
             ));
         }
         Ok(())
+    }
+}
+
+impl LanguageFile {
+    fn into_parts(
+        self,
+        case_id: &str,
+        path: &Path,
+    ) -> Result<(LanguageCase, Vec<PairCase>), String> {
+        if self.language.id != case_id {
+            return Err(format!(
+                "E2E case filename {case_id:?} does not match language ID {:?} in {}",
+                self.language.id,
+                path.display()
+            ));
+        }
+        if let Some(pair) = self
+            .pairs
+            .iter()
+            .find(|pair| pair.language != self.language.id)
+        {
+            return Err(format!(
+                "E2E case {} for language {:?} contains pair for language {:?}",
+                path.display(),
+                self.language.id,
+                pair.language
+            ));
+        }
+        Ok((self.language, self.pairs))
     }
 }
 
@@ -495,35 +566,6 @@ fn compatible_pairs(
         }
     }
     Ok(pairs)
-}
-
-fn yaml_paths(directory: &Path) -> Result<Vec<PathBuf>, String> {
-    let entries = fs::read_dir(directory)
-        .map_err(|error| format!("failed to read {}: {error}", directory.display()))?;
-    let mut paths = entries
-        .map(|entry| {
-            entry
-                .map(|entry| entry.path())
-                .map_err(|error| format!("failed to read {}: {error}", directory.display()))
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    paths.retain(|path| path.extension().and_then(|extension| extension.to_str()) == Some("yaml"));
-    paths.sort();
-    Ok(paths)
-}
-
-fn read_yaml<T: DeserializeOwned>(path: &Path) -> Result<T, String> {
-    let contents = fs::read_to_string(path)
-        .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
-    serde_yaml::from_str(&contents)
-        .map_err(|error| format!("failed to parse {}: {error}", path.display()))
-}
-
-fn file_stem(path: &Path) -> Result<String, String> {
-    path.file_stem()
-        .and_then(|stem| stem.to_str())
-        .map(str::to_owned)
-        .ok_or_else(|| format!("{} has no UTF-8 file stem", path.display()))
 }
 
 fn validate_config_id(kind: &str, value: &str) -> Result<(), String> {

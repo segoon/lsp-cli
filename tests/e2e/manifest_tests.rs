@@ -48,12 +48,40 @@ fn complete_mode_rejects_missing_server_pairs() {
 
 #[test]
 fn manifest_rejects_unknown_fields() {
-    let error = serde_yaml::from_str::<Manifest>(
-        "schema-version: 2\ncoverage: partial\ncommands: []\nlanguages: []\npairs: []\nunknown: true\n",
+    let error = serde_yaml::from_str::<SuiteFile>(
+        "schema-version: 2\ncoverage: partial\ncommands: []\nunknown: true\n",
     )
     .expect_err("unknown manifest fields should fail");
 
     assert!(error.to_string().contains("unknown field `unknown`"));
+}
+
+#[test]
+fn language_case_filename_must_match_its_id() {
+    let case = serde_yaml::from_str::<LanguageFile>(
+        "language:\n  id: gomod\n  kind: metadata\n  project: playground/gomod\n",
+    )
+    .expect("language case should parse");
+
+    let error = case
+        .into_parts("wrong", Path::new("cases/wrong.yaml"))
+        .expect_err("case filename should match language ID");
+
+    assert!(error.contains("does not match language ID"));
+}
+
+#[test]
+fn language_case_must_own_its_pairs() {
+    let case = serde_yaml::from_str::<LanguageFile>(
+        "language:\n  id: gomod\n  kind: metadata\n  project: playground/gomod\npairs:\n  - language: gowork\n    server: gopls\n",
+    )
+    .expect("language case should parse");
+
+    let error = case
+        .into_parts("gomod", Path::new("cases/gomod.yaml"))
+        .expect_err("case should contain only its own language pairs");
+
+    assert!(error.contains("contains pair for language"));
 }
 
 #[test]

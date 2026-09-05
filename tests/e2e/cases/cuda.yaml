@@ -1,0 +1,4 @@
+language:
+  id: cuda
+  kind: source
+  project: playground/cuda

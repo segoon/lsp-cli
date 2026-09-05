@@ -7,6 +7,8 @@
     reason = "E2E fixtures and assertions fail immediately with contextual expectation messages."
 )]
 
+#[path = "e2e/case_files.rs"]
+mod case_files;
 #[path = "e2e/catalog.rs"]
 mod catalog;
 #[path = "e2e/filesystem.rs"]

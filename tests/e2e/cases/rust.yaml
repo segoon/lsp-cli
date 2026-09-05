@@ -1,0 +1,25 @@
+language:
+  id: rust
+  kind: source
+  project: playground/rust
+
+pairs:
+  - language: rust
+    server: rust_analyzer
+    smoke:
+      provision:
+        method: download
+      query:
+        kind: list-symbols
+      expected-names:
+        - Order
+        - OrderItem
+        - sample_order
+        - format_order
+      host-programs:
+        - name: cargo
+          resolve: [rustup, which, cargo]
+        - name: rustc
+          resolve: [rustup, which, rustc]
+      lsp-timeout-seconds: 30
+      deadline-seconds: 180

@@ -1,0 +1,4 @@
+language:
+  id: gowork
+  kind: metadata
+  project: playground/gowork

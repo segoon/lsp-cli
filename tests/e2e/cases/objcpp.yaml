@@ -1,0 +1,4 @@
+language:
+  id: objcpp
+  kind: source
+  project: playground/objcpp

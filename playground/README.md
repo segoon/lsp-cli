@@ -31,3 +31,25 @@ cargo run -- stop playground/python
 
 The projects reuse a similar domain across languages so symbol names are easy to remember
 while trying different LSP servers.
+
+To measure daemon forwarding overhead with a deterministic immediate-reply server:
+
+```sh
+cargo build
+python3 scripts/daemon_latency.py --binary target/debug/lsp-cli --samples 100 --pipeline 16
+```
+
+Run this from the repository root. Add another `--binary /path/to/baseline/lsp-cli`
+to compare builds. The script uses `playground/rust` with temporary server
+configuration and sockets; it requires Python 3 but no installed language server.
+It reports direct and warm-daemon p50/p95/p99 request latency in milliseconds,
+with sample counts for sequential requests and batches of 16 pipelined requests.
+Initialization is outside the measured interval. It also checks busy rejection,
+warm reuse, restart after capability changes or dynamic registration,
+initialization-failure recovery, and stop with an active client.
+
+The daemon uses one outstanding event per reader or accept worker, keeping event
+backlog bounded without a forwarding-loop polling delay. Individual message sizes
+are not capped, and handshakes, writes, logging, and upstream shutdown still run
+synchronously. These measurements describe an immediate-reply fixture, not a
+latency guarantee for real language servers or stalled peers.

@@ -31,6 +31,10 @@
 
 # Daemon gotchas
 
+- Daemon initialization compares workspace URIs literally. Directory URIs produced by
+  `path_to_file_uri` end with `/`; raw socket clients and fixtures must use the same trailing
+  slash in `rootUri` and workspace folder URIs, or initialization is rejected.
+
 - LSP 3.17 assumes one server serves one tool. `lsp-cli daemon` therefore implements a
   conservative proxy policy instead of transparent multi-client sharing: only one client may be
   connected at a time, downstream `shutdown`/`exit` are handled locally, and a later client with

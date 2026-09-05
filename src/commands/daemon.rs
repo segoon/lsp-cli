@@ -2,37 +2,38 @@ use crate::cli::DaemonArgs;
 use crate::config::ConfigStore;
 use crate::error::{Error, Result, error_fn};
 use crate::lsp::transport::{log_debug_message, write_message};
-use crate::lsp::{STOP_METHOD, jsonrpc, parse_lsp_uri};
+use crate::lsp::{jsonrpc, parse_lsp_uri};
 use crate::server_stderr::CapturedStderr;
 use crate::system_log::{log_lsp_server_exit, log_unexpected_error};
 use lsp_types::notification::{Cancel, DidCloseTextDocument, Notification};
-use lsp_types::request::{Initialize, Request};
 use lsp_types::{CancelParams, DidCloseTextDocumentParams, NumberOrString, TextDocumentIdentifier};
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io::ErrorKind;
-use std::os::unix::net::{UnixListener, UnixStream};
+use std::os::unix::net::UnixStream;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::{Child, ChildStdin};
-use std::sync::mpsc::{Receiver, TryRecvError};
+use std::sync::mpsc::RecvTimeoutError;
 use std::thread;
 use std::time::{Duration, Instant};
 
+mod events;
+mod forwarding;
 mod process;
 mod protocol;
 
 #[cfg(test)]
+mod session_tests;
+#[cfg(test)]
 mod tests;
 
+use events::{AcceptWorker, Event, EventQueue, ReaderWorker, Source};
 use process::{bind_listener, launch_background, resolve_target, run_background};
 use protocol::{
-    BackgroundWorkTracker, ReaderEvent, error_response, fingerprint_value, handle_busy_connection,
-    id_key, local_server_request_response, message_method, normalize_initialize_params,
-    read_control_message, request_id, request_id_from_key, respond_to_stop_request, response_id,
-    stop_request, stop_request_id, success_response, update_background_work_tracker,
-    wants_background_work,
+    BackgroundWorkTracker, ReaderEvent, error_response, handle_busy_connection,
+    read_control_message, request_id_from_key, response_id, stop_request, stop_request_id,
 };
 
 const BACKGROUND_ENV: &str = "LSP_CLI_DAEMON_BACKGROUND";
@@ -169,7 +170,9 @@ struct DaemonTarget {
 }
 
 struct Daemon {
-    listener: UnixListener,
+    accept_worker: Option<AcceptWorker>,
+    events: EventQueue,
+    socket_owned: bool,
     target: DaemonTarget,
     debug: bool,
     idle_timeout: Duration,
@@ -184,7 +187,8 @@ struct UpstreamServer {
     child: Child,
     stdin: ChildStdin,
     stderr: CapturedStderr,
-    messages: Receiver<ReaderEvent>,
+    generation: u64,
+    reader: ReaderWorker,
     initialize_fingerprint: Option<String>,
     initialize_result: Option<Value>,
     restart_required: bool,
@@ -193,7 +197,8 @@ struct UpstreamServer {
 
 struct ClientSession {
     writer: UnixStream,
-    messages: Receiver<ReaderEvent>,
+    generation: u64,
+    reader: ReaderWorker,
     phase: ClientPhase,
     wants_background_work: bool,
     forwarded_client_requests: BTreeSet<String>,
@@ -212,421 +217,132 @@ enum ClientPhase {
 impl Daemon {
     fn new(target: DaemonTarget, debug: bool, idle_timeout: Duration) -> Result<Self> {
         let listener = bind_listener(&target.socket_path)?;
-        listener.set_nonblocking(true).map_err(|error| {
-            Error::unexpected(format!(
-                "failed to set {} nonblocking: {error}",
-                target.socket_path.display()
-            ))
-        })?;
-        let upstream = UpstreamServer::spawn(&target, debug)?;
-
-        Ok(Self {
-            listener,
+        let mut daemon = Self {
+            accept_worker: None,
+            events: EventQueue::new(),
+            socket_owned: true,
             target,
             debug,
             idle_timeout,
-            upstream: Some(upstream),
+            upstream: None,
             active_client: None,
             orphaned_client_requests: BTreeSet::new(),
             idle_since: Instant::now(),
             stop_requested: false,
-        })
+        };
+        daemon.upstream = Some(UpstreamServer::spawn(
+            &daemon.target,
+            debug,
+            &mut daemon.events,
+        )?);
+        daemon.accept_worker = Some(AcceptWorker::spawn(
+            listener,
+            &daemon.target.socket_path,
+            &daemon.events,
+        )?);
+        Ok(daemon)
     }
 
     fn serve(&mut self) -> Result<()> {
         loop {
-            self.accept_connections()?;
-            self.drain_upstream_messages()?;
-            self.drain_client_messages()?;
-
-            if self.stop_requested {
+            if self.stop_requested || self.idle_expired() {
                 return self.stop();
             }
-
-            if self.active_client.is_none() && self.idle_since.elapsed() >= self.idle_timeout {
-                return self.stop();
-            }
-
-            thread::sleep(POLL_INTERVAL);
-        }
-    }
-
-    fn accept_connections(&mut self) -> Result<()> {
-        loop {
-            match self.listener.accept() {
-                Ok((stream, _)) => {
-                    if self.active_client.is_some() {
-                        if handle_busy_connection(stream, self.debug)? {
-                            self.stop_requested = true;
-                        }
-                        continue;
-                    }
-
-                    self.active_client = Some(ClientSession::new(stream)?);
-                }
-                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => return Ok(()),
-                Err(error) => {
-                    return Err(Error::unexpected(format!(
-                        "failed to accept client on {}: {error}",
-                        self.target.socket_path.display()
-                    )));
-                }
-            }
-        }
-    }
-
-    fn drain_upstream_messages(&mut self) -> Result<()> {
-        loop {
-            let event = match self.upstream.as_ref() {
-                Some(upstream) => match upstream.messages.try_recv() {
-                    Ok(event) => event,
-                    Err(TryRecvError::Empty) => return Ok(()),
-                    Err(TryRecvError::Disconnected) => {
-                        self.upstream_died();
-                        return Ok(());
-                    }
-                },
-                None => return Ok(()),
+            let timeout = if self.active_client.is_none() {
+                Some(self.idle_timeout.saturating_sub(self.idle_since.elapsed()))
+            } else {
+                None
             };
-
-            match event {
-                ReaderEvent::Message(message) => self.handle_upstream_message(&message)?,
-                ReaderEvent::EndOfStream => {
-                    self.upstream_died();
-                    return Ok(());
-                }
-                ReaderEvent::Error(error) => {
-                    self.upstream_died();
-                    let error = format!("failed to read LSP server message: {error}");
-                    log_unexpected_error(&error);
-                    return Err(Error::unexpected(error));
-                }
-            }
-        }
-    }
-
-    fn drain_client_messages(&mut self) -> Result<()> {
-        loop {
-            let event = match self.active_client.as_ref() {
-                Some(client) => match client.messages.try_recv() {
-                    Ok(event) => event,
-                    Err(TryRecvError::Empty) => return Ok(()),
-                    Err(TryRecvError::Disconnected) => {
-                        self.disconnect_client()?;
-                        return Ok(());
+            match self.events.receive(timeout) {
+                Ok(event) => {
+                    if self.idle_expired() {
+                        // A received event may coincide with the deadline. Release its producer
+                        // before shutdown starts consuming upstream events from the same queue.
+                        let _ = event.acknowledge.send(());
+                        return self.stop();
                     }
-                },
-                None => return Ok(()),
-            };
-
-            match event {
-                ReaderEvent::Message(message) => self.handle_client_message(&message)?,
-                ReaderEvent::EndOfStream => {
-                    self.disconnect_client()?;
-                    return Ok(());
+                    let result = self.dispatch(event.event);
+                    // Release admission even when dispatch fails; cancellation handles retired readers.
+                    let _ = event.acknowledge.send(());
+                    result?;
                 }
-                ReaderEvent::Error(error) => {
-                    self.disconnect_client()?;
-                    return Err(Error::lsp(format!(
-                        "failed to read daemon client message: {error}"
-                    )));
-                }
-            }
-        }
-    }
-
-    fn handle_client_message(&mut self, message: &Value) -> Result<()> {
-        log_debug_message(self.debug, "daemon client <- ", message);
-        let method = message_method(message);
-        let request_id = request_id(message);
-        let response_id = response_id(message);
-
-        if let Some(response_id) = response_id {
-            let Some(client) = self.active_client.as_mut() else {
-                return Ok(());
-            };
-            let key = id_key(&response_id);
-            if client.pending_server_requests.remove(&key).is_some() {
-                self.write_upstream_message(message)?;
-            }
-            return Ok(());
-        }
-
-        match self.active_client.as_ref().map(|client| client.phase) {
-            Some(ClientPhase::WaitingForInitialize) => {
-                if stop_request_id(message).is_some() {
-                    return self.handle_stop_request(message);
-                }
-
-                if method == Some("initialize") && request_id.is_some() {
-                    return self.handle_initialize_request(message);
-                }
-
-                if method == Some("exit") {
-                    self.disconnect_client()?;
-                    return Ok(());
-                }
-
-                if let Some(request_id) = request_id {
-                    return self.write_client_response(&error_response(
-                        &request_id,
-                        SERVER_NOT_INITIALIZED,
-                        "daemon client must initialize before sending requests",
+                Err(RecvTimeoutError::Timeout) => {}
+                Err(RecvTimeoutError::Disconnected) => {
+                    return Err(Error::unexpected(
+                        "daemon event workers stopped unexpectedly",
                     ));
                 }
-
-                return Ok(());
             }
-            Some(ClientPhase::WaitingForInitialized {
-                forward_to_upstream,
-            }) => {
-                if method == Some("initialized") {
-                    if forward_to_upstream {
-                        self.write_upstream_message(message)?;
+        }
+    }
+
+    fn idle_expired(&self) -> bool {
+        self.active_client.is_none() && self.idle_since.elapsed() >= self.idle_timeout
+    }
+
+    fn dispatch(&mut self, event: Event) -> Result<()> {
+        match event {
+            Event::Accepted(stream) => {
+                if self.active_client.is_some() {
+                    if handle_busy_connection(stream, self.debug)? {
+                        self.stop_requested = true;
                     }
-                    if let Some(client) = self.active_client.as_mut() {
-                        client.phase = ClientPhase::Ready;
-                    }
-                    self.notify_client_if_background_ready(!forward_to_upstream)?;
-                    return Ok(());
-                }
-
-                if let Some(request_id) = request_id {
-                    return self.write_client_response(&error_response(
-                        &request_id,
-                        INVALID_REQUEST,
-                        "daemon client must send initialized before other requests",
-                    ));
-                }
-
-                return Ok(());
-            }
-            Some(ClientPhase::WaitingForExit) => {
-                if method == Some("exit") {
-                    self.disconnect_client()?;
-                }
-                return Ok(());
-            }
-            Some(ClientPhase::Ready) | None => {}
-        }
-
-        if method == Some("shutdown") {
-            let Some(request_id) = request_id else {
-                return Ok(());
-            };
-            if let Some(client) = self.active_client.as_mut() {
-                client.phase = ClientPhase::WaitingForExit;
-            }
-            return self.write_client_response(&success_response(&request_id, &Value::Null));
-        }
-
-        if method == Some("exit") {
-            self.disconnect_client()?;
-            return Ok(());
-        }
-
-        if method == Some(STOP_METHOD) {
-            return self.handle_stop_request(message);
-        }
-
-        self.track_client_document_state(method, message.get("params"));
-
-        if let Some(request_id) = request_id {
-            let Some(client) = self.active_client.as_mut() else {
-                return Ok(());
-            };
-            client.forwarded_client_requests.insert(id_key(&request_id));
-        }
-
-        self.write_upstream_message(message)
-    }
-
-    fn handle_initialize_request(&mut self, message: &Value) -> Result<()> {
-        let Some(request_id) = request_id(message) else {
-            return Ok(());
-        };
-        let Some(params) = message.get("params").cloned() else {
-            return Err(Error::lsp("initialize request is missing params"));
-        };
-        let normalized = normalize_initialize_params(&params, &self.target)?;
-        let fingerprint = fingerprint_value(&normalized);
-        let wants_background_work = wants_background_work(&normalized);
-
-        let should_restart = match self.upstream.as_ref() {
-            Some(upstream) => {
-                upstream.restart_required
-                    || upstream
-                        .initialize_fingerprint
-                        .as_ref()
-                        .is_some_and(|value| value != &fingerprint)
-            }
-            None => true,
-        };
-
-        if should_restart {
-            self.restart_upstream()?;
-        }
-
-        if self
-            .upstream
-            .as_ref()
-            .and_then(|upstream| upstream.initialize_fingerprint.as_ref())
-            .is_some()
-        {
-            let Some(result) = self
-                .upstream
-                .as_ref()
-                .and_then(|upstream| upstream.initialize_result.clone())
-            else {
-                return Err(Error::unexpected("daemon lost cached initialize result"));
-            };
-            self.write_client_response(&success_response(&request_id, &result))?;
-            if let Some(client) = self.active_client.as_mut() {
-                client.wants_background_work = wants_background_work;
-                client.phase = ClientPhase::WaitingForInitialized {
-                    forward_to_upstream: false,
-                };
-            }
-            return Ok(());
-        }
-
-        let Some(upstream) = self.upstream.as_mut() else {
-            return Err(Error::unexpected("daemon failed to start LSP server"));
-        };
-        upstream.initialize_fingerprint = Some(fingerprint);
-
-        let forwarded = jsonrpc(Some(request_id.clone()), Initialize::METHOD, &normalized)?;
-        self.write_upstream_message(&forwarded)?;
-        if let Some(client) = self.active_client.as_mut() {
-            client.wants_background_work = wants_background_work;
-            client.phase = ClientPhase::WaitingForInitialized {
-                forward_to_upstream: true,
-            };
-            client.forwarded_client_requests.insert(id_key(&request_id));
-        }
-        Ok(())
-    }
-
-    fn handle_stop_request(&mut self, message: &Value) -> Result<()> {
-        let Some(client) = self.active_client.as_mut() else {
-            return Ok(());
-        };
-
-        respond_to_stop_request(&mut client.writer, message, self.debug)?;
-        self.stop_requested = true;
-        Ok(())
-    }
-
-    fn handle_upstream_message(&mut self, message: &Value) -> Result<()> {
-        log_debug_message(self.debug, "daemon upstream -> ", message);
-
-        if let Some(upstream) = self.upstream.as_mut() {
-            update_background_work_tracker(message, &mut upstream.background_work)?;
-        }
-
-        if let Some(response_id) = response_id(message) {
-            let response_key = id_key(&response_id);
-
-            if self.orphaned_client_requests.remove(&response_key) {
-                return Ok(());
-            }
-
-            let mut forwarded_client_request = false;
-            let mut initialize_response = false;
-            if let Some(client) = self.active_client.as_mut() {
-                forwarded_client_request = client.forwarded_client_requests.remove(&response_key);
-                initialize_response = forwarded_client_request
-                    && matches!(
-                        client.phase,
-                        ClientPhase::WaitingForInitialized {
-                            forward_to_upstream: true,
-                        }
-                    );
-                if initialize_response && message.get("error").is_some() {
-                    client.phase = ClientPhase::WaitingForExit;
-                }
-            }
-
-            if initialize_response && let Some(upstream) = self.upstream.as_mut() {
-                if message.get("error").is_some() {
-                    upstream.initialize_fingerprint = None;
-                    upstream.initialize_result = None;
-                    upstream.restart_required = true;
                 } else {
-                    upstream.initialize_result = message.get("result").cloned();
+                    self.active_client = Some(ClientSession::new(stream, &mut self.events)?);
                 }
             }
-
-            if forwarded_client_request {
-                return self.write_client_response(message);
+            Event::AcceptError(error) => {
+                return Err(Error::unexpected(format!(
+                    "failed to accept client on {}: {error}",
+                    self.target.socket_path.display()
+                )));
             }
-
-            return Ok(());
-        }
-
-        if let Some(request_id) = request_id(message) {
-            let Some(method) = message_method(message) else {
-                return Err(Error::lsp("server request missing method"));
-            };
-
-            if matches!(
-                method,
-                "client/registerCapability" | "client/unregisterCapability"
-            ) && let Some(upstream) = self.upstream.as_mut()
+            Event::Reader(Source::Upstream(generation), event)
+                if self
+                    .upstream
+                    .as_ref()
+                    .is_some_and(|upstream| upstream.generation == generation) =>
             {
-                upstream.restart_required = true;
+                match event {
+                    ReaderEvent::Message(message) => self.handle_upstream_message(&message)?,
+                    ReaderEvent::EndOfStream => self.upstream_died(),
+                    ReaderEvent::Error(error) => {
+                        self.upstream_died();
+                        let error = format!("failed to read LSP server message: {error}");
+                        log_unexpected_error(&error);
+                        return Err(Error::unexpected(error));
+                    }
+                }
             }
-
-            if let Some(client) = self.active_client.as_mut() {
-                client
-                    .pending_server_requests
-                    .insert(id_key(&request_id), request_id.clone());
-                return self.write_client_response(message);
+            Event::Reader(Source::Client(generation), event)
+                if self
+                    .active_client
+                    .as_ref()
+                    .is_some_and(|client| client.generation == generation) =>
+            {
+                match event {
+                    ReaderEvent::Message(message) => self.handle_client_message(&message)?,
+                    ReaderEvent::EndOfStream => self.disconnect_client()?,
+                    ReaderEvent::Error(error) => {
+                        self.disconnect_client()?;
+                        return Err(Error::lsp(format!(
+                            "failed to read daemon client message: {error}"
+                        )));
+                    }
+                }
             }
-
-            let response = local_server_request_response(&request_id, method);
-            return self.write_upstream_message(&response);
+            // Retired workers can still publish a final event while cancellation races with I/O.
+            Event::Reader(_, _) => {}
         }
-
-        if self.active_client.is_some() {
-            return self.write_client_response(message);
-        }
-
         Ok(())
-    }
-
-    fn track_client_document_state(&mut self, method: Option<&str>, params: Option<&Value>) {
-        let Some(client) = self.active_client.as_mut() else {
-            return;
-        };
-
-        match method {
-            Some("textDocument/didOpen") => {
-                if let Some(uri) = params
-                    .and_then(|value| value.get("textDocument"))
-                    .and_then(|value| value.get("uri"))
-                    .and_then(Value::as_str)
-                {
-                    client.open_documents.insert(uri.to_string());
-                }
-            }
-            Some("textDocument/didClose") => {
-                if let Some(uri) = params
-                    .and_then(|value| value.get("textDocument"))
-                    .and_then(|value| value.get("uri"))
-                    .and_then(Value::as_str)
-                {
-                    client.open_documents.remove(uri);
-                }
-            }
-            _ => {}
-        }
     }
 
     fn disconnect_client(&mut self) -> Result<()> {
         let Some(client) = self.active_client.take() else {
             return Ok(());
         };
+
+        client.reader.cancel();
 
         for uri in client.open_documents {
             let params = DidCloseTextDocumentParams {
@@ -661,7 +377,11 @@ impl Daemon {
                 .is_some_and(|upstream| upstream.restart_required)
         {
             self.shutdown_upstream()?;
-            self.upstream = Some(UpstreamServer::spawn(&self.target, self.debug)?);
+            self.upstream = Some(UpstreamServer::spawn(
+                &self.target,
+                self.debug,
+                &mut self.events,
+            )?);
         }
 
         self.idle_since = Instant::now();
@@ -690,28 +410,36 @@ impl Daemon {
 
     fn shutdown_upstream(&mut self) -> Result<()> {
         if let Some(mut upstream) = self.upstream.take() {
-            upstream.shutdown(self.debug)?;
+            upstream.shutdown(self.debug, &mut self.events)?;
         }
         self.orphaned_client_requests.clear();
         Ok(())
     }
 
     fn stop(&mut self) -> Result<()> {
+        self.stop_requested = true;
+        // Stop accepting before unlinking the socket, so the wakeup still reaches our listener.
+        self.accept_worker.take();
         self.disconnect_client()?;
         self.shutdown_upstream()?;
         match fs::remove_file(&self.target.socket_path) {
-            Ok(()) => Ok(()),
-            Err(error) if error.kind() == ErrorKind::NotFound => Ok(()),
+            Ok(()) => self.socket_owned = false,
+            Err(error) if error.kind() == ErrorKind::NotFound => self.socket_owned = false,
             Err(error) => Err(Error::unexpected(format!(
                 "failed to remove daemon socket {}: {error}",
                 self.target.socket_path.display()
-            ))),
+            )))?,
         }
+        Ok(())
     }
 
     fn restart_upstream(&mut self) -> Result<()> {
         self.shutdown_upstream()?;
-        self.upstream = Some(UpstreamServer::spawn(&self.target, self.debug)?);
+        self.upstream = Some(UpstreamServer::spawn(
+            &self.target,
+            self.debug,
+            &mut self.events,
+        )?);
         Ok(())
     }
 
@@ -730,5 +458,18 @@ impl Daemon {
         self.active_client = None;
         self.orphaned_client_requests.clear();
         self.idle_since = Instant::now();
+    }
+}
+
+impl Drop for Daemon {
+    fn drop(&mut self) {
+        // Error exits must also wake acceptance before removing its socket path.
+        self.accept_worker.take();
+        self.active_client.take();
+        self.upstream.take();
+        // Normal stop already unlinked our socket; a replacement daemon may own that path now.
+        if self.socket_owned {
+            let _ = fs::remove_file(&self.target.socket_path);
+        }
     }
 }

@@ -1,7 +1,8 @@
-use super::{
-    BackgroundWorkTracker, StopSocketResult, fingerprint_value, normalize_initialize_params,
-    stop_socket, update_background_work_tracker, wants_background_work,
+use super::protocol::{
+    fingerprint_value, normalize_initialize_params, update_background_work_tracker,
+    wants_background_work,
 };
+use super::{BackgroundWorkTracker, StopSocketResult, stop_socket};
 use crate::lsp::transport::{read_message, write_message};
 use crate::runtime_state::daemon_socket_path;
 use crate::test_support::TestDir;
@@ -11,7 +12,7 @@ use std::io::BufReader;
 use std::os::unix::net::UnixListener;
 use std::thread;
 
-fn daemon_target(dir: &TestDir) -> super::DaemonTarget {
+pub(super) fn daemon_target(dir: &TestDir) -> super::DaemonTarget {
     let workspace_root = dir.path().join("workspace");
     std::fs::create_dir_all(&workspace_root).expect("workspace should exist");
 

@@ -1,3 +1,4 @@
+use super::events::{EventQueue, ReaderWorker, Source};
 use super::{
     BACKGROUND_ENV, ClientPhase, ClientSession, Daemon, DaemonArgs, DaemonTarget, POLL_INTERVAL,
     ReaderEvent, UPSTREAM_SHUTDOWN_TIMEOUT, UpstreamServer,
@@ -5,7 +6,6 @@ use super::{
 use crate::commands::common::prepare_workspace;
 use crate::config::ConfigStore;
 use crate::error::{Error, Result, error_fn};
-use crate::lsp::transport::read_message;
 use crate::lsp::{jsonrpc, path_to_file_uri, workspace_name};
 use crate::runtime_state::{daemon_socket_path, default_daemon_root};
 use crate::server_stderr::CapturedStderr;
@@ -21,7 +21,6 @@ use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::Path;
 use std::process::{Command, Stdio};
-use std::sync::mpsc::{self, Receiver};
 use std::thread;
 use std::time::Instant;
 
@@ -222,43 +221,18 @@ pub(super) fn bind_listener(socket_path: &Path) -> Result<UnixListener> {
     })
 }
 
-pub(super) fn spawn_reader<R>(reader: R) -> Receiver<ReaderEvent>
-where
-    R: std::io::Read + Send + 'static,
-{
-    let (sender, receiver) = mpsc::channel();
-    thread::spawn(move || {
-        let mut reader = BufReader::new(reader);
-        loop {
-            match read_message(&mut reader) {
-                Ok(Some(message)) => {
-                    if sender.send(ReaderEvent::Message(message)).is_err() {
-                        return;
-                    }
-                }
-                Ok(None) => {
-                    let _ = sender.send(ReaderEvent::EndOfStream);
-                    return;
-                }
-                Err(error) => {
-                    let _ = sender.send(ReaderEvent::Error(error.to_string()));
-                    return;
-                }
-            }
-        }
-    });
-    receiver
-}
-
 impl ClientSession {
-    pub(super) fn new(stream: UnixStream) -> Result<Self> {
+    pub(super) fn new(stream: UnixStream, events: &mut EventQueue) -> Result<Self> {
         let reader = stream.try_clone().map_err(|error| {
             Error::unexpected(format!("failed to clone client socket: {error}"))
         })?;
 
+        let generation = events.next_generation()?;
+        let worker = ReaderWorker::socket(reader, Source::Client(generation), events)?;
         Ok(Self {
             writer: stream,
-            messages: spawn_reader(reader),
+            generation,
+            reader: worker,
             phase: ClientPhase::WaitingForInitialize,
             wants_background_work: false,
             forwarded_client_requests: BTreeSet::new(),
@@ -269,7 +243,12 @@ impl ClientSession {
 }
 
 impl UpstreamServer {
-    pub(super) fn spawn(target: &DaemonTarget, debug: bool) -> Result<Self> {
+    pub(super) fn spawn(
+        target: &DaemonTarget,
+        debug: bool,
+        events: &mut EventQueue,
+    ) -> Result<Self> {
+        let generation = events.next_generation()?;
         let executable = std::env::current_exe().map_err(|error| {
             Error::unexpected(format!("failed to resolve lsp-cli executable: {error}"))
         })?;
@@ -316,11 +295,20 @@ impl UpstreamServer {
             debug,
         );
 
+        let reader = match ReaderWorker::spawn(stdout, Source::Upstream(generation), events) {
+            Ok(reader) => reader,
+            Err(error) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(error);
+            }
+        };
         Ok(Self {
             child,
             stdin,
             stderr,
-            messages: spawn_reader(stdout),
+            generation,
+            reader,
             initialize_fingerprint: None,
             initialize_result: None,
             restart_required: false,
@@ -328,7 +316,7 @@ impl UpstreamServer {
         })
     }
 
-    pub(super) fn shutdown(&mut self, debug: bool) -> Result<()> {
+    pub(super) fn shutdown(&mut self, debug: bool, events: &mut EventQueue) -> Result<()> {
         let _ = self.stderr.summary();
         if self.initialize_fingerprint.is_some() {
             let shutdown_id = Value::String("lsp-cli/daemon-shutdown".to_string());
@@ -343,7 +331,7 @@ impl UpstreamServer {
                     break;
                 };
 
-                match self.messages.recv_timeout(remaining) {
+                match events.receive_upstream(self.generation, remaining) {
                     Ok(ReaderEvent::Message(message)) => {
                         if super::response_id(&message).as_ref().is_some_and(|value| {
                             *value == Value::String("lsp-cli/daemon-shutdown".to_string())
@@ -401,6 +389,17 @@ impl UpstreamServer {
         })?;
         log_lsp_server_exit(status);
         Ok(())
+    }
+}
+
+impl Drop for UpstreamServer {
+    fn drop(&mut self) {
+        // Error paths must cancel admission and reap the owned child as well as normal shutdown.
+        self.reader.cancel();
+        if matches!(self.child.try_wait(), Ok(None)) {
+            let _ = self.child.kill();
+            let _ = self.child.wait();
+        }
     }
 }
 

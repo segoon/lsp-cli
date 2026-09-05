@@ -259,11 +259,7 @@ struct ReleaseDownload {
 }
 
 fn fetch_release(client: &Client, version: &str) -> Result<ReleaseDownload> {
-    let url = if version == "latest" {
-        format!("https://api.github.com/repos/{DATA_REPOSITORY}/releases/latest")
-    } else {
-        format!("https://api.github.com/repos/{DATA_REPOSITORY}/releases/tags/{version}")
-    };
+    let url = crate::env_vars::data_release_api_url().unwrap_or_else(|| release_url(version));
     let release: GithubRelease = client
         .get(url)
         .send()
@@ -290,6 +286,14 @@ fn fetch_release(client: &Client, version: &str) -> Result<ReleaseDownload> {
         version: release.tag_name,
         archive_url,
     })
+}
+
+fn release_url(version: &str) -> String {
+    if version == "latest" {
+        format!("https://api.github.com/repos/{DATA_REPOSITORY}/releases/latest")
+    } else {
+        format!("https://api.github.com/repos/{DATA_REPOSITORY}/releases/tags/{version}")
+    }
 }
 
 #[cfg(test)]

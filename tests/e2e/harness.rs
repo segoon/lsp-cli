@@ -86,6 +86,19 @@ impl E2eContext {
             })
     }
 
+    pub(crate) fn with_data_dir(mut self, data_dir: PathBuf) -> Self {
+        self.data_dir = data_dir;
+        self
+    }
+
+    pub(crate) fn stage_program(&self, name: &str, source: &Path) -> Result<(), String> {
+        let source = source
+            .canonicalize()
+            .map_err(|error| format!("failed to resolve {}: {error}", source.display()))?;
+        self.link_host_program(&source, &self.bin_dir.join(name))
+            .map_err(|error| format!("failed to stage {} as {name:?}: {error}", source.display()))
+    }
+
     pub(crate) fn stage_host_program(
         &self,
         name: &str,
@@ -166,6 +179,14 @@ impl E2eContext {
         &self.home
     }
 
+    pub(crate) fn workspace(&self) -> &Path {
+        &self.workspace
+    }
+
+    pub(crate) fn installed_data(&self) -> PathBuf {
+        self.home.join(".local/share/lsp-cli/data")
+    }
+
     pub(crate) fn run(&self, args: &[&str]) -> E2eOutput {
         self.run_with_deadline(args, DEFAULT_COMMAND_DEADLINE)
     }
@@ -183,6 +204,13 @@ impl E2eContext {
         let mut command = self.command();
         command.args(args);
         self.run_command(&mut command, deadline)
+    }
+
+    pub(crate) fn run_with_env(&self, args: &[&str], environment: &[(&str, &str)]) -> E2eOutput {
+        let mut command = self.command();
+        command.args(args).envs(environment.iter().copied());
+        self.run_command(&mut command, DEFAULT_COMMAND_DEADLINE)
+            .unwrap_or_else(|diagnostic| panic!("{diagnostic}"))
     }
 
     fn command(&self) -> Command {

@@ -1,5 +1,31 @@
-schema-version: 1
+schema-version: 2
 coverage: partial
+
+commands:
+  - { name: commands, strategy: catalog }
+  - { name: languages, strategy: catalog }
+  - { name: servers, strategy: catalog }
+  - { name: completion, strategy: catalog }
+  - { name: agent-skill, strategy: catalog }
+  - { name: detect, strategy: filesystem }
+  - { name: list-files, strategy: filesystem }
+  - { name: server-capabilities, strategy: lsp-fixture }
+  - { name: diagnostics, strategy: lsp-fixture }
+  - { name: format, strategy: lsp-fixture }
+  - { name: grep, strategy: lsp-fixture }
+  - { name: list-symbols, strategy: lsp-fixture }
+  - { name: list-functions, strategy: lsp-fixture }
+  - { name: references, strategy: lsp-fixture }
+  - { name: callers, strategy: lsp-fixture }
+  - { name: callees, strategy: lsp-fixture }
+  - { name: definition, strategy: lsp-fixture }
+  - { name: declaration, strategy: lsp-fixture }
+  - { name: build-index, strategy: lsp-fixture }
+  - { name: daemon, strategy: lifecycle }
+  - { name: stop, strategy: lifecycle }
+  - { name: stop-all, strategy: lifecycle }
+  - { name: run, strategy: lifecycle }
+  - { name: update, strategy: update-fixture }
 
 languages:
   - id: rust

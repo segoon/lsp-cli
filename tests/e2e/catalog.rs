@@ -1,40 +1,31 @@
 use crate::harness::E2eContext;
+use crate::manifest::{CommandStrategy, Manifest};
+use std::collections::BTreeSet;
 
 #[test]
-fn commands_lists_every_canonical_subcommand() {
-    let output = E2eContext::new()
-        .expect("E2E context should initialize")
-        .run(&["commands"]);
+fn catalog_command_paths_are_covered() {
+    let manifest = Manifest::load_repository().expect("E2E manifest should be valid");
+    let context = E2eContext::new().expect("E2E context should initialize");
 
-    output.assert_success();
-    assert!(output.stderr_text().is_empty());
-    assert_eq!(
-        output.stdout_text().trim_end(),
-        concat!(
-            "commands\n",
-            "daemon\n",
-            "stop\n",
-            "stop-all\n",
-            "languages\n",
-            "servers\n",
-            "server-capabilities\n",
-            "detect\n",
-            "diagnostics\n",
-            "format\n",
-            "grep\n",
-            "list-symbols\n",
-            "list-functions\n",
-            "list-files\n",
-            "references\n",
-            "callers\n",
-            "callees\n",
-            "definition\n",
-            "declaration\n",
-            "build-index\n",
-            "update\n",
-            "completion\n",
-            "agent-skill\n",
-            "run"
-        )
-    );
+    let commands = context.run(&["commands"]);
+    commands.assert_success();
+    let actual = commands.stdout_text().lines().collect::<BTreeSet<_>>();
+    assert_eq!(actual, manifest.command_names());
+
+    for command in manifest.commands_for(CommandStrategy::Catalog) {
+        let output = match command {
+            "commands" => continue,
+            "languages" => context.run(&[command]),
+            "servers" => context.run(&[command, "--lang", "rust"]),
+            "completion" => context.run(&[command, "bash"]),
+            "agent-skill" => context.run(&[command]),
+            other => panic!("catalog strategy has no scenario for {other:?}"),
+        };
+        output.assert_success();
+        assert!(
+            !output.stdout_text().is_empty(),
+            "{command} should produce identifying output"
+        );
+        assert!(output.stderr_text().is_empty());
+    }
 }

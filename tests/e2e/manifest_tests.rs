@@ -52,11 +52,28 @@ fn complete_mode_rejects_missing_server_pairs() {
 #[test]
 fn manifest_rejects_unknown_fields() {
     let error = serde_yaml::from_str::<Manifest>(
-        "schema-version: 1\ncoverage: partial\nlanguages: []\npairs: []\nunknown: true\n",
+        "schema-version: 2\ncoverage: partial\ncommands: []\nlanguages: []\npairs: []\nunknown: true\n",
     )
     .expect_err("unknown manifest fields should fail");
 
     assert!(error.to_string().contains("unknown field `unknown`"));
+}
+
+#[test]
+fn manifest_rejects_duplicate_command_coverage() {
+    let mut manifest = Manifest::load().expect("E2E manifest should parse");
+    let duplicate = manifest
+        .commands
+        .first()
+        .expect("manifest should contain command coverage")
+        .clone();
+    manifest.commands.push(duplicate);
+
+    let error = manifest
+        .validate(&repository_root())
+        .expect_err("duplicate command coverage should fail");
+
+    assert!(error.contains("more than once"));
 }
 
 #[test]

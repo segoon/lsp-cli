@@ -1,4 +1,4 @@
-use super::{install_downloaded_data, locate_data_root};
+use super::{install_downloaded_data, locate_data_root, release_url};
 use crate::runtime_state::RuntimeState;
 use crate::test_support::TestDir;
 use flate2::Compression;
@@ -27,6 +27,12 @@ fn archive_with_files(files: &[(&str, &[u8])]) -> Vec<u8> {
         .write_all(&tar_bytes)
         .expect("gzip should accept tar bytes");
     encoder.finish().expect("gzip should finish")
+}
+
+#[test]
+fn builds_latest_and_tagged_release_urls() {
+    assert!(release_url("latest").ends_with("/releases/latest"));
+    assert!(release_url("v1.2.3").ends_with("/releases/tags/v1.2.3"));
 }
 
 #[test]

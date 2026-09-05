@@ -5,13 +5,14 @@ use std::path::{Component, Path, PathBuf};
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 
-const MANIFEST_SCHEMA_VERSION: u32 = 1;
+const MANIFEST_SCHEMA_VERSION: u32 = 2;
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub(crate) struct Manifest {
     schema_version: u32,
     coverage: Coverage,
+    commands: Vec<CommandCase>,
     languages: Vec<LanguageCase>,
     pairs: Vec<PairCase>,
 }
@@ -21,6 +22,23 @@ pub(crate) struct Manifest {
 enum Coverage {
     Partial,
     Complete,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+struct CommandCase {
+    name: String,
+    strategy: CommandStrategy,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) enum CommandStrategy {
+    Catalog,
+    Filesystem,
+    LspFixture,
+    Lifecycle,
+    UpdateFixture,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -147,6 +165,7 @@ impl Manifest {
         if self.languages.is_empty() {
             return Err("E2E manifest must declare at least one language".to_string());
         }
+        self.validate_commands()?;
         if self.pairs.is_empty() {
             return Err("E2E manifest must declare at least one language/server pair".to_string());
         }
@@ -167,6 +186,10 @@ impl Manifest {
         Ok(manifest)
     }
 
+    pub(crate) fn load_repository() -> Result<Self, String> {
+        Self::load_validated(Path::new(env!("CARGO_MANIFEST_DIR")))
+    }
+
     pub(crate) fn real_server_smoke_cases(&self) -> impl Iterator<Item = RealServerCase<'_>> {
         self.pairs.iter().filter_map(|pair| {
             let smoke = pair.smoke.as_ref()?;
@@ -180,6 +203,37 @@ impl Manifest {
                 smoke,
             })
         })
+    }
+
+    pub(crate) fn command_names(&self) -> BTreeSet<&str> {
+        self.commands
+            .iter()
+            .map(|command| command.name.as_str())
+            .collect()
+    }
+
+    pub(crate) fn commands_for(&self, strategy: CommandStrategy) -> impl Iterator<Item = &str> {
+        self.commands
+            .iter()
+            .filter(move |command| command.strategy == strategy)
+            .map(|command| command.name.as_str())
+    }
+
+    fn validate_commands(&self) -> Result<(), String> {
+        if self.commands.is_empty() {
+            return Err("E2E manifest must assign command coverage".to_string());
+        }
+        let mut names = BTreeSet::new();
+        for command in &self.commands {
+            validate_config_id("command", &command.name)?;
+            if !names.insert(&command.name) {
+                return Err(format!(
+                    "E2E manifest assigns command {:?} more than once",
+                    command.name
+                ));
+            }
+        }
+        Ok(())
     }
 
     fn validate_languages(

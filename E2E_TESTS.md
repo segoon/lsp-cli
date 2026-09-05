@@ -216,7 +216,8 @@ documented exclusions. A validation test should fail when:
 - two cases select the same user-visible server ambiguously;
 - a new top-level subcommand has no assigned coverage class.
 
-The version 1 manifest starts with `coverage: partial`, which validates every declared entry
+The version 2 manifest assigns every canonical command to a coverage strategy and keeps
+`coverage: partial`, which validates every declared language/server entry
 against the pinned data without requiring unfinished matrix entries. Phase 4 adds the remaining
 entries and switches it to `coverage: complete`; complete mode enforces every detectable language
 and compatible pair.
@@ -243,9 +244,10 @@ allows the matrix to grow incrementally.
 
 ### `run`
 
-`run` replaces the current process with the language server on Unix. Start it with piped stdio,
-send a minimal LSP `initialize` / `initialized` / `shutdown` / `exit` exchange, and verify that the
-selected real server took over. Test selection and exec errors separately.
+`run` replaces the current process with the language server on Unix. The foundation smoke uses a
+deterministic server marker to prove replacement. Real-server coverage should additionally use
+piped stdio for a minimal `initialize` / `initialized` / `shutdown` / `exit` exchange. Test
+selection and exec errors separately.
 
 ### `daemon`, `stop`, and `stop-all`
 
@@ -262,16 +264,10 @@ server stderr. Cleanup must run even after an assertion failure.
 
 ### `update`
 
-The update repository and release endpoints are currently hardcoded. A deterministic success-path
-binary E2E test therefore needs a small production seam that redirects HTTP to a local fixture
-server. This change improves testability but is an architectural decision and must be approved
-before implementation.
-
-Without that seam, only argument/error behavior can be deterministic; a live GitHub success test
-would be slow, mutable, rate-limited, and capable of replacing test data from the network.
-
-Recommended decision: introduce a narrowly scoped test-only or configurable repository endpoint,
-while keeping the production default unchanged.
+The production default uses the lsp-cli-data GitHub release endpoint. The narrowly scoped
+`LSP_CLI_DATA_RELEASE_API_URL` override redirects only release metadata lookup, allowing the binary
+E2E test to serve metadata and a valid archive locally. This keeps the success path deterministic
+without changing normal update behavior.
 
 ### Diagnostics and formatting
 
@@ -382,7 +378,7 @@ that class of defect easier to diagnose.
 - [x] Isolate all environment and runtime state.
 - [x] Implement deadlines, cleanup guards, JSON helpers, and useful failure diagnostics.
 - [x] Prove the harness with Rust/rust-analyzer.
-- [ ] Cover all 24 subcommand paths with either a real server or a deterministic local fixture.
+- [x] Cover all 24 subcommand paths with either a real server or a deterministic local fixture.
 
 ### Phase 2: projects
 

@@ -361,7 +361,7 @@ that class of defect easier to diagnose.
 
 - [x] Add `tests/e2e.rs` and compact harness modules.
 - [x] Add the initial manifest schema and validation.
-- [ ] Isolate all environment and runtime state.
+- [x] Isolate all environment and runtime state.
 - [ ] Implement deadlines, cleanup guards, JSON helpers, and useful failure diagnostics.
 - [ ] Prove the harness with Rust/rust-analyzer.
 - [ ] Cover all 24 subcommand paths with either a real server or a deterministic local fixture.

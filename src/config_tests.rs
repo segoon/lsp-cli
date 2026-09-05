@@ -223,6 +223,23 @@ fn loads_layered_cli_config_with_user_overrides() {
 }
 
 #[test]
+fn overrides_server_preferences_per_filetype() {
+    let global = TestDir::new("cli-config-preferences-global");
+    global.write_file("lsp-cli.yaml", "lsp: {alpha: [primary], beta: [primary]}\n");
+    let user = TestDir::new("cli-config-preferences-user");
+    for (value, expected) in [
+        ("[secondary]", vec!["secondary".to_string()]),
+        ("[]", vec![]),
+    ] {
+        user.write_file("lsp-cli.yaml", format!("lsp: {{beta: {value}}}\n"));
+        let config =
+            load_cli_config(global.path(), Some(user.path())).expect("overrides should load");
+        assert_eq!(config.lsp_preferences["beta"], expected);
+        assert_eq!(config.lsp_preferences["alpha"], ["primary"]);
+    }
+}
+
+#[test]
 fn ignores_missing_cli_config_files() {
     let global = TestDir::new("cli-config-global-missing");
     let user = TestDir::new("cli-config-user-missing");
@@ -316,4 +333,43 @@ fn fails_on_invalid_regex() {
     let error = load_config_store(dir.path()).expect_err("config load should fail");
 
     assert!(error.contains("invalid regex"));
+}
+
+fn request_window_config(global_value: &str, user_value: &str) -> super::Result<super::CliConfig> {
+    let global = TestDir::new("request-window-global");
+    let user = TestDir::new("request-window-user");
+    global.write_file("lsp-cli.yaml", global_value);
+    user.write_file("lsp-cli.yaml", user_value);
+    load_cli_config(global.path(), Some(user.path()))
+}
+
+#[test]
+fn resolves_request_window_defaults_and_overrides() {
+    for (global, user, expected) in [
+        ("{}", "{}", 20),
+        ("max-requests-in-flight: 7", "{}", 7),
+        ("max-requests-in-flight: 7", "max-requests-in-flight: 3", 3),
+        ("{}", "max-requests-in-flight: 1", 1),
+    ] {
+        let config = request_window_config(global, user).expect("valid config");
+        assert_eq!(config.max_requests_in_flight().get(), expected);
+    }
+}
+
+#[test]
+fn rejects_invalid_request_window_sizes() {
+    for value in [
+        "0",
+        "-1",
+        "1.5",
+        "nope",
+        "true",
+        "[]",
+        "18446744073709551616",
+    ] {
+        let error = request_window_config("{}", &format!("max-requests-in-flight: {value}"))
+            .expect_err("invalid window must fail");
+        assert!(error.contains("lsp-cli.yaml"));
+        assert!(error.contains("max-requests-in-flight must be a positive integer"));
+    }
 }

@@ -234,6 +234,12 @@ debug: false
 # - 100ms means 0.1 seconds
 timeout: "10"
 
+# Maximum outstanding document-symbol requests while finding a symbol by name
+# (references, definition, declaration, callers, and callees). Default: 20.
+# Use 1 for sequential requests or a smaller value to reduce server load.
+max-requests-in-flight: 20
+# A file-symbol timeout fails the query instead of returning incomplete results.
+
 # Default maximum number of printed results.
 # Useful for code agents.
 limit: 100
@@ -247,7 +253,7 @@ daemon:
   idle-timeout: "60"
 
 lsp:
-  # Prefer clangd for C++.
+  # Example server preference list for C++.
   cpp:
     - clangd
 

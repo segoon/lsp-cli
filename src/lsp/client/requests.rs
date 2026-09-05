@@ -26,6 +26,14 @@ impl LspClient {
         if self.opened_documents.contains(uri) {
             return Ok(());
         }
+        self.drain_pending_server_requests()?;
+        self.open_document_without_drain(path, uri)
+    }
+
+    pub(super) fn open_document_without_drain(&mut self, path: &Path, uri: &str) -> Result<()> {
+        if self.opened_documents.contains(uri) {
+            return Ok(());
+        }
 
         let text = crate::fs::read_to_string(path)?;
         let params = DidOpenTextDocumentParams {
@@ -36,7 +44,7 @@ impl LspClient {
                 text,
             ),
         };
-        self.send_notification::<DidOpenTextDocument>(&params)?;
+        self.write_notification::<DidOpenTextDocument>(&params)?;
         self.opened_documents.insert(uri.to_string());
         Ok(())
     }

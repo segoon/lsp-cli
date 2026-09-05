@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
+use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -8,6 +9,11 @@ use crate::error::{Error, Result, error_fn};
 use crate::fs as path_fs;
 use regex::Regex;
 use serde::{Deserialize, de};
+
+// Checked at compile time: the built-in request window must never be empty.
+#[allow(clippy::expect_used)]
+const DEFAULT_MAX_REQUESTS_IN_FLIGHT: NonZeroUsize =
+    NonZeroUsize::new(20).expect("positive default");
 
 #[derive(Debug)]
 pub struct ConfigStore {
@@ -30,6 +36,7 @@ pub struct CliConfig {
     pub debug: Option<bool>,
     pub timeout: Option<Duration>,
     pub limit: Option<usize>,
+    pub max_requests_in_flight: Option<NonZeroUsize>,
     pub detect: DetectCliConfig,
     pub daemon: DaemonCliConfig,
     pub lsp_preferences: BTreeMap<String, Vec<String>>,
@@ -99,6 +106,12 @@ struct CliConfigFile {
     timeout: Option<Duration>,
     #[serde(default)]
     limit: Option<usize>,
+    #[serde(
+        default,
+        rename = "max-requests-in-flight",
+        deserialize_with = "deserialize_max_requests"
+    )]
+    max_requests_in_flight: Option<NonZeroUsize>,
     #[serde(default)]
     detect: DetectCliConfigFile,
     #[serde(default)]
@@ -213,6 +226,11 @@ fn load_optional_cli_config_file(path: &Path) -> Result<CliConfig> {
 }
 
 impl CliConfig {
+    pub fn max_requests_in_flight(&self) -> NonZeroUsize {
+        self.max_requests_in_flight
+            .unwrap_or(DEFAULT_MAX_REQUESTS_IN_FLIGHT)
+    }
+
     fn merge(&mut self, other: Self) {
         override_if_some(&mut self.download, other.download);
         override_if_some(&mut self.detach, other.detach);
@@ -220,6 +238,10 @@ impl CliConfig {
         override_if_some(&mut self.debug, other.debug);
         override_if_some(&mut self.timeout, other.timeout);
         override_if_some(&mut self.limit, other.limit);
+        override_if_some(
+            &mut self.max_requests_in_flight,
+            other.max_requests_in_flight,
+        );
         override_if_some(&mut self.detect.quiet, other.detect.quiet);
         override_if_some(&mut self.daemon.idle_timeout, other.daemon.idle_timeout);
         override_if_some(&mut self.download_version, other.download_version);
@@ -237,6 +259,7 @@ impl From<CliConfigFile> for CliConfig {
             debug: file.debug,
             timeout: file.timeout,
             limit: file.limit,
+            max_requests_in_flight: file.max_requests_in_flight,
             detect: DetectCliConfig {
                 quiet: file.detect.quiet,
             },
@@ -276,6 +299,13 @@ pub(crate) fn parse_timeout(value: &str) -> std::result::Result<Duration, String
     // Clap and serde parser hooks expect string/custom errors, so keep this as a thin adapter
     // over the typed parser instead of duplicating parsing logic here.
     parse_timeout_value(value).map_err(|error| error.to_string())
+}
+
+fn deserialize_max_requests<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<Option<NonZeroUsize>, D::Error> {
+    Option::<NonZeroUsize>::deserialize(deserializer)
+        .map_err(|_| de::Error::custom("max-requests-in-flight must be a positive integer"))
 }
 
 fn deserialize_optional_timeout<'de, D>(

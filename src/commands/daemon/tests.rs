@@ -264,3 +264,100 @@ fn stop_socket_returns_not_running_when_socket_is_missing() {
         StopSocketResult::NotRunning
     ));
 }
+
+#[test]
+fn forwards_multiple_requests_and_out_of_order_responses() {
+    use super::{ClientPhase, ClientSession, Daemon, ReaderEvent, UpstreamServer};
+    use crate::server_stderr::CapturedStderr;
+    use std::collections::{BTreeMap, BTreeSet};
+    use std::os::unix::net::UnixStream;
+    use std::process::{Command, Stdio};
+    use std::time::{Duration, Instant};
+
+    let dir = TestDir::new("daemon-window");
+    let target = daemon_target(&dir);
+    // Echo upstream bytes so the test can inspect forwarding without a real LSP.
+    let mut child = Command::new("/bin/cat")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("start echo process");
+    let upstream = UpstreamServer {
+        stdin: child.stdin.take().expect("stdin"),
+        messages: super::process::spawn_reader(child.stdout.take().expect("stdout")),
+        stderr: CapturedStderr::spawn(child.stderr.take().expect("stderr"), false),
+        child,
+        initialize_fingerprint: None,
+        initialize_result: None,
+        restart_required: false,
+        background_work: BackgroundWorkTracker::default(),
+    };
+    let (client, proxy) = UnixStream::pair().expect("client socket pair");
+    client
+        .set_read_timeout(Some(Duration::from_secs(3)))
+        .expect("read timeout");
+    let mut session = ClientSession::new(proxy).expect("session");
+    session.phase = ClientPhase::Ready;
+    let mut daemon = Daemon {
+        listener: UnixListener::bind(&target.socket_path).expect("listener"),
+        target,
+        debug: false,
+        idle_timeout: Duration::from_secs(60),
+        upstream: Some(upstream),
+        active_client: Some(session),
+        orphaned_client_requests: BTreeSet::new(),
+        idle_since: Instant::now(),
+        stop_requested: false,
+    };
+    let mut expected = BTreeMap::new();
+    for id in 1..=20 {
+        let request = json!({"jsonrpc":"2.0","id":id,"method":"textDocument/documentSymbol", "params":{"textDocument":{"uri":format!("file:///{id}.lua")}}});
+        daemon
+            .handle_client_message(&request)
+            .expect("forward request");
+        match daemon
+            .upstream
+            .as_ref()
+            .expect("upstream")
+            .messages
+            .recv_timeout(Duration::from_secs(3))
+            .expect("echo")
+        {
+            ReaderEvent::Message(message) => assert_eq!(message, request),
+            _ => panic!("expected echoed request"),
+        }
+        expected.insert(id, json!({"jsonrpc":"2.0","id":id,"result":[]}));
+    }
+    assert_eq!(
+        daemon
+            .active_client
+            .as_ref()
+            .expect("client")
+            .forwarded_client_requests
+            .len(),
+        20
+    );
+    let mut reader = BufReader::new(client);
+    for response in expected.values().rev() {
+        daemon
+            .handle_upstream_message(response)
+            .expect("forward response");
+        assert_eq!(
+            read_message(&mut reader).expect("read").expect("response"),
+            *response
+        );
+    }
+    assert!(
+        daemon
+            .active_client
+            .as_ref()
+            .expect("client")
+            .forwarded_client_requests
+            .is_empty()
+    );
+    // Child handles do not stop/reap processes automatically; finish the echo helper.
+    let upstream = daemon.upstream.as_mut().expect("upstream");
+    upstream.child.kill().expect("stop echo process");
+    upstream.child.wait().expect("reap echo process");
+}

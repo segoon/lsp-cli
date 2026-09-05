@@ -1,4 +1,4 @@
-use super::{IncomingMessage, LspClient, request_id};
+use super::LspClient;
 use crate::error::{Error, Result, error_fn};
 use crate::lsp::{InitializeResponse, parse_lsp_uri};
 use lsp_types::notification::{DidOpenTextDocument, Initialized};
@@ -18,8 +18,6 @@ use lsp_types::{
 };
 use serde_json::{Value, json};
 use std::path::Path;
-use std::sync::mpsc::RecvTimeoutError;
-use std::time::Duration;
 
 impl LspClient {
     pub fn open_document(&mut self, path: &Path, uri: &str) -> Result<()> {
@@ -101,32 +99,8 @@ impl LspClient {
             "failed to decode initialize response"
         ))?;
         self.send_notification::<Initialized>(&InitializedParams {})?;
-        self.drain_pending_server_requests_after_initialize()?;
+        self.drain_pending_server_requests()?;
         Ok(response)
-    }
-
-    fn drain_pending_server_requests_after_initialize(&mut self) -> Result<()> {
-        const INITIALIZE_SERVER_REQUEST_GRACE: Duration = Duration::from_millis(10);
-
-        // After `initialized`, some servers immediately send client requests.
-        // Wait briefly for the first one so it is handled before the next client request.
-        match self.recv_message(self.timeout.min(INITIALIZE_SERVER_REQUEST_GRACE)) {
-            Ok(IncomingMessage::Message(message)) => {
-                if let Some(request_id) = request_id(&message) {
-                    self.handle_server_request(&request_id, &message)?;
-                } else if !self.handle_server_notification(&message)? {
-                    self.pending_messages
-                        .push_back(IncomingMessage::Message(message));
-                }
-            }
-            Ok(message @ (IncomingMessage::EndOfStream | IncomingMessage::Error(_))) => {
-                self.pending_messages.push_back(message);
-                return Ok(());
-            }
-            Err(RecvTimeoutError::Timeout | RecvTimeoutError::Disconnected) => return Ok(()),
-        }
-
-        self.drain_pending_server_requests()
     }
 
     pub fn workspace_symbol(&mut self, pattern: &str) -> Result<Value> {

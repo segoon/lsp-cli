@@ -18,10 +18,47 @@ struct StderrState {
     finished: bool,
 }
 
+pub(crate) trait StderrSink: Clone + Send + 'static {
+    fn write_chunk(&self, chunk: &[u8]);
+    fn write_line(&self, line: String);
+    fn write_error(&self, error: String);
+}
+
+#[derive(Clone, Copy)]
+struct DirectStderrSink {
+    mirror_to_stderr: bool,
+}
+
+impl StderrSink for DirectStderrSink {
+    fn write_chunk(&self, chunk: &[u8]) {
+        if self.mirror_to_stderr {
+            let mut stderr = std::io::stderr().lock();
+            let _ = stderr.write_all(chunk);
+            let _ = stderr.flush();
+        }
+    }
+
+    fn write_line(&self, line: String) {
+        log_lsp_server_stderr_line(&line);
+    }
+
+    fn write_error(&self, error: String) {
+        log_unexpected_error(&error);
+    }
+}
+
 impl CapturedStderr {
-    pub(crate) fn spawn<R>(mut reader: R, mirror_to_stderr: bool) -> Self
+    pub(crate) fn spawn<R>(reader: R, mirror_to_stderr: bool) -> Self
     where
         R: Read + Send + 'static,
+    {
+        Self::spawn_with(reader, DirectStderrSink { mirror_to_stderr })
+    }
+
+    pub(crate) fn spawn_with<R, S>(mut reader: R, sink: S) -> Self
+    where
+        R: Read + Send + 'static,
+        S: StderrSink,
     {
         let state = Arc::new((
             Mutex::new(StderrState {
@@ -37,15 +74,15 @@ impl CapturedStderr {
             loop {
                 match reader.read(&mut buffer) {
                     Ok(0) => break,
-                    Ok(read) => append_stderr(&thread_state, &buffer[..read], mirror_to_stderr),
+                    Ok(read) => append_stderr(&thread_state, &buffer[..read], &sink),
                     Err(error) if error.kind() == std::io::ErrorKind::Interrupted => {}
                     Err(error) => {
-                        log_unexpected_error(&format!("failed to read LSP server stderr: {error}"));
+                        sink.write_error(format!("failed to read LSP server stderr: {error}"));
                         break;
                     }
                 }
             }
-            finish_stderr(&thread_state);
+            finish_stderr(&thread_state, &sink);
         });
 
         Self { state }
@@ -61,6 +98,16 @@ impl CapturedStderr {
             state = result.0;
         }
 
+        Self::format_summary(&state)
+    }
+
+    pub(crate) fn summary_now(&self) -> Option<String> {
+        let (lock, _) = &*self.state;
+        let state = lock.lock().unwrap_or_else(PoisonError::into_inner);
+        Self::format_summary(&state)
+    }
+
+    fn format_summary(state: &StderrState) -> Option<String> {
         let stderr = String::from_utf8_lossy(&state.tail.iter().copied().collect::<Vec<_>>())
             .split_whitespace()
             .collect::<Vec<_>>()
@@ -73,12 +120,12 @@ impl CapturedStderr {
     }
 }
 
-fn append_stderr(state: &Arc<(Mutex<StderrState>, Condvar)>, chunk: &[u8], mirror_to_stderr: bool) {
-    if mirror_to_stderr {
-        let mut stderr = std::io::stderr().lock();
-        let _write_result = stderr.write_all(chunk);
-        let _flush_result = stderr.flush();
-    }
+fn append_stderr<S: StderrSink>(
+    state: &Arc<(Mutex<StderrState>, Condvar)>,
+    chunk: &[u8],
+    sink: &S,
+) {
+    sink.write_chunk(chunk);
 
     let (lock, _) = &**state;
     let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
@@ -99,11 +146,11 @@ fn append_stderr(state: &Arc<(Mutex<StderrState>, Condvar)>, chunk: &[u8], mirro
 
     drop(state);
     for line in completed_lines {
-        log_lsp_server_stderr_line(&line);
+        sink.write_line(line);
     }
 }
 
-fn finish_stderr(state: &Arc<(Mutex<StderrState>, Condvar)>) {
+fn finish_stderr<S: StderrSink>(state: &Arc<(Mutex<StderrState>, Condvar)>, sink: &S) {
     let (lock, ready) = &**state;
     let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
     let final_line = if state.partial_line.is_empty() {
@@ -116,7 +163,7 @@ fn finish_stderr(state: &Arc<(Mutex<StderrState>, Condvar)>) {
     drop(state);
 
     if let Some(line) = final_line {
-        log_lsp_server_stderr_line(&line);
+        sink.write_line(line);
     }
 }
 

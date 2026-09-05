@@ -1,6 +1,6 @@
-use super::{BUSY_CLIENT_TIMEOUT, Daemon, DaemonTarget, INVALID_REQUEST, REQUEST_CANCELLED};
+use super::{Daemon, DaemonTarget, INVALID_REQUEST};
 use crate::error::{Error, Result, error_fn};
-use crate::lsp::transport::{log_debug_message, read_message, write_message};
+use crate::lsp::transport::{log_debug_message, read_message};
 use crate::lsp::{SERVER_STATUS_METHOD, ServerStatusParams, parse_lsp_uri};
 use lsp_types::WorkspaceFolder;
 use serde::Deserialize;
@@ -8,12 +8,13 @@ use serde_json::{Value, json};
 use std::collections::BTreeSet;
 use std::io::BufReader;
 use std::os::unix::net::UnixStream;
+use std::sync::Arc;
 use std::time::Duration;
 
 pub(super) use crate::lsp::STOP_METHOD;
 
 pub(super) enum ReaderEvent {
-    Message(Value),
+    Message(Arc<Value>),
     EndOfStream,
     Error(String),
 }
@@ -76,38 +77,6 @@ impl Daemon {
     }
 }
 
-pub(super) fn handle_busy_connection(mut stream: UnixStream, debug: bool) -> Result<bool> {
-    let _ = stream.set_read_timeout(Some(BUSY_CLIENT_TIMEOUT));
-    let Ok(reader_stream) = stream.try_clone() else {
-        return Ok(false);
-    };
-    let mut reader = BufReader::new(reader_stream);
-    let Ok(Some(message)) = read_message(&mut reader) else {
-        return Ok(false);
-    };
-    log_debug_message(debug, "daemon busy client <- ", &message);
-
-    if stop_request_id(&message).is_some() {
-        respond_to_stop_request(&mut stream, &message, debug)?;
-        return Ok(true);
-    }
-
-    let Some(request_id) = request_id(&message) else {
-        return Ok(false);
-    };
-    if message_method(&message) != Some("initialize") {
-        return Ok(false);
-    }
-
-    let response = error_response(
-        &request_id,
-        REQUEST_CANCELLED,
-        "another daemon client is already connected",
-    );
-    let _ = write_message(&mut stream, &response);
-    Ok(false)
-}
-
 pub(super) fn read_control_message(
     stream: &UnixStream,
     timeout: Duration,
@@ -141,22 +110,6 @@ pub(super) fn stop_request_id(message: &Value) -> Option<Value> {
     } else {
         None
     }
-}
-
-pub(super) fn respond_to_stop_request(
-    stream: &mut UnixStream,
-    message: &Value,
-    debug: bool,
-) -> Result<()> {
-    let Some(request_id) = stop_request_id(message) else {
-        return Err(Error::lsp("daemon stop request is missing an id"));
-    };
-    let response = success_response(&request_id, &Value::Null);
-    log_debug_message(debug, "daemon control <- ", &response);
-    write_message(stream, &response).map_err(error_fn!(
-        Error::lsp,
-        "failed to write daemon stop response"
-    ))
 }
 
 pub(super) fn local_server_request_response(request_id: &Value, method: &str) -> Value {

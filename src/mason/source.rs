@@ -19,6 +19,10 @@ pub(crate) enum SourceId {
         module_path: String,
         version: String,
     },
+    Nuget {
+        package_name: String,
+        version: String,
+    },
     Github {
         repository: String,
         version: String,
@@ -75,6 +79,10 @@ pub(crate) fn parse_source_id(source_id: &str) -> Result<SourceId> {
         },
         "golang" => SourceId::Golang {
             module_path: decoded_name,
+            version,
+        },
+        "nuget" => SourceId::Nuget {
+            package_name: decoded_name,
             version,
         },
         "github" => SourceId::Github {
@@ -184,6 +192,14 @@ mod tests {
             SourceId::Golang {
                 module_path: "golang.org/x/tools/gopls".to_string(),
                 version: "v0.21.1".to_string(),
+            }
+        );
+        assert_eq!(
+            parse_source_id("pkg:nuget/roslyn-language-server@5.11.0-1.26380.4")
+                .expect("NuGet source should parse"),
+            SourceId::Nuget {
+                package_name: "roslyn-language-server".to_string(),
+                version: "5.11.0-1.26380.4".to_string(),
             }
         );
     }

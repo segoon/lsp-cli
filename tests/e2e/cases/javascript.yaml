@@ -6,5 +6,3 @@ language:
 pairs:
   - language: javascript
     server: ts_ls
-    preferred:
-      version: "6.0.0"

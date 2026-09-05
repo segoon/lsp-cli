@@ -6,5 +6,3 @@ language:
 pairs:
   - language: typescript
     server: ts_ls
-    preferred:
-      version: "6.0.0"

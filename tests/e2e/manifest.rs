@@ -5,11 +5,11 @@ use serde::Deserialize;
 
 use crate::case_files::{file_stem, read_yaml, yaml_paths};
 use crate::manifest_data::{
-    FiletypeConfig, LspConfig, PairKey, compatible_pairs, detectable_languages,
+    FiletypeConfig, LspConfig, PairKey, compatible_pairs, detectable_languages, preferred_pairs,
 };
 use crate::repository_root;
 
-const MANIFEST_SCHEMA_VERSION: u32 = 3;
+const MANIFEST_SCHEMA_VERSION: u32 = 4;
 
 #[derive(Clone, Debug)]
 pub(crate) struct Manifest {
@@ -89,14 +89,7 @@ impl ProjectKind {
 struct PairCase {
     language: String,
     server: String,
-    preferred: Option<PreferredServer>,
     smoke: Option<SmokeCase>,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
-struct PreferredServer {
-    version: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -198,7 +191,7 @@ impl Manifest {
         let data = repository.join("data");
         let declared_languages = self.validate_languages(repository, &data)?;
         let declared_pairs = self.validate_pairs(&data, &declared_languages)?;
-        self.validate_preferred_servers()?;
+        self.validate_preferred_servers(&data, &declared_pairs)?;
 
         if self.coverage == Coverage::Complete {
             Self::validate_complete_coverage(&data, &declared_languages, &declared_pairs)?;
@@ -322,34 +315,27 @@ impl Manifest {
             if let Some(smoke) = &pair.smoke {
                 smoke.validate(pair)?;
             }
-            if let Some(preferred) = &pair.preferred {
-                preferred.validate(pair)?;
-            }
         }
         Ok(declared)
     }
 
-    fn validate_preferred_servers(&self) -> Result<(), String> {
-        for language in &self.languages {
-            let count = self
-                .pairs
-                .iter()
-                .filter(|pair| pair.language == language.id && pair.preferred.is_some())
-                .count();
-            match (language.kind, count) {
-                (ProjectKind::Source, 1) | (ProjectKind::Metadata, 0) => {}
-                (ProjectKind::Source, _) => {
-                    return Err(format!(
-                        "E2E source language {:?} must select exactly one preferred server; found {count}",
-                        language.id
-                    ));
-                }
-                (ProjectKind::Metadata, _) => {
-                    return Err(format!(
-                        "E2E metadata language {:?} must not select a preferred server",
-                        language.id
-                    ));
-                }
+    fn validate_preferred_servers(
+        &self,
+        data: &Path,
+        declared_pairs: &BTreeSet<PairKey>,
+    ) -> Result<(), String> {
+        let source_languages = self
+            .languages
+            .iter()
+            .filter(|language| language.kind == ProjectKind::Source)
+            .map(|language| language.id.clone())
+            .collect::<BTreeSet<_>>();
+        for pair in preferred_pairs(data, &source_languages)? {
+            if !declared_pairs.contains(&pair) {
+                return Err(format!(
+                    "E2E source language {:?} is missing its data-preferred server pair {:?}",
+                    pair.language, pair.server
+                ));
             }
         }
         Ok(())
@@ -422,25 +408,6 @@ impl PairCase {
             language: self.language.clone(),
             server: self.server.clone(),
         }
-    }
-}
-
-impl PreferredServer {
-    fn validate(&self, pair: &PairCase) -> Result<(), String> {
-        let version = self.version.trim();
-        if version.is_empty() || version != self.version {
-            return Err(format!(
-                "preferred E2E server {}/{} must have a non-empty, trimmed version",
-                pair.language, pair.server
-            ));
-        }
-        if version.eq_ignore_ascii_case("latest") || version.eq_ignore_ascii_case("stable") {
-            return Err(format!(
-                "preferred E2E server {}/{} must use an exact version instead of {:?}",
-                pair.language, pair.server, self.version
-            ));
-        }
-        Ok(())
     }
 }
 

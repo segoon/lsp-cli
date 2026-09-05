@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use serde::Deserialize;
@@ -32,6 +32,12 @@ pub(crate) struct LspConfig {
     pub(crate) name: String,
 }
 
+#[derive(Deserialize)]
+struct CliConfig {
+    #[serde(default)]
+    lsp: BTreeMap<String, Vec<String>>,
+}
+
 pub(crate) fn detectable_languages(data: &Path) -> Result<BTreeSet<String>, String> {
     let mut languages = BTreeSet::new();
     for path in yaml_paths(&data.join("filetypes"))? {
@@ -61,4 +67,46 @@ pub(crate) fn compatible_pairs(
         }
     }
     Ok(pairs)
+}
+
+pub(crate) fn preferred_pairs(
+    data: &Path,
+    languages: &BTreeSet<String>,
+) -> Result<BTreeSet<PairKey>, String> {
+    let config: CliConfig = read_yaml(&data.join("lsp-cli.yaml"))?;
+    let mut lsps = Vec::new();
+    for path in yaml_paths(&data.join("lsp"))? {
+        lsps.push((file_stem(&path)?, read_yaml::<LspConfig>(&path)?));
+    }
+
+    languages
+        .iter()
+        .map(|language| {
+            let preferred_name = config
+                .lsp
+                .get(language)
+                .and_then(|servers| servers.first())
+                .ok_or_else(|| {
+                    format!("E2E source language {language:?} has no preferred server in data")
+                })?;
+            let matching = lsps
+                .iter()
+                .filter(|(_id, lsp)| {
+                    lsp.name == *preferred_name && lsp.filetypes.contains(language)
+                })
+                .collect::<Vec<_>>();
+            match matching.as_slice() {
+                [(server, _lsp)] => Ok(PairKey {
+                    language: language.clone(),
+                    server: server.clone(),
+                }),
+                [] => Err(format!(
+                    "preferred server {preferred_name:?} for E2E source language {language:?} has no compatible LSP config"
+                )),
+                _ => Err(format!(
+                    "preferred server {preferred_name:?} for E2E source language {language:?} is ambiguous"
+                )),
+            }
+        })
+        .collect()
 }

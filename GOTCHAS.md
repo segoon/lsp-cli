@@ -69,18 +69,15 @@
 
 ## kotlin-lsp
 
-- The `kotlin_lsp` data config starts `kotlin-lsp --stdio`, while the Mason package currently
-  exposes its launcher as `intellij-server`. Selecting the official server is therefore possible,
-  but `lsp-cli --download` cannot launch it without a data-config correction or a provisioning
-  alias. Do not treat the preferred-server pin as a runnable smoke case until that mismatch is
-  resolved.
+- The Mason package exposes Kotlin LSP as `intellij-server`, not `kotlin-lsp`. The data config must
+  use the packaged launcher name so `--download` can resolve it; a display name or upstream product
+  name is not necessarily an executable name.
 
 ## roslyn-language-server
 
-- The `roslyn_ls` data config starts `dotnet` with a literal `<my_folder>` DLL placeholder, while
-  the Mason package exposes a `roslyn-language-server` launcher. The official C# server needs a
-  concrete installed DLL path or corrected launcher command before it can participate in automated
-  smoke tests.
+- The Mason package exposes Roslyn through the `roslyn-language-server` .NET tool launcher. A data
+  config containing a literal installation placeholder cannot work with generic `--download`;
+  launch the Mason-exposed command and let the NuGet backend manage its concrete installation path.
 
 ## lua-language-server
 

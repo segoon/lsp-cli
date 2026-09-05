@@ -6,5 +6,3 @@ language:
 pairs:
   - language: go
     server: gopls
-    preferred:
-      version: "v0.23.0"

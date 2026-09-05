@@ -36,7 +36,8 @@ pub(crate) fn resolve_cached_program(
         SourceId::Npm { .. }
         | SourceId::Pypi { .. }
         | SourceId::Cargo { .. }
-        | SourceId::Golang { .. } => {
+        | SourceId::Golang { .. }
+        | SourceId::Nuget { .. } => {
             let resolved_program =
                 resolve_program(package, program, state, &TemplateContext::empty())?;
             Ok(if is_resolved_program_runnable(&resolved_program) {
@@ -78,6 +79,10 @@ pub(crate) fn resolve_or_install_program(
             module_path,
             version,
         } => install_golang_package(state, package, &module_path, &version, program),
+        SourceId::Nuget {
+            package_name,
+            version,
+        } => install_nuget_package(state, package, &package_name, &version, program),
         SourceId::Github {
             repository,
             version,
@@ -317,6 +322,55 @@ fn install_golang_package(
             )
         },
     )
+}
+
+fn install_nuget_package(
+    state: &RuntimeState,
+    package: &MasonPackage,
+    package_name: &str,
+    version: &str,
+    program: &str,
+) -> Result<PathBuf> {
+    use_cached_program_or(
+        package,
+        program,
+        state,
+        &TemplateContext::empty(),
+        |resolved_program| {
+            require_command("dotnet", package, program)?;
+            let install_dir = prepare_install_dir(state, package)?.join("bin");
+            crate::fs::create_dir_all(&install_dir)?;
+
+            let mut cmd = nuget_install_command(package_name, version, &install_dir);
+            run_install_command(&mut cmd, package, "dotnet tool install")?;
+
+            finalize_install(
+                state,
+                package,
+                program,
+                &resolved_program,
+                &TemplateContext::empty(),
+                "dotnet did not produce a runnable",
+            )
+        },
+    )
+}
+
+fn nuget_install_command(
+    package_name: &str,
+    version: &str,
+    install_dir: &std::path::Path,
+) -> Command {
+    let mut command = Command::new("dotnet");
+    command
+        .arg("tool")
+        .arg("install")
+        .arg(package_name)
+        .arg("--tool-path")
+        .arg(install_dir)
+        .arg("--version")
+        .arg(version);
+    command
 }
 
 fn install_github_package(

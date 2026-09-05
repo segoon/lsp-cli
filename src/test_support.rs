@@ -178,6 +178,28 @@ pub(crate) fn pyright_package() -> MasonPackage {
     }
 }
 
+pub(crate) fn roslyn_package() -> MasonPackage {
+    MasonPackage {
+        name: "roslyn-language-server".to_string(),
+        categories: vec!["LSP".to_string()],
+        source: MasonSource {
+            id: "pkg:nuget/roslyn-language-server@5.11.0-1.26380.4".to_string(),
+            extra_packages: Vec::new(),
+            asset: None,
+            download: None,
+            version_overrides: Vec::new(),
+        },
+        bin: BTreeMap::from([(
+            "roslyn-language-server".to_string(),
+            "nuget:roslyn-language-server".to_string(),
+        )]),
+        share: BTreeMap::new(),
+        neovim: MasonNeovim {
+            lspconfig: Some("roslyn_ls".to_string()),
+        },
+    }
+}
+
 pub(crate) fn jdtls_package() -> MasonPackage {
     MasonPackage {
         name: "jdtls".to_string(),

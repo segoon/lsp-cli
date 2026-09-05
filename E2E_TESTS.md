@@ -11,7 +11,7 @@ server lifecycle, and semantically relevant LSP results. They must not depend on
 
 ## Working definition of supported
 
-At pinned `lsp-cli-data` revision `013a75f6412917b710aa4683b9c5761c0c679975`, the data tree has:
+At pinned `lsp-cli-data` revision `59ea88365855ca6a5ab35715c931d30c734e1b6e`, the data tree has:
 
 - 362 filetype configurations;
 - 362 LSP configurations;
@@ -254,8 +254,8 @@ validation test should fail when:
 - two cases select the same user-visible server ambiguously;
 - a new top-level subcommand has no assigned coverage class.
 
-The version 3 manifest assigns every canonical command to a coverage strategy, selects one pinned
-preferred server for every source-language project, and keeps
+The version 4 manifest assigns every canonical command to a coverage strategy, derives one
+preferred smoke-matrix server for every source-language project from `data/lsp-cli.yaml`, and keeps
 `coverage: partial`, which validates every declared language/server entry
 against the pinned data without requiring unfinished matrix entries. Phase 4 adds the remaining
 entries and switches it to `coverage: complete`; complete mode enforces every detectable language
@@ -269,35 +269,34 @@ genuinely new filetype or server, first add its YAML config and commit it in the
 then update the submodule revision and the E2E cases in this repository.
 
 Pair entries use the LSP YAML filename stem as their stable config ID. The test runner loads the
-configured user-visible server name for `--lsp`; do not duplicate it in the manifest. A
-`preferred` block marks a source language's merge-gate server and records its exact version. Every
-source language must have exactly one; metadata-only filetypes must not have one. Each optional
+configured user-visible server name for `--lsp`; do not duplicate it in the manifest. The first
+server in each source language's production preference list is also its merge-gate smoke server.
+Manifest validation resolves that user-visible name to one compatible LSP config and requires the
+corresponding pair to exist. Each optional
 `smoke` block declares a generic provisioning method, query kind, semantic expectations, runtime
 host programs, and deadlines. Language-specific prerequisites and expected symbols belong in YAML,
 not in the Rust runner. The first provisioning method is `download`; add other mechanisms as typed
 methods when needed instead of branching on server names.
 
-### Preferred server pins
+### Preferred server matrix
 
-The initial pins come from Mason registry release `2026-09-05-weary-okapi`, whose registry archive
-digest is `sha256:ecbd69b9f967754250413ac92dc9b0301d6b95699882554b234e2f832ca2b7f0`.
-Versions are recorded per pair because multiple languages may deliberately reuse one server.
+| Languages | LSP config ID |
+| --- | --- |
+| C, C++, CUDA, Objective-C, Objective-C++ | `clangd` |
+| C# | `roslyn_ls` |
+| Go | `gopls` |
+| Java | `jdtls` |
+| JavaScript, TypeScript | `ts_ls` |
+| Kotlin | `kotlin_lsp` |
+| Lua | `lua_ls` |
+| Python | `pyright` |
+| Rust | `rust_analyzer` |
 
-| Languages | LSP config ID | Pinned version |
-| --- | --- | --- |
-| C, C++, CUDA, Objective-C, Objective-C++ | `clangd` | `22.1.6` |
-| C# | `roslyn_ls` | `5.11.0-1.26380.4` |
-| Go | `gopls` | `v0.23.0` |
-| Java | `jdtls` | `v1.60.0` |
-| JavaScript, TypeScript | `ts_ls` | `6.0.0` |
-| Kotlin | `kotlin_lsp` | `kotlin-lsp/v262.9593.0` |
-| Lua | `lua_ls` | `3.19.1` |
-| Python | `pyright` | `1.1.413` |
-| Rust | `rust_analyzer` | `2026-08-31` |
-
-These selections are manifest data, not language-specific runner branches. The provisioning phase
-must consume the exact versions rather than treating them as documentation or requesting the
-registry's current version.
+These selections come from the shipped production preferences, not duplicated manifest flags or
+language-specific runner branches. Real-server tests use `--download` with a clean isolated home,
+so Mason's current registry release selects and installs the server version on every run. Failure
+diagnostics must retain the resolved package source ID so an upstream version change can be
+identified after the fact.
 
 In `coverage: complete` mode, manifest validation makes a new detectable filetype or compatible
 filetype/server relationship fail until its project and pair are declared. Partial mode intentionally
@@ -346,27 +345,26 @@ completion from a fixed sleep.
 
 ## Real-server provisioning
 
-Pin every server and required toolchain version. The manifest should distinguish:
+Do not install LSP servers separately. Every real-server case must pass `--download`, allowing the
+production Mason integration to select the current registry package, install it inside the case's
+isolated home, and return the resolved executable. This applies uniformly to direct archives and
+npm, PyPI, Cargo, Go, NuGet, GitHub, or generic package sources supported by the downloader.
 
-- directly installed executables;
-- npm, PyPI, Cargo, Go, or other package-manager installations;
-- archive-based installations;
-- servers requiring a language SDK or compiler;
-- servers not installable through the current downloader.
+Language SDKs and package-manager runtimes remain explicit host prerequisites. Keep their resolver
+commands in the manifest so a missing prerequisite produces a case-specific error rather than a
+silent skip.
 
 Do not silently skip a required pair because its executable is absent. A CI lane either provisions
 the server or reports the pair as an explicit, reviewed exclusion.
 
-Adding and pinning these external test tools requires product-owner approval under the repository's
+Downloading these external test tools requires product-owner approval under the repository's
 dependency policy. They need not become Rust package dependencies, but they are still operational
 dependencies with maintenance, security, licensing, storage, and network consequences.
 
-Pros of pinned versions: reproducible failures and controlled upgrades. Cons: compatibility with
-new upstream releases is detected only when pins are deliberately refreshed.
-
-An unpinned “latest” lane can complement the pinned suite on a schedule. Its advantage is early
-warning of upstream breakage; its disadvantage is nondeterminism, so it must not be the only merge
-gate.
+Always using Mason latest detects upstream compatibility changes immediately and avoids maintaining
+a second installation path. The tradeoff is a nondeterministic merge gate: a registry or server
+release can break an unchanged commit, and reproducing the failure depends on the recorded source
+ID remaining available upstream.
 
 ## CI plan
 
@@ -376,7 +374,7 @@ Run:
 
 - all existing unit tests and checks through `make test`;
 - global and detection E2E tests;
-- one preferred, pinned server per source language;
+- one preferred current-Mason server per source language;
 - every relevant subcommand across that smoke matrix;
 - manifest/data consistency checks.
 
@@ -385,13 +383,9 @@ Run:
 Run all 141 compatible pairs, sharded by language and server installation family. Use fail-fast
 disabled so one broken server does not hide the rest of the compatibility report.
 
-Cache downloaded toolchains and server packages using keys that include the pinned version. Do not
-share homes, daemon runtime directories, or mutable workspaces between parallel jobs.
-
-### Scheduled latest-version compatibility
-
-Optionally run supported servers at current upstream versions. Report failures separately from the
-pinned merge gate until a human confirms whether the server or `lsp-cli` needs adaptation.
+Do not share homes, daemon runtime directories, or mutable workspaces between parallel jobs. CI may
+cache immutable download transport data, but each case must retain isolated runtime state and must
+not substitute a separately installed server for `--download`.
 
 ### Manual workflow
 
@@ -430,7 +424,7 @@ that class of defect easier to diagnose.
 
 - [x] Confirm detectable support versus configured support: use the 16 detectable IDs.
 - [x] Confirm that unsupported optional capabilities count as a passing, asserted outcome.
-- [x] Approve pinned external server/toolchain provisioning.
+- [x] Approve latest-Mason external server provisioning through `--download`.
 - [x] Approve a narrow HTTP endpoint seam for deterministic `update` E2E coverage.
 - [x] Confirm PR smoke plus nightly exhaustive CI cadence.
 
@@ -453,11 +447,11 @@ that class of defect easier to diagnose.
 
 ### Phase 3: preferred-server smoke matrix
 
-Manual LSP verification follows server selection and provisioning so it runs against reproducible,
-runnable servers rather than ambient or unpinned installations.
+Manual LSP verification follows server selection and downloader support so it runs against servers
+resolved by the same current Mason registry used in CI rather than ambient installations.
 
-- [x] Select and pin one preferred server for each source language.
-- [ ] Add provisioning scripts without new Rust dependencies.
+- [x] Configure one production preference per source language and derive the smoke matrix from it.
+- [x] Provision servers through `--download`; add no separate installers or Rust dependencies.
 - [ ] Run each relevant command manually against every new project.
 - [ ] Implement capability-aware query assertions.
 - [ ] Implement direct/detached lifecycle scenarios.
@@ -475,12 +469,12 @@ runnable servers rather than ambient or unpinned installations.
 ### Phase 5: hardening
 
 - [ ] Run `make test`.
-- [ ] Run the full pinned E2E matrix from a clean environment.
+- [ ] Run the full latest-Mason E2E matrix from a clean environment.
 - [ ] Check every new or edited test file for boilerplate and duplication.
 - [ ] Check every source file remains below 600 lines.
 - [ ] Add regression tests for every bug uncovered during rollout.
 - [ ] Add LSP/server-specific discoveries to `GOTCHAS.md`.
-- [ ] Document how to refresh server pins and triage nightly failures.
+- [ ] Document how to identify upstream server versions and triage nightly failures.
 
 ## Definition of done
 
@@ -493,7 +487,7 @@ The work is complete when:
   behavior;
 - direct, detached, stop, and stop-all lifecycle paths are covered;
 - formatting and diagnostics cannot dirty tracked files;
-- required servers and toolchains are pinned and reproducibly provisioned;
+- required servers are provisioned through `--download`, and resolved source IDs are retained;
 - PR smoke, nightly exhaustive, and manual targeted workflows are documented and passing;
 - `make test` passes;
 - known protocol/server deviations are recorded in `GOTCHAS.md`;
@@ -508,7 +502,8 @@ The work is complete when:
 - Capability-aware results mean “all commands tested” does not mean “all commands succeed on every
   server.” It means every applicable success path and every inapplicable user-facing response is
   verified.
-- Third-party server pinning creates a recurring upgrade and security-review obligation.
+- Latest-server testing creates recurring upstream-flake, security-review, and reproducibility
+  risks even when this repository is unchanged.
 - Some servers require proprietary, platform-specific, or unusually heavy SDKs. Their treatment
   must be an explicit product decision rather than an automatic skip.
 - The current difference between the 362 configured filetypes and 16 detectable filetypes may need

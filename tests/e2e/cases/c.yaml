@@ -6,5 +6,3 @@ language:
 pairs:
   - language: c
     server: clangd
-    preferred:
-      version: "22.1.6"

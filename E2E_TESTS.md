@@ -424,7 +424,7 @@ that class of defect easier to diagnose.
 - [x] Remove duplicated setup patterns within each class of fixture.
 - [x] Add CUDA, Kotlin, Objective-C, and Objective-C++ projects.
 - [x] Add `gomod` and `gowork` detection fixtures.
-- [ ] Update `playground/README.md` with manual reproduction commands.
+- [x] Update `playground/README.md` with manual reproduction commands.
 - [ ] Run each relevant command manually against every new project.
 
 ### Phase 3: preferred-server smoke matrix

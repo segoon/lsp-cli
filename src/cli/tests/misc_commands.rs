@@ -56,12 +56,14 @@ fn parses_daemon_arguments_and_config_idle_timeout() {
             path: PathBuf::from("workspace"),
             server: install_debug(Some("rust"), Some("rust-analyzer"), true, true),
             idle_timeout: Duration::from_millis(1500),
+            write_stall_timeout: Duration::from_secs(2),
         })
     );
 
     let config = CliConfig {
         daemon: DaemonCliConfig {
             idle_timeout: Some(Duration::from_secs(5)),
+            write_stall_timeout: Some(Duration::from_secs(7)),
         },
         ..CliConfig::default()
     };
@@ -72,6 +74,7 @@ fn parses_daemon_arguments_and_config_idle_timeout() {
             path: PathBuf::from("workspace"),
             server: install_debug(None, None, false, false),
             idle_timeout: Duration::from_secs(5),
+            write_stall_timeout: Duration::from_secs(7),
         })
     );
 }

@@ -1,8 +1,10 @@
+use super::super::ClientPhase;
 use super::super::events::{Event, Source};
 use super::super::protocol::stop_request;
 use super::super::session_tests::Fixture;
 use super::*;
 use crate::lsp::transport::read_message;
+use crate::lsp::transport::write_message;
 use serde_json::json;
 use std::io::{BufReader, Read, Write};
 
@@ -142,6 +144,12 @@ fn pending_slot_does_not_reserve_active_session_and_pipelining_survives_promotio
     for _ in 0..5 {
         fixture.step();
     }
+    fixture.pump_until(|daemon| {
+        daemon.active_client.as_ref().is_some_and(|client| {
+            matches!(client.phase, ClientPhase::Ready)
+                && client.forwarded_client_requests.is_empty()
+        })
+    });
     assert_eq!(
         fixture
             .daemon

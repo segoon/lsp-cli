@@ -62,7 +62,12 @@ backlog bounded without a forwarding-loop polling delay. Individual message size
 are not capped. First-message reads run independently with a two-second absolute
 deadline and at most 16 pending handshakes. Excess connections are closed, including
 stop connections when all slots are occupied. Writes, logging, and upstream
-shutdown still run synchronously. These measurements describe an immediate-reply fixture, not a
+shutdown use per-output writer workers, so a peer that stops reading does not block
+the coordinator. An output is flagged at 64 queued messages or 8 MiB of framed data;
+it is unflagged after both values fall below their limits, or disconnected after the
+configured `daemon.write-stall-timeout` (two seconds by default). Messages continue
+to queue during that grace period, so memory use can temporarily exceed both limits.
+Logging and process-exit waits still run synchronously. These measurements describe an immediate-reply fixture, not a
 latency guarantee for real language servers or stalled peers.
 
 The Lua playground exercises discovery of the local `normalize_timestamp` function,

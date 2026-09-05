@@ -50,6 +50,7 @@ pub struct DetectCliConfig {
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct DaemonCliConfig {
     pub idle_timeout: Option<Duration>,
+    pub write_stall_timeout: Option<Duration>,
 }
 
 #[derive(Debug)]
@@ -135,6 +136,8 @@ struct DetectCliConfigFile {
 struct DaemonCliConfigFile {
     #[serde(default, deserialize_with = "deserialize_optional_timeout")]
     idle_timeout: Option<Duration>,
+    #[serde(default, deserialize_with = "deserialize_optional_timeout")]
+    write_stall_timeout: Option<Duration>,
 }
 
 pub fn default_config_root() -> Result<PathBuf> {
@@ -244,6 +247,10 @@ impl CliConfig {
         );
         override_if_some(&mut self.detect.quiet, other.detect.quiet);
         override_if_some(&mut self.daemon.idle_timeout, other.daemon.idle_timeout);
+        override_if_some(
+            &mut self.daemon.write_stall_timeout,
+            other.daemon.write_stall_timeout,
+        );
         override_if_some(&mut self.download_version, other.download_version);
         self.lsp_preferences.extend(other.lsp_preferences);
     }
@@ -265,6 +272,7 @@ impl From<CliConfigFile> for CliConfig {
             },
             daemon: DaemonCliConfig {
                 idle_timeout: file.daemon.idle_timeout,
+                write_stall_timeout: file.daemon.write_stall_timeout,
             },
             lsp_preferences: file.lsp,
         }

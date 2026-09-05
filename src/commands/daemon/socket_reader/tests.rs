@@ -18,7 +18,14 @@ fn pair(deadline: Instant) -> (SocketReader, UnixStream) {
 }
 
 fn assert_closed(peer: &mut UnixStream) {
-    assert_eq!(peer.read(&mut [0]).expect("peer observes shutdown"), 0);
+    match peer.read(&mut [0]) {
+        Ok(bytes) => assert_eq!(bytes, 0, "peer observes EOF"),
+        Err(error) => assert_eq!(
+            error.kind(),
+            std::io::ErrorKind::ConnectionReset,
+            "peer observes socket shutdown"
+        ),
+    }
 }
 
 #[test]

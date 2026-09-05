@@ -251,6 +251,8 @@ detect:
 daemon:
   # Shut down an idle daemon after this much time.
   idle-timeout: "60"
+  # Disconnect an output peer that remains backlogged for this long. Default: 2 seconds.
+  write-stall-timeout: "2"
 
 lsp:
   # Example server preference list for C++.
@@ -263,6 +265,13 @@ lsp:
     - pyright-langserver
     - jedi-language-server
 ```
+
+Each daemon output uses an ordered writer queue. A queue is marked stalled at 64
+messages or 8 MiB of framed data and unmarked after both values fall below those
+limits. The daemon continues accepting messages during the grace period, so memory
+can grow if traffic continues; it disconnects a slow client or stops an unresponsive
+server if the queue stays marked for `write-stall-timeout`. A message larger than
+8 MiB is allowed and begins writing after earlier messages on that output.
 
 ## Language Configs: filetypes/*.yaml
 

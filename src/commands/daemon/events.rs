@@ -28,6 +28,12 @@ pub(super) enum Event {
     },
     AcceptError(String),
     Reader(Source, ReaderEvent),
+    Writer(Source, super::writer::WriterEvent),
+}
+
+pub(super) enum UpstreamEvent {
+    Reader(ReaderEvent),
+    Writer(super::writer::WriterEvent),
 }
 
 pub(super) struct Delivery {
@@ -63,6 +69,18 @@ impl EventQueue {
         Ok(self.generation)
     }
 
+    pub(super) fn admission(&self) -> (Arc<AtomicBool>, Sender<()>, Admission) {
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let (acknowledge, replies) = mpsc::channel();
+        let admission = Admission {
+            cancelled: Arc::clone(&cancelled),
+            acknowledge: acknowledge.clone(),
+            replies,
+            events: self.sender.clone(),
+        };
+        (cancelled, acknowledge, admission)
+    }
+
     pub(super) fn receive(
         &mut self,
         timeout: Option<Duration>,
@@ -83,7 +101,7 @@ impl EventQueue {
         &mut self,
         generation: u64,
         timeout: Duration,
-    ) -> std::result::Result<ReaderEvent, RecvTimeoutError> {
+    ) -> std::result::Result<UpstreamEvent, RecvTimeoutError> {
         let started = Instant::now();
         loop {
             let remaining = timeout
@@ -93,7 +111,11 @@ impl EventQueue {
             match delivery.event {
                 Event::Reader(Source::Upstream(id), event) if id == generation => {
                     let _ = delivery.acknowledge.send(());
-                    return Ok(event);
+                    return Ok(UpstreamEvent::Reader(event));
+                }
+                Event::Writer(Source::Upstream(id), event) if id == generation => {
+                    let _ = delivery.acknowledge.send(());
+                    return Ok(UpstreamEvent::Writer(event));
                 }
                 event => {
                     // Withhold admission while shutdown is synchronous. At most one event per
@@ -108,7 +130,7 @@ impl EventQueue {
     }
 }
 
-struct Admission {
+pub(super) struct Admission {
     cancelled: Arc<AtomicBool>,
     acknowledge: Sender<()>,
     replies: Receiver<()>,
@@ -116,7 +138,16 @@ struct Admission {
 }
 
 impl Admission {
-    fn deliver(&self, event: Event) -> bool {
+    pub(super) fn publish(&self, event: Event) -> bool {
+        if self.cancelled.load(Ordering::Acquire) {
+            return false;
+        }
+        let (acknowledge, replies) = mpsc::channel();
+        drop(replies);
+        self.events.send(Delivery { event, acknowledge }).is_ok()
+    }
+
+    pub(super) fn deliver(&self, event: Event) -> bool {
         if self.cancelled.load(Ordering::Acquire) {
             return false;
         }
@@ -144,15 +175,8 @@ pub(super) struct ReaderWorker {
 }
 
 impl ReaderWorker {
-    fn admission(events: &EventQueue) -> (Self, Admission) {
-        let cancelled = Arc::new(AtomicBool::new(false));
-        let (acknowledge, replies) = mpsc::channel();
-        let admission = Admission {
-            cancelled: Arc::clone(&cancelled),
-            acknowledge: acknowledge.clone(),
-            replies,
-            events: events.sender.clone(),
-        };
+    pub(super) fn admission(events: &EventQueue) -> (Self, Admission) {
+        let (cancelled, acknowledge, admission) = events.admission();
         (
             Self {
                 cancelled,

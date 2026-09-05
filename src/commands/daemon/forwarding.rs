@@ -1,7 +1,7 @@
 use super::protocol::{
     error_response, fingerprint_value, id_key, local_server_request_response, message_method,
-    normalize_initialize_params, request_id, respond_to_stop_request, response_id, stop_request_id,
-    success_response, update_background_work_tracker, wants_background_work,
+    normalize_initialize_params, request_id, response_id, stop_request_id, success_response,
+    update_background_work_tracker, wants_background_work,
 };
 use super::{ClientPhase, Daemon, INVALID_REQUEST, SERVER_NOT_INITIALIZED};
 use crate::error::{Error, Result};
@@ -184,12 +184,16 @@ impl Daemon {
     }
 
     fn handle_stop_request(&mut self, message: &Value) -> Result<()> {
-        let Some(client) = self.active_client.as_mut() else {
+        let Some(request_id) = stop_request_id(message) else {
+            return Err(Error::lsp("daemon stop request is missing an id"));
+        };
+        let response = success_response(&request_id, &Value::Null);
+        let Some(write_id) = self.enqueue_client_response(&response)? else {
             return Ok(());
         };
-
-        respond_to_stop_request(&mut client.writer, message, self.debug)?;
-        self.stop_requested = true;
+        if let Some(client) = self.active_client.as_mut() {
+            client.stop_after_write = Some(write_id);
+        }
         Ok(())
     }
 

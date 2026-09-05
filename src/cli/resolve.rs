@@ -1,9 +1,10 @@
 use crate::cli::{
     BuildIndexArgs, Command, CommandsArgs, DEFAULT_IDLE_TIMEOUT, DEFAULT_LIMIT, DEFAULT_TIMEOUT,
-    DaemonArgs, DeclarationArgs, DefinitionArgs, DetectArgs, DiagnosticsArgs, FormatArgs, GrepArgs,
-    InstallDebugArgs, LanguagesArgs, ListFilesArgs, ListFunctionsArgs, ListSymbolsArgs,
-    LspWorkspaceQueryArgs, RunArgs, SelectionArgs, ServerCapabilitiesArgs, ServersArgs,
-    StopAllArgs, StopArgs, SymbolQueryArgs, UpdateArgs, WorkspaceQueryArgs,
+    DEFAULT_WRITE_STALL_TIMEOUT, DaemonArgs, DeclarationArgs, DefinitionArgs, DetectArgs,
+    DiagnosticsArgs, FormatArgs, GrepArgs, InstallDebugArgs, LanguagesArgs, ListFilesArgs,
+    ListFunctionsArgs, ListSymbolsArgs, LspWorkspaceQueryArgs, RunArgs, SelectionArgs,
+    ServerCapabilitiesArgs, ServersArgs, StopAllArgs, StopArgs, SymbolQueryArgs, UpdateArgs,
+    WorkspaceQueryArgs,
 };
 use crate::cli::{
     RawBuildIndexArgs, RawCommand, RawCommandsArgs, RawDaemonArgs, RawDeclarationArgs,
@@ -279,6 +280,10 @@ impl RawDaemonArgs {
             idle_timeout: self
                 .idle_timeout
                 .unwrap_or(defaults.daemon.idle_timeout.unwrap_or(DEFAULT_IDLE_TIMEOUT)),
+            write_stall_timeout: defaults
+                .daemon
+                .write_stall_timeout
+                .unwrap_or(DEFAULT_WRITE_STALL_TIMEOUT),
         }
     }
 }

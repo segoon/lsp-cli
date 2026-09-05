@@ -14,7 +14,7 @@ use std::io::ErrorKind;
 use std::os::unix::net::UnixStream;
 use std::path::Path;
 use std::path::PathBuf;
-use std::process::{Child, ChildStdin};
+use std::process::Child;
 use std::sync::mpsc::RecvTimeoutError;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -25,6 +25,7 @@ mod forwarding;
 mod process;
 mod protocol;
 mod socket_reader;
+mod writer;
 
 #[cfg(test)]
 mod session_tests;
@@ -38,6 +39,7 @@ use protocol::{
     BackgroundWorkTracker, ReaderEvent, error_response, read_control_message, request_id_from_key,
     response_id, stop_request, stop_request_id,
 };
+use writer::{WriteId, WriterEvent, WriterWorker};
 
 const BACKGROUND_ENV: &str = "LSP_CLI_DAEMON_BACKGROUND";
 const POLL_INTERVAL: Duration = Duration::from_millis(25);
@@ -178,6 +180,7 @@ struct Daemon {
     target: DaemonTarget,
     debug: bool,
     idle_timeout: Duration,
+    write_stall_timeout: Duration,
     upstream: Option<UpstreamServer>,
     active_client: Option<ClientSession>,
     pending_connections: BTreeMap<u64, PendingConnection>,
@@ -188,7 +191,7 @@ struct Daemon {
 
 struct UpstreamServer {
     child: Child,
-    stdin: ChildStdin,
+    writer: WriterWorker,
     stderr: CapturedStderr,
     generation: u64,
     reader: ReaderWorker,
@@ -199,7 +202,7 @@ struct UpstreamServer {
 }
 
 struct ClientSession {
-    writer: UnixStream,
+    writer: WriterWorker,
     generation: u64,
     reader: ReaderWorker,
     phase: ClientPhase,
@@ -207,6 +210,7 @@ struct ClientSession {
     forwarded_client_requests: BTreeSet<String>,
     pending_server_requests: BTreeMap<String, Value>,
     open_documents: BTreeSet<String>,
+    stop_after_write: Option<WriteId>,
 }
 
 #[derive(Clone, Copy)]
@@ -218,7 +222,12 @@ enum ClientPhase {
 }
 
 impl Daemon {
-    fn new(target: DaemonTarget, debug: bool, idle_timeout: Duration) -> Result<Self> {
+    fn new(
+        target: DaemonTarget,
+        debug: bool,
+        idle_timeout: Duration,
+        write_stall_timeout: Duration,
+    ) -> Result<Self> {
         let listener = bind_listener(&target.socket_path)?;
         let mut daemon = Self {
             accept_worker: None,
@@ -227,6 +236,7 @@ impl Daemon {
             target,
             debug,
             idle_timeout,
+            write_stall_timeout,
             upstream: None,
             active_client: None,
             pending_connections: BTreeMap::new(),
@@ -249,7 +259,9 @@ impl Daemon {
 
     fn serve(&mut self) -> Result<()> {
         loop {
-            self.expire_pending_connections(Instant::now());
+            let now = Instant::now();
+            self.expire_pending_connections(now);
+            self.expire_stalled_outputs(now)?;
             if self.stop_requested || self.idle_expired() {
                 return self.stop();
             }
@@ -334,6 +346,7 @@ impl Daemon {
                     }
                 }
             }
+            Event::Writer(source, event) => self.handle_writer_event(source, event)?,
             // Retired workers can still publish a final event while cancellation races with I/O.
             Event::Reader(_, _) => {}
         }
@@ -392,13 +405,17 @@ impl Daemon {
     }
 
     fn write_client_response(&mut self, message: &Value) -> Result<()> {
+        self.enqueue_client_response(message).map(|_| ())
+    }
+
+    fn enqueue_client_response(&mut self, message: &Value) -> Result<Option<WriteId>> {
         log_debug_message(self.debug, "daemon client -> ", message);
         let Some(client) = self.active_client.as_mut() else {
-            return Ok(());
+            return Ok(None);
         };
-        write_message(&mut client.writer, message).map_err(error_fn!(
+        client.writer.enqueue(message).map(Some).map_err(error_fn!(
             Error::lsp,
-            "failed to write daemon client message"
+            "failed to queue daemon client message"
         ))
     }
 
@@ -407,8 +424,102 @@ impl Daemon {
             return Err(Error::unexpected("LSP server is not running"));
         };
         log_debug_message(self.debug, "daemon upstream <- ", message);
-        write_message(&mut upstream.stdin, message)
-            .map_err(error_fn!(Error::lsp, "failed to write LSP server message"))
+        upstream
+            .writer
+            .enqueue(message)
+            .map(|_| ())
+            .map_err(error_fn!(Error::lsp, "failed to queue LSP server message"))
+    }
+
+    fn handle_writer_event(&mut self, source: Source, event: WriterEvent) -> Result<()> {
+        match (source, event) {
+            (Source::Client(generation), WriterEvent::Completed { id, completed_at }) => {
+                if let Some(pending) = self.pending_connections.get_mut(&generation) {
+                    pending.client.writer.refresh_flag(completed_at);
+                    if pending.close_after_write == Some(id) {
+                        let stop = pending.stop_after_write;
+                        self.pending_connections.remove(&generation);
+                        self.stop_requested |= stop;
+                    }
+                } else if let Some(client) = self.active_client.as_mut()
+                    && client.generation == generation
+                {
+                    client.writer.refresh_flag(completed_at);
+                    if client.stop_after_write == Some(id) {
+                        self.stop_requested = true;
+                    }
+                }
+            }
+            (Source::Client(generation), WriterEvent::Failed { id, error }) => {
+                log_unexpected_error(&format!(
+                    "daemon client output failed while writing message {id}: {error}"
+                ));
+                if self.pending_connections.remove(&generation).is_none()
+                    && self
+                        .active_client
+                        .as_ref()
+                        .is_some_and(|client| client.generation == generation)
+                {
+                    self.disconnect_client()?;
+                }
+            }
+            (Source::Upstream(generation), WriterEvent::Completed { completed_at, .. }) => {
+                if let Some(upstream) = self.upstream.as_mut()
+                    && upstream.generation == generation
+                {
+                    upstream.writer.refresh_flag(completed_at);
+                }
+            }
+            (Source::Upstream(generation), WriterEvent::Failed { id, error }) => {
+                if self
+                    .upstream
+                    .as_ref()
+                    .is_some_and(|upstream| upstream.generation == generation)
+                {
+                    log_unexpected_error(&format!(
+                        "LSP server stopped accepting message {id}: {error}"
+                    ));
+                    self.upstream_died();
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn expire_stalled_outputs(&mut self, now: Instant) -> Result<()> {
+        let stalled_pending: Vec<_> = self
+            .pending_connections
+            .iter_mut()
+            .filter_map(|(generation, pending)| {
+                pending
+                    .client
+                    .writer
+                    .timed_out(now, self.write_stall_timeout)
+                    .then_some(*generation)
+            })
+            .collect();
+        for generation in stalled_pending {
+            self.pending_connections.remove(&generation);
+        }
+        if self
+            .active_client
+            .as_mut()
+            .is_some_and(|client| client.writer.timed_out(now, self.write_stall_timeout))
+        {
+            log_unexpected_error(
+                "daemon client was disconnected because it stopped reading output",
+            );
+            self.disconnect_client()?;
+        }
+        if self
+            .upstream
+            .as_mut()
+            .is_some_and(|upstream| upstream.writer.timed_out(now, self.write_stall_timeout))
+        {
+            log_unexpected_error("LSP server was stopped because it stopped reading daemon output");
+            self.upstream_died();
+        }
+        Ok(())
     }
 
     fn shutdown_upstream(&mut self) -> Result<()> {

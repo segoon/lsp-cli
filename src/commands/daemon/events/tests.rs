@@ -102,7 +102,7 @@ fn shutdown_defers_other_sources_without_releasing_admission() {
     fixture.send(1, &json!({"id": "shutdown", "result": null}));
     assert!(matches!(
         fixture.events.receive_upstream(2, TIMEOUT),
-        Ok(ReaderEvent::Message(_))
+        Ok(UpstreamEvent::Reader(ReaderEvent::Message(_)))
     ));
     assert!(matches!(
         fixture.events.receiver.try_recv(),

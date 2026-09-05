@@ -9,7 +9,7 @@ use crate::test_support::TestDir;
 use serde_json::json;
 use std::fs;
 use std::io::BufReader;
-use std::os::unix::net::UnixListener;
+use std::os::unix::net::{UnixListener, UnixStream};
 use std::thread;
 
 pub(super) fn daemon_target(dir: &TestDir) -> super::DaemonTarget {
@@ -265,17 +265,18 @@ fn stop_socket_returns_not_running_when_socket_is_missing() {
     ));
 }
 
-#[test]
-fn forwards_multiple_requests_and_out_of_order_responses() {
-    use super::{ClientPhase, ClientSession, Daemon, ReaderEvent, UpstreamServer};
+fn window_fixture() -> (super::Daemon, UnixStream, TestDir) {
+    use super::events::{EventQueue, ReaderWorker, Source};
+    use super::writer::WriterWorker;
+    use super::{ClientPhase, ClientSession, Daemon, UpstreamServer};
     use crate::server_stderr::CapturedStderr;
     use std::collections::{BTreeMap, BTreeSet};
-    use std::os::unix::net::UnixStream;
     use std::process::{Command, Stdio};
     use std::time::{Duration, Instant};
 
     let dir = TestDir::new("daemon-window");
     let target = daemon_target(&dir);
+    let mut events = EventQueue::new();
     // Echo upstream bytes so the test can inspect forwarding without a real LSP.
     let mut child = Command::new("/bin/cat")
         .stdin(Stdio::piped())
@@ -283,9 +284,23 @@ fn forwards_multiple_requests_and_out_of_order_responses() {
         .stderr(Stdio::piped())
         .spawn()
         .expect("start echo process");
+    let generation = events.next_generation().expect("generation");
+    let reader = ReaderWorker::spawn(
+        child.stdout.take().expect("stdout"),
+        Source::Upstream(generation),
+        &events,
+    )
+    .expect("reader");
+    let writer = WriterWorker::spawn(
+        child.stdin.take().expect("stdin"),
+        Source::Upstream(generation),
+        &events,
+    )
+    .expect("writer");
     let upstream = UpstreamServer {
-        stdin: child.stdin.take().expect("stdin"),
-        messages: super::process::spawn_reader(child.stdout.take().expect("stdout")),
+        writer,
+        reader,
+        generation,
         stderr: CapturedStderr::spawn(child.stderr.take().expect("stderr"), false),
         child,
         initialize_fingerprint: None,
@@ -297,36 +312,63 @@ fn forwards_multiple_requests_and_out_of_order_responses() {
     client
         .set_read_timeout(Some(Duration::from_secs(3)))
         .expect("read timeout");
-    let mut session = ClientSession::new(proxy).expect("session");
+    let mut session = ClientSession::new(proxy, &mut events, None).expect("session");
     session.phase = ClientPhase::Ready;
-    let mut daemon = Daemon {
-        listener: UnixListener::bind(&target.socket_path).expect("listener"),
+    let daemon = Daemon {
+        accept_worker: None,
+        events,
+        socket_owned: false,
         target,
         debug: false,
         idle_timeout: Duration::from_secs(60),
+        write_stall_timeout: Duration::from_secs(2),
         upstream: Some(upstream),
         active_client: Some(session),
+        pending_connections: BTreeMap::new(),
         orphaned_client_requests: BTreeSet::new(),
         idle_since: Instant::now(),
         stop_requested: false,
     };
+    (daemon, client, dir)
+}
+
+fn receive_forwarded(daemon: &mut super::Daemon, expected: &serde_json::Value) {
+    use super::ReaderEvent;
+    use super::events::{Event, Source};
+    use std::time::Duration;
+
+    loop {
+        let delivery = daemon
+            .events
+            .receive(Some(Duration::from_secs(3)))
+            .expect("forwarded message");
+        match delivery.event {
+            Event::Reader(Source::Upstream(_), ReaderEvent::Message(message)) => {
+                assert_eq!(message, *expected);
+                let _ = delivery.acknowledge.send(());
+                return;
+            }
+            event => {
+                daemon.dispatch(event).expect("dispatch progress");
+                let _ = delivery.acknowledge.send(());
+            }
+        }
+    }
+}
+
+#[test]
+fn forwards_multiple_requests_and_out_of_order_responses() {
+    use std::collections::BTreeMap;
+    use std::time::Duration;
+
+    let (mut daemon, client, _dir) = window_fixture();
     let mut expected = BTreeMap::new();
     for id in 1..=20 {
         let request = json!({"jsonrpc":"2.0","id":id,"method":"textDocument/documentSymbol", "params":{"textDocument":{"uri":format!("file:///{id}.lua")}}});
         daemon
             .handle_client_message(&request)
             .expect("forward request");
-        match daemon
-            .upstream
-            .as_ref()
-            .expect("upstream")
-            .messages
-            .recv_timeout(Duration::from_secs(3))
-            .expect("echo")
-        {
-            ReaderEvent::Message(message) => assert_eq!(message, request),
-            _ => panic!("expected echoed request"),
-        }
+        receive_forwarded(&mut daemon, &request);
         expected.insert(id, json!({"jsonrpc":"2.0","id":id,"result":[]}));
     }
     assert_eq!(
@@ -347,6 +389,14 @@ fn forwards_multiple_requests_and_out_of_order_responses() {
             read_message(&mut reader).expect("read").expect("response"),
             *response
         );
+        let delivery = daemon
+            .events
+            .receive(Some(Duration::from_secs(3)))
+            .expect("write completion");
+        daemon
+            .dispatch(delivery.event)
+            .expect("dispatch completion");
+        let _ = delivery.acknowledge.send(());
     }
     assert!(
         daemon

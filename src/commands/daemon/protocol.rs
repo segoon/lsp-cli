@@ -1,6 +1,6 @@
 use super::{Daemon, DaemonTarget, INVALID_REQUEST};
 use crate::error::{Error, Result, error_fn};
-use crate::lsp::transport::{log_debug_message, read_message, write_message};
+use crate::lsp::transport::{log_debug_message, read_message};
 use crate::lsp::{SERVER_STATUS_METHOD, ServerStatusParams, parse_lsp_uri};
 use lsp_types::WorkspaceFolder;
 use serde::Deserialize;
@@ -109,22 +109,6 @@ pub(super) fn stop_request_id(message: &Value) -> Option<Value> {
     } else {
         None
     }
-}
-
-pub(super) fn respond_to_stop_request(
-    stream: &mut UnixStream,
-    message: &Value,
-    debug: bool,
-) -> Result<()> {
-    let Some(request_id) = stop_request_id(message) else {
-        return Err(Error::lsp("daemon stop request is missing an id"));
-    };
-    let response = success_response(&request_id, &Value::Null);
-    log_debug_message(debug, "daemon control <- ", &response);
-    write_message(stream, &response).map_err(error_fn!(
-        Error::lsp,
-        "failed to write daemon stop response"
-    ))
 }
 
 pub(super) fn local_server_request_response(request_id: &Value, method: &str) -> Value {

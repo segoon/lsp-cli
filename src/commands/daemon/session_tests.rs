@@ -2,7 +2,7 @@ use super::*;
 use crate::lsp::transport::read_message;
 use crate::test_support::{TestDir, with_env_vars};
 use serde_json::json;
-use std::io::BufReader;
+use std::io::{BufRead, BufReader, ErrorKind};
 use std::os::unix::net::UnixListener;
 use std::process::{Command, Stdio};
 use std::sync::mpsc;
@@ -32,6 +32,7 @@ impl Fixture {
                 target,
                 debug: false,
                 idle_timeout: TIMEOUT,
+                write_stall_timeout: TIMEOUT,
                 upstream: Some(upstream),
                 active_client: Some(client),
                 pending_connections: BTreeMap::new(),
@@ -60,6 +61,28 @@ impl Fixture {
     }
 
     pub(super) fn read(&mut self) -> Value {
+        if self.peer.buffer().is_empty() {
+            self.peer
+                .get_ref()
+                .set_nonblocking(true)
+                .expect("nonblocking peer");
+            loop {
+                let ready = match self.peer.fill_buf() {
+                    Ok([]) => panic!("client output closed"),
+                    Ok(_) => true,
+                    Err(error) if error.kind() == ErrorKind::WouldBlock => false,
+                    Err(error) => panic!("inspect client output: {error}"),
+                };
+                if ready {
+                    break;
+                }
+                self.step();
+            }
+            self.peer
+                .get_ref()
+                .set_nonblocking(false)
+                .expect("blocking peer");
+        }
         read_message(&mut self.peer)
             .expect("read response")
             .expect("response")
@@ -73,11 +96,45 @@ impl Fixture {
         );
         self.step();
         if !reused {
-            self.step();
+            for _ in 0..10 {
+                if self
+                    .daemon
+                    .active_client
+                    .as_ref()
+                    .is_some_and(|client| client.forwarded_client_requests.is_empty())
+                {
+                    break;
+                }
+                self.step();
+            }
+            assert!(
+                self.daemon
+                    .active_client
+                    .as_ref()
+                    .is_some_and(|client| { client.forwarded_client_requests.is_empty() }),
+                "initialize response was queued"
+            );
         }
         let response = self.read();
         self.send(&json!({"jsonrpc": "2.0", "method": "initialized", "params": {}}));
-        self.step();
+        for _ in 0..10 {
+            if self
+                .daemon
+                .active_client
+                .as_ref()
+                .is_some_and(|client| matches!(client.phase, ClientPhase::Ready))
+            {
+                break;
+            }
+            self.step();
+        }
+        assert!(
+            self.daemon
+                .active_client
+                .as_ref()
+                .is_some_and(|client| { matches!(client.phase, ClientPhase::Ready) }),
+            "initialized notification was handled"
+        );
         response
     }
 
@@ -112,9 +169,11 @@ fn fake_upstream(events: &mut EventQueue) -> UpstreamServer {
     let generation = events.next_generation().expect("upstream generation");
     let reader =
         ReaderWorker::spawn(stdout, Source::Upstream(generation), events).expect("upstream reader");
+    let writer =
+        WriterWorker::spawn(stdin, Source::Upstream(generation), events).expect("upstream writer");
     UpstreamServer {
         child,
-        stdin,
+        writer,
         stderr,
         generation,
         reader,

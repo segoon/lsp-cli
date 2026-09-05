@@ -1,4 +1,5 @@
-use super::events::{EventQueue, ReaderWorker, Source};
+use super::events::{EventQueue, ReaderWorker, Source, UpstreamEvent};
+use super::writer::{WriterEvent, WriterWorker};
 use super::{
     BACKGROUND_ENV, ClientPhase, ClientSession, Daemon, DaemonArgs, DaemonTarget, POLL_INTERVAL,
     ReaderEvent, UPSTREAM_SHUTDOWN_TIMEOUT, UpstreamServer,
@@ -164,9 +165,14 @@ pub(super) fn launch_background_for_connection(
 }
 
 pub(super) fn run_background(args: &DaemonArgs, target: DaemonTarget) -> Result<String> {
-    let mut daemon = match unsafe { setsid_wrapper() }
-        .and_then(|()| Daemon::new(target, args.server.debug, args.idle_timeout))
-    {
+    let mut daemon = match unsafe { setsid_wrapper() }.and_then(|()| {
+        Daemon::new(
+            target,
+            args.server.debug,
+            args.idle_timeout,
+            args.write_stall_timeout,
+        )
+    }) {
         Ok(daemon) => daemon,
         Err(error) => {
             let startup_error = error.to_string();
@@ -238,8 +244,9 @@ impl ClientSession {
             events,
             deadline,
         )?;
+        let writer = WriterWorker::socket(stream, Source::Client(generation), events)?;
         Ok(Self {
-            writer: stream,
+            writer,
             generation,
             reader: worker,
             phase: ClientPhase::WaitingForInitialize,
@@ -247,6 +254,7 @@ impl ClientSession {
             forwarded_client_requests: BTreeSet::new(),
             pending_server_requests: BTreeMap::new(),
             open_documents: BTreeSet::new(),
+            stop_after_write: None,
         })
     }
 }
@@ -312,9 +320,17 @@ impl UpstreamServer {
                 return Err(error);
             }
         };
+        let writer = match WriterWorker::spawn(stdin, Source::Upstream(generation), events) {
+            Ok(writer) => writer,
+            Err(error) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(error);
+            }
+        };
         Ok(Self {
             child,
-            stdin,
+            writer,
             stderr,
             generation,
             reader,
@@ -331,9 +347,10 @@ impl UpstreamServer {
             let shutdown_id = Value::String("lsp-cli/daemon-shutdown".to_string());
             let shutdown = jsonrpc(Some(shutdown_id.clone()), Shutdown::METHOD, &())?;
             crate::lsp::transport::log_debug_message(debug, "daemon upstream <- ", &shutdown);
-            let _ = crate::lsp::transport::write_message(&mut self.stdin, &shutdown);
+            let shutdown_write = self.writer.enqueue(&shutdown).ok();
 
             let started = Instant::now();
+            let mut shutdown_written = shutdown_write.is_none();
             while started.elapsed() < UPSTREAM_SHUTDOWN_TIMEOUT {
                 let Some(remaining) = UPSTREAM_SHUTDOWN_TIMEOUT.checked_sub(started.elapsed())
                 else {
@@ -341,20 +358,44 @@ impl UpstreamServer {
                 };
 
                 match events.receive_upstream(self.generation, remaining) {
-                    Ok(ReaderEvent::Message(message)) => {
+                    Ok(UpstreamEvent::Writer(WriterEvent::Completed { id, .. })) => {
+                        shutdown_written |= Some(id) == shutdown_write;
+                    }
+                    Ok(
+                        UpstreamEvent::Writer(WriterEvent::Failed { .. })
+                        | UpstreamEvent::Reader(ReaderEvent::EndOfStream | ReaderEvent::Error(_)),
+                    )
+                    | Err(_) => break,
+                    Ok(UpstreamEvent::Reader(ReaderEvent::Message(message)))
+                        if shutdown_written =>
+                    {
                         if super::response_id(&message).as_ref().is_some_and(|value| {
                             *value == Value::String("lsp-cli/daemon-shutdown".to_string())
                         }) {
                             break;
                         }
                     }
-                    Ok(ReaderEvent::EndOfStream | ReaderEvent::Error(_)) | Err(_) => break,
+                    Ok(UpstreamEvent::Reader(ReaderEvent::Message(_))) => {}
                 }
             }
 
             let exit = jsonrpc::<u64, _>(None, Exit::METHOD, &())?;
             crate::lsp::transport::log_debug_message(debug, "daemon upstream <- ", &exit);
-            let _ = crate::lsp::transport::write_message(&mut self.stdin, &exit);
+            if let Ok(exit_write) = self.writer.enqueue(&exit) {
+                let started = Instant::now();
+                while let Some(remaining) = UPSTREAM_SHUTDOWN_TIMEOUT.checked_sub(started.elapsed())
+                {
+                    match events.receive_upstream(self.generation, remaining) {
+                        Ok(UpstreamEvent::Writer(WriterEvent::Completed { id, .. }))
+                            if id == exit_write =>
+                        {
+                            break;
+                        }
+                        Ok(UpstreamEvent::Writer(WriterEvent::Failed { .. })) | Err(_) => break,
+                        Ok(_) => {}
+                    }
+                }
+            }
         }
 
         match self.child.try_wait() {

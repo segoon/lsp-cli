@@ -223,6 +223,23 @@ fn loads_layered_cli_config_with_user_overrides() {
 }
 
 #[test]
+fn overrides_server_preferences_per_filetype() {
+    let global = TestDir::new("cli-config-preferences-global");
+    global.write_file("lsp-cli.yaml", "lsp: {alpha: [primary], beta: [primary]}\n");
+    let user = TestDir::new("cli-config-preferences-user");
+    for (value, expected) in [
+        ("[secondary]", vec!["secondary".to_string()]),
+        ("[]", vec![]),
+    ] {
+        user.write_file("lsp-cli.yaml", format!("lsp: {{beta: {value}}}\n"));
+        let config =
+            load_cli_config(global.path(), Some(user.path())).expect("overrides should load");
+        assert_eq!(config.lsp_preferences["beta"], expected);
+        assert_eq!(config.lsp_preferences["alpha"], ["primary"]);
+    }
+}
+
+#[test]
 fn ignores_missing_cli_config_files() {
     let global = TestDir::new("cli-config-global-missing");
     let user = TestDir::new("cli-config-user-missing");

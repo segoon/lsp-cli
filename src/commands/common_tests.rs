@@ -108,6 +108,39 @@ fn selects_requested_server_for_grep() {
 }
 
 #[test]
+fn selects_servers_using_preferences() {
+    let preferences = BTreeMap::from([
+        ("alpha".to_string(), vec!["preferred".to_string()]),
+        ("beta".to_string(), vec!["preferred".to_string()]),
+    ]);
+    let executable = current_test_executable().display().to_string();
+    let dir = TestDir::new("common-preferences");
+    let missing = dir.path().join("missing-server").display().to_string();
+    for language in ["alpha", "beta"] {
+        for (preferred_command, explicit, expected) in [
+            (executable.as_str(), None, "preferred"),
+            (executable.as_str(), Some("fallback"), "fallback"),
+            (missing.as_str(), None, "fallback"),
+        ] {
+            let suggestions = [
+                server("fallback", "fallback", &[language], &[&executable]),
+                server("preferred", "preferred", &[language], &[preferred_command]),
+            ];
+            let selected = resolve_server(
+                &detection_result(&[language], &[]),
+                &suggestions,
+                explicit,
+                Some(language),
+                &preferences,
+                false,
+            )
+            .expect("eligible server should be selected");
+            assert_eq!(selected.server.server, expected);
+        }
+    }
+}
+
+#[test]
 fn errors_when_requested_server_is_not_detected() {
     let error = resolve_server(
         &detection_result(&["beta"], &[]),

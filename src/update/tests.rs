@@ -43,13 +43,19 @@ fn installs_valid_downloaded_data_into_runtime_data_dir() {
             "lsp-cli-data/lsp/rust-analyzer.yaml",
             b"filetypes: [rust]\nroot_markers: [Cargo.toml]\nname: rust-analyzer\ncmdline: rust-analyzer\n",
         ),
-        ("lsp-cli-data/lsp-cli.yaml", b"download-version: latest\n"),
+        (
+            "lsp-cli-data/lsp-cli.yaml",
+            b"download-version: latest\nlsp: {rust: [rust-analyzer]}\n",
+        ),
     ]);
 
     install_downloaded_data(&state, &archive).expect("downloaded data should install");
 
     assert!(state.data_dir().join("filetypes/rust.yaml").is_file());
     assert!(state.data_dir().join("lsp/rust-analyzer.yaml").is_file());
+    let config = crate::config::load_cli_config(&state.data_dir(), None)
+        .expect("installed preferences should load");
+    assert_eq!(config.lsp_preferences["rust"], ["rust-analyzer"]);
 }
 
 #[test]

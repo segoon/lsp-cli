@@ -242,7 +242,7 @@ daemon:
   idle-timeout: "60"
 
 lsp:
-  # Prefer clangd for C++.
+  # Example server preference list for C++.
   cpp:
     - clangd
 

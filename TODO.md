@@ -9,6 +9,8 @@
 
 - man
 
+- fill filetypes
+
 
 # Features
 

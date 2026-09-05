@@ -1,8 +1,5 @@
 use super::*;
-
-fn repository_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-}
+use crate::repository_root;
 
 fn first_smoke(manifest: &mut Manifest) -> &mut SmokeCase {
     manifest
@@ -18,7 +15,7 @@ fn first_smoke(manifest: &mut Manifest) -> &mut SmokeCase {
 fn partial_manifest_matches_pinned_data() {
     Manifest::load()
         .expect("E2E manifest should parse")
-        .validate(&repository_root())
+        .validate(repository_root())
         .expect("E2E manifest should be valid");
 }
 
@@ -28,7 +25,7 @@ fn complete_mode_rejects_the_partial_matrix() {
     manifest.coverage = Coverage::Complete;
 
     let error = manifest
-        .validate(&repository_root())
+        .validate(repository_root())
         .expect_err("partial matrix should not satisfy complete coverage");
 
     assert!(error.contains("complete E2E manifest is missing languages"));
@@ -70,7 +67,7 @@ fn manifest_rejects_duplicate_command_coverage() {
     manifest.commands.push(duplicate);
 
     let error = manifest
-        .validate(&repository_root())
+        .validate(repository_root())
         .expect_err("duplicate command coverage should fail");
 
     assert!(error.contains("more than once"));
@@ -91,7 +88,7 @@ fn manifest_rejects_config_path_traversal() {
         .language = "../rust".to_string();
 
     let error = manifest
-        .validate(&repository_root())
+        .validate(repository_root())
         .expect_err("config path traversal should fail");
 
     assert!(error.contains("must be one normalized path component"));
@@ -104,7 +101,7 @@ fn manifest_rejects_invalid_smoke_deadlines() {
     smoke.deadline_seconds = smoke.lsp_timeout_seconds.saturating_sub(1);
 
     let error = manifest
-        .validate(&repository_root())
+        .validate(repository_root())
         .expect_err("short overall deadline should fail");
 
     assert!(error.contains("deadline must not be shorter"));
@@ -122,7 +119,7 @@ fn manifest_rejects_duplicate_host_programs() {
     smoke.host_programs.push(duplicate);
 
     let error = manifest
-        .validate(&repository_root())
+        .validate(repository_root())
         .expect_err("duplicate host programs should fail");
 
     assert!(error.contains("more than once"));

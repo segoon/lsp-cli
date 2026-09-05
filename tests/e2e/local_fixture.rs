@@ -3,31 +3,38 @@ use std::process::Command;
 use std::sync::OnceLock;
 use std::time::Duration;
 
+use crate::fixture::E2eFixture;
 use crate::harness::E2eContext;
+use crate::manifest::CommandStrategy;
 use crate::process;
+use crate::repository_root;
 
 const SERVER_NAME: &str = "e2e-fake-lsp";
 const BINARY_NAME: &str = "lsp-cli-e2e-fake-lsp";
 const BUILD_DEADLINE: Duration = Duration::from_secs(120);
 
 pub(crate) struct LocalFixture {
-    context: E2eContext,
+    fixture: E2eFixture,
 }
 
 impl LocalFixture {
     pub(crate) fn new() -> Result<Self, String> {
         let root = repository_root();
         let fixtures = root.join("tests/e2e/fixtures");
-        let context = E2eContext::new()
-            .map_err(|error| format!("failed to create fixture context: {error}"))?
-            .with_data_dir(fixtures.join("data"));
-        context.copy_project(&fixtures.join("project"))?;
-        context.stage_program(SERVER_NAME, fake_server_binary()?)?;
-        Ok(Self { context })
+        let fixture = E2eFixture::new_with_data_dir(fixtures.join("data"))?;
+        fixture.context().copy_project(&fixtures.join("project"))?;
+        fixture
+            .context()
+            .stage_program(SERVER_NAME, fake_server_binary()?)?;
+        Ok(Self { fixture })
     }
 
     pub(crate) fn context(&self) -> &E2eContext {
-        &self.context
+        self.fixture.context()
+    }
+
+    pub(crate) fn commands_for(&self, strategy: CommandStrategy) -> impl Iterator<Item = &str> {
+        self.fixture.commands_for(strategy)
     }
 
     pub(crate) fn server_name(&self) -> &'static str {
@@ -79,8 +86,4 @@ fn build_fake_server() -> Result<PathBuf, String> {
             binary.display()
         ))
     }
-}
-
-fn repository_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 }

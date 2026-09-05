@@ -1,14 +1,13 @@
 use serde_json::Value;
 
 use crate::local_fixture::LocalFixture;
-use crate::manifest::{CommandStrategy, Manifest};
+use crate::manifest::CommandStrategy;
 
 #[test]
 fn lsp_fixture_command_paths_are_covered() {
-    let manifest = Manifest::load_repository().expect("E2E manifest should be valid");
     let fixture = LocalFixture::new().expect("local fixture should initialize");
 
-    for command in manifest.commands_for(CommandStrategy::LspFixture) {
+    for command in fixture.commands_for(CommandStrategy::LspFixture) {
         run_query(&fixture, command);
     }
 }

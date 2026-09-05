@@ -416,7 +416,7 @@ that class of defect easier to diagnose.
 ### Phase 2: projects
 
 - [x] Audit the ten existing playgrounds against the common semantic requirements.
-- [ ] Remove duplicated setup patterns within each class of fixture.
+- [x] Remove duplicated setup patterns within each class of fixture.
 - [ ] Add CUDA, Kotlin, Objective-C, and Objective-C++ projects.
 - [ ] Add `gomod` and `gowork` detection fixtures.
 - [ ] Update `playground/README.md` with manual reproduction commands.

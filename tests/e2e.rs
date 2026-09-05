@@ -11,6 +11,8 @@
 mod catalog;
 #[path = "e2e/filesystem.rs"]
 mod filesystem;
+#[path = "e2e/fixture.rs"]
+mod fixture;
 #[path = "e2e/harness.rs"]
 mod harness;
 #[path = "e2e/lifecycle.rs"]
@@ -27,3 +29,9 @@ mod queries;
 mod real_servers;
 #[path = "e2e/update.rs"]
 mod update;
+
+use std::path::Path;
+
+pub(crate) fn repository_root() -> &'static Path {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+}

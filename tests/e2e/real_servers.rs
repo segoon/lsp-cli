@@ -1,11 +1,12 @@
 use std::collections::BTreeSet;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::time::{Duration, Instant};
 
 use serde::Deserialize;
 
 use crate::harness::E2eContext;
 use crate::manifest::{Manifest, ProvisionMethod, QueryKind, RealServerCase};
+use crate::repository_root;
 
 struct RealServerTest<'a> {
     case: RealServerCase<'a>,
@@ -137,18 +138,14 @@ fn remaining(started: Instant, deadline: Duration) -> Result<Duration, String> {
     }
 }
 
-fn repository_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-}
-
 #[test]
 #[ignore = "downloads and runs real LSP servers; executed explicitly in CI"]
 fn manifest_real_server_smoke_cases() {
     let repository = repository_root();
-    let manifest = Manifest::load_validated(&repository).expect("E2E manifest should be valid");
+    let manifest = Manifest::load_validated(repository).expect("E2E manifest should be valid");
     let failures = manifest
         .real_server_smoke_cases()
-        .filter_map(|case| RealServerTest::new(case, &repository).run().err())
+        .filter_map(|case| RealServerTest::new(case, repository).run().err())
         .collect::<Vec<_>>();
 
     assert!(

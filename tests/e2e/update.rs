@@ -7,21 +7,21 @@ use flate2::Compression;
 use flate2::write::GzEncoder;
 use serde_json::json;
 
-use crate::harness::E2eContext;
-use crate::manifest::{CommandStrategy, Manifest};
+use crate::fixture::E2eFixture;
+use crate::manifest::CommandStrategy;
 
 #[test]
 fn update_command_path_uses_local_release_fixture() {
-    let manifest = Manifest::load_repository().expect("E2E manifest should be valid");
+    let fixture = E2eFixture::new().expect("E2E fixture should initialize");
     assert_eq!(
-        manifest
+        fixture
             .commands_for(CommandStrategy::UpdateFixture)
             .collect::<Vec<_>>(),
         ["update"]
     );
     let archive = data_archive();
     let server = HttpFixture::start(archive);
-    let context = E2eContext::new().expect("E2E context should initialize");
+    let context = fixture.context();
 
     let output = context.run_with_env(
         &["update"],

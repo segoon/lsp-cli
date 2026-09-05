@@ -1,17 +1,16 @@
 use crate::local_fixture::LocalFixture;
-use crate::manifest::{CommandStrategy, Manifest};
+use crate::manifest::CommandStrategy;
 use std::collections::BTreeSet;
 
 #[test]
 fn lifecycle_command_paths_are_covered() {
-    let manifest = Manifest::load_repository().expect("E2E manifest should be valid");
+    let fixture = LocalFixture::new().expect("local fixture should initialize");
     assert_eq!(
-        manifest
+        fixture
             .commands_for(CommandStrategy::Lifecycle)
             .collect::<BTreeSet<_>>(),
         BTreeSet::from(["daemon", "run", "stop", "stop-all"])
     );
-    let fixture = LocalFixture::new().expect("local fixture should initialize");
     let context = fixture.context();
     let server = fixture.server_name();
 

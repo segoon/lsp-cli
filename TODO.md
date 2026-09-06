@@ -2,6 +2,7 @@
 
 - repl (TODO: name... cli, console, terminal, interactive?)
 - color?? pretty
+- LSP server configs for all popular agents
 
 - review lspconfig database
 - review mason database

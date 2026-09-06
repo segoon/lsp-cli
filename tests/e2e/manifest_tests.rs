@@ -234,20 +234,18 @@ fn manifest_rejects_invalid_smoke_deadlines() {
 #[test]
 fn manifest_rejects_duplicate_host_programs() {
     let mut manifest = Manifest::load().expect("E2E manifest should parse");
-    let smoke = manifest
+    let setup = manifest
         .pairs
         .iter_mut()
-        .filter_map(|pair| pair.smoke.as_mut())
-        .find(|smoke| matches!(smoke, SmokeDisposition::Queries { host_programs, .. } if !host_programs.is_empty()))
+        .filter_map(|pair| pair.setup.as_mut())
+        .find(|setup| !setup.host_programs.is_empty())
         .expect("manifest should contain a host-dependent query case");
-    let SmokeDisposition::Queries { host_programs, .. } = smoke else {
-        panic!("first smoke case should contain queries")
-    };
-    let duplicate = host_programs
+    let duplicate = setup
+        .host_programs
         .first()
-        .expect("smoke case should have a host program")
+        .expect("setup should have a host program")
         .clone();
-    host_programs.push(duplicate);
+    setup.host_programs.push(duplicate);
 
     let error = manifest
         .validate(repository_root())
@@ -290,6 +288,130 @@ fn manifest_rejects_an_empty_exclusion_reason() {
         .expect_err("empty exclusions should fail");
 
     assert!(error.contains("must be non-empty"));
+}
+
+#[test]
+fn every_preferred_server_requires_one_lifecycle_owner() {
+    let mut manifest = Manifest::load().expect("E2E manifest should parse");
+    manifest
+        .pairs
+        .iter_mut()
+        .find(|pair| pair.server == "clangd" && pair.lifecycle.is_some())
+        .expect("clangd lifecycle owner should exist")
+        .lifecycle = None;
+
+    let error = manifest
+        .validate(repository_root())
+        .expect_err("preferred server should require a lifecycle owner");
+
+    assert!(error.contains("must have exactly one lifecycle owner; found 0"));
+}
+
+#[test]
+fn preferred_server_rejects_duplicate_lifecycle_owners() {
+    let mut manifest = Manifest::load().expect("E2E manifest should parse");
+    let lifecycle = manifest
+        .pairs
+        .iter()
+        .find(|pair| pair.server == "clangd" && pair.lifecycle.is_some())
+        .expect("clangd lifecycle owner should exist")
+        .lifecycle
+        .clone();
+    manifest
+        .pairs
+        .iter_mut()
+        .find(|pair| pair.server == "clangd" && pair.lifecycle.is_none())
+        .expect("clangd should have another language pair")
+        .lifecycle = lifecycle;
+
+    let error = manifest
+        .validate(repository_root())
+        .expect_err("preferred server should reject duplicate lifecycle owners");
+
+    assert!(error.contains("must have exactly one lifecycle owner; found 2"));
+}
+
+#[test]
+fn executable_lifecycle_requires_server_setup() {
+    let mut manifest = Manifest::load().expect("E2E manifest should parse");
+    let pair = manifest
+        .pairs
+        .iter_mut()
+        .find(|pair| matches!(pair.lifecycle, Some(LifecycleDisposition::Scenarios { .. })))
+        .expect("manifest should contain a lifecycle scenario");
+    pair.setup = None;
+
+    let error = manifest
+        .validate(repository_root())
+        .expect_err("lifecycle scenario should require setup");
+
+    assert!(error.contains("must declare server setup"));
+}
+
+#[test]
+fn direct_run_exclusion_requires_a_reason() {
+    let mut manifest = Manifest::load().expect("E2E manifest should parse");
+    let pair = manifest
+        .pairs
+        .iter_mut()
+        .find(|pair| pair.language == "java")
+        .expect("Java pair should exist");
+    let Some(LifecycleDisposition::Scenarios { direct_run, .. }) = &mut pair.lifecycle else {
+        panic!("Java should have lifecycle scenarios")
+    };
+    *direct_run = lifecycle_case::DirectRunDisposition::Excluded {
+        reason: " ".to_string(),
+    };
+
+    let error = manifest
+        .validate(repository_root())
+        .expect_err("direct run exclusion should require a reason");
+
+    assert!(error.contains("direct-run exclusion") && error.contains("must be non-empty"));
+}
+
+#[test]
+fn lifecycle_exclusion_requires_a_reason() {
+    let mut manifest = Manifest::load().expect("E2E manifest should parse");
+    let pair = manifest
+        .pairs
+        .iter_mut()
+        .find(|pair| pair.language == "cs")
+        .expect("C# pair should exist");
+    pair.lifecycle = Some(LifecycleDisposition::Excluded {
+        reason: " ".to_string(),
+    });
+
+    let error = manifest
+        .validate(repository_root())
+        .expect_err("lifecycle exclusion should require a reason");
+
+    assert!(error.contains("lifecycle exclusion") && error.contains("must be non-empty"));
+}
+
+#[test]
+fn lifecycle_scenario_rejects_invalid_deadlines() {
+    let mut manifest = Manifest::load().expect("E2E manifest should parse");
+    let lifecycle = manifest
+        .pairs
+        .iter_mut()
+        .find_map(|pair| pair.lifecycle.as_mut())
+        .expect("manifest should contain lifecycle coverage");
+    let LifecycleDisposition::Scenarios {
+        lsp_timeout_seconds,
+        deadline_seconds,
+        ..
+    } = lifecycle
+    else {
+        panic!("first lifecycle case should contain scenarios")
+    };
+    *deadline_seconds = lsp_timeout_seconds.saturating_sub(1);
+
+    let error = manifest
+        .validate(repository_root())
+        .expect_err("lifecycle scenario should reject invalid deadlines");
+
+    assert!(error.contains("lifecycle case") && error.contains("deadlines"));
 }
 
 #[test]

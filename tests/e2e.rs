@@ -21,6 +21,8 @@ mod harness;
 mod lifecycle;
 #[path = "e2e/local_fixture.rs"]
 mod local_fixture;
+#[path = "e2e/lsp_exchange.rs"]
+mod lsp_exchange;
 #[path = "e2e/manifest.rs"]
 mod manifest;
 #[path = "e2e/manifest_data.rs"]
@@ -29,6 +31,8 @@ mod manifest_data;
 mod process;
 #[path = "e2e/queries.rs"]
 mod queries;
+#[path = "e2e/real_server_lifecycle.rs"]
+mod real_server_lifecycle;
 #[path = "e2e/real_servers.rs"]
 mod real_servers;
 #[path = "e2e/update.rs"]

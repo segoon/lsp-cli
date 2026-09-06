@@ -87,6 +87,10 @@
   initialize and answer LSP requests, but a direct-process capability query timed out waiting for
   the server to exit after shutdown. Keep the preferred-pair test excluded until direct shutdown
   is reliable; exercise it through the separately planned detached lifecycle scenario.
+- `stop` removes a jdtls daemon socket before the upstream Java process has necessarily completed
+  shutdown. Immediately starting another jdtls for the same workspace can overlap the old process
+  and stall initialization. Lifecycle tests wait, with a deadline, for the recorded upstream PID
+  to exit after `stop`; socket disappearance alone does not prove complete process termination.
 
 ## kotlin-lsp
 

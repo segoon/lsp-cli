@@ -12,11 +12,7 @@ impl RealServerCase<'_> {
     }
 
     pub(crate) fn server_name(&self, repository: &Path) -> Result<String, String> {
-        let path = repository
-            .join("data/lsp")
-            .join(format!("{}.yaml", self.pair.server));
-        let config: LspConfig = read_yaml(&path)?;
-        Ok(config.name)
+        server_name(&self.pair.server, repository)
     }
 
     pub(crate) fn project(&self) -> &Path {
@@ -24,13 +20,14 @@ impl RealServerCase<'_> {
     }
 
     pub(crate) fn host_programs(&self) -> impl Iterator<Item = (&str, &[String])> {
-        self.host_programs
+        self.setup
+            .host_programs
             .iter()
             .map(|program| (program.name.as_str(), program.resolve.as_slice()))
     }
 
     pub(crate) fn provision_method(&self) -> ProvisionMethod {
-        self.provision.method
+        self.setup.provision.method
     }
 
     pub(crate) fn symbol_query(&self) -> &str {
@@ -66,4 +63,10 @@ impl RealServerCase<'_> {
     pub(crate) fn deadline_seconds(&self) -> u64 {
         self.deadline_seconds
     }
+}
+
+pub(super) fn server_name(server: &str, repository: &Path) -> Result<String, String> {
+    let path = repository.join("data/lsp").join(format!("{server}.yaml"));
+    let config: LspConfig = read_yaml(&path)?;
+    Ok(config.name)
 }

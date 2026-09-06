@@ -6,9 +6,10 @@ language:
 pairs:
   - language: objc
     server: clangd
+    setup:
+      provision: { method: download }
     smoke:
       status: queries
-      provision: { method: download }
       symbol-query: Order
       callable-query: format_order
       format-file: src/main.m

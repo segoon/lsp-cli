@@ -6,16 +6,17 @@ language:
 pairs:
   - language: javascript
     server: ts_ls
+    setup:
+      provision: { method: download }
+      host-programs:
+        - { name: node, resolve: [which, node] }
+        - { name: npm, resolve: [which, npm] }
     smoke:
       status: queries
-      provision: { method: download }
       symbol-query: Order
       callable-query: buildSampleOrder
       format-file: src/index.js
       expected-names: [Order, OrderItem, buildSampleOrder, formatOrder]
-      host-programs:
-        - { name: node, resolve: [which, node] }
-        - { name: npm, resolve: [which, npm] }
       exceptions:
         - { command: grep, outcome: failure, message: "No Project", reason: "typescript-language-server advertises workspace symbols but returns No Project before a document is opened" }
         - { command: references, outcome: failure, message: "No Project", reason: "named queries require workspace/symbol, which returns No Project before a document is opened" }

@@ -20,7 +20,7 @@ check-dependencies:
 	cargo deny check
 
 test-real-server-e2e:
-	cargo test --locked --test e2e real_servers::manifest_real_server_smoke_cases -- --ignored --exact --nocapture
+	cargo test --locked --test e2e manifest_real_server -- --ignored --nocapture --test-threads=1
 
 gen-readme:
 	python3 scripts/update_readme_commands.py

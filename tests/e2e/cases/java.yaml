@@ -6,6 +6,18 @@ language:
 pairs:
   - language: java
     server: jdtls
+    setup:
+      provision: { method: download }
+      host-programs:
+        - { name: java, resolve: [which, java] }
+        - { name: python3, resolve: [which, python3] }
     smoke:
       status: excluded
       reason: "jdtls initializes but does not exit after direct shutdown; detached lifecycle coverage is required instead."
+    lifecycle:
+      status: scenarios
+      direct-run:
+        status: excluded
+        reason: "jdtls does not exit reliably after a direct shutdown exchange."
+      lsp-timeout-seconds: 30
+      deadline-seconds: 300

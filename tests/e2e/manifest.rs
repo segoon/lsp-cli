@@ -12,10 +12,17 @@ use crate::repository_root;
 #[path = "manifest/validation.rs"]
 mod validation;
 use validation::validate_config_id;
+#[path = "manifest/lifecycle_case.rs"]
+mod lifecycle_case;
 #[path = "manifest/real_server_case.rs"]
 mod real_server_case;
+use lifecycle_case::LifecycleDisposition;
+pub(crate) use lifecycle_case::RealServerLifecycleCase;
+#[path = "manifest/dispositions.rs"]
+mod dispositions;
+use dispositions::require_text;
 
-const MANIFEST_SCHEMA_VERSION: u32 = 5;
+const MANIFEST_SCHEMA_VERSION: u32 = 6;
 
 #[derive(Clone, Debug)]
 pub(crate) struct Manifest {
@@ -95,7 +102,9 @@ impl ProjectKind {
 struct PairCase {
     language: String,
     server: String,
+    setup: Option<ServerSetup>,
     smoke: Option<SmokeDisposition>,
+    lifecycle: Option<LifecycleDisposition>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -107,13 +116,10 @@ struct PairCase {
 )]
 enum SmokeDisposition {
     Queries {
-        provision: Provision,
         symbol_query: String,
         callable_query: String,
         format_file: PathBuf,
         expected_names: Vec<String>,
-        #[serde(default)]
-        host_programs: Vec<HostProgram>,
         #[serde(default)]
         exceptions: Vec<QueryException>,
         lsp_timeout_seconds: u64,
@@ -122,6 +128,14 @@ enum SmokeDisposition {
     Excluded {
         reason: String,
     },
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+struct ServerSetup {
+    provision: Provision,
+    #[serde(default)]
+    host_programs: Vec<HostProgram>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize)]
@@ -179,12 +193,11 @@ struct HostProgram {
 pub(crate) struct RealServerCase<'a> {
     language: &'a LanguageCase,
     pair: &'a PairCase,
-    provision: &'a Provision,
+    setup: &'a ServerSetup,
     symbol_query: &'a str,
     callable_query: &'a str,
     format_file: &'a Path,
     expected_names: &'a [String],
-    host_programs: &'a [HostProgram],
     exceptions: &'a [QueryException],
     lsp_timeout_seconds: u64,
     deadline_seconds: u64,
@@ -261,12 +274,10 @@ impl Manifest {
     pub(crate) fn real_server_smoke_cases(&self) -> impl Iterator<Item = RealServerCase<'_>> {
         self.pairs.iter().filter_map(|pair| {
             let SmokeDisposition::Queries {
-                provision,
                 symbol_query,
                 callable_query,
                 format_file,
                 expected_names,
-                host_programs,
                 exceptions,
                 lsp_timeout_seconds,
                 deadline_seconds,
@@ -278,15 +289,15 @@ impl Manifest {
                 .languages
                 .iter()
                 .find(|language| language.id == pair.language)?;
+            let setup = pair.setup.as_ref()?;
             Some(RealServerCase {
                 language,
                 pair,
-                provision,
+                setup,
                 symbol_query,
                 callable_query,
                 format_file,
                 expected_names,
-                host_programs,
                 exceptions,
                 lsp_timeout_seconds: *lsp_timeout_seconds,
                 deadline_seconds: *deadline_seconds,
@@ -294,11 +305,25 @@ impl Manifest {
         })
     }
 
+    pub(crate) fn real_server_lifecycle_cases(
+        &self,
+    ) -> impl Iterator<Item = RealServerLifecycleCase<'_>> {
+        self.pairs
+            .iter()
+            .filter_map(|pair| RealServerLifecycleCase::from_pair(pair, &self.languages))
+    }
+
     pub(crate) fn command_names(&self) -> BTreeSet<&str> {
         self.commands
             .iter()
             .map(|command| command.name.as_str())
             .collect()
+    }
+
+    pub(crate) fn declares_pair(&self, label: &str) -> bool {
+        self.pairs
+            .iter()
+            .any(|pair| format!("{}/{}", pair.language, pair.server) == label)
     }
 
     pub(crate) fn commands_for(&self, strategy: CommandStrategy) -> impl Iterator<Item = &str> {
@@ -385,6 +410,22 @@ impl Manifest {
             if let Some(smoke) = &pair.smoke {
                 smoke.validate(pair)?;
             }
+            if let Some(lifecycle) = &pair.lifecycle {
+                lifecycle.validate(pair)?;
+            }
+            if matches!(pair.smoke, Some(SmokeDisposition::Queries { .. }))
+                || matches!(pair.lifecycle, Some(LifecycleDisposition::Scenarios { .. }))
+            {
+                pair.setup
+                    .as_ref()
+                    .ok_or_else(|| {
+                        format!(
+                            "E2E executable pair {}/{} must declare server setup",
+                            pair.language, pair.server
+                        )
+                    })?
+                    .validate(pair)?;
+            }
         }
         Ok(declared)
     }
@@ -400,8 +441,9 @@ impl Manifest {
             .filter(|language| language.kind == ProjectKind::Source)
             .map(|language| language.id.clone())
             .collect::<BTreeSet<_>>();
-        for pair in preferred_pairs(data, &source_languages)? {
-            if !declared_pairs.contains(&pair) {
+        let preferred = preferred_pairs(data, &source_languages)?;
+        for pair in &preferred {
+            if !declared_pairs.contains(pair) {
                 return Err(format!(
                     "E2E source language {:?} is missing its data-preferred server pair {:?}",
                     pair.language, pair.server
@@ -410,12 +452,35 @@ impl Manifest {
             let declared = self
                 .pairs
                 .iter()
-                .find(|declared| declared.key() == pair)
+                .find(|declared| declared.key() == *pair)
                 .expect("declared pair was checked above");
             if declared.smoke.is_none() {
                 return Err(format!(
                     "E2E preferred pair {}/{} must declare queries or an exclusion",
                     pair.language, pair.server
+                ));
+            }
+        }
+        for server in preferred
+            .iter()
+            .map(|pair| pair.server.as_str())
+            .collect::<BTreeSet<_>>()
+        {
+            let owners = self
+                .pairs
+                .iter()
+                .filter(|pair| pair.server == server && pair.lifecycle.is_some())
+                .collect::<Vec<_>>();
+            let [owner] = owners.as_slice() else {
+                return Err(format!(
+                    "preferred LSP server {server:?} must have exactly one lifecycle owner; found {}",
+                    owners.len()
+                ));
+            };
+            if !preferred.contains(&owner.key()) {
+                return Err(format!(
+                    "lifecycle owner {}/{} is not a preferred language/server pair",
+                    owner.language, owner.server
                 ));
             }
         }
@@ -489,87 +554,6 @@ impl PairCase {
             language: self.language.clone(),
             server: self.server.clone(),
         }
-    }
-}
-
-impl SmokeDisposition {
-    fn validate(&self, pair: &PairCase) -> Result<(), String> {
-        let label = format!("{}/{}", pair.language, pair.server);
-        let Self::Queries {
-            symbol_query,
-            callable_query,
-            format_file,
-            expected_names,
-            host_programs,
-            exceptions,
-            lsp_timeout_seconds,
-            deadline_seconds,
-            ..
-        } = self
-        else {
-            return match self {
-                Self::Excluded { reason } => {
-                    require_text(reason, &format!("E2E exclusion for {label}"))
-                }
-                Self::Queries { .. } => Ok(()),
-            };
-        };
-        require_text(symbol_query, &format!("E2E symbol query for {label}"))?;
-        require_text(callable_query, &format!("E2E callable query for {label}"))?;
-        if format_file.as_os_str().is_empty() || format_file.is_absolute() {
-            return Err(format!("E2E format file for {label} must be relative"));
-        }
-        if expected_names.is_empty() || expected_names.iter().any(String::is_empty) {
-            return Err(format!(
-                "E2E smoke case {label} must declare expected names"
-            ));
-        }
-        if *lsp_timeout_seconds == 0 || *deadline_seconds < *lsp_timeout_seconds {
-            return Err(format!(
-                "E2E smoke case {label} deadlines must be positive and ordered"
-            ));
-        }
-        let mut names = BTreeSet::new();
-        for program in host_programs {
-            validate_config_id("host program", &program.name)?;
-            if !names.insert(&program.name) || program.resolve.is_empty() {
-                return Err(format!(
-                    "E2E smoke case {label} has an invalid host program"
-                ));
-            }
-        }
-        let mut commands = BTreeSet::new();
-        for exception in exceptions {
-            if !commands.insert(exception.command) {
-                return Err(format!("E2E smoke case {label} repeats an exception"));
-            }
-            require_text(&exception.reason, &format!("E2E exception for {label}"))?;
-            match (&exception.outcome, &exception.message) {
-                (ExceptionOutcome::Failure, Some(message)) => {
-                    require_text(message, &format!("E2E failure message for {label}"))?;
-                }
-                (ExceptionOutcome::Failure, None) => {
-                    return Err(format!(
-                        "E2E failure exception for {label} must declare a message"
-                    ));
-                }
-                (ExceptionOutcome::EmptyMatches, Some(_)) => {
-                    return Err(format!(
-                        "E2E empty-match exception for {label} must not declare a message"
-                    ));
-                }
-                (ExceptionOutcome::EmptyMatches, None) => {}
-            }
-        }
-        Ok(())
-    }
-}
-
-fn require_text(value: &str, label: &str) -> Result<(), String> {
-    if value.trim().is_empty() {
-        Err(format!("{label} must be non-empty"))
-    } else {
-        Ok(())
     }
 }
 

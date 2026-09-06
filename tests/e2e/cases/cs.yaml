@@ -9,3 +9,6 @@ pairs:
     smoke:
       status: excluded
       reason: "The required .NET SDK is unavailable and isolated SDK provisioning was not approved."
+    lifecycle:
+      status: excluded
+      reason: "The required .NET SDK is unavailable and isolated SDK provisioning was not approved."

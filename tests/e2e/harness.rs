@@ -16,6 +16,10 @@ mod temp_root;
 
 use self::temp_root::{test_temp_base, test_temp_root};
 
+#[path = "harness/lifecycle_support.rs"]
+mod lifecycle_support;
+pub(crate) use lifecycle_support::SocketSnapshot;
+
 const DEFAULT_COMMAND_DEADLINE: Duration = Duration::from_secs(30);
 const DAEMON_CLEANUP_DEADLINE: Duration = Duration::from_secs(5);
 
@@ -223,7 +227,7 @@ impl E2eContext {
             .unwrap_or_else(|diagnostic| panic!("{diagnostic}"))
     }
 
-    fn command(&self) -> Command {
+    pub(crate) fn command(&self) -> Command {
         self.command_for(env!("CARGO_BIN_EXE_lsp-cli"))
     }
 

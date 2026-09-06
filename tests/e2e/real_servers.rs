@@ -374,6 +374,13 @@ fn manifest_real_server_smoke_cases() {
     let repository = repository_root();
     let manifest = Manifest::load_validated(repository).expect("E2E manifest should be valid");
     let selected = std::env::var("E2E_CASE").ok();
+    assert!(
+        selected
+            .as_deref()
+            .is_none_or(|label| manifest.declares_pair(label)),
+        "E2E_CASE {:?} does not select a declared manifest pair",
+        selected.as_deref().unwrap_or_default()
+    );
     let cases = manifest
         .real_server_smoke_cases()
         .filter(|case| {
@@ -382,11 +389,6 @@ fn manifest_real_server_smoke_cases() {
                 .is_none_or(|expected| case.label() == *expected)
         })
         .collect::<Vec<_>>();
-    assert!(
-        selected.is_none() || !cases.is_empty(),
-        "E2E_CASE {:?} does not select an executable manifest case",
-        selected.as_deref().unwrap_or_default()
-    );
     let failures = cases
         .into_iter()
         .filter_map(|case| RealServerTest::new(case, repository).run().err())

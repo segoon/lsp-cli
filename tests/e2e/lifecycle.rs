@@ -1,4 +1,5 @@
 use crate::local_fixture::LocalFixture;
+use crate::lsp_exchange;
 use crate::manifest::CommandStrategy;
 use std::collections::BTreeSet;
 
@@ -51,4 +52,25 @@ fn lifecycle_command_paths_are_covered() {
     );
     run.assert_success();
     assert_eq!(run.stdout_text(), "fake LSP server replaced lsp-cli\n");
+}
+
+#[test]
+fn run_forwards_a_complete_lsp_exchange() {
+    let fixture = LocalFixture::new().expect("local fixture should initialize");
+    let args = [
+        "run".to_string(),
+        ".".to_string(),
+        "--lsp".to_string(),
+        fixture.server_name().to_string(),
+        "--no-download".to_string(),
+        "--debug".to_string(),
+    ];
+
+    lsp_exchange::run(
+        fixture.context(),
+        &args,
+        fixture.context().workspace(),
+        std::time::Duration::from_secs(10),
+    )
+    .expect("run should forward a complete LSP exchange");
 }

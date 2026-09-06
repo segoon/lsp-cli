@@ -254,7 +254,7 @@ validation test should fail when:
 - two cases select the same user-visible server ambiguously;
 - a new top-level subcommand has no assigned coverage class.
 
-The version 5 manifest assigns every canonical command to a coverage strategy, derives one
+The version 6 manifest assigns every canonical command to a coverage strategy, derives one
 preferred smoke-matrix server for every source-language project from `data/lsp-cli.yaml`, and keeps
 `coverage: partial`, which validates every declared language/server entry
 against the pinned data without requiring unfinished matrix entries. Phase 4 adds the remaining
@@ -273,11 +273,18 @@ configured user-visible server name for `--lsp`; do not duplicate it in the mani
 server in each source language's production preference list is also its merge-gate smoke server.
 Manifest validation resolves that user-visible name to one compatible LSP config and requires the
 corresponding pair to exist. Each preferred pair has a tagged `smoke` disposition: either a generic
-query suite or an exclusion with a mandatory reviewed reason. Query suites declare provisioning,
-semantic query terms, expected symbols, runtime host programs, deadlines, and narrowly scoped
-known-result exceptions. Language-specific prerequisites and expectations belong in YAML, not in
-the Rust runner. The first provisioning method is `download`; add other mechanisms as typed methods
-when needed instead of branching on server names.
+query suite or an exclusion with a mandatory reviewed reason. Executable pairs keep provisioning
+and runtime host programs in the shared `setup` block. Query suites declare semantic query terms,
+expected symbols, deadlines, and narrowly scoped known-result exceptions. Language-specific
+prerequisites and expectations belong in YAML, not in the Rust runner. The first provisioning
+method is `download`; add other mechanisms as typed methods when needed instead of branching on
+server names.
+
+Every distinct preferred server has exactly one explicit lifecycle-owner pair. Its tagged
+`lifecycle` disposition either runs grouped daemon scenarios or records a reviewed exclusion;
+direct `run` may be excluded independently when only detached operation is reliable. This keeps
+the chosen project stable when a shared server gains another filetype without repeating process
+tests for every compatible pair.
 
 The query runner obtains raw initialized capabilities through `server-capabilities --json`, then
 executes every LSP query command. Advertised capabilities require a successful semantic response;
@@ -483,7 +490,7 @@ when the harness copies a project.
 - [x] Run each relevant command manually against every new project and record each success or
   classified upstream limitation.
 - [x] Implement capability-aware query assertions.
-- [ ] Implement direct/detached lifecycle scenarios.
+- [x] Implement direct/detached lifecycle scenarios.
 - [ ] Add the pull-request E2E job.
 
 ### Phase 4: exhaustive compatibility

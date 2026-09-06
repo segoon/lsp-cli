@@ -326,6 +326,15 @@ impl E2eOutput {
         })
     }
 
+    pub(crate) fn assert_stdout_contains(&self, expected: &str) {
+        if !self.stdout_text().contains(expected) {
+            panic!(
+                "{}",
+                self.diagnostic(&format!("stdout does not contain {expected:?}"))
+            );
+        }
+    }
+
     pub(crate) fn stderr_text(&self) -> &str {
         std::str::from_utf8(self.process.stderr()).unwrap_or_else(|error| {
             panic!(

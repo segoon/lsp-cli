@@ -83,6 +83,9 @@
 
 ## jdtls
 
+- The current Mason jdtls launcher requires Java 21 or newer. Merely resolving a `java` executable
+  is insufficient: GitHub's default Java may be older and makes the launcher exit before the LSP
+  `initialize` response. CI must provision Java 21 explicitly before enabling the lifecycle case.
 - The current Mason jdtls package needs both Java to run and Python to install its launcher. It can
   initialize and answer LSP requests, but a direct-process capability query timed out waiting for
   the server to exit after shutdown. Keep the preferred-pair test excluded until direct shutdown

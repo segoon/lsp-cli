@@ -29,12 +29,17 @@ fn lifecycle_command_paths_are_covered() {
 
     let stop = context.run(&["stop", ".", "--lsp", server]);
     stop.assert_success();
-    assert!(stop.stdout_text().contains("stopped"));
+    stop.assert_stdout_contains("stopped");
 
+    // Use a distinct socket so stop-all coverage does not also depend on same-socket restart timing.
+    let stop_all_workspace = context
+        .copy_project_as(context.workspace(), "stop-all-workspace")
+        .expect("stop-all workspace should initialize");
+    let stop_all_workspace = stop_all_workspace.display().to_string();
     context
         .run(&[
             "daemon",
-            ".",
+            &stop_all_workspace,
             "--lsp",
             server,
             "--no-download",
@@ -44,7 +49,7 @@ fn lifecycle_command_paths_are_covered() {
         .assert_success();
     let stop_all = context.run(&["stop-all"]);
     stop_all.assert_success();
-    assert!(stop_all.stdout_text().contains("stopped"));
+    stop_all.assert_stdout_contains("stopped");
 
     let run = context.run_with_env(
         &["run", ".", "--lsp", server, "--no-download"],

@@ -258,6 +258,10 @@ fn report_dropped(shared: &Shared, output: &mut dyn LogDestination) {
     }
 }
 
+#[allow(
+    deprecated,
+    reason = "AtomicUsize::try_update requires Rust 1.95, but the crate supports Rust 1.91"
+)]
 fn increment_saturating(value: &AtomicUsize) {
     let _ = value.fetch_update(Ordering::AcqRel, Ordering::Acquire, |current| {
         Some(current.saturating_add(1))

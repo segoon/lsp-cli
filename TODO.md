@@ -7,10 +7,15 @@
 - review mason database
 - user-visible messages - more friendly/informative -> into explicit module
 
-- man
+- man: https://www.w3tutorials.net/blog/what-is-the-idiomatic-way-of-writing-man-pages-for-rust-cli-tools/
 
-- fill filetypes
+- fill filetypes detection
 
+# E2E
+
+- code duplication
+- disabled features
+- make sure --download cache is used
 
 # Features
 
@@ -38,5 +43,3 @@ generic:
 - declaration for clangd drops std (e.g. `declaration f` drops `fgetc`)
 
 
-man:
-https://www.w3tutorials.net/blog/what-is-the-idiomatic-way-of-writing-man-pages-for-rust-cli-tools/

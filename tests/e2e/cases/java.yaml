@@ -6,3 +6,6 @@ language:
 pairs:
   - language: java
     server: jdtls
+    smoke:
+      status: excluded
+      reason: "jdtls initializes but does not exit after direct shutdown; detached lifecycle coverage is required instead."

@@ -500,6 +500,8 @@ Options:
       --no-download  Do not install missing servers automatically.
       --debug        Print verbose debug logs to stderr.
       --no-debug     Disable verbose debug logs.
+      --json         Print results as JSON.
+      --no-json      Print human-readable output instead of JSON.
       --timeout <T>  Per-request LSP timeout. Plain numbers are seconds; values ending in `ms` are milliseconds.
   -h, --help         Print help
 ```

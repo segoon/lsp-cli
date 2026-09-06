@@ -77,3 +77,31 @@ fn command_prefix(command: &str) -> Vec<String> {
         other => panic!("LSP fixture strategy has no scenario for {other:?}"),
     }
 }
+
+#[test]
+fn unadvertised_capabilities_produce_user_facing_errors() {
+    let fixture = LocalFixture::new_unsupported().expect("local fixture should initialize");
+
+    for (command, expected) in [
+        ("grep", "does not support workspace/symbol"),
+        ("format", "does not support format"),
+    ] {
+        let mut args = command_prefix(command);
+        args.extend([
+            "--lsp".to_string(),
+            fixture.unsupported_server_name().to_string(),
+            "--no-download".to_string(),
+            "--no-detach".to_string(),
+            "--timeout".to_string(),
+            "5".to_string(),
+        ]);
+        if command == "format" {
+            args.push("--stdout".to_string());
+        }
+        let refs = args.iter().map(String::as_str).collect::<Vec<_>>();
+        let output = fixture.context().run(&refs);
+
+        assert!(output.ensure_success().is_err(), "{command} should fail");
+        assert!(output.stderr_text().contains(expected), "{command}");
+    }
+}

@@ -2,7 +2,7 @@ use super::*;
 use crate::repository_root;
 use std::fs;
 
-fn first_smoke(manifest: &mut Manifest) -> &mut SmokeCase {
+fn first_smoke(manifest: &mut Manifest) -> &mut SmokeDisposition {
     manifest
         .pairs
         .iter_mut()
@@ -214,29 +214,103 @@ fn manifest_rejects_config_path_traversal() {
 fn manifest_rejects_invalid_smoke_deadlines() {
     let mut manifest = Manifest::load().expect("E2E manifest should parse");
     let smoke = first_smoke(&mut manifest);
-    smoke.deadline_seconds = smoke.lsp_timeout_seconds.saturating_sub(1);
+    let SmokeDisposition::Queries {
+        lsp_timeout_seconds,
+        deadline_seconds,
+        ..
+    } = smoke
+    else {
+        panic!("first smoke case should contain queries")
+    };
+    *deadline_seconds = lsp_timeout_seconds.saturating_sub(1);
 
     let error = manifest
         .validate(repository_root())
         .expect_err("short overall deadline should fail");
 
-    assert!(error.contains("deadline must not be shorter"));
+    assert!(error.contains("deadlines must be positive and ordered"));
 }
 
 #[test]
 fn manifest_rejects_duplicate_host_programs() {
     let mut manifest = Manifest::load().expect("E2E manifest should parse");
-    let smoke = first_smoke(&mut manifest);
-    let duplicate = smoke
-        .host_programs
+    let smoke = manifest
+        .pairs
+        .iter_mut()
+        .filter_map(|pair| pair.smoke.as_mut())
+        .find(|smoke| matches!(smoke, SmokeDisposition::Queries { host_programs, .. } if !host_programs.is_empty()))
+        .expect("manifest should contain a host-dependent query case");
+    let SmokeDisposition::Queries { host_programs, .. } = smoke else {
+        panic!("first smoke case should contain queries")
+    };
+    let duplicate = host_programs
         .first()
         .expect("smoke case should have a host program")
         .clone();
-    smoke.host_programs.push(duplicate);
+    host_programs.push(duplicate);
 
     let error = manifest
         .validate(repository_root())
         .expect_err("duplicate host programs should fail");
 
-    assert!(error.contains("more than once"));
+    assert!(error.contains("invalid host program"));
+}
+
+#[test]
+fn manifest_rejects_a_preferred_pair_without_a_disposition() {
+    let mut manifest = Manifest::load().expect("E2E manifest should parse");
+    manifest
+        .pairs
+        .iter_mut()
+        .find(|pair| pair.language == "rust")
+        .expect("Rust pair should exist")
+        .smoke = None;
+
+    let error = manifest
+        .validate(repository_root())
+        .expect_err("preferred pair should require a disposition");
+
+    assert!(error.contains("must declare queries or an exclusion"));
+}
+
+#[test]
+fn manifest_rejects_an_empty_exclusion_reason() {
+    let mut manifest = Manifest::load().expect("E2E manifest should parse");
+    let pair = manifest
+        .pairs
+        .iter_mut()
+        .find(|pair| matches!(pair.smoke, Some(SmokeDisposition::Excluded { .. })))
+        .expect("manifest should contain an exclusion");
+    pair.smoke = Some(SmokeDisposition::Excluded {
+        reason: " ".to_string(),
+    });
+
+    let error = manifest
+        .validate(repository_root())
+        .expect_err("empty exclusions should fail");
+
+    assert!(error.contains("must be non-empty"));
+}
+
+#[test]
+fn manifest_rejects_a_failure_exception_without_a_message() {
+    let mut manifest = Manifest::load().expect("E2E manifest should parse");
+    let exception = manifest
+        .pairs
+        .iter_mut()
+        .filter_map(|pair| pair.smoke.as_mut())
+        .find_map(|smoke| match smoke {
+            SmokeDisposition::Queries { exceptions, .. } => exceptions
+                .iter_mut()
+                .find(|item| item.outcome == ExceptionOutcome::Failure),
+            SmokeDisposition::Excluded { .. } => None,
+        })
+        .expect("manifest should contain an expected failure");
+    exception.message = None;
+
+    let error = manifest
+        .validate(repository_root())
+        .expect_err("expected failures should require stable diagnostics");
+
+    assert!(error.contains("must declare a message"));
 }

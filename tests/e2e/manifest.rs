@@ -1,5 +1,5 @@
 use std::collections::BTreeSet;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 
@@ -9,7 +9,13 @@ use crate::manifest_data::{
 };
 use crate::repository_root;
 
-const MANIFEST_SCHEMA_VERSION: u32 = 4;
+#[path = "manifest/validation.rs"]
+mod validation;
+use validation::validate_config_id;
+#[path = "manifest/real_server_case.rs"]
+mod real_server_case;
+
+const MANIFEST_SCHEMA_VERSION: u32 = 5;
 
 #[derive(Clone, Debug)]
 pub(crate) struct Manifest {
@@ -89,19 +95,33 @@ impl ProjectKind {
 struct PairCase {
     language: String,
     server: String,
-    smoke: Option<SmokeCase>,
+    smoke: Option<SmokeDisposition>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
-struct SmokeCase {
-    provision: Provision,
-    query: Query,
-    expected_names: Vec<String>,
-    #[serde(default)]
-    host_programs: Vec<HostProgram>,
-    lsp_timeout_seconds: u64,
-    deadline_seconds: u64,
+#[serde(
+    tag = "status",
+    rename_all = "kebab-case",
+    rename_all_fields = "kebab-case",
+    deny_unknown_fields
+)]
+enum SmokeDisposition {
+    Queries {
+        provision: Provision,
+        symbol_query: String,
+        callable_query: String,
+        format_file: PathBuf,
+        expected_names: Vec<String>,
+        #[serde(default)]
+        host_programs: Vec<HostProgram>,
+        #[serde(default)]
+        exceptions: Vec<QueryException>,
+        lsp_timeout_seconds: u64,
+        deadline_seconds: u64,
+    },
+    Excluded {
+        reason: String,
+    },
 }
 
 #[derive(Clone, Copy, Debug, Deserialize)]
@@ -116,16 +136,37 @@ pub(crate) enum ProvisionMethod {
     Download,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
-struct Query {
-    kind: QueryKind,
-}
-
-#[derive(Clone, Copy, Debug, Deserialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum QueryKind {
+    ServerCapabilities,
+    Diagnostics,
+    Format,
+    Grep,
     ListSymbols,
+    ListFunctions,
+    References,
+    Callers,
+    Callees,
+    Definition,
+    Declaration,
+    BuildIndex,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+struct QueryException {
+    command: QueryKind,
+    outcome: ExceptionOutcome,
+    message: Option<String>,
+    reason: String,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) enum ExceptionOutcome {
+    EmptyMatches,
+    Failure,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -138,7 +179,15 @@ struct HostProgram {
 pub(crate) struct RealServerCase<'a> {
     language: &'a LanguageCase,
     pair: &'a PairCase,
-    smoke: &'a SmokeCase,
+    provision: &'a Provision,
+    symbol_query: &'a str,
+    callable_query: &'a str,
+    format_file: &'a Path,
+    expected_names: &'a [String],
+    host_programs: &'a [HostProgram],
+    exceptions: &'a [QueryException],
+    lsp_timeout_seconds: u64,
+    deadline_seconds: u64,
 }
 
 impl Manifest {
@@ -211,7 +260,20 @@ impl Manifest {
 
     pub(crate) fn real_server_smoke_cases(&self) -> impl Iterator<Item = RealServerCase<'_>> {
         self.pairs.iter().filter_map(|pair| {
-            let smoke = pair.smoke.as_ref()?;
+            let SmokeDisposition::Queries {
+                provision,
+                symbol_query,
+                callable_query,
+                format_file,
+                expected_names,
+                host_programs,
+                exceptions,
+                lsp_timeout_seconds,
+                deadline_seconds,
+            } = pair.smoke.as_ref()?
+            else {
+                return None;
+            };
             let language = self
                 .languages
                 .iter()
@@ -219,7 +281,15 @@ impl Manifest {
             Some(RealServerCase {
                 language,
                 pair,
-                smoke,
+                provision,
+                symbol_query,
+                callable_query,
+                format_file,
+                expected_names,
+                host_programs,
+                exceptions,
+                lsp_timeout_seconds: *lsp_timeout_seconds,
+                deadline_seconds: *deadline_seconds,
             })
         })
     }
@@ -337,6 +407,17 @@ impl Manifest {
                     pair.language, pair.server
                 ));
             }
+            let declared = self
+                .pairs
+                .iter()
+                .find(|declared| declared.key() == pair)
+                .expect("declared pair was checked above");
+            if declared.smoke.is_none() {
+                return Err(format!(
+                    "E2E preferred pair {}/{} must declare queries or an exclusion",
+                    pair.language, pair.server
+                ));
+            }
         }
         Ok(())
     }
@@ -411,142 +492,85 @@ impl PairCase {
     }
 }
 
-impl SmokeCase {
+impl SmokeDisposition {
     fn validate(&self, pair: &PairCase) -> Result<(), String> {
         let label = format!("{}/{}", pair.language, pair.server);
-        if self.expected_names.is_empty() || self.expected_names.iter().any(String::is_empty) {
+        let Self::Queries {
+            symbol_query,
+            callable_query,
+            format_file,
+            expected_names,
+            host_programs,
+            exceptions,
+            lsp_timeout_seconds,
+            deadline_seconds,
+            ..
+        } = self
+        else {
+            return match self {
+                Self::Excluded { reason } => {
+                    require_text(reason, &format!("E2E exclusion for {label}"))
+                }
+                Self::Queries { .. } => Ok(()),
+            };
+        };
+        require_text(symbol_query, &format!("E2E symbol query for {label}"))?;
+        require_text(callable_query, &format!("E2E callable query for {label}"))?;
+        if format_file.as_os_str().is_empty() || format_file.is_absolute() {
+            return Err(format!("E2E format file for {label} must be relative"));
+        }
+        if expected_names.is_empty() || expected_names.iter().any(String::is_empty) {
             return Err(format!(
-                "E2E smoke case {label} must declare non-empty expected names"
+                "E2E smoke case {label} must declare expected names"
             ));
         }
-        if self.lsp_timeout_seconds == 0 || self.deadline_seconds == 0 {
-            return Err(format!("E2E smoke case {label} deadlines must be positive"));
-        }
-        if self.deadline_seconds < self.lsp_timeout_seconds {
+        if *lsp_timeout_seconds == 0 || *deadline_seconds < *lsp_timeout_seconds {
             return Err(format!(
-                "E2E smoke case {label} deadline must not be shorter than its LSP timeout"
+                "E2E smoke case {label} deadlines must be positive and ordered"
             ));
         }
-
         let mut names = BTreeSet::new();
-        for program in &self.host_programs {
+        for program in host_programs {
             validate_config_id("host program", &program.name)?;
-            if !names.insert(&program.name) {
+            if !names.insert(&program.name) || program.resolve.is_empty() {
                 return Err(format!(
-                    "E2E smoke case {label} declares host program {:?} more than once",
-                    program.name
+                    "E2E smoke case {label} has an invalid host program"
                 ));
             }
-            if program.resolve.is_empty() || program.resolve.iter().any(String::is_empty) {
-                return Err(format!(
-                    "E2E host program {:?} for {label} must have a non-empty resolver command",
-                    program.name
-                ));
+        }
+        let mut commands = BTreeSet::new();
+        for exception in exceptions {
+            if !commands.insert(exception.command) {
+                return Err(format!("E2E smoke case {label} repeats an exception"));
+            }
+            require_text(&exception.reason, &format!("E2E exception for {label}"))?;
+            match (&exception.outcome, &exception.message) {
+                (ExceptionOutcome::Failure, Some(message)) => {
+                    require_text(message, &format!("E2E failure message for {label}"))?;
+                }
+                (ExceptionOutcome::Failure, None) => {
+                    return Err(format!(
+                        "E2E failure exception for {label} must declare a message"
+                    ));
+                }
+                (ExceptionOutcome::EmptyMatches, Some(_)) => {
+                    return Err(format!(
+                        "E2E empty-match exception for {label} must not declare a message"
+                    ));
+                }
+                (ExceptionOutcome::EmptyMatches, None) => {}
             }
         }
         Ok(())
     }
 }
 
-impl RealServerCase<'_> {
-    pub(crate) fn label(&self) -> String {
-        format!("{}/{}", self.pair.language, self.pair.server)
-    }
-
-    pub(crate) fn language(&self) -> &str {
-        &self.language.id
-    }
-
-    pub(crate) fn server_name(&self, repository: &Path) -> Result<String, String> {
-        let path = repository
-            .join("data/lsp")
-            .join(format!("{}.yaml", self.pair.server));
-        let config: LspConfig = read_yaml(&path)?;
-        Ok(config.name)
-    }
-
-    pub(crate) fn project(&self) -> &Path {
-        &self.language.project
-    }
-
-    pub(crate) fn provision_method(&self) -> ProvisionMethod {
-        self.smoke.provision.method
-    }
-
-    pub(crate) fn query_kind(&self) -> QueryKind {
-        self.smoke.query.kind
-    }
-
-    pub(crate) fn expected_names(&self) -> &[String] {
-        &self.smoke.expected_names
-    }
-
-    pub(crate) fn host_programs(&self) -> impl Iterator<Item = (&str, &[String])> {
-        self.smoke
-            .host_programs
-            .iter()
-            .map(|program| (program.name.as_str(), program.resolve.as_slice()))
-    }
-
-    pub(crate) fn lsp_timeout_seconds(&self) -> u64 {
-        self.smoke.lsp_timeout_seconds
-    }
-
-    pub(crate) fn deadline_seconds(&self) -> u64 {
-        self.smoke.deadline_seconds
-    }
-}
-
-impl LanguageCase {
-    fn validate_project(&self, repository: &Path) -> Result<(), String> {
-        if self.project.is_absolute()
-            || self
-                .project
-                .components()
-                .any(|component| !matches!(component, Component::Normal(_)))
-        {
-            return Err(format!(
-                "E2E project path {} must be a normalized relative path",
-                self.project.display()
-            ));
-        }
-
-        let project = repository.join(&self.project);
-        if !project.is_dir() {
-            return Err(format!(
-                "E2E {} project {} for language {:?} is not a directory",
-                self.kind.label(),
-                self.project.display(),
-                self.id
-            ));
-        }
-        let canonical_repository = repository
-            .canonicalize()
-            .map_err(|error| format!("failed to resolve {}: {error}", repository.display()))?;
-        let canonical_project = project
-            .canonicalize()
-            .map_err(|error| format!("failed to resolve {}: {error}", project.display()))?;
-        if !canonical_project.starts_with(canonical_repository) {
-            return Err(format!(
-                "E2E project {} resolves outside the repository",
-                self.project.display()
-            ));
-        }
+fn require_text(value: &str, label: &str) -> Result<(), String> {
+    if value.trim().is_empty() {
+        Err(format!("{label} must be non-empty"))
+    } else {
         Ok(())
     }
-}
-
-fn validate_config_id(kind: &str, value: &str) -> Result<(), String> {
-    let mut components = Path::new(value).components();
-    if value.is_empty()
-        || !matches!(components.next(), Some(Component::Normal(_)))
-        || components.next().is_some()
-    {
-        return Err(format!(
-            "E2E {kind} config ID {value:?} must be one normalized path component"
-        ));
-    }
-    Ok(())
 }
 
 #[cfg(test)]

@@ -3,9 +3,10 @@ use crate::commands::common::{connect_lsp_client, prepare_workspace};
 use crate::config::ConfigStore;
 use crate::error::Result;
 use crate::lsp::InitializeResponse;
-use serde_json::Value;
-use std::env;
-use std::fs;
+use serde_json::{Value, json};
+
+mod helpers;
+use helpers::{display_command, render_unknown_capabilities, sorted_keys};
 
 #[cfg(test)]
 mod tests;
@@ -320,11 +321,19 @@ pub(super) fn run(args: &ServerCapabilitiesArgs, config: &ConfigStore) -> Result
         .map_err(|error| {
             error.with_prefix(format!("failed to initialize {}", workspace.server.server))
         })?;
-    let output = render_output(
-        &workspace.server.command,
-        &workspace.server.server,
-        &initialize,
-    );
+    let output = if args.json {
+        render_json(
+            &workspace.server.command,
+            &workspace.server.server,
+            &initialize,
+        )
+    } else {
+        render_output(
+            &workspace.server.command,
+            &workspace.server.server,
+            &initialize,
+        )
+    };
     client.shutdown().map_err(|error| {
         error.with_prefix(format!(
             "failed to stop {} cleanly",
@@ -332,6 +341,26 @@ pub(super) fn run(args: &ServerCapabilitiesArgs, config: &ConfigStore) -> Result
         ))
     })?;
     Ok(output)
+}
+
+fn render_json(
+    command: &[String],
+    fallback_server_name: &str,
+    initialize: &InitializeResponse,
+) -> String {
+    let (name, version) = initialize.server_info().map_or_else(
+        || (fallback_server_name, None),
+        |info| (info.name.as_str(), info.version.as_deref()),
+    );
+    json!({
+        "server": {
+            "command": command,
+            "name": name,
+            "version": version,
+        },
+        "capabilities": initialize.capabilities_raw().cloned().unwrap_or(Value::Null),
+    })
+    .to_string()
 }
 
 fn render_output(
@@ -524,49 +553,6 @@ fn render_named_value(name: &str, value: &Value, indent: usize, lines: &mut Vec<
     }
 }
 
-fn render_unknown_capabilities(initialize: &InitializeResponse, lines: &mut Vec<String>) {
-    let Some(capabilities) = initialize.capabilities_raw().and_then(Value::as_object) else {
-        return;
-    };
-
-    for key in sorted_keys(capabilities) {
-        if KNOWN_TOP_LEVEL_KEYS.contains(&key.as_str()) {
-            continue;
-        }
-        if let Some(value) = capabilities.get(key.as_str()) {
-            render_generic_capability(key.as_str(), Some(value), 2, lines);
-        }
-    }
-
-    if let Some(experimental) = capabilities.get("experimental") {
-        render_experimental("experimental", experimental, lines);
-    }
-}
-
-fn render_experimental(prefix: &str, value: &Value, lines: &mut Vec<String>) {
-    if let Value::Object(map) = value {
-        if map.is_empty() {
-            render_generic_capability(prefix, Some(value), 2, lines);
-            return;
-        }
-
-        for key in sorted_keys(map) {
-            if let Some(child) = map.get(key.as_str()) {
-                render_experimental(&format!("{prefix}/{key}"), child, lines);
-            }
-        }
-        return;
-    }
-
-    render_generic_capability(prefix, Some(value), 2, lines);
-}
-
-fn sorted_keys(map: &serde_json::Map<String, Value>) -> Vec<&String> {
-    let mut keys = map.keys().collect::<Vec<_>>();
-    keys.sort();
-    keys
-}
-
 fn pretty_key(key: &str) -> &str {
     FIELD_LABELS
         .iter()
@@ -603,49 +589,4 @@ fn format_scalar(value: &Value) -> String {
         }
         _ => value.to_string(),
     }
-}
-
-fn display_command(command: &[String]) -> String {
-    let Some((program, args)) = command.split_first() else {
-        return String::new();
-    };
-    std::iter::once(resolve_program_path(program))
-        .chain(args.iter().map(|argument| shell_escape(argument)))
-        .collect::<Vec<_>>()
-        .join(" ")
-}
-
-fn resolve_program_path(program: &str) -> String {
-    if program.contains(std::path::MAIN_SEPARATOR) {
-        return shell_escape(program);
-    }
-
-    let Some(path) = env::var_os("PATH") else {
-        return shell_escape(program);
-    };
-    for entry in env::split_paths(&path) {
-        let candidate = entry.join(program);
-        if fs::metadata(&candidate).is_ok_and(|metadata| metadata.is_file()) {
-            return shell_escape(candidate.display().to_string().as_str());
-        }
-    }
-
-    shell_escape(program)
-}
-
-fn shell_escape(value: &str) -> String {
-    if !value.contains([' ', '\t', '\n', '\'', '"']) {
-        return value.to_string();
-    }
-
-    format!("'{}'", value.replace('\'', "'\"'\"'"))
-}
-
-#[cfg(test)]
-pub(super) fn render_for_tests(
-    command: &[String],
-    fallback_server_name: &str,
-    initialize: &InitializeResponse,
-) -> String {
-    render_output(command, fallback_server_name, initialize)
 }

@@ -10,6 +10,7 @@ use crate::process;
 use crate::repository_root;
 
 const SERVER_NAME: &str = "e2e-fake-lsp";
+const UNSUPPORTED_SERVER_NAME: &str = "e2e-fake-lsp-unsupported";
 const BINARY_NAME: &str = "lsp-cli-e2e-fake-lsp";
 const BUILD_DEADLINE: Duration = Duration::from_secs(120);
 
@@ -19,13 +20,21 @@ pub(crate) struct LocalFixture {
 
 impl LocalFixture {
     pub(crate) fn new() -> Result<Self, String> {
+        Self::with_server(SERVER_NAME)
+    }
+
+    pub(crate) fn new_unsupported() -> Result<Self, String> {
+        Self::with_server(UNSUPPORTED_SERVER_NAME)
+    }
+
+    fn with_server(server_name: &'static str) -> Result<Self, String> {
         let root = repository_root();
         let fixtures = root.join("tests/e2e/fixtures");
         let fixture = E2eFixture::new_with_data_dir(fixtures.join("data"))?;
         fixture.context().copy_project(&fixtures.join("project"))?;
         fixture
             .context()
-            .stage_program(SERVER_NAME, fake_server_binary()?)?;
+            .stage_program(server_name, fake_server_binary()?)?;
         Ok(Self { fixture })
     }
 
@@ -39,6 +48,10 @@ impl LocalFixture {
 
     pub(crate) fn server_name(&self) -> &'static str {
         SERVER_NAME
+    }
+
+    pub(crate) fn unsupported_server_name(&self) -> &'static str {
+        UNSUPPORTED_SERVER_NAME
     }
 }
 

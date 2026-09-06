@@ -1,4 +1,4 @@
-use super::render_for_tests;
+use super::{render_json as render_json_for_tests, render_output as render_for_tests};
 use crate::lsp::InitializeResponse;
 use serde_json::json;
 
@@ -155,4 +155,24 @@ fn renders_unknown_raw_capabilities() {
             ]
         ))
     );
+}
+
+#[test]
+fn renders_machine_readable_capabilities() {
+    let initialize = initialize_response(json!({
+        "capabilities": {"workspaceSymbolProvider": true},
+        "serverInfo": {"name": "test-lsp", "version": "1.2.3"}
+    }));
+
+    let value: serde_json::Value = serde_json::from_str(&render_json_for_tests(
+        &["test-lsp".to_string(), "--stdio".to_string()],
+        "fallback",
+        &initialize,
+    ))
+    .expect("JSON capability output should decode");
+
+    assert_eq!(value["server"]["name"], "test-lsp");
+    assert_eq!(value["server"]["version"], "1.2.3");
+    assert_eq!(value["server"]["command"], json!(["test-lsp", "--stdio"]));
+    assert_eq!(value["capabilities"]["workspaceSymbolProvider"], true);
 }

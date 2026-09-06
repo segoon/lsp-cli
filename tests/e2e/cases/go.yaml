@@ -6,3 +6,16 @@ language:
 pairs:
   - language: go
     server: gopls
+    smoke:
+      status: queries
+      provision: { method: download }
+      symbol-query: Order
+      callable-query: SampleOrder
+      format-file: cmd/playground/main.go
+      expected-names: [Order, Item, SampleOrder, Format]
+      host-programs:
+        - { name: go, resolve: [which, go] }
+      exceptions:
+        - { command: callees, outcome: empty-matches, reason: "SampleOrder constructs data directly and has no outgoing call-hierarchy edges" }
+      lsp-timeout-seconds: 30
+      deadline-seconds: 300

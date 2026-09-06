@@ -6,3 +6,15 @@ language:
 pairs:
   - language: cuda
     server: clangd
+    smoke:
+      status: queries
+      provision: { method: download }
+      symbol-query: Order
+      callable-query: format_order
+      format-file: src/main.cu
+      expected-names: [Order, OrderItem, format_order]
+      exceptions:
+        - { command: grep, outcome: empty-matches, reason: "clangd may not publish workspace symbols before background indexing completes" }
+        - { command: build-index, outcome: failure, message: "background-work progress", reason: "clangd exposes no background-work completion notification" }
+      lsp-timeout-seconds: 15
+      deadline-seconds: 240

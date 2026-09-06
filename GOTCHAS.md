@@ -72,6 +72,22 @@
 
 # LSP server implementations
 
+## typescript-language-server
+
+- Version 4.4.0 with TypeScript 6.0.3 advertises `workspaceSymbolProvider`, but a fresh
+  `workspace/symbol` request can fail with `No Project` before any document has been opened. A
+  capability-aware test must distinguish this advertised-but-not-yet-ready behavior from an
+  unsupported capability.
+- The server exposes no background-work progress notification usable by `build-index`; assert the
+  bounded user-facing failure instead of sleeping or assuming that project analysis completed.
+
+## jdtls
+
+- The current Mason jdtls package needs both Java to run and Python to install its launcher. It can
+  initialize and answer LSP requests, but a direct-process capability query timed out waiting for
+  the server to exit after shutdown. Keep the preferred-pair test excluded until direct shutdown
+  is reliable; exercise it through the separately planned detached lifecycle scenario.
+
 ## kotlin-lsp
 
 - The Mason package exposes Kotlin LSP as `intellij-server`, not `kotlin-lsp`. The data config must

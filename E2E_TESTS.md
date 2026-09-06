@@ -491,7 +491,7 @@ when the harness copies a project.
   classified upstream limitation.
 - [x] Implement capability-aware query assertions.
 - [x] Implement direct/detached lifecycle scenarios.
-- [ ] Add the pull-request E2E job.
+- [x] Add the pull-request E2E job.
 
 ### Phase 4: exhaustive compatibility
 

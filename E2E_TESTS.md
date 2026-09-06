@@ -244,33 +244,35 @@ shell, or ambient server versions.
 
 The manifest directory should include stable case data, provisioning metadata, expected
 capabilities, and documented exclusions. `tests/e2e/cases/suite.yaml` owns global command coverage,
-while each `tests/e2e/cases/<language>.yaml` owns one project and all of its server pairs. A
-validation test should fail when:
+while each `tests/e2e/cases/<language>.yaml` owns one project and its configured server behavior.
+A validation test should fail when:
 
 - a detectable filetype lacks a project;
-- a compatible pair lacks a manifest entry;
-- a manifest entry names a missing data config;
+- a configured E2E case names an incompatible or missing data config;
 - an exclusion lacks a reason;
 - two cases select the same user-visible server ambiguously;
 - a new top-level subcommand has no assigned coverage class.
 
 The version 6 manifest assigns every canonical command to a coverage strategy, derives one
-preferred smoke-matrix server for every source-language project from `data/lsp-cli.yaml`, and keeps
-`coverage: partial`, which validates every declared language/server entry
-against the pinned data without requiring unfinished matrix entries. Phase 4 adds the remaining
-entries and switches it to `coverage: complete`; complete mode enforces every detectable language
-and compatible pair.
+preferred smoke-matrix server for every source-language project from `data/lsp-cli.yaml`, and uses
+`coverage: complete`. The compatible inventory—16 detectable languages, 57 relevant servers, and
+141 language/server pairs—is resolved directly from the pinned data. Case YAML contains only
+E2E-specific behavior, avoiding a second copy of each server's `filetypes` list.
 
 ### Extending the manifest
 
-To cover an existing filetype, add its small project under `playground/`, add one case file named
-after the filetype ID, then add a `pairs` entry there for each compatible server. To introduce a
-genuinely new filetype or server, first add its YAML config and commit it in the `data` submodule,
-then update the submodule revision and the E2E cases in this repository.
+To cover an existing detectable filetype, add its small project under `playground/` and one case
+file named after the filetype ID. Compatible servers are discovered from `data/lsp/*.yaml`; add a
+`pairs` entry only when the E2E suite has executable behavior or a reviewed exclusion for that
+pair. To introduce a genuinely new filetype or server, first add its YAML config and commit it in
+the `data` submodule, then update the submodule revision. Add a project/case file here for a new
+detectable filetype, and add pair-specific E2E behavior when it is ready.
 
-Pair entries use the LSP YAML filename stem as their stable config ID. The test runner loads the
-configured user-visible server name for `--lsp`; do not duplicate it in the manifest. The first
-server in each source language's production preference list is also its merge-gate smoke server.
+Pair entries are sparse E2E behavior overlays and use the LSP YAML filename stem as their stable
+config ID. Bare compatibility entries are rejected because compatibility belongs to `data`. The
+test runner loads the configured user-visible server name for `--lsp`; do not duplicate it in the
+manifest. The first server in each source language's production preference list is also its
+merge-gate smoke server.
 Manifest validation resolves that user-visible name to one compatible LSP config and requires the
 corresponding pair to exist. Each preferred pair has a tagged `smoke` disposition: either a generic
 query suite or an exclusion with a mandatory reviewed reason. Executable pairs keep provisioning
@@ -290,8 +292,9 @@ The query runner obtains raw initialized capabilities through `server-capabiliti
 executes every LSP query command. Advertised capabilities require a successful semantic response;
 missing capabilities require the command's user-facing unsupported error. Known deviations must
 name the command, expected outcome, reason, and a stable error fragment for expected failures.
-`E2E_CASE=<language>/<server-id>` selects one case
-for manual diagnosis without changing the all-cases CI default.
+`E2E_CASE=<language>/<server-id>` selects one configured executable or explicitly excluded case for
+manual diagnosis without changing the all-cases CI default. Selecting a compatible pair without
+E2E behavior fails with a clear error instead of silently running no tests.
 
 ### Preferred server matrix
 
@@ -313,9 +316,10 @@ so Mason's current registry release selects and installs the server version on e
 diagnostics must retain the resolved package source ID so an upstream version change can be
 identified after the fact.
 
-In `coverage: complete` mode, manifest validation makes a new detectable filetype or compatible
-filetype/server relationship fail until its project and pair are declared. Partial mode intentionally
-allows the matrix to grow incrementally.
+In `coverage: complete` mode, manifest validation makes a new detectable filetype fail until its
+project is declared. New compatible relationships are automatically part of the resolved inventory;
+the later exhaustive-matrix checks track whether each has executable behavior or an exclusion.
+Partial mode remains available for isolated manifest fixtures and staged downstream suites.
 
 ## Special command strategies
 
@@ -495,7 +499,7 @@ when the harness copies a project.
 
 ### Phase 4: exhaustive compatibility
 
-- [ ] Populate manifest entries for all 141 compatible pairs.
+- [x] Resolve all 141 compatible pairs from pinned data without duplicating `filetypes` in cases.
 - [ ] Provision every non-excluded server and required SDK.
 - [ ] Record reviewed exceptions and platform constraints.
 - [ ] Add sharded nightly and manual workflows.

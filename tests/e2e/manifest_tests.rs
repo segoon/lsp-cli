@@ -14,11 +14,37 @@ fn first_smoke(manifest: &mut Manifest) -> &mut SmokeDisposition {
 }
 
 #[test]
-fn partial_manifest_matches_pinned_data() {
-    Manifest::load()
-        .expect("E2E manifest should parse")
+fn complete_manifest_matches_pinned_data() {
+    let manifest = Manifest::load().expect("E2E manifest should parse");
+    let data = repository_root().join("data");
+    let detectable = detectable_languages(&data).expect("filetype configs should load");
+    let compatible = manifest
+        .compatible_pair_inventory(&data)
+        .expect("manifest inventory should resolve");
+    let declared = manifest
+        .pairs
+        .iter()
+        .map(PairCase::key)
+        .collect::<BTreeSet<_>>();
+    let servers = compatible
+        .iter()
+        .map(|pair| pair.server.as_str())
+        .collect::<BTreeSet<_>>();
+
+    assert_eq!(manifest.coverage, Coverage::Complete);
+    assert_eq!(detectable.len(), 16);
+    assert_eq!(servers.len(), 57);
+    assert_eq!(compatible.len(), 141);
+    assert!(declared.is_subset(&compatible));
+    assert!(
+        manifest
+            .pairs
+            .iter()
+            .all(|pair| pair.smoke.is_some() || pair.lifecycle.is_some())
+    );
+    manifest
         .validate(repository_root())
-        .expect("E2E manifest should be valid");
+        .expect("complete E2E manifest should be valid");
 }
 
 #[test]
@@ -94,30 +120,39 @@ fn source_languages_select_the_approved_preferred_servers() {
 }
 
 #[test]
-fn complete_mode_rejects_the_partial_matrix() {
+fn complete_mode_rejects_a_missing_language_project() {
     let mut manifest = Manifest::load().expect("E2E manifest should parse");
-    manifest.coverage = Coverage::Complete;
+    let metadata_index = manifest
+        .languages
+        .iter()
+        .position(|language| language.kind == ProjectKind::Metadata)
+        .expect("complete manifest should contain a metadata project");
+    let removed = manifest.languages.remove(metadata_index);
+    manifest.pairs.retain(|pair| pair.language != removed.id);
 
     let error = manifest
         .validate(repository_root())
-        .expect_err("partial matrix should not satisfy complete coverage");
+        .expect_err("missing project should not satisfy complete coverage");
 
-    assert!(error.contains("complete E2E manifest is missing pairs"));
+    assert!(error.contains("complete E2E manifest is missing languages"));
+    assert!(error.contains(&removed.id));
 }
 
 #[test]
-fn complete_mode_rejects_missing_server_pairs() {
-    let data = repository_root().join("data");
-    let detectable = detectable_languages(&data).expect("filetype configs should load");
-    let declared_pairs = BTreeSet::from([PairKey {
-        language: "rust".to_string(),
-        server: "rust_analyzer".to_string(),
-    }]);
+fn manifest_rejects_a_pair_without_test_behavior() {
+    let mut manifest = Manifest::load().expect("E2E manifest should parse");
+    let pair = manifest
+        .pairs
+        .first_mut()
+        .expect("manifest should contain a configured case");
+    pair.smoke = None;
+    pair.lifecycle = None;
 
-    let error = Manifest::validate_complete_coverage(&data, &detectable, &declared_pairs)
-        .expect_err("partial server matrix should not satisfy complete coverage");
+    let error = manifest
+        .validate(repository_root())
+        .expect_err("bare compatibility entries should stay in data");
 
-    assert!(error.contains("complete E2E manifest is missing pairs"));
+    assert!(error.contains("must declare a smoke or lifecycle disposition"));
 }
 
 #[test]

@@ -256,7 +256,8 @@ impl Manifest {
         self.validate_preferred_servers(&data, &declared_pairs)?;
 
         if self.coverage == Coverage::Complete {
-            Self::validate_complete_coverage(&data, &declared_languages, &declared_pairs)?;
+            Self::validate_complete_coverage(&data, &declared_languages)?;
+            self.compatible_pair_inventory(&data)?;
         }
         Ok(())
     }
@@ -318,6 +319,18 @@ impl Manifest {
             .iter()
             .map(|command| command.name.as_str())
             .collect()
+    }
+
+    pub(crate) fn compatible_pair_inventory(
+        &self,
+        data: &Path,
+    ) -> Result<BTreeSet<PairKey>, String> {
+        let languages = self
+            .languages
+            .iter()
+            .map(|language| language.id.clone())
+            .collect();
+        compatible_pairs(data, &languages)
     }
 
     pub(crate) fn declares_pair(&self, label: &str) -> bool {
@@ -407,6 +420,12 @@ impl Manifest {
                     pair.server, pair.language
                 ));
             }
+            if pair.smoke.is_none() && pair.lifecycle.is_none() {
+                return Err(format!(
+                    "E2E pair {}/{} must declare a smoke or lifecycle disposition",
+                    pair.language, pair.server
+                ));
+            }
             if let Some(smoke) = &pair.smoke {
                 smoke.validate(pair)?;
             }
@@ -490,7 +509,6 @@ impl Manifest {
     fn validate_complete_coverage(
         data: &Path,
         declared_languages: &BTreeSet<String>,
-        declared_pairs: &BTreeSet<PairKey>,
     ) -> Result<(), String> {
         let detectable = detectable_languages(data)?;
         let missing_languages = detectable
@@ -504,17 +522,6 @@ impl Manifest {
             ));
         }
 
-        let compatible = compatible_pairs(data, &detectable)?;
-        let missing_pairs = compatible
-            .difference(declared_pairs)
-            .map(|pair| format!("{}/{}", pair.language, pair.server))
-            .collect::<Vec<_>>();
-        if !missing_pairs.is_empty() {
-            return Err(format!(
-                "complete E2E manifest is missing pairs: {}",
-                missing_pairs.join(", ")
-            ));
-        }
         Ok(())
     }
 }

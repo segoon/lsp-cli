@@ -1,5 +1,5 @@
 schema-version: 6
-coverage: partial
+coverage: complete
 
 commands:
   - { name: commands, strategy: catalog }

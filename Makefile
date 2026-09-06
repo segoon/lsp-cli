@@ -7,7 +7,7 @@ check-format:
 	cargo fmt --manifest-path tests/e2e/fixtures/fake-lsp/Cargo.toml --check
 
 check-tests:
-	cargo test --locked -q
+	RUST_BACKTRACE=1 cargo test --locked -q
 
 check-clippy:
 	cargo clippy --locked --all-targets --all-features -- -D warnings
@@ -20,7 +20,7 @@ check-dependencies:
 	cargo deny check
 
 test-real-server-e2e:
-	cargo test --locked --test e2e manifest_real_server -- --ignored --nocapture --test-threads=1
+	RUST_BACKTRACE=1 cargo test --locked --test e2e manifest_real_server -- --ignored --nocapture --test-threads=1
 
 gen-readme:
 	python3 scripts/update_readme_commands.py

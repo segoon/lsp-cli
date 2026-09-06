@@ -31,22 +31,38 @@ impl TemplateContext<'_> {
 
         match expression {
             "version" => Some(self.version.to_string()),
-            "version | strip_prefix \"v\"" => Some(
-                self.version
-                    .strip_prefix('v')
-                    .unwrap_or(self.version)
-                    .to_string(),
-            ),
             "source.asset.bin" => Some(self.source_asset_bin.unwrap_or("").to_string()),
             "source.asset.file" => Some(self.source_asset_file.unwrap_or("").to_string()),
             "source.asset.ext" => Some(self.source_asset_ext.unwrap_or("").to_string()),
             "source.download.bin" => Some(self.source_download_bin.unwrap_or("").to_string()),
             "source.download.config" => Some(self.source_download_config.unwrap_or("").to_string()),
             "source.download.man" => Some(self.source_download_man.unwrap_or("").to_string()),
-            _ => expression
-                .strip_prefix("source.asset.bin.")
-                .and_then(|name| self.source_asset_named_bins.get(name).cloned()),
+            _ => self.render_version_filter(expression).or_else(|| {
+                expression
+                    .strip_prefix("source.asset.bin.")
+                    .and_then(|name| self.source_asset_named_bins.get(name).cloned())
+            }),
         }
+    }
+
+    fn render_version_filter(&self, expression: &str) -> Option<String> {
+        let (value, filter) = expression.split_once('|')?;
+        if value.trim() != "version" {
+            return None;
+        }
+        let arguments = shlex::split(filter.trim())?;
+        let [filter, prefix] = arguments.as_slice() else {
+            return None;
+        };
+        if filter != "strip_prefix" {
+            return None;
+        }
+        Some(
+            self.version
+                .strip_prefix(prefix)
+                .unwrap_or(self.version)
+                .to_string(),
+        )
     }
 
     #[must_use]
@@ -128,5 +144,35 @@ mod tests {
 
         assert_eq!(context.render("ast-grep{{source.asset.ext}}"), "ast-grep");
         assert_eq!(context.render("{{source.download.man}}"), "");
+    }
+
+    #[test]
+    fn renders_arbitrary_quoted_version_prefixes() {
+        let mut context = TemplateContext::empty();
+        context.version = "kotlin-lsp/v262.9593.0";
+
+        assert_eq!(
+            context.render("{{ version | strip_prefix \"kotlin-lsp/v\" }}"),
+            "262.9593.0"
+        );
+        assert_eq!(
+            context.render("{{ version | strip_prefix \"other/\" }}"),
+            "kotlin-lsp/v262.9593.0"
+        );
+    }
+
+    #[test]
+    fn preserves_unsupported_or_malformed_version_filters() {
+        let mut context = TemplateContext::empty();
+        context.version = "v1.2.3";
+
+        assert_eq!(
+            context.render("{{ version | replace \"v\" \"\" }}"),
+            "{{ version | replace \"v\" \"\" }}"
+        );
+        assert_eq!(
+            context.render("{{ version | strip_prefix }}"),
+            "{{ version | strip_prefix }}"
+        );
     }
 }

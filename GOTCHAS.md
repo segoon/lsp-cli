@@ -78,10 +78,13 @@
   use the packaged launcher name so `--download` can resolve it; a display name or upstream product
   name is not necessarily an executable name.
 - The Mason generic package uses `{{ version | strip_prefix "kotlin-lsp/v" }}` in its download URL
-  and executable path. lsp-cli currently only recognizes the `strip_prefix "v"` form, leaves the
-  longer-prefix expression unresolved, and receives HTTP 404 before the server starts. Supporting
-  arbitrary Mason template filters is a downloader compatibility decision, not a Kotlin server
-  workaround.
+  and executable path. Mason version prefixes are package-specific, so lsp-cli's template renderer
+  supports quoted `version | strip_prefix "<literal>"` expressions rather than special-casing the
+  Kotlin prefix. Unsupported filters remain unresolved instead of being guessed.
+- Mason version `kotlin-lsp/v262.9593.0` downloads and launches, but `intellij-server` reports that
+  the build has expired and exits before completing LSP initialization. Detection and file listing
+  still work, and a daemon can create its socket and be stopped, but capability and semantic checks
+  are blocked until the registry provides a usable build.
 
 ## roslyn-language-server
 

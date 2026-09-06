@@ -450,17 +450,19 @@ that class of defect easier to diagnose.
 Manual LSP verification follows server selection and downloader support so it runs against servers
 resolved by the same current Mason registry used in CI rather than ambient installations.
 
-The 2026-09-05 manual survey used isolated `tempfile` sandboxes and current Mason packages. No
-survey state used the ambient system `/tmp` or modified a tracked playground.
+The 2026-09-05 and 2026-09-06 manual surveys used isolated `tempfile` sandboxes and current Mason
+packages. A checksum-pinned Go 1.27.1 SDK was provisioned only inside each Go survey sandbox. No
+survey state used the ambient system `/tmp` or modified a tracked playground. The harness sets both
+`TMPDIR` and the JVM's `java.io.tmpdir`, because the latter does not inherit the former.
 
 | Project | Server source | Verified behavior | Remaining blocker or limitation |
 |---|---|---|---|
 | CUDA | `pkg:github/clangd/clangd@22.1.6` | Detection, files, capabilities, diagnostics, document symbols/functions, definition/declaration, references, callers/callees, `format --stdout`, direct execution, daemon reuse, and stop | Immediate `grep Order` returned no workspace symbols; `build-index` reported no background-work progress |
 | Objective-C | `pkg:github/clangd/clangd@22.1.6` | Same applicable paths as CUDA, with clean diagnostics and semantic results | Immediate workspace-symbol grep was empty; `build-index` exposed no progress |
 | Objective-C++ | `pkg:github/clangd/clangd@22.1.6` | Same applicable paths as Objective-C, with clean diagnostics and semantic results | Immediate workspace-symbol grep was empty; `build-index` exposed no progress |
-| Kotlin | Mason generic `kotlin-lsp` package | Every applicable command was attempted | Provisioning left `strip_prefix "kotlin-lsp/v"` templates unresolved, so the generated download URL returned HTTP 404 before server startup |
-| Go module metadata | `pkg:golang/golang.org/x/tools/gopls@v0.23.0` | Detection, file listing, and initialization were attempted | The approved environment has no Go SDK, so Mason could not install `gopls`; lifecycle remains blocked |
-| Go workspace metadata | `pkg:golang/golang.org/x/tools/gopls@v0.23.0` | Detection, file listing, and initialization were attempted | The approved environment has no Go SDK, so Mason could not install `gopls`; lifecycle remains blocked |
+| Kotlin | Mason generic `kotlin-lsp` package, version `kotlin-lsp/v262.9593.0` | Template rendering, download, detection, and file listing passed; foreground and detached initialization were attempted; daemon creation and stop passed | The current packaged `intellij-server` reports that its build has expired and exits before LSP initialization |
+| Go module metadata | `pkg:golang/golang.org/x/tools/gopls@v0.23.0` with Go 1.27.1 | Detection, file listing, foreground and detached capabilities, daemon creation/reuse, and stop passed | Metadata-only fixture intentionally has no source-level semantic assertions |
+| Go workspace metadata | `pkg:golang/golang.org/x/tools/gopls@v0.23.0` with Go 1.27.1 | Detection, file listing, foreground and detached capabilities, daemon creation/reuse, and stop passed | Metadata-only fixture intentionally has no source-level semantic assertions |
 
 The clangd projects use portable `compile_flags.txt` files. CUDA is parsed as C++ with its CUDA
 qualifiers defined as empty macros, keeping semantic queries deterministic without requiring a
@@ -470,8 +472,8 @@ when the harness copies a project.
 
 - [x] Configure one production preference per source language and derive the smoke matrix from it.
 - [x] Provision servers through `--download`; add no separate installers or Rust dependencies.
-- [ ] Run each relevant command manually against every new project (survey recorded; Kotlin and Go
-  provisioning blockers remain, and clangd workspace indexing needs an asserted policy).
+- [x] Run each relevant command manually against every new project and record each success or
+  classified upstream limitation.
 - [ ] Implement capability-aware query assertions.
 - [ ] Implement direct/detached lifecycle scenarios.
 - [ ] Add the pull-request E2E job.

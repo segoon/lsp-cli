@@ -25,6 +25,7 @@ pub(crate) struct E2eContext {
     home: PathBuf,
     config_home: PathBuf,
     runtime_dir: PathBuf,
+    temp_dir: PathBuf,
     workspace: PathBuf,
     bin_dir: PathBuf,
     build_dir: PathBuf,
@@ -51,12 +52,20 @@ impl E2eContext {
             .tempdir_in(test_temp_base)?;
         let home = sandbox.path().join("home");
         let config_home = sandbox.path().join("config");
+        let temp_dir = sandbox.path().join("tmp");
         let workspace = sandbox.path().join("workspace");
         let bin_dir = sandbox.path().join("bin");
         let build_dir = sandbox.path().join("build");
         let runtime_dir = runtime_sandbox.path().to_path_buf();
 
-        for directory in [&home, &config_home, &workspace, &bin_dir, &build_dir] {
+        for directory in [
+            &home,
+            &config_home,
+            &temp_dir,
+            &workspace,
+            &bin_dir,
+            &build_dir,
+        ] {
             fs::create_dir(directory)?;
         }
 
@@ -66,6 +75,7 @@ impl E2eContext {
             home,
             config_home,
             runtime_dir,
+            temp_dir,
             workspace,
             bin_dir,
             build_dir,
@@ -222,11 +232,17 @@ impl E2eContext {
         command
             .env_clear()
             .env("HOME", &self.home)
+            // The JVM derives java.io.tmpdir independently of TMPDIR, so isolate both paths.
+            .env(
+                "JAVA_TOOL_OPTIONS",
+                format!("-Djava.io.tmpdir={}", self.temp_dir.display()),
+            )
             .env("CARGO_TARGET_DIR", &self.build_dir)
             .env("XDG_CONFIG_HOME", &self.config_home)
             .env("XDG_RUNTIME_DIR", &self.runtime_dir)
             .env("LSP_DATA", &self.data_dir)
             .env("PATH", &self.bin_dir)
+            .env("TMPDIR", &self.temp_dir)
             .env("LANG", "C")
             .env("LC_ALL", "C")
             .env("TZ", "UTC")
@@ -405,10 +421,15 @@ mod tests {
                 context.build_dir.as_os_str().to_os_string(),
             ),
             ("HOME", context.home.as_os_str().to_os_string()),
+            (
+                "JAVA_TOOL_OPTIONS",
+                OsString::from(format!("-Djava.io.tmpdir={}", context.temp_dir.display())),
+            ),
             ("LANG", OsString::from("C")),
             ("LC_ALL", OsString::from("C")),
             ("LSP_DATA", context.data_dir.as_os_str().to_os_string()),
             ("PATH", context.bin_dir.as_os_str().to_os_string()),
+            ("TMPDIR", context.temp_dir.as_os_str().to_os_string()),
             ("TZ", OsString::from("UTC")),
             (
                 "XDG_CONFIG_HOME",
@@ -426,6 +447,7 @@ mod tests {
         assert_eq!(actual, expected);
         assert_eq!(command.get_current_dir(), Some(context.workspace.as_path()));
         assert!(!context.runtime_dir.starts_with(context._sandbox.path()));
+        assert!(!context.temp_dir.starts_with("/tmp"));
     }
 
     #[cfg(unix)]

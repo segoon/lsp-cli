@@ -72,11 +72,42 @@
 
 # LSP server implementations
 
+## typescript-language-server
+
+- Version 4.4.0 with TypeScript 6.0.3 advertises `workspaceSymbolProvider`, but a fresh
+  `workspace/symbol` request can fail with `No Project` before any document has been opened. A
+  capability-aware test must distinguish this advertised-but-not-yet-ready behavior from an
+  unsupported capability.
+- The server exposes no background-work progress notification usable by `build-index`; assert the
+  bounded user-facing failure instead of sleeping or assuming that project analysis completed.
+
+## jdtls
+
+- The current Mason jdtls launcher requires Java 21 or newer. Merely resolving a `java` executable
+  is insufficient: GitHub's default Java may be older and makes the launcher exit before the LSP
+  `initialize` response. CI must provision Java 21 explicitly before enabling the lifecycle case.
+- The current Mason jdtls package needs both Java to run and Python to install its launcher. It can
+  initialize and answer LSP requests, but a direct-process capability query timed out waiting for
+  the server to exit after shutdown. Keep the preferred-pair test excluded until direct shutdown
+  is reliable; exercise it through the separately planned detached lifecycle scenario.
+- `stop` removes a jdtls daemon socket before the upstream Java process has necessarily completed
+  shutdown. Immediately starting another jdtls for the same workspace can overlap the old process
+  and stall initialization. Lifecycle tests wait, with a deadline, for the recorded upstream PID
+  to exit after `stop`; socket disappearance alone does not prove complete process termination.
+
 ## kotlin-lsp
 
 - The Mason package exposes Kotlin LSP as `intellij-server`, not `kotlin-lsp`. The data config must
   use the packaged launcher name so `--download` can resolve it; a display name or upstream product
   name is not necessarily an executable name.
+- The Mason generic package uses `{{ version | strip_prefix "kotlin-lsp/v" }}` in its download URL
+  and executable path. Mason version prefixes are package-specific, so lsp-cli's template renderer
+  supports quoted `version | strip_prefix "<literal>"` expressions rather than special-casing the
+  Kotlin prefix. Unsupported filters remain unresolved instead of being guessed.
+- Mason version `kotlin-lsp/v262.9593.0` downloads and launches, but `intellij-server` reports that
+  the build has expired and exits before completing LSP initialization. Detection and file listing
+  still work, and a daemon can create its socket and be stopped, but capability and semantic checks
+  are blocked until the registry provides a usable build.
 
 ## roslyn-language-server
 
@@ -118,6 +149,14 @@
   `lsp-cli` currently expects for `wait-for-index`/`build-index` flows. Keep normal symbol-query
   configs on `wait-for-index: false` unless that progress reporting is confirmed for the target
   `clangd` setup.
+- `compile_commands.json` requires absolute working directories, which makes a committed database
+  stale when an E2E project is copied. Portable clangd fixtures should use `compile_flags.txt` or
+  generate the database after copying instead of committing checkout-specific paths or a relative
+  `directory` value.
+- clangd 22.1.6 returned document symbols, definitions, references, and call hierarchy for the
+  CUDA, Objective-C, and Objective-C++ playgrounds, but an immediate `workspace/symbol` query
+  returned no matches. It also exposed no progress signal usable by `build-index`; capability-aware
+  tests need an explicit bounded policy rather than a fixed indexing sleep.
 - `clangd` may expose diagnostics only through delayed `textDocument/publishDiagnostics` even when
   it does send `$/progress`, and in some setups it does not advertise `diagnosticProvider` for
   pull diagnostics at all. For `lsp-cli diag`, prefer pull diagnostics when the capability is

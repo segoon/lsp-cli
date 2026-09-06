@@ -1,0 +1,7 @@
+filetypes:
+  - "fake"
+root_markers:
+  - "fixture.root"
+name: "e2e-fake-lsp-unsupported"
+cmdline: "e2e-fake-lsp-unsupported --without-capabilities"
+wait-for-index: false

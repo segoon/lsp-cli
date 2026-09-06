@@ -153,6 +153,7 @@ fn parses_server_capabilities_arguments() {
             "--download",
             "--detach",
             "--debug",
+            "--json",
             "--timeout",
             "250ms",
         ])
@@ -161,6 +162,7 @@ fn parses_server_capabilities_arguments() {
             directory: PathBuf::from("workspace"),
             server: install_debug(Some("rust"), Some("rust-analyzer"), true, true),
             detach: true,
+            json: true,
             timeout: Duration::from_millis(250),
         })
     );

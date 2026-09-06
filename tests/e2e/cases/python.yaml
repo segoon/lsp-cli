@@ -6,3 +6,24 @@ language:
 pairs:
   - language: python
     server: pyright
+    setup:
+      provision: { method: download }
+      host-programs:
+        - { name: node, resolve: [which, node] }
+        - { name: npm, resolve: [which, npm] }
+    smoke:
+      status: queries
+      symbol-query: Order
+      callable-query: build_sample_order
+      format-file: main.py
+      expected-names: [Order, OrderItem, build_sample_order, format_order]
+      exceptions:
+        - { command: grep, outcome: empty-matches, reason: "pyright advertises workspace symbols but returns no matches before background analysis completes" }
+        - { command: build-index, outcome: failure, message: "background-work progress", reason: "pyright exposes no background-work progress signal" }
+      lsp-timeout-seconds: 20
+      deadline-seconds: 240
+    lifecycle:
+      status: scenarios
+      direct-run: { status: exchange }
+      lsp-timeout-seconds: 20
+      deadline-seconds: 240

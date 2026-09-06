@@ -6,3 +6,15 @@ language:
 pairs:
   - language: lua
     server: lua_ls
+    setup:
+      provision: { method: download }
+    smoke:
+      status: excluded
+      reason: "LuaLS answers queries but does not exit after direct shutdown; detached lifecycle coverage is required instead."
+    lifecycle:
+      status: scenarios
+      direct-run:
+        status: excluded
+        reason: "LuaLS does not exit reliably after a direct shutdown exchange."
+      lsp-timeout-seconds: 30
+      deadline-seconds: 240

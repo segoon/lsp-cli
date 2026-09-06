@@ -441,6 +441,8 @@ pub(crate) struct RawServerCapabilitiesArgs {
     #[command(flatten)]
     pub(crate) debug: RawDebugArgs,
     #[command(flatten)]
+    pub(crate) json: RawJsonArgs,
+    #[command(flatten)]
     pub(crate) timeout: RawTimeoutArgs,
 }
 

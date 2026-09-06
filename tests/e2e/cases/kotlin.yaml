@@ -6,3 +6,9 @@ language:
 pairs:
   - language: kotlin
     server: kotlin_lsp
+    smoke:
+      status: excluded
+      reason: "Mason kotlin-lsp/v262.9593.0 reports that its build has expired before LSP initialization."
+    lifecycle:
+      status: excluded
+      reason: "The current Mason build expires before a lifecycle client can initialize it."

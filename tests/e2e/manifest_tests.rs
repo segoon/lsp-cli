@@ -1,7 +1,8 @@
 use super::*;
 use crate::repository_root;
+use std::fs;
 
-fn first_smoke(manifest: &mut Manifest) -> &mut SmokeCase {
+fn first_smoke(manifest: &mut Manifest) -> &mut SmokeDisposition {
     manifest
         .pairs
         .iter_mut()
@@ -13,11 +14,72 @@ fn first_smoke(manifest: &mut Manifest) -> &mut SmokeCase {
 }
 
 #[test]
-fn partial_manifest_matches_pinned_data() {
-    Manifest::load()
-        .expect("E2E manifest should parse")
+fn complete_manifest_matches_pinned_data() {
+    let manifest = Manifest::load().expect("E2E manifest should parse");
+    let data = repository_root().join("data");
+    let detectable = detectable_languages(&data).expect("filetype configs should load");
+    let compatible = manifest
+        .compatible_pair_inventory(&data)
+        .expect("manifest inventory should resolve");
+    let declared = manifest
+        .pairs
+        .iter()
+        .map(PairCase::key)
+        .collect::<BTreeSet<_>>();
+    let servers = compatible
+        .iter()
+        .map(|pair| pair.server.as_str())
+        .collect::<BTreeSet<_>>();
+
+    assert_eq!(manifest.coverage, Coverage::Complete);
+    assert_eq!(detectable.len(), 16);
+    assert_eq!(servers.len(), 57);
+    assert_eq!(compatible.len(), 141);
+    assert!(declared.is_subset(&compatible));
+    assert!(
+        manifest
+            .pairs
+            .iter()
+            .all(|pair| pair.smoke.is_some() || pair.lifecycle.is_some())
+    );
+    manifest
         .validate(repository_root())
-        .expect("E2E manifest should be valid");
+        .expect("complete E2E manifest should be valid");
+}
+
+#[test]
+fn copied_projects_do_not_contain_checkout_bound_compilation_databases() {
+    let manifest = Manifest::load().expect("E2E manifest should parse");
+    let repository = repository_root();
+
+    for language in &manifest.languages {
+        let project = repository.join(&language.project);
+        let databases = files_named(&project, "compile_commands.json");
+        assert!(
+            databases.is_empty(),
+            "E2E project {} contains compilation databases that cannot remain valid when copied: {databases:?}",
+            language.project.display()
+        );
+    }
+}
+
+fn files_named(directory: &Path, expected: &str) -> Vec<PathBuf> {
+    let mut matches = Vec::new();
+    let entries = fs::read_dir(directory)
+        .unwrap_or_else(|error| panic!("failed to read {}: {error}", directory.display()));
+    for entry in entries {
+        let entry = entry.expect("project directory entry should be readable");
+        let file_type = entry
+            .file_type()
+            .expect("project directory entry type should be readable");
+        let path = entry.path();
+        if file_type.is_dir() {
+            matches.extend(files_named(&path, expected));
+        } else if path.file_name().and_then(|name| name.to_str()) == Some(expected) {
+            matches.push(path);
+        }
+    }
+    matches
 }
 
 #[test]
@@ -58,30 +120,39 @@ fn source_languages_select_the_approved_preferred_servers() {
 }
 
 #[test]
-fn complete_mode_rejects_the_partial_matrix() {
+fn complete_mode_rejects_a_missing_language_project() {
     let mut manifest = Manifest::load().expect("E2E manifest should parse");
-    manifest.coverage = Coverage::Complete;
+    let metadata_index = manifest
+        .languages
+        .iter()
+        .position(|language| language.kind == ProjectKind::Metadata)
+        .expect("complete manifest should contain a metadata project");
+    let removed = manifest.languages.remove(metadata_index);
+    manifest.pairs.retain(|pair| pair.language != removed.id);
 
     let error = manifest
         .validate(repository_root())
-        .expect_err("partial matrix should not satisfy complete coverage");
+        .expect_err("missing project should not satisfy complete coverage");
 
-    assert!(error.contains("complete E2E manifest is missing pairs"));
+    assert!(error.contains("complete E2E manifest is missing languages"));
+    assert!(error.contains(&removed.id));
 }
 
 #[test]
-fn complete_mode_rejects_missing_server_pairs() {
-    let data = repository_root().join("data");
-    let detectable = detectable_languages(&data).expect("filetype configs should load");
-    let declared_pairs = BTreeSet::from([PairKey {
-        language: "rust".to_string(),
-        server: "rust_analyzer".to_string(),
-    }]);
+fn manifest_rejects_a_pair_without_test_behavior() {
+    let mut manifest = Manifest::load().expect("E2E manifest should parse");
+    let pair = manifest
+        .pairs
+        .first_mut()
+        .expect("manifest should contain a configured case");
+    pair.smoke = None;
+    pair.lifecycle = None;
 
-    let error = Manifest::validate_complete_coverage(&data, &detectable, &declared_pairs)
-        .expect_err("partial server matrix should not satisfy complete coverage");
+    let error = manifest
+        .validate(repository_root())
+        .expect_err("bare compatibility entries should stay in data");
 
-    assert!(error.contains("complete E2E manifest is missing pairs"));
+    assert!(error.contains("must declare a smoke or lifecycle disposition"));
 }
 
 #[test]
@@ -178,29 +249,225 @@ fn manifest_rejects_config_path_traversal() {
 fn manifest_rejects_invalid_smoke_deadlines() {
     let mut manifest = Manifest::load().expect("E2E manifest should parse");
     let smoke = first_smoke(&mut manifest);
-    smoke.deadline_seconds = smoke.lsp_timeout_seconds.saturating_sub(1);
+    let SmokeDisposition::Queries {
+        lsp_timeout_seconds,
+        deadline_seconds,
+        ..
+    } = smoke
+    else {
+        panic!("first smoke case should contain queries")
+    };
+    *deadline_seconds = lsp_timeout_seconds.saturating_sub(1);
 
     let error = manifest
         .validate(repository_root())
         .expect_err("short overall deadline should fail");
 
-    assert!(error.contains("deadline must not be shorter"));
+    assert!(error.contains("deadlines must be positive and ordered"));
 }
 
 #[test]
 fn manifest_rejects_duplicate_host_programs() {
     let mut manifest = Manifest::load().expect("E2E manifest should parse");
-    let smoke = first_smoke(&mut manifest);
-    let duplicate = smoke
+    let setup = manifest
+        .pairs
+        .iter_mut()
+        .filter_map(|pair| pair.setup.as_mut())
+        .find(|setup| !setup.host_programs.is_empty())
+        .expect("manifest should contain a host-dependent query case");
+    let duplicate = setup
         .host_programs
         .first()
-        .expect("smoke case should have a host program")
+        .expect("setup should have a host program")
         .clone();
-    smoke.host_programs.push(duplicate);
+    setup.host_programs.push(duplicate);
 
     let error = manifest
         .validate(repository_root())
         .expect_err("duplicate host programs should fail");
 
-    assert!(error.contains("more than once"));
+    assert!(error.contains("invalid host program"));
+}
+
+#[test]
+fn manifest_rejects_a_preferred_pair_without_a_disposition() {
+    let mut manifest = Manifest::load().expect("E2E manifest should parse");
+    manifest
+        .pairs
+        .iter_mut()
+        .find(|pair| pair.language == "rust")
+        .expect("Rust pair should exist")
+        .smoke = None;
+
+    let error = manifest
+        .validate(repository_root())
+        .expect_err("preferred pair should require a disposition");
+
+    assert!(error.contains("must declare queries or an exclusion"));
+}
+
+#[test]
+fn manifest_rejects_an_empty_exclusion_reason() {
+    let mut manifest = Manifest::load().expect("E2E manifest should parse");
+    let pair = manifest
+        .pairs
+        .iter_mut()
+        .find(|pair| matches!(pair.smoke, Some(SmokeDisposition::Excluded { .. })))
+        .expect("manifest should contain an exclusion");
+    pair.smoke = Some(SmokeDisposition::Excluded {
+        reason: " ".to_string(),
+    });
+
+    let error = manifest
+        .validate(repository_root())
+        .expect_err("empty exclusions should fail");
+
+    assert!(error.contains("must be non-empty"));
+}
+
+#[test]
+fn every_preferred_server_requires_one_lifecycle_owner() {
+    let mut manifest = Manifest::load().expect("E2E manifest should parse");
+    manifest
+        .pairs
+        .iter_mut()
+        .find(|pair| pair.server == "clangd" && pair.lifecycle.is_some())
+        .expect("clangd lifecycle owner should exist")
+        .lifecycle = None;
+
+    let error = manifest
+        .validate(repository_root())
+        .expect_err("preferred server should require a lifecycle owner");
+
+    assert!(error.contains("must have exactly one lifecycle owner; found 0"));
+}
+
+#[test]
+fn preferred_server_rejects_duplicate_lifecycle_owners() {
+    let mut manifest = Manifest::load().expect("E2E manifest should parse");
+    let lifecycle = manifest
+        .pairs
+        .iter()
+        .find(|pair| pair.server == "clangd" && pair.lifecycle.is_some())
+        .expect("clangd lifecycle owner should exist")
+        .lifecycle
+        .clone();
+    manifest
+        .pairs
+        .iter_mut()
+        .find(|pair| pair.server == "clangd" && pair.lifecycle.is_none())
+        .expect("clangd should have another language pair")
+        .lifecycle = lifecycle;
+
+    let error = manifest
+        .validate(repository_root())
+        .expect_err("preferred server should reject duplicate lifecycle owners");
+
+    assert!(error.contains("must have exactly one lifecycle owner; found 2"));
+}
+
+#[test]
+fn executable_lifecycle_requires_server_setup() {
+    let mut manifest = Manifest::load().expect("E2E manifest should parse");
+    let pair = manifest
+        .pairs
+        .iter_mut()
+        .find(|pair| matches!(pair.lifecycle, Some(LifecycleDisposition::Scenarios { .. })))
+        .expect("manifest should contain a lifecycle scenario");
+    pair.setup = None;
+
+    let error = manifest
+        .validate(repository_root())
+        .expect_err("lifecycle scenario should require setup");
+
+    assert!(error.contains("must declare server setup"));
+}
+
+#[test]
+fn direct_run_exclusion_requires_a_reason() {
+    let mut manifest = Manifest::load().expect("E2E manifest should parse");
+    let pair = manifest
+        .pairs
+        .iter_mut()
+        .find(|pair| pair.language == "java")
+        .expect("Java pair should exist");
+    let Some(LifecycleDisposition::Scenarios { direct_run, .. }) = &mut pair.lifecycle else {
+        panic!("Java should have lifecycle scenarios")
+    };
+    *direct_run = lifecycle_case::DirectRunDisposition::Excluded {
+        reason: " ".to_string(),
+    };
+
+    let error = manifest
+        .validate(repository_root())
+        .expect_err("direct run exclusion should require a reason");
+
+    assert!(error.contains("direct-run exclusion") && error.contains("must be non-empty"));
+}
+
+#[test]
+fn lifecycle_exclusion_requires_a_reason() {
+    let mut manifest = Manifest::load().expect("E2E manifest should parse");
+    let pair = manifest
+        .pairs
+        .iter_mut()
+        .find(|pair| pair.language == "cs")
+        .expect("C# pair should exist");
+    pair.lifecycle = Some(LifecycleDisposition::Excluded {
+        reason: " ".to_string(),
+    });
+
+    let error = manifest
+        .validate(repository_root())
+        .expect_err("lifecycle exclusion should require a reason");
+
+    assert!(error.contains("lifecycle exclusion") && error.contains("must be non-empty"));
+}
+
+#[test]
+fn lifecycle_scenario_rejects_invalid_deadlines() {
+    let mut manifest = Manifest::load().expect("E2E manifest should parse");
+    let lifecycle = manifest
+        .pairs
+        .iter_mut()
+        .find_map(|pair| pair.lifecycle.as_mut())
+        .expect("manifest should contain lifecycle coverage");
+    let LifecycleDisposition::Scenarios {
+        lsp_timeout_seconds,
+        deadline_seconds,
+        ..
+    } = lifecycle
+    else {
+        panic!("first lifecycle case should contain scenarios")
+    };
+    *deadline_seconds = lsp_timeout_seconds.saturating_sub(1);
+
+    let error = manifest
+        .validate(repository_root())
+        .expect_err("lifecycle scenario should reject invalid deadlines");
+
+    assert!(error.contains("lifecycle case") && error.contains("deadlines"));
+}
+
+#[test]
+fn manifest_rejects_a_failure_exception_without_a_message() {
+    let mut manifest = Manifest::load().expect("E2E manifest should parse");
+    let exception = manifest
+        .pairs
+        .iter_mut()
+        .filter_map(|pair| pair.smoke.as_mut())
+        .find_map(|smoke| match smoke {
+            SmokeDisposition::Queries { exceptions, .. } => exceptions
+                .iter_mut()
+                .find(|item| item.outcome == ExceptionOutcome::Failure),
+            SmokeDisposition::Excluded { .. } => None,
+        })
+        .expect("manifest should contain an expected failure");
+    exception.message = None;
+
+    let error = manifest
+        .validate(repository_root())
+        .expect_err("expected failures should require stable diagnostics");
+
+    assert!(error.contains("must declare a message"));
 }

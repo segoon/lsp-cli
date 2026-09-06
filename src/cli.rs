@@ -237,6 +237,7 @@ pub struct ServerCapabilitiesArgs {
     pub directory: PathBuf,
     pub server: InstallDebugArgs,
     pub detach: bool,
+    pub json: bool,
     pub timeout: Duration,
 }
 

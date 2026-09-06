@@ -20,7 +20,7 @@ The newest source projects share stable order-domain symbols:
 | Language | Project | Example server | File | Type | Function |
 |---|---|---|---|---|---|
 | CUDA | `playground/cuda` | `clangd` | `src/main.cu` | `Order` | `format_order` |
-| Kotlin | `playground/kotlin` | `kotlin-language-server` | `src/main/kotlin/playground/App.kt` | `Order` | `formatOrder` |
+| Kotlin | `playground/kotlin` | `kotlin-lsp` | `src/main/kotlin/playground/App.kt` | `Order` | `formatOrder` |
 | Objective-C | `playground/objc` | `clangd` | `src/main.m` | `Order` | `format_order` |
 | Objective-C++ | `playground/objcpp` | `clangd` | `src/main.mm` | `Order` | `format_order` |
 
@@ -35,6 +35,10 @@ file="$project/src/main.cu"
 symbol=Order
 function=format_order
 ```
+
+The CUDA fixture deliberately uses portable `compile_flags.txt` settings that parse its sources as
+C++ and define CUDA qualifiers without a CUDA SDK. It exercises language detection and semantic
+LSP operations, but it is not a substitute for compiling the project with a CUDA toolchain.
 
 Start with detection and file selection. These commands do not start a daemon:
 

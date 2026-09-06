@@ -44,10 +44,27 @@ jobs:
       - name: Run tests
         run: make check-tests
 
-      - name: Run real-server E2E smoke tests
-        if: matrix.rust == 'stable'
-        run: make test-real-server-e2e
-
       - name: Run clippy
         if: matrix.rust == 'stable'
         run: make check-clippy
+
+  real-server-e2e:
+    name: Real-server E2E
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Install stable Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+
+      - name: Cache cargo artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run real-server E2E tests
+        run: make test-real-server-e2e

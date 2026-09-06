@@ -113,8 +113,8 @@ language can express one without relying on comments or third-party syntax.
 
 | Project | Valid, small, multi-file | Stable workspace symbol | Functions and methods | Separate declaration | Cross-file references | Caller/callee chain | Types and fields | Formatting mutation | Diagnostic mutation |
 |---|---|---|---|---|---|---|---|---|---|
-| C | Present, but compilation database is not portable | `Order` | Functions present; methods not applicable | Present in `order.h` | Present | Present | Present | Missing recipe; baseline is not formatter-clean | Missing recipe |
-| C++ | **Invalid:** undefined `f()` and `g()` prevent linking; compilation database is not portable | `playground::Order` | Present | Present in `order.hpp` | Present | Present | Present | Missing recipe; baseline is not formatter-clean | Missing recipe |
+| C | Present; portable `compile_flags.txt` configures clangd | `Order` | Functions present; methods not applicable | Present in `order.h` | Present | Present | Present | Missing recipe; baseline is not formatter-clean | Missing recipe |
+| C++ | **Invalid:** undefined `f()` and `g()` prevent linking; portable `compile_flags.txt` configures clangd | `playground::Order` | Present | Present in `order.hpp` | Present | Present | Present | Missing recipe; baseline is not formatter-clean | Missing recipe |
 | C# | Unverified; `dotnet` unavailable | `Order` | Present | **Missing:** an interface can provide it | Present | Present | Present | Missing recipe | Missing recipe |
 | Go | Unverified; `go` unavailable | `Order` | Present | **Missing:** an interface can provide it | Present | Present | Present | Missing recipe; baseline is visibly not `gofmt`-clean | Missing recipe |
 | Java | Unverified; JDK and Maven unavailable | `Order` | Present | **Missing:** an interface can provide it | Present | Present | Present | Missing recipe | Missing recipe |
@@ -127,9 +127,9 @@ language can express one without relying on comments or third-party syntax.
 The C sources compile and link, while the C++ sources compile but fail at link time because the
 calls added in `main.cpp` have no definitions. JavaScript and Python execute successfully. The Rust
 check fails before compilation because the nested package is neither a root-workspace member nor
-excluded from that workspace. C and C++ also embed an old absolute checkout path in
-`compile_commands.json`; language servers may therefore ignore their intended include paths after
-the repository is moved or copied into an isolated E2E sandbox.
+excluded from that workspace. C and C++ now use portable `compile_flags.txt` files because a
+tracked compilation database cannot keep its required absolute directory valid after the fixture
+is copied into an isolated E2E sandbox.
 
 No playground currently defines the exact source edit and expected diagnostic needed for a stable
 mutation test. Those recipes should live in manifest data rather than language-specific Rust test
@@ -244,39 +244,57 @@ shell, or ambient server versions.
 
 The manifest directory should include stable case data, provisioning metadata, expected
 capabilities, and documented exclusions. `tests/e2e/cases/suite.yaml` owns global command coverage,
-while each `tests/e2e/cases/<language>.yaml` owns one project and all of its server pairs. A
-validation test should fail when:
+while each `tests/e2e/cases/<language>.yaml` owns one project and its configured server behavior.
+A validation test should fail when:
 
 - a detectable filetype lacks a project;
-- a compatible pair lacks a manifest entry;
-- a manifest entry names a missing data config;
+- a configured E2E case names an incompatible or missing data config;
 - an exclusion lacks a reason;
 - two cases select the same user-visible server ambiguously;
 - a new top-level subcommand has no assigned coverage class.
 
-The version 4 manifest assigns every canonical command to a coverage strategy, derives one
-preferred smoke-matrix server for every source-language project from `data/lsp-cli.yaml`, and keeps
-`coverage: partial`, which validates every declared language/server entry
-against the pinned data without requiring unfinished matrix entries. Phase 4 adds the remaining
-entries and switches it to `coverage: complete`; complete mode enforces every detectable language
-and compatible pair.
+The version 6 manifest assigns every canonical command to a coverage strategy, derives one
+preferred smoke-matrix server for every source-language project from `data/lsp-cli.yaml`, and uses
+`coverage: complete`. The compatible inventory—16 detectable languages, 57 relevant servers, and
+141 language/server pairs—is resolved directly from the pinned data. Case YAML contains only
+E2E-specific behavior, avoiding a second copy of each server's `filetypes` list.
 
 ### Extending the manifest
 
-To cover an existing filetype, add its small project under `playground/`, add one case file named
-after the filetype ID, then add a `pairs` entry there for each compatible server. To introduce a
-genuinely new filetype or server, first add its YAML config and commit it in the `data` submodule,
-then update the submodule revision and the E2E cases in this repository.
+To cover an existing detectable filetype, add its small project under `playground/` and one case
+file named after the filetype ID. Compatible servers are discovered from `data/lsp/*.yaml`; add a
+`pairs` entry only when the E2E suite has executable behavior or a reviewed exclusion for that
+pair. To introduce a genuinely new filetype or server, first add its YAML config and commit it in
+the `data` submodule, then update the submodule revision. Add a project/case file here for a new
+detectable filetype, and add pair-specific E2E behavior when it is ready.
 
-Pair entries use the LSP YAML filename stem as their stable config ID. The test runner loads the
-configured user-visible server name for `--lsp`; do not duplicate it in the manifest. The first
-server in each source language's production preference list is also its merge-gate smoke server.
+Pair entries are sparse E2E behavior overlays and use the LSP YAML filename stem as their stable
+config ID. Bare compatibility entries are rejected because compatibility belongs to `data`. The
+test runner loads the configured user-visible server name for `--lsp`; do not duplicate it in the
+manifest. The first server in each source language's production preference list is also its
+merge-gate smoke server.
 Manifest validation resolves that user-visible name to one compatible LSP config and requires the
-corresponding pair to exist. Each optional
-`smoke` block declares a generic provisioning method, query kind, semantic expectations, runtime
-host programs, and deadlines. Language-specific prerequisites and expected symbols belong in YAML,
-not in the Rust runner. The first provisioning method is `download`; add other mechanisms as typed
-methods when needed instead of branching on server names.
+corresponding pair to exist. Each preferred pair has a tagged `smoke` disposition: either a generic
+query suite or an exclusion with a mandatory reviewed reason. Executable pairs keep provisioning
+and runtime host programs in the shared `setup` block. Query suites declare semantic query terms,
+expected symbols, deadlines, and narrowly scoped known-result exceptions. Language-specific
+prerequisites and expectations belong in YAML, not in the Rust runner. The first provisioning
+method is `download`; add other mechanisms as typed methods when needed instead of branching on
+server names.
+
+Every distinct preferred server has exactly one explicit lifecycle-owner pair. Its tagged
+`lifecycle` disposition either runs grouped daemon scenarios or records a reviewed exclusion;
+direct `run` may be excluded independently when only detached operation is reliable. This keeps
+the chosen project stable when a shared server gains another filetype without repeating process
+tests for every compatible pair.
+
+The query runner obtains raw initialized capabilities through `server-capabilities --json`, then
+executes every LSP query command. Advertised capabilities require a successful semantic response;
+missing capabilities require the command's user-facing unsupported error. Known deviations must
+name the command, expected outcome, reason, and a stable error fragment for expected failures.
+`E2E_CASE=<language>/<server-id>` selects one configured executable or explicitly excluded case for
+manual diagnosis without changing the all-cases CI default. Selecting a compatible pair without
+E2E behavior fails with a clear error instead of silently running no tests.
 
 ### Preferred server matrix
 
@@ -298,9 +316,10 @@ so Mason's current registry release selects and installs the server version on e
 diagnostics must retain the resolved package source ID so an upstream version change can be
 identified after the fact.
 
-In `coverage: complete` mode, manifest validation makes a new detectable filetype or compatible
-filetype/server relationship fail until its project and pair are declared. Partial mode intentionally
-allows the matrix to grow incrementally.
+In `coverage: complete` mode, manifest validation makes a new detectable filetype fail until its
+project is declared. New compatible relationships are automatically part of the resolved inventory;
+the later exhaustive-matrix checks track whether each has executable behavior or an exclusion.
+Partial mode remains available for isolated manifest fixtures and staged downstream suites.
 
 ## Special command strategies
 
@@ -450,16 +469,37 @@ that class of defect easier to diagnose.
 Manual LSP verification follows server selection and downloader support so it runs against servers
 resolved by the same current Mason registry used in CI rather than ambient installations.
 
+The 2026-09-05 and 2026-09-06 manual surveys used isolated `tempfile` sandboxes and current Mason
+packages. A checksum-pinned Go 1.27.1 SDK was provisioned only inside each Go survey sandbox. No
+survey state used the ambient system `/tmp` or modified a tracked playground. The harness sets both
+`TMPDIR` and the JVM's `java.io.tmpdir`, because the latter does not inherit the former.
+
+| Project | Server source | Verified behavior | Remaining blocker or limitation |
+|---|---|---|---|
+| CUDA | `pkg:github/clangd/clangd@22.1.6` | Detection, files, capabilities, diagnostics, document symbols/functions, definition/declaration, references, callers/callees, `format --stdout`, direct execution, daemon reuse, and stop | Immediate `grep Order` returned no workspace symbols; `build-index` reported no background-work progress |
+| Objective-C | `pkg:github/clangd/clangd@22.1.6` | Same applicable paths as CUDA, with clean diagnostics and semantic results | Immediate workspace-symbol grep was empty; `build-index` exposed no progress |
+| Objective-C++ | `pkg:github/clangd/clangd@22.1.6` | Same applicable paths as Objective-C, with clean diagnostics and semantic results | Immediate workspace-symbol grep was empty; `build-index` exposed no progress |
+| Kotlin | Mason generic `kotlin-lsp` package, version `kotlin-lsp/v262.9593.0` | Template rendering, download, detection, and file listing passed; foreground and detached initialization were attempted; daemon creation and stop passed | The current packaged `intellij-server` reports that its build has expired and exits before LSP initialization |
+| Go module metadata | `pkg:golang/golang.org/x/tools/gopls@v0.23.0` with Go 1.27.1 | Detection, file listing, foreground and detached capabilities, daemon creation/reuse, and stop passed | Metadata-only fixture intentionally has no source-level semantic assertions |
+| Go workspace metadata | `pkg:golang/golang.org/x/tools/gopls@v0.23.0` with Go 1.27.1 | Detection, file listing, foreground and detached capabilities, daemon creation/reuse, and stop passed | Metadata-only fixture intentionally has no source-level semantic assertions |
+
+The clangd projects use portable `compile_flags.txt` files. CUDA is parsed as C++ with its CUDA
+qualifiers defined as empty macros, keeping semantic queries deterministic without requiring a
+CUDA SDK; this fixture validates lsp-cli/LSP behavior, not CUDA compilation. Committed playgrounds
+must not contain `compile_commands.json`, whose required absolute working directories become stale
+when the harness copies a project.
+
 - [x] Configure one production preference per source language and derive the smoke matrix from it.
 - [x] Provision servers through `--download`; add no separate installers or Rust dependencies.
-- [ ] Run each relevant command manually against every new project.
-- [ ] Implement capability-aware query assertions.
-- [ ] Implement direct/detached lifecycle scenarios.
-- [ ] Add the pull-request E2E job.
+- [x] Run each relevant command manually against every new project and record each success or
+  classified upstream limitation.
+- [x] Implement capability-aware query assertions.
+- [x] Implement direct/detached lifecycle scenarios.
+- [x] Add the pull-request E2E job.
 
 ### Phase 4: exhaustive compatibility
 
-- [ ] Populate manifest entries for all 141 compatible pairs.
+- [x] Resolve all 141 compatible pairs from pinned data without duplicating `filetypes` in cases.
 - [ ] Provision every non-excluded server and required SDK.
 - [ ] Record reviewed exceptions and platform constraints.
 - [ ] Add sharded nightly and manual workflows.

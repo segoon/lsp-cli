@@ -1,4 +1,5 @@
 use crate::local_fixture::LocalFixture;
+use crate::lsp_exchange;
 use crate::manifest::CommandStrategy;
 use std::collections::BTreeSet;
 
@@ -28,12 +29,17 @@ fn lifecycle_command_paths_are_covered() {
 
     let stop = context.run(&["stop", ".", "--lsp", server]);
     stop.assert_success();
-    assert!(stop.stdout_text().contains("stopped"));
+    stop.assert_stdout_contains("stopped");
 
+    // Use a distinct socket so stop-all coverage does not also depend on same-socket restart timing.
+    let stop_all_workspace = context
+        .copy_project_as(context.workspace(), "stop-all-workspace")
+        .expect("stop-all workspace should initialize");
+    let stop_all_workspace = stop_all_workspace.display().to_string();
     context
         .run(&[
             "daemon",
-            ".",
+            &stop_all_workspace,
             "--lsp",
             server,
             "--no-download",
@@ -43,7 +49,7 @@ fn lifecycle_command_paths_are_covered() {
         .assert_success();
     let stop_all = context.run(&["stop-all"]);
     stop_all.assert_success();
-    assert!(stop_all.stdout_text().contains("stopped"));
+    stop_all.assert_stdout_contains("stopped");
 
     let run = context.run_with_env(
         &["run", ".", "--lsp", server, "--no-download"],
@@ -51,4 +57,25 @@ fn lifecycle_command_paths_are_covered() {
     );
     run.assert_success();
     assert_eq!(run.stdout_text(), "fake LSP server replaced lsp-cli\n");
+}
+
+#[test]
+fn run_forwards_a_complete_lsp_exchange() {
+    let fixture = LocalFixture::new().expect("local fixture should initialize");
+    let args = [
+        "run".to_string(),
+        ".".to_string(),
+        "--lsp".to_string(),
+        fixture.server_name().to_string(),
+        "--no-download".to_string(),
+        "--debug".to_string(),
+    ];
+
+    lsp_exchange::run(
+        fixture.context(),
+        &args,
+        fixture.context().workspace(),
+        std::time::Duration::from_secs(10),
+    )
+    .expect("run should forward a complete LSP exchange");
 }

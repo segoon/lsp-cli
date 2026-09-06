@@ -6,3 +6,29 @@ language:
 pairs:
   - language: typescript
     server: ts_ls
+    setup:
+      provision: { method: download }
+      host-programs:
+        - { name: node, resolve: [which, node] }
+        - { name: npm, resolve: [which, npm] }
+    smoke:
+      status: queries
+      symbol-query: Order
+      callable-query: buildSampleOrder
+      format-file: src/index.ts
+      expected-names: [Order, OrderItem, buildSampleOrder, formatOrder]
+      exceptions:
+        - { command: grep, outcome: failure, message: "No Project", reason: "typescript-language-server advertises workspace symbols but returns No Project before a document is opened" }
+        - { command: references, outcome: failure, message: "No Project", reason: "named queries require workspace/symbol, which returns No Project before a document is opened" }
+        - { command: callers, outcome: failure, message: "No Project", reason: "named queries require workspace/symbol, which returns No Project before a document is opened" }
+        - { command: callees, outcome: failure, message: "No Project", reason: "named queries require workspace/symbol, which returns No Project before a document is opened" }
+        - { command: definition, outcome: failure, message: "No Project", reason: "named queries require workspace/symbol, which returns No Project before a document is opened" }
+        - { command: declaration, outcome: failure, message: "No Project", reason: "named queries require workspace/symbol, which returns No Project before a document is opened" }
+        - { command: build-index, outcome: failure, message: "background-work progress", reason: "typescript-language-server exposes no background-work progress signal" }
+      lsp-timeout-seconds: 20
+      deadline-seconds: 240
+    lifecycle:
+      status: scenarios
+      direct-run: { status: exchange }
+      lsp-timeout-seconds: 20
+      deadline-seconds: 240

@@ -336,6 +336,11 @@ impl RawServerCapabilitiesArgs {
                 self.detach.no_detach,
                 defaults.detach.unwrap_or(false),
             ),
+            json: resolve_bool(
+                self.json.json,
+                self.json.no_json,
+                defaults.json.unwrap_or(false),
+            ),
             timeout: self
                 .timeout
                 .timeout

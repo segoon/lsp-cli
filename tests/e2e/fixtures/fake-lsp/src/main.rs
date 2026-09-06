@@ -13,6 +13,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut output = io::stdout().lock();
     let mut root_uri = String::new();
     let mut report_status = false;
+    let advertise_capabilities = !env::args().any(|arg| arg == "--without-capabilities");
 
     while let Some(message) = read_message(&mut input)? {
         let method = message.get("method").and_then(Value::as_str).unwrap_or("");
@@ -46,7 +47,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     message["params"]["capabilities"]["experimental"]["serverStatusNotification"]
                         .as_bool()
                         .unwrap_or(false);
-                initialize_result()
+                initialize_result(advertise_capabilities)
             }
             "workspace/symbol" | "textDocument/documentSymbol" => {
                 json!([symbol(&root_uri)])
@@ -96,7 +97,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn initialize_result() -> Value {
+fn initialize_result(advertise_capabilities: bool) -> Value {
+    if !advertise_capabilities {
+        return json!({
+            "capabilities": {"textDocumentSync": 1},
+            "serverInfo": {"name": "e2e-fake-lsp", "version": "1"}
+        });
+    }
     json!({
         "capabilities": {
             "textDocumentSync": 1,

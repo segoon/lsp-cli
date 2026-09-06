@@ -6,20 +6,32 @@ language:
 pairs:
   - language: rust
     server: rust_analyzer
-    smoke:
+    setup:
       provision:
         method: download
-      query:
-        kind: list-symbols
-      expected-names:
-        - Order
-        - OrderItem
-        - sample_order
-        - format_order
       host-programs:
         - name: cargo
           resolve: [rustup, which, cargo]
         - name: rustc
           resolve: [rustup, which, rustc]
+        - name: rustfmt
+          resolve: [rustup, which, rustfmt]
+    smoke:
+      status: queries
+      symbol-query: Order
+      callable-query: sample_order
+      format-file: src/main.rs
+      expected-names:
+        - Order
+        - OrderItem
+        - sample_order
+        - format_order
+      exceptions:
+        - { command: callees, outcome: empty-matches, reason: "sample_order constructs data directly and has no outgoing call-hierarchy edges" }
       lsp-timeout-seconds: 30
       deadline-seconds: 180
+    lifecycle:
+      status: scenarios
+      direct-run: { status: exchange }
+      lsp-timeout-seconds: 30
+      deadline-seconds: 240

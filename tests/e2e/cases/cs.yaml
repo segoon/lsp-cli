@@ -15,13 +15,26 @@ pairs:
   - language: cs
     server: omnisharp
     smoke:
-      status: excluded
-      reason: The approved .NET SDK is not installed in the current Linux E2E host image.
+      status: queries
+      exceptions:
+        - command: build-index
+          outcome: failure
+          message: background-work progress
+          reason: OmniSharp exposes no background-work completion notification
+      lsp-timeout-seconds: 60
+      deadline-seconds: 400
+    lifecycle:
+      status: scenarios
+      direct-run:
+        status: exchange
+      lsp-timeout-seconds: 15
   - language: cs
     server: roslyn_ls
     smoke:
       status: excluded
-      reason: The approved .NET SDK is not installed in the current Linux E2E host image.
+      reason: roslyn-language-server returns namespace-qualified, parenthesized textDocument/documentSymbol names (e.g. "Playground.Models.Order", "BuildSampleOrder()") instead of bare identifiers, so list-symbols cannot match the shared expected-names.
     lifecycle:
-      status: excluded
-      reason: The approved .NET SDK is not installed in the current Linux E2E host image.
+      status: scenarios
+      direct-run:
+        status: exchange
+      lsp-timeout-seconds: 15

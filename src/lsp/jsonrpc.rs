@@ -22,13 +22,15 @@ where
             ))?,
         );
     }
-    message.insert(
-        "params".to_string(),
-        serde_json::to_value(params).map_err(error_fn!(
-            Error::lsp,
-            "failed to encode JSON-RPC params for {}",
-            method
-        ))?,
-    );
+    let params = serde_json::to_value(params).map_err(error_fn!(
+        Error::lsp,
+        "failed to encode JSON-RPC params for {}",
+        method
+    ))?;
+    // JSON-RPC 2.0 allows omitting `params` but not sending it as `null`; some servers (e.g.
+    // roslyn-language-server) reject a literal null, so drop the member instead of sending it.
+    if !params.is_null() {
+        message.insert("params".to_string(), params);
+    }
     Ok(Value::Object(message))
 }

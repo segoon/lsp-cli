@@ -1,9 +1,10 @@
 use std::path::Path;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use crate::harness::{E2eContext, SocketSnapshot};
 use crate::lsp_exchange;
 use crate::manifest::{Manifest, RealServerLifecycleCase};
+use crate::real_server_support::{CaseDeadline, run_isolated_case, run_reported_case};
 use crate::repository_root;
 
 struct LifecycleTest<'a> {
@@ -18,28 +19,18 @@ impl<'a> LifecycleTest<'a> {
 
     fn run(self) -> Result<(), String> {
         let label = self.case.label();
-        eprintln!("E2E lifecycle {label}: started");
-        let result = self
-            .run_inner()
-            .map_err(|error| format!("E2E lifecycle {label} failed:\n{error}"));
-        eprintln!("E2E lifecycle {label}: finished");
-        result
+        run_reported_case("lifecycle", &label, || self.run_inner())
     }
 
     fn run_inner(&self) -> Result<(), String> {
-        let started = Instant::now();
-        let deadline = Duration::from_secs(self.case.deadline_seconds());
-        E2eContext::run_cleaned(|context| {
-            let source = self.repository.join(self.case.project());
-            context.copy_project(&source)?;
-            for (name, resolver) in self.case.host_programs() {
-                context.stage_host_program(name, resolver, remaining(started, deadline)?)?;
-            }
+        let deadline = CaseDeadline::new(self.case.deadline_seconds(), "lifecycle case");
+        let source = self.repository.join(self.case.project());
+        run_isolated_case(&source, self.case.host_programs(), &deadline, |context| {
             let server = self.case.server_name(self.repository)?;
             if self.case.direct_run_enabled() {
-                self.direct_run(context, &server, remaining(started, deadline)?)?;
+                self.direct_run(context, &server, deadline.remaining()?)?;
             }
-            self.detached(context, &source, &server, started, deadline)
+            self.detached(context, &source, &server, &deadline)
                 .map_err(|error| format!("{error}\n{}", context.lifecycle_state()))
         })
     }
@@ -60,13 +51,10 @@ impl<'a> LifecycleTest<'a> {
         context: &E2eContext,
         source: &Path,
         server: &str,
-        started: Instant,
-        deadline: Duration,
+        deadline: &CaseDeadline,
     ) -> Result<(), String> {
-        let daemon = context.try_run_with_deadline(
-            &refs(&self.daemon_args(".", server)),
-            remaining(started, deadline)?,
-        )?;
+        let daemon = context
+            .try_run_with_deadline(&refs(&self.daemon_args(".", server)), deadline.remaining()?)?;
         daemon.ensure_success()?;
         let initial = only_socket(context)?;
         if daemon.stdout_text().trim() != initial.path.display().to_string() {
@@ -77,10 +65,10 @@ impl<'a> LifecycleTest<'a> {
             ));
         }
 
-        self.detached_query(context, ".", server, remaining(started, deadline)?)?;
+        self.detached_query(context, ".", server, deadline.remaining()?)?;
         let after_first = only_socket(context)?;
         let starts = context.server_start_count();
-        self.detached_query(context, ".", server, remaining(started, deadline)?)?;
+        self.detached_query(context, ".", server, deadline.remaining()?)?;
         let after_second = only_socket(context)?;
         if initial != after_first
             || after_first != after_second
@@ -92,16 +80,16 @@ impl<'a> LifecycleTest<'a> {
         let stopped_pids = context.server_pids();
         let stop = context.try_run_with_deadline(
             &["stop", ".", "--lang", self.case.language(), "--lsp", server],
-            remaining(started, deadline)?,
+            deadline.remaining()?,
         )?;
         stop.ensure_success()?;
         expect_socket_count(context, 0)?;
         context.wait_for_processes_to_exit(
             &stopped_pids,
-            remaining(started, deadline)?.min(Duration::from_secs(10)),
+            deadline.remaining()?.min(Duration::from_secs(10)),
         )?;
 
-        self.detached_query(context, ".", server, remaining(started, deadline)?)?;
+        self.detached_query(context, ".", server, deadline.remaining()?)?;
         let restarted = only_socket(context)?;
         if restarted == initial || context.server_start_count() <= starts {
             return Err(
@@ -113,21 +101,15 @@ impl<'a> LifecycleTest<'a> {
         let alternate_text = alternate
             .to_str()
             .ok_or_else(|| "alternate workspace path is not UTF-8".to_string())?;
-        self.detached_query(
-            context,
-            alternate_text,
-            server,
-            remaining(started, deadline)?,
-        )?;
+        self.detached_query(context, alternate_text, server, deadline.remaining()?)?;
         expect_socket_count(context, 2)?;
         let stopped_pids = context.server_pids();
-        let stop_all =
-            context.try_run_with_deadline(&["stop-all"], remaining(started, deadline)?)?;
+        let stop_all = context.try_run_with_deadline(&["stop-all"], deadline.remaining()?)?;
         stop_all.ensure_success()?;
         expect_socket_count(context, 0)?;
         context.wait_for_processes_to_exit(
             &stopped_pids,
-            remaining(started, deadline)?.min(Duration::from_secs(10)),
+            deadline.remaining()?.min(Duration::from_secs(10)),
         )
     }
 
@@ -202,17 +184,6 @@ fn expect_socket_count(context: &E2eContext, expected: usize) -> Result<(), Stri
         Err(format!(
             "expected {expected} daemon sockets, found {sockets:#?}"
         ))
-    }
-}
-
-fn remaining(started: Instant, deadline: Duration) -> Result<Duration, String> {
-    let remaining = deadline.saturating_sub(started.elapsed());
-    if remaining.is_zero() {
-        Err(format!(
-            "lifecycle case exceeded its overall deadline of {deadline:?}"
-        ))
-    } else {
-        Ok(remaining)
     }
 }
 

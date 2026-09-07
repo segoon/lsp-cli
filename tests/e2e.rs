@@ -35,6 +35,8 @@ mod provisioning;
 mod queries;
 #[path = "e2e/real_server_lifecycle.rs"]
 mod real_server_lifecycle;
+#[path = "e2e/real_server_support.rs"]
+mod real_server_support;
 #[path = "e2e/real_servers.rs"]
 mod real_servers;
 #[path = "e2e/update.rs"]

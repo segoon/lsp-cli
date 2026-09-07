@@ -556,7 +556,7 @@ when the harness copies a project.
 
 - [x] Run `make test`.
 - [x] Run the full latest-Mason E2E matrix from a clean environment.
-- [ ] Check every new or edited test file for boilerplate and duplication.
+- [x] Check every new or edited test file for boilerplate and duplication.
 - [ ] Check every source file remains below 600 lines.
 - [ ] Add regression tests for every bug uncovered during rollout.
 - [ ] Add LSP/server-specific discoveries to `GOTCHAS.md`.

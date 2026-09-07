@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 use std::path::Path;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use serde::Deserialize;
 use serde_json::Value;
@@ -9,6 +9,7 @@ use crate::harness::{E2eContext, E2eOutput};
 use crate::manifest::{
     ExceptionOutcome, Manifest, QueryKind, RealServerCapabilitiesCase, RealServerCase,
 };
+use crate::real_server_support::{CaseDeadline, run_isolated_case, run_reported_case};
 use crate::repository_root;
 
 const QUERY_COMMANDS: [QueryKind; 12] = [
@@ -54,36 +55,30 @@ impl<'a> RealServerTest<'a> {
 
     fn run(self) -> Result<(), String> {
         let label = self.case.label();
-        eprintln!("E2E case {label}: started");
-        let result = self
-            .run_inner()
-            .map_err(|error| format!("E2E case {label} failed:\n{error}"));
-        eprintln!("E2E case {label}: finished");
-        result
+        run_reported_case("case", &label, || self.run_inner())
     }
 
     fn run_inner(&self) -> Result<(), String> {
-        let started = Instant::now();
-        let deadline = Duration::from_secs(self.case.deadline_seconds());
-        E2eContext::run_cleaned(|context| {
-            context.copy_project(&self.repository.join(self.case.project()))?;
-            for (name, resolver) in self.case.host_programs() {
-                context.stage_host_program(name, resolver, remaining(started, deadline)?)?;
-            }
-            let server = self.case.server_name(self.repository)?;
-            let capabilities =
-                self.capabilities(context, &server, remaining(started, deadline)?)?;
-            for command in QUERY_COMMANDS.into_iter().skip(1) {
-                self.run_query(
-                    context,
-                    &server,
-                    &capabilities.capabilities,
-                    command,
-                    remaining(started, deadline)?,
-                )?;
-            }
-            Ok(())
-        })
+        let deadline = CaseDeadline::new(self.case.deadline_seconds(), "case");
+        run_isolated_case(
+            &self.repository.join(self.case.project()),
+            self.case.host_programs(),
+            &deadline,
+            |context| {
+                let server = self.case.server_name(self.repository)?;
+                let capabilities = self.capabilities(context, &server, deadline.remaining()?)?;
+                for command in QUERY_COMMANDS.into_iter().skip(1) {
+                    self.run_query(
+                        context,
+                        &server,
+                        &capabilities.capabilities,
+                        command,
+                        deadline.remaining()?,
+                    )?;
+                }
+                Ok(())
+            },
+        )
     }
 
     fn capabilities(
@@ -189,45 +184,41 @@ impl<'a> RealServerTest<'a> {
 impl CapabilitiesTest<'_> {
     fn run(self) -> Result<(), String> {
         let label = self.case.label();
-        eprintln!("E2E case {label}: started");
-        let result = self
-            .run_inner()
-            .map_err(|error| format!("E2E capabilities case {label} failed:\n{error}"));
-        eprintln!("E2E case {label}: finished");
-        result
+        run_reported_case("capabilities case", &label, || self.run_inner())
     }
 
     fn run_inner(&self) -> Result<(), String> {
-        let deadline = Duration::from_secs(self.case.deadline_seconds());
-        E2eContext::run_cleaned(|context| {
-            context.copy_project(&self.repository.join(self.case.project()))?;
-            for (name, resolver) in self.case.host_programs() {
-                context.stage_host_program(name, resolver, deadline)?;
-            }
-            let server = self.case.server_name(self.repository)?;
-            let args = [
-                "server-capabilities".to_string(),
-                ".".to_string(),
-                "--lang".to_string(),
-                self.case.language().to_string(),
-                "--lsp".to_string(),
-                server,
-                "--download".to_string(),
-                "--no-detach".to_string(),
-                "--timeout".to_string(),
-                self.case.lsp_timeout_seconds().to_string(),
-                "--json".to_string(),
-            ];
-            let output = run(context, &args, deadline)?;
-            output.ensure_success()?;
-            let response: CapabilitiesOutput = output.try_json()?;
-            context.record_server_capabilities(&response.capabilities)?;
-            if response.capabilities.is_object() && !response.server.command.is_empty() {
-                Ok(())
-            } else {
-                Err("server-capabilities returned an invalid semantic payload".to_string())
-            }
-        })
+        let deadline = CaseDeadline::new(self.case.deadline_seconds(), "capabilities case");
+        run_isolated_case(
+            &self.repository.join(self.case.project()),
+            self.case.host_programs(),
+            &deadline,
+            |context| {
+                let server = self.case.server_name(self.repository)?;
+                let args = [
+                    "server-capabilities".to_string(),
+                    ".".to_string(),
+                    "--lang".to_string(),
+                    self.case.language().to_string(),
+                    "--lsp".to_string(),
+                    server,
+                    "--download".to_string(),
+                    "--no-detach".to_string(),
+                    "--timeout".to_string(),
+                    self.case.lsp_timeout_seconds().to_string(),
+                    "--json".to_string(),
+                ];
+                let output = run(context, &args, deadline.remaining()?)?;
+                output.ensure_success()?;
+                let response: CapabilitiesOutput = output.try_json()?;
+                context.record_server_capabilities(&response.capabilities)?;
+                if response.capabilities.is_object() && !response.server.command.is_empty() {
+                    Ok(())
+                } else {
+                    Err("server-capabilities returned an invalid semantic payload".to_string())
+                }
+            },
+        )
     }
 }
 
@@ -407,17 +398,6 @@ fn validate_matches(
 fn run(context: &E2eContext, args: &[String], deadline: Duration) -> Result<E2eOutput, String> {
     let refs = args.iter().map(String::as_str).collect::<Vec<_>>();
     context.try_run_with_deadline(&refs, deadline)
-}
-
-fn remaining(started: Instant, deadline: Duration) -> Result<Duration, String> {
-    let remaining = deadline.saturating_sub(started.elapsed());
-    if remaining.is_zero() {
-        Err(format!(
-            "case exceeded its overall deadline of {deadline:?}"
-        ))
-    } else {
-        Ok(remaining)
-    }
 }
 
 #[test]

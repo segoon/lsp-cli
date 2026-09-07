@@ -6,39 +6,66 @@ language:
     symbol-query: Order
     callable-query: buildSampleOrder
     format-file: src/index.ts
-    expected-names: [Order, OrderItem, buildSampleOrder, formatOrder]
-
+    expected-names:
+      - Order
+      - OrderItem
+      - buildSampleOrder
+      - formatOrder
 pairs:
   - language: typescript
     server: denols
     smoke:
       status: excluded
-      reason: "Deno LSP rejects the standard shutdown request because it requires non-null parameters."
+      reason: Deno LSP rejects the standard shutdown request because it requires non-null parameters.
   - language: typescript
     server: ts_ls
     smoke:
       status: queries
       exceptions:
-        - { command: grep, outcome: failure, message: "No Project", reason: "typescript-language-server advertises workspace symbols but returns No Project before a document is opened" }
-        - { command: references, outcome: failure, message: "No Project", reason: "named queries require workspace/symbol, which returns No Project before a document is opened" }
-        - { command: callers, outcome: failure, message: "No Project", reason: "named queries require workspace/symbol, which returns No Project before a document is opened" }
-        - { command: callees, outcome: failure, message: "No Project", reason: "named queries require workspace/symbol, which returns No Project before a document is opened" }
-        - { command: definition, outcome: failure, message: "No Project", reason: "named queries require workspace/symbol, which returns No Project before a document is opened" }
-        - { command: declaration, outcome: failure, message: "No Project", reason: "named queries require workspace/symbol, which returns No Project before a document is opened" }
-        - { command: build-index, outcome: failure, message: "background-work progress", reason: "typescript-language-server exposes no background-work progress signal" }
+        - command: grep
+          outcome: failure
+          message: No Project
+          reason: typescript-language-server advertises workspace symbols but returns No Project before a document is opened
+        - command: references
+          outcome: failure
+          message: No Project
+          reason: named queries require workspace/symbol, which returns No Project before a document is opened
+        - command: callers
+          outcome: failure
+          message: No Project
+          reason: named queries require workspace/symbol, which returns No Project before a document is opened
+        - command: callees
+          outcome: failure
+          message: No Project
+          reason: named queries require workspace/symbol, which returns No Project before a document is opened
+        - command: definition
+          outcome: failure
+          message: No Project
+          reason: named queries require workspace/symbol, which returns No Project before a document is opened
+        - command: declaration
+          outcome: failure
+          message: No Project
+          reason: named queries require workspace/symbol, which returns No Project before a document is opened
+        - command: build-index
+          outcome: failure
+          message: background-work progress
+          reason: typescript-language-server exposes no background-work progress signal
       lsp-timeout-seconds: 20
       deadline-seconds: 240
     lifecycle:
       status: scenarios
-      direct-run: { status: exchange }
+      direct-run:
+        status: exchange
       lsp-timeout-seconds: 20
-      deadline-seconds: 240
   - language: typescript
     server: vtsls
     smoke:
       status: queries
       exceptions:
-        - { command: grep, outcome: empty-matches, reason: "vtsls returns no workspace symbols before project analysis completes" }
-        - { command: build-index, outcome: failure, message: "background-work progress", reason: "vtsls exposes no background-work completion notification" }
-      lsp-timeout-seconds: 30
-      deadline-seconds: 300
+        - command: grep
+          outcome: empty-matches
+          reason: vtsls returns no workspace symbols before project analysis completes
+        - command: build-index
+          outcome: failure
+          message: background-work progress
+          reason: vtsls exposes no background-work completion notification

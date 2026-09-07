@@ -65,24 +65,25 @@ impl<'a> RealServerTest<'a> {
     fn run_inner(&self) -> Result<(), String> {
         let started = Instant::now();
         let deadline = Duration::from_secs(self.case.deadline_seconds());
-        let context = E2eContext::new()
-            .map_err(|error| format!("failed to create an isolated E2E context: {error}"))?;
-        context.copy_project(&self.repository.join(self.case.project()))?;
-        for (name, resolver) in self.case.host_programs() {
-            context.stage_host_program(name, resolver, remaining(started, deadline)?)?;
-        }
-        let server = self.case.server_name(self.repository)?;
-        let capabilities = self.capabilities(&context, &server, remaining(started, deadline)?)?;
-        for command in QUERY_COMMANDS.into_iter().skip(1) {
-            self.run_query(
-                &context,
-                &server,
-                &capabilities.capabilities,
-                command,
-                remaining(started, deadline)?,
-            )?;
-        }
-        Ok(())
+        E2eContext::run_cleaned(|context| {
+            context.copy_project(&self.repository.join(self.case.project()))?;
+            for (name, resolver) in self.case.host_programs() {
+                context.stage_host_program(name, resolver, remaining(started, deadline)?)?;
+            }
+            let server = self.case.server_name(self.repository)?;
+            let capabilities =
+                self.capabilities(context, &server, remaining(started, deadline)?)?;
+            for command in QUERY_COMMANDS.into_iter().skip(1) {
+                self.run_query(
+                    context,
+                    &server,
+                    &capabilities.capabilities,
+                    command,
+                    remaining(started, deadline)?,
+                )?;
+            }
+            Ok(())
+        })
     }
 
     fn capabilities(
@@ -197,34 +198,34 @@ impl CapabilitiesTest<'_> {
 
     fn run_inner(&self) -> Result<(), String> {
         let deadline = Duration::from_secs(self.case.deadline_seconds());
-        let context = E2eContext::new()
-            .map_err(|error| format!("failed to create an isolated E2E context: {error}"))?;
-        context.copy_project(&self.repository.join(self.case.project()))?;
-        for (name, resolver) in self.case.host_programs() {
-            context.stage_host_program(name, resolver, deadline)?;
-        }
-        let server = self.case.server_name(self.repository)?;
-        let args = [
-            "server-capabilities".to_string(),
-            ".".to_string(),
-            "--lang".to_string(),
-            self.case.language().to_string(),
-            "--lsp".to_string(),
-            server,
-            "--download".to_string(),
-            "--no-detach".to_string(),
-            "--timeout".to_string(),
-            self.case.lsp_timeout_seconds().to_string(),
-            "--json".to_string(),
-        ];
-        let output = run(&context, &args, deadline)?;
-        output.ensure_success()?;
-        let response: CapabilitiesOutput = output.try_json()?;
-        if response.capabilities.is_object() && !response.server.command.is_empty() {
-            Ok(())
-        } else {
-            Err("server-capabilities returned an invalid semantic payload".to_string())
-        }
+        E2eContext::run_cleaned(|context| {
+            context.copy_project(&self.repository.join(self.case.project()))?;
+            for (name, resolver) in self.case.host_programs() {
+                context.stage_host_program(name, resolver, deadline)?;
+            }
+            let server = self.case.server_name(self.repository)?;
+            let args = [
+                "server-capabilities".to_string(),
+                ".".to_string(),
+                "--lang".to_string(),
+                self.case.language().to_string(),
+                "--lsp".to_string(),
+                server,
+                "--download".to_string(),
+                "--no-detach".to_string(),
+                "--timeout".to_string(),
+                self.case.lsp_timeout_seconds().to_string(),
+                "--json".to_string(),
+            ];
+            let output = run(context, &args, deadline)?;
+            output.ensure_success()?;
+            let response: CapabilitiesOutput = output.try_json()?;
+            if response.capabilities.is_object() && !response.server.command.is_empty() {
+                Ok(())
+            } else {
+                Err("server-capabilities returned an invalid semantic payload".to_string())
+            }
+        })
     }
 }
 
@@ -422,7 +423,7 @@ fn remaining(started: Instant, deadline: Duration) -> Result<Duration, String> {
 fn manifest_real_server_smoke_cases() {
     let repository = repository_root();
     let manifest = Manifest::load_validated(repository).expect("E2E manifest should be valid");
-    let selected = std::env::var("E2E_CASE").ok();
+    let selected = selected_cases(&manifest);
     assert!(
         manifest.supports_current_platform(),
         "real-server E2E requires {}; current platform is {}/{}",
@@ -432,23 +433,23 @@ fn manifest_real_server_smoke_cases() {
     );
     assert!(
         selected
-            .as_deref()
-            .is_none_or(|label| manifest.declares_pair(label)),
-        "E2E_CASE {:?} does not select a declared manifest pair",
-        selected.as_deref().unwrap_or_default()
+            .as_ref()
+            .is_none_or(|labels| labels.iter().all(|label| manifest.declares_pair(label))),
+        "E2E selection contains an undeclared manifest pair"
     );
-    if let Some(label) = selected.as_deref()
-        && let Some(reason) = manifest.exclusion_reason(label)
-    {
-        eprintln!("E2E case {label}: reviewed exclusion: {reason}");
-        return;
+    if let Some(labels) = &selected {
+        for label in labels {
+            if let Some(reason) = manifest.exclusion_reason(label) {
+                eprintln!("E2E case {label}: reviewed exclusion: {reason}");
+            }
+        }
     }
     let cases = manifest
         .real_server_smoke_cases()
         .filter(|case| {
             selected.as_ref().map_or_else(
                 || manifest.is_preferred_pair(&case.label()),
-                |expected| case.label() == *expected,
+                |expected| expected.contains(&case.label()),
             )
         })
         .collect::<Vec<_>>();
@@ -462,7 +463,7 @@ fn manifest_real_server_smoke_cases() {
             .filter(|case| {
                 selected
                     .as_ref()
-                    .is_some_and(|expected| case.label() == *expected)
+                    .is_some_and(|expected| expected.contains(&case.label()))
             })
             .filter_map(|case| CapabilitiesTest { case, repository }.run().err()),
     );
@@ -471,4 +472,35 @@ fn manifest_real_server_smoke_cases() {
         "real-server E2E failures:\n{}",
         failures.join("\n\n")
     );
+}
+
+fn selected_cases(manifest: &Manifest) -> Option<BTreeSet<String>> {
+    let single = std::env::var("E2E_CASE").ok();
+    let batch = std::env::var("E2E_CASES").ok();
+    assert!(
+        single.is_none() || batch.is_none(),
+        "E2E_CASE and E2E_CASES cannot be used together"
+    );
+    if let Some(label) = single {
+        return Some(BTreeSet::from([label]));
+    }
+    batch.map(|value| {
+        let labels = value
+            .split(',')
+            .map(str::trim)
+            .filter(|label| !label.is_empty())
+            .map(str::to_string)
+            .collect::<BTreeSet<_>>();
+        assert!(
+            !labels.is_empty(),
+            "E2E_CASES must select at least one pair"
+        );
+        assert!(
+            labels
+                .iter()
+                .all(|label| manifest.declares_explicit_pair(label)),
+            "E2E_CASES may contain only explicit manifest pairs"
+        );
+        labels
+    })
 }

@@ -30,17 +30,23 @@ pub(crate) use query_case::{
 use query_case::{HostProgram, QueryProfile, SmokeDisposition};
 #[path = "manifest/dispositions.rs"]
 mod dispositions;
+#[path = "manifest/records.rs"]
+mod records;
 use dispositions::require_text;
 #[path = "manifest/coverage.rs"]
-mod coverage_cases;
+pub(crate) mod coverage_cases;
+#[path = "manifest/suite.rs"]
+mod suite;
+use suite::{Architecture, OperatingSystem, Platform, TestDefaults};
 
-const MANIFEST_SCHEMA_VERSION: u32 = 8;
+const MANIFEST_SCHEMA_VERSION: u32 = 9;
 
 #[derive(Clone, Debug)]
 pub(crate) struct Manifest {
     schema_version: u32,
     coverage: Coverage,
     platform: Platform,
+    defaults: TestDefaults,
     commands: Vec<CommandCase>,
     servers: Vec<ServerCase>,
     languages: Vec<LanguageCase>,
@@ -53,6 +59,7 @@ struct SuiteFile {
     schema_version: u32,
     coverage: Coverage,
     platform: Platform,
+    defaults: TestDefaults,
     commands: Vec<CommandCase>,
     servers: Vec<ServerCase>,
 }
@@ -96,25 +103,6 @@ struct LanguageCase {
     kind: ProjectKind,
     project: PathBuf,
     query_profile: Option<QueryProfile>,
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
-struct Platform {
-    os: OperatingSystem,
-    architecture: Architecture,
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
-#[serde(rename_all = "kebab-case")]
-enum OperatingSystem {
-    Linux,
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
-#[serde(rename_all = "kebab-case")]
-enum Architecture {
-    X86_64,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
@@ -169,6 +157,7 @@ impl Manifest {
             schema_version: suite.schema_version,
             coverage: suite.coverage,
             platform: suite.platform,
+            defaults: suite.defaults,
             commands: suite.commands,
             servers: suite.servers,
             languages,
@@ -186,6 +175,7 @@ impl Manifest {
         if self.languages.is_empty() {
             return Err("E2E manifest must declare at least one language".to_string());
         }
+        self.defaults.validate()?;
         self.validate_commands()?;
         if self.pairs.is_empty() {
             return Err("E2E manifest must declare at least one language/server pair".to_string());
@@ -230,6 +220,10 @@ impl Manifest {
                 .find(|language| language.id == pair.language)?;
             let profile = language.query_profile.as_ref()?;
             let setup = setup_for_pair(pair, &self.servers)?;
+            let (lsp_timeout_seconds, deadline_seconds) = self
+                .defaults
+                .smoke
+                .resolve(*lsp_timeout_seconds, *deadline_seconds);
             Some(RealServerCase {
                 language,
                 pair,
@@ -239,8 +233,8 @@ impl Manifest {
                 format_file: &profile.format_file,
                 expected_names: &profile.expected_names,
                 exceptions,
-                lsp_timeout_seconds: *lsp_timeout_seconds,
-                deadline_seconds: *deadline_seconds,
+                lsp_timeout_seconds,
+                deadline_seconds,
             })
         })
     }
@@ -249,16 +243,25 @@ impl Manifest {
         &self,
     ) -> impl Iterator<Item = RealServerLifecycleCase<'_>> {
         self.pairs.iter().filter_map(|pair| {
-            RealServerLifecycleCase::from_pair(pair, &self.languages, &self.servers)
+            RealServerLifecycleCase::from_pair(
+                pair,
+                &self.languages,
+                &self.servers,
+                self.defaults.lifecycle,
+            )
         })
     }
 
     pub(crate) fn server_provisioning_cases(
         &self,
     ) -> impl Iterator<Item = ServerProvisioningCase<'_>> {
-        self.servers
-            .iter()
-            .filter_map(|server| ServerProvisioningCase::from_server(server, &self.languages))
+        self.servers.iter().filter_map(|server| {
+            ServerProvisioningCase::from_server(
+                server,
+                &self.languages,
+                self.defaults.provisioning.deadline_seconds,
+            )
+        })
     }
 
     pub(crate) fn command_names(&self) -> BTreeSet<&str> {
@@ -368,7 +371,12 @@ impl Manifest {
             .collect::<BTreeSet<_>>();
         let mut declared = BTreeMap::new();
         for server in &self.servers {
-            server.validate(data, &languages, &compatible)?;
+            server.validate(
+                data,
+                &languages,
+                &compatible,
+                self.defaults.provisioning.deadline_seconds,
+            )?;
             if declared.insert(server.id.as_str(), server).is_some() {
                 return Err(format!(
                     "E2E provisioning inventory declares server {:?} more than once",
@@ -424,7 +432,7 @@ impl Manifest {
                 ));
             }
             if let Some(smoke) = &pair.smoke {
-                smoke.validate(pair)?;
+                smoke.validate(pair, self.defaults.smoke)?;
                 let language = self
                     .languages
                     .iter()
@@ -449,7 +457,7 @@ impl Manifest {
                 }
             }
             if let Some(lifecycle) = &pair.lifecycle {
-                lifecycle.validate(pair)?;
+                lifecycle.validate(pair, self.defaults.lifecycle)?;
             }
             if matches!(
                 pair.smoke,
@@ -547,44 +555,6 @@ impl Manifest {
         }
 
         Ok(())
-    }
-}
-
-impl LanguageFile {
-    fn into_parts(
-        self,
-        case_id: &str,
-        path: &Path,
-    ) -> Result<(LanguageCase, Vec<PairCase>), String> {
-        if self.language.id != case_id {
-            return Err(format!(
-                "E2E case filename {case_id:?} does not match language ID {:?} in {}",
-                self.language.id,
-                path.display()
-            ));
-        }
-        if let Some(pair) = self
-            .pairs
-            .iter()
-            .find(|pair| pair.language != self.language.id)
-        {
-            return Err(format!(
-                "E2E case {} for language {:?} contains pair for language {:?}",
-                path.display(),
-                self.language.id,
-                pair.language
-            ));
-        }
-        Ok((self.language, self.pairs))
-    }
-}
-
-impl PairCase {
-    fn key(&self) -> PairKey {
-        PairKey {
-            language: self.language.clone(),
-            server: self.server.clone(),
-        }
     }
 }
 

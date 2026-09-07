@@ -6,20 +6,27 @@ language:
     symbol-query: Order
     callable-query: format_order
     format-file: src/main.c
-    expected-names: [Order, OrderItem, format_order]
-
+    expected-names:
+      - Order
+      - OrderItem
+      - format_order
 pairs:
   - language: c
     server: clangd
     smoke:
       status: queries
       exceptions:
-        - { command: grep, outcome: empty-matches, reason: "clangd may not publish workspace symbols before background indexing completes" }
-        - { command: build-index, outcome: failure, message: "background-work progress", reason: "clangd exposes no background-work completion notification" }
+        - command: grep
+          outcome: empty-matches
+          reason: clangd may not publish workspace symbols before background indexing completes
+        - command: build-index
+          outcome: failure
+          message: background-work progress
+          reason: clangd exposes no background-work completion notification
       lsp-timeout-seconds: 15
       deadline-seconds: 240
     lifecycle:
       status: scenarios
-      direct-run: { status: exchange }
+      direct-run:
+        status: exchange
       lsp-timeout-seconds: 15
-      deadline-seconds: 240

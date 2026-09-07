@@ -2,8 +2,8 @@ language:
   id: gowork
   kind: metadata
   project: playground/gowork
-
 pairs:
   - language: gowork
     server: gopls
-    smoke: { status: capabilities, lsp-timeout-seconds: 30, deadline-seconds: 300 }
+    smoke:
+      status: capabilities

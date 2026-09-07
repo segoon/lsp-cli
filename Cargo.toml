@@ -11,6 +11,15 @@ keywords = ["lsp", "cli", "language-server"]
 categories = ["command-line-utilities", "development-tools"]
 exclude = ["data/**", "playground/rust/target/**", "playground/c/.cache/**", "playground/cpp/.cache"]
 
+[features]
+e2e-workflow-planner = []
+
+[[bin]]
+name = "e2e-workflow-plan"
+path = "src/bin/e2e_workflow_plan.rs"
+required-features = ["e2e-workflow-planner"]
+test = false
+
 [dependencies]
 clap = { version = "4.5.38", features = ["derive", "string"] }
 clap_complete = "4.6.5"

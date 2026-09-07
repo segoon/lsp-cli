@@ -1,9 +1,9 @@
 use std::collections::BTreeSet;
 
-use super::{ExceptionOutcome, PairCase, SmokeDisposition};
+use super::{ExceptionOutcome, PairCase, SmokeDisposition, suite::Timeouts};
 
 impl SmokeDisposition {
-    pub(super) fn validate(&self, pair: &PairCase) -> Result<(), String> {
+    pub(super) fn validate(&self, pair: &PairCase, defaults: Timeouts) -> Result<(), String> {
         let label = format!("{}/{}", pair.language, pair.server);
         match self {
             Self::Excluded { reason } => {
@@ -12,12 +12,18 @@ impl SmokeDisposition {
             Self::Capabilities {
                 lsp_timeout_seconds,
                 deadline_seconds,
-            } => validate_deadlines(&label, *lsp_timeout_seconds, *deadline_seconds),
+            } => {
+                let (lsp, deadline) = defaults.resolve(*lsp_timeout_seconds, *deadline_seconds);
+                validate_deadlines(&label, lsp, deadline)
+            }
             Self::Queries {
                 exceptions,
                 lsp_timeout_seconds,
                 deadline_seconds,
-            } => validate_queries(&label, exceptions, *lsp_timeout_seconds, *deadline_seconds),
+            } => {
+                let (lsp, deadline) = defaults.resolve(*lsp_timeout_seconds, *deadline_seconds);
+                validate_queries(&label, exceptions, lsp, deadline)
+            }
         }
     }
 }

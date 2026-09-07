@@ -439,9 +439,18 @@ Run:
 Run all 141 compatible pairs, sharded by language and server installation family. Use fail-fast
 disabled so one broken server does not hide the rest of the compatibility report.
 
+The planner resolves installation families from the current Mason registry rather than copying
+that registry metadata into `cases/`. Each shard receives a comma-separated `E2E_CASES` selection.
+Suite-level smoke, lifecycle, and provisioning deadlines provide the common defaults; cases only
+declare intentional overrides.
+
 Do not share homes, daemon runtime directories, or mutable workspaces between parallel jobs. CI may
 cache immutable download transport data, but each case must retain isolated runtime state and must
 not substitute a separately installed server for `--download`.
+
+Every real-server case explicitly tears down its isolated home and temporary roots before the next
+case starts. This includes Mason packages, Go module/build caches, and other server download state;
+only immutable Rust build artifacts are shared by CI.
 
 ### Manual workflow
 
@@ -539,7 +548,7 @@ when the harness copies a project.
 - [x] Resolve all 141 compatible pairs from pinned data without duplicating `filetypes` in cases.
 - [x] Provision every non-excluded server and required SDK.
 - [x] Record reviewed exceptions and platform constraints.
-- [ ] Add sharded nightly and manual workflows.
+- [x] Add sharded nightly and manual workflows.
 - [ ] Verify failures retain server version, command line, capabilities, stderr summary, and cleanup
   state.
 

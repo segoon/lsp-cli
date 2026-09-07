@@ -2,7 +2,7 @@ use std::path::Path;
 
 use serde::Deserialize;
 
-use super::{LanguageCase, PairCase, ServerCase, require_text, setup_for_pair};
+use super::{LanguageCase, PairCase, ServerCase, require_text, setup_for_pair, suite::Timeouts};
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(
@@ -14,8 +14,8 @@ use super::{LanguageCase, PairCase, ServerCase, require_text, setup_for_pair};
 pub(super) enum LifecycleDisposition {
     Scenarios {
         direct_run: DirectRunDisposition,
-        lsp_timeout_seconds: u64,
-        deadline_seconds: u64,
+        lsp_timeout_seconds: Option<u64>,
+        deadline_seconds: Option<u64>,
     },
     Excluded {
         reason: String,
@@ -44,7 +44,7 @@ pub(crate) struct RealServerLifecycleCase<'a> {
 }
 
 impl LifecycleDisposition {
-    pub(super) fn validate(&self, pair: &PairCase) -> Result<(), String> {
+    pub(super) fn validate(&self, pair: &PairCase, defaults: Timeouts) -> Result<(), String> {
         let label = format!("{}/{}", pair.language, pair.server);
         match self {
             Self::Excluded { reason } => {
@@ -55,7 +55,9 @@ impl LifecycleDisposition {
                 lsp_timeout_seconds,
                 deadline_seconds,
             } => {
-                if *lsp_timeout_seconds == 0 || *deadline_seconds < *lsp_timeout_seconds {
+                let (lsp_timeout_seconds, deadline_seconds) =
+                    defaults.resolve(*lsp_timeout_seconds, *deadline_seconds);
+                if lsp_timeout_seconds == 0 || deadline_seconds < lsp_timeout_seconds {
                     return Err(format!(
                         "E2E lifecycle case {label} deadlines must be positive and ordered"
                     ));
@@ -74,6 +76,7 @@ impl<'a> RealServerLifecycleCase<'a> {
         pair: &'a PairCase,
         languages: &'a [LanguageCase],
         servers: &'a [ServerCase],
+        defaults: Timeouts,
     ) -> Option<Self> {
         let LifecycleDisposition::Scenarios {
             direct_run,
@@ -83,6 +86,8 @@ impl<'a> RealServerLifecycleCase<'a> {
         else {
             return None;
         };
+        let (lsp_timeout_seconds, deadline_seconds) =
+            defaults.resolve(*lsp_timeout_seconds, *deadline_seconds);
         Some(Self {
             language: languages
                 .iter()
@@ -90,8 +95,8 @@ impl<'a> RealServerLifecycleCase<'a> {
             pair,
             setup: setup_for_pair(pair, servers)?,
             direct_run,
-            lsp_timeout_seconds: *lsp_timeout_seconds,
-            deadline_seconds: *deadline_seconds,
+            lsp_timeout_seconds,
+            deadline_seconds,
         })
     }
 

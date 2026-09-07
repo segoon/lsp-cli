@@ -42,53 +42,53 @@ impl<'a> ProvisioningTest<'a> {
     fn run_inner(&self) -> Result<(), String> {
         let started = Instant::now();
         let deadline = Duration::from_secs(self.case.deadline_seconds());
-        let context = E2eContext::new()
-            .map_err(|error| format!("failed to create an isolated E2E context: {error}"))?;
-        context.copy_project(&self.repository.join(self.case.project()))?;
-        for (name, resolver) in self.case.host_programs() {
-            context.stage_host_program(name, resolver, remaining(started, deadline)?)?;
-        }
-        let server_name = self.case.server_name(self.repository)?;
-        let output = context.try_run_with_deadline(
-            &[
-                "detect",
-                ".",
-                "--lang",
-                self.case.language(),
-                "--lsp",
-                &server_name,
-                "--download",
-                "--json",
-                "--debug",
-            ],
-            remaining(started, deadline)?,
-        )?;
-        output.ensure_success()?;
-        let response: DetectOutput = output.try_json()?;
-        let [server] = response.servers.as_slice() else {
-            return Err(format!(
-                "detect returned {} servers instead of exactly one",
-                response.servers.len()
-            ));
-        };
-        if server.server != server_name
-            || !server
-                .languages
-                .iter()
-                .any(|item| item == self.case.language())
-        {
-            return Err(format!(
-                "detect returned server {:?} for languages {:?}, expected {:?} for {:?}",
-                server.server,
-                server.languages,
-                server_name,
-                self.case.language()
-            ));
-        }
-        let Some(program) = server.command.first() else {
-            return Err("downloaded server reported an empty command".to_string());
-        };
-        validate_program(program, context.home())
+        E2eContext::run_cleaned(|context| {
+            context.copy_project(&self.repository.join(self.case.project()))?;
+            for (name, resolver) in self.case.host_programs() {
+                context.stage_host_program(name, resolver, remaining(started, deadline)?)?;
+            }
+            let server_name = self.case.server_name(self.repository)?;
+            let output = context.try_run_with_deadline(
+                &[
+                    "detect",
+                    ".",
+                    "--lang",
+                    self.case.language(),
+                    "--lsp",
+                    &server_name,
+                    "--download",
+                    "--json",
+                    "--debug",
+                ],
+                remaining(started, deadline)?,
+            )?;
+            output.ensure_success()?;
+            let response: DetectOutput = output.try_json()?;
+            let [server] = response.servers.as_slice() else {
+                return Err(format!(
+                    "detect returned {} servers instead of exactly one",
+                    response.servers.len()
+                ));
+            };
+            if server.server != server_name
+                || !server
+                    .languages
+                    .iter()
+                    .any(|item| item == self.case.language())
+            {
+                return Err(format!(
+                    "detect returned server {:?} for languages {:?}, expected {:?} for {:?}",
+                    server.server,
+                    server.languages,
+                    server_name,
+                    self.case.language()
+                ));
+            }
+            let Some(program) = server.command.first() else {
+                return Err("downloaded server reported an empty command".to_string());
+            };
+            validate_program(program, context.home())
+        })
     }
 }
 

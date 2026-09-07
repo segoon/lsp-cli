@@ -25,7 +25,7 @@ pub(super) enum ProvisioningDisposition {
     Download {
         #[serde(default)]
         host_programs: Vec<HostProgram>,
-        deadline_seconds: u64,
+        deadline_seconds: Option<u64>,
     },
     Excluded {
         reason: String,
@@ -45,6 +45,7 @@ impl ServerCase {
         data: &Path,
         languages: &BTreeMap<&str, &LanguageCase>,
         compatible: &BTreeSet<PairKey>,
+        default_deadline_seconds: u64,
     ) -> Result<(), String> {
         super::validate_config_id("server", &self.id)?;
         let Some(language) = languages.get(self.owner_language.as_str()) else {
@@ -70,8 +71,9 @@ impl ServerCase {
             ProvisioningDisposition::Download {
                 host_programs,
                 deadline_seconds,
+                ..
             } => {
-                if *deadline_seconds == 0 {
+                if deadline_seconds.unwrap_or(default_deadline_seconds) == 0 {
                     return Err(format!(
                         "E2E provisioning deadline for {:?} must be positive",
                         self.id
@@ -105,10 +107,12 @@ impl<'a> ServerProvisioningCase<'a> {
     pub(super) fn from_server(
         server: &'a ServerCase,
         languages: &'a [LanguageCase],
+        default_deadline_seconds: u64,
     ) -> Option<Self> {
         let ProvisioningDisposition::Download {
             host_programs,
             deadline_seconds,
+            ..
         } = &server.provisioning
         else {
             return None;
@@ -119,7 +123,7 @@ impl<'a> ServerProvisioningCase<'a> {
                 .iter()
                 .find(|language| language.id == server.owner_language)?,
             host_programs,
-            deadline_seconds: *deadline_seconds,
+            deadline_seconds: deadline_seconds.unwrap_or(default_deadline_seconds),
         })
     }
 

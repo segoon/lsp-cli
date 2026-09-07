@@ -127,7 +127,7 @@ fn provisioning_inventory_validates_dispositions_and_owners() {
         |server| {
             server.provisioning = ProvisioningDisposition::Download {
                 host_programs: Vec::new(),
-                deadline_seconds: 0,
+                deadline_seconds: Some(0),
             };
         },
         "deadline",
@@ -362,7 +362,8 @@ fn manifest_rejects_invalid_smoke_deadlines() {
     else {
         panic!("first smoke case should contain queries")
     };
-    *deadline_seconds = lsp_timeout_seconds.saturating_sub(1);
+    *lsp_timeout_seconds = Some(10);
+    *deadline_seconds = Some(9);
 
     let error = manifest
         .validate(repository_root())
@@ -561,7 +562,8 @@ fn lifecycle_scenario_rejects_invalid_deadlines() {
     else {
         panic!("first lifecycle case should contain scenarios")
     };
-    *deadline_seconds = lsp_timeout_seconds.saturating_sub(1);
+    *lsp_timeout_seconds = Some(10);
+    *deadline_seconds = Some(9);
 
     let error = manifest
         .validate(repository_root())

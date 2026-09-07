@@ -43,12 +43,12 @@ pub(super) enum SmokeDisposition {
     Queries {
         #[serde(default)]
         exceptions: Vec<QueryException>,
-        lsp_timeout_seconds: u64,
-        deadline_seconds: u64,
+        lsp_timeout_seconds: Option<u64>,
+        deadline_seconds: Option<u64>,
     },
     Capabilities {
-        lsp_timeout_seconds: u64,
-        deadline_seconds: u64,
+        lsp_timeout_seconds: Option<u64>,
+        deadline_seconds: Option<u64>,
     },
     Excluded {
         reason: String,

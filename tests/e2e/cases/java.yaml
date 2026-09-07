@@ -6,18 +6,20 @@ language:
     symbol-query: Order
     callable-query: createSampleOrder
     format-file: src/main/java/playground/App.java
-    expected-names: [Order, OrderItem, OrderService, createSampleOrder]
-
+    expected-names:
+      - Order
+      - OrderItem
+      - OrderService
+      - createSampleOrder
 pairs:
   - language: java
     server: jdtls
     smoke:
       status: excluded
-      reason: "jdtls initializes but does not exit after direct shutdown; detached lifecycle coverage is required instead."
+      reason: jdtls initializes but does not exit after direct shutdown; detached lifecycle coverage is required instead.
     lifecycle:
       status: scenarios
       direct-run:
         status: excluded
-        reason: "jdtls does not exit reliably after a direct shutdown exchange."
-      lsp-timeout-seconds: 30
+        reason: jdtls does not exit reliably after a direct shutdown exchange.
       deadline-seconds: 300

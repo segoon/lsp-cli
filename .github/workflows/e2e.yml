@@ -1,0 +1,100 @@
+name: End-to-end compatibility
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      selector:
+        description: Compatibility subset to run
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - language
+          - server
+          - installation-family
+      value:
+        description: Language, server, or installation-family ID; empty for all
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: Discover compatibility matrix
+    runs-on: ubuntu-latest
+    outputs:
+      plan: ${{ steps.matrix.outputs.plan }}
+    steps:
+      - name: Check out repository and data
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+      - name: Build matrix from current Mason registry
+        id: matrix
+        env:
+          E2E_SELECTOR: ${{ github.event.inputs.selector || 'all' }}
+          E2E_SELECTOR_VALUE: ${{ github.event.inputs.value }}
+          E2E_PLAN_OUTPUT: ${{ runner.temp }}/e2e-plan.json
+          E2E_REPORT_OUTPUT: ${{ runner.temp }}/e2e-report.md
+        run: |
+          cargo run --locked --features e2e-workflow-planner --bin e2e-workflow-plan
+          echo "plan=$(<"$E2E_PLAN_OUTPUT")" >> "$GITHUB_OUTPUT"
+          cat "$E2E_REPORT_OUTPUT" >> "$GITHUB_STEP_SUMMARY"
+
+  test:
+    name: ${{ matrix.name }}
+    needs: plan
+    if: ${{ fromJSON(needs.plan.outputs.plan).has_runnable }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix: ${{ fromJSON(needs.plan.outputs.plan).matrix }}
+    steps:
+      - name: Check out repository and data
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+      - name: Install Go
+        if: ${{ matrix.needs_go }}
+        uses: actions/setup-go@v7
+        with:
+          go-version: 1.27.1
+      - name: Install Java
+        if: ${{ matrix.needs_java }}
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install Node.js
+        if: ${{ matrix.needs_node }}
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - name: Install .NET
+        if: ${{ matrix.needs_dotnet }}
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - name: Run real-server smoke cases
+        env:
+          E2E_CASES: ${{ matrix.cases }}
+        run: make test-real-server-smoke-e2e

@@ -29,19 +29,19 @@ impl<'a> LifecycleTest<'a> {
     fn run_inner(&self) -> Result<(), String> {
         let started = Instant::now();
         let deadline = Duration::from_secs(self.case.deadline_seconds());
-        let context = E2eContext::new()
-            .map_err(|error| format!("failed to create an isolated E2E context: {error}"))?;
-        let source = self.repository.join(self.case.project());
-        context.copy_project(&source)?;
-        for (name, resolver) in self.case.host_programs() {
-            context.stage_host_program(name, resolver, remaining(started, deadline)?)?;
-        }
-        let server = self.case.server_name(self.repository)?;
-        if self.case.direct_run_enabled() {
-            self.direct_run(&context, &server, remaining(started, deadline)?)?;
-        }
-        self.detached(&context, &source, &server, started, deadline)
-            .map_err(|error| format!("{error}\n{}", context.lifecycle_state()))
+        E2eContext::run_cleaned(|context| {
+            let source = self.repository.join(self.case.project());
+            context.copy_project(&source)?;
+            for (name, resolver) in self.case.host_programs() {
+                context.stage_host_program(name, resolver, remaining(started, deadline)?)?;
+            }
+            let server = self.case.server_name(self.repository)?;
+            if self.case.direct_run_enabled() {
+                self.direct_run(context, &server, remaining(started, deadline)?)?;
+            }
+            self.detached(context, &source, &server, started, deadline)
+                .map_err(|error| format!("{error}\n{}", context.lifecycle_state()))
+        })
     }
 
     fn direct_run(

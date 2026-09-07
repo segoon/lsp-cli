@@ -1,6 +1,8 @@
 use std::path::Path;
 
-use super::{ExceptionOutcome, LspConfig, QueryKind, RealServerCase, read_yaml};
+use super::{
+    ExceptionOutcome, LspConfig, QueryKind, RealServerCapabilitiesCase, RealServerCase, read_yaml,
+};
 
 impl RealServerCase<'_> {
     pub(crate) fn label(&self) -> String {
@@ -47,6 +49,36 @@ impl RealServerCase<'_> {
             .iter()
             .find(|item| item.command == command)
             .map(|item| (item.outcome, item.message.as_deref(), item.reason.as_str()))
+    }
+
+    pub(crate) fn lsp_timeout_seconds(&self) -> u64 {
+        self.lsp_timeout_seconds
+    }
+
+    pub(crate) fn deadline_seconds(&self) -> u64 {
+        self.deadline_seconds
+    }
+}
+
+impl RealServerCapabilitiesCase<'_> {
+    pub(crate) fn label(&self) -> String {
+        format!("{}/{}", self.pair.language, self.pair.server)
+    }
+
+    pub(crate) fn language(&self) -> &str {
+        &self.language.id
+    }
+
+    pub(crate) fn server_name(&self, repository: &Path) -> Result<String, String> {
+        server_name(&self.pair.server, repository)
+    }
+
+    pub(crate) fn project(&self) -> &Path {
+        &self.language.project
+    }
+
+    pub(crate) fn host_programs(&self) -> impl Iterator<Item = (&str, &[String])> {
+        self.setup.host_programs()
     }
 
     pub(crate) fn lsp_timeout_seconds(&self) -> u64 {

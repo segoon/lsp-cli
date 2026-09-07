@@ -1,5 +1,6 @@
-schema-version: 7
+schema-version: 8
 coverage: complete
+platform: { os: linux, architecture: x86-64 }
 
 servers:
   - id: anakin_language_server
@@ -98,7 +99,10 @@ servers:
     owner-language: kotlin
     provisioning:
       status: download
-      host-programs: [{ name: java, resolve: [which, java] }]
+      host-programs:
+        - { name: java, resolve: [which, java] }
+        - { name: uname, resolve: [which, uname] }
+        - { name: xargs, resolve: [which, xargs] }
       deadline-seconds: 600
   - id: kotlin_lsp
     owner-language: kotlin

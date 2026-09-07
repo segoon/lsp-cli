@@ -2,13 +2,23 @@ language:
   id: cs
   kind: source
   project: playground/csharp
+  query-profile:
+    symbol-query: Order
+    callable-query: BuildSampleOrder
+    format-file: Program.cs
+    expected-names: [Order, OrderItem, OrderService, BuildSampleOrder]
 
 pairs:
+  - language: cs
+    server: omnisharp
+    smoke:
+      status: excluded
+      reason: "The approved .NET SDK is not installed in the current Linux E2E host image."
   - language: cs
     server: roslyn_ls
     smoke:
       status: excluded
-      reason: "The required .NET SDK is unavailable and isolated SDK provisioning was not approved."
+      reason: "The approved .NET SDK is not installed in the current Linux E2E host image."
     lifecycle:
       status: excluded
-      reason: "The required .NET SDK is unavailable and isolated SDK provisioning was not approved."
+      reason: "The approved .NET SDK is not installed in the current Linux E2E host image."

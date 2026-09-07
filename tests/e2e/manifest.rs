@@ -24,18 +24,23 @@ pub(crate) use provisioning_case::ServerProvisioningCase;
 use provisioning_case::{ProvisioningDisposition, ServerCase, setup_for_pair};
 #[path = "manifest/query_case.rs"]
 mod query_case;
-pub(crate) use query_case::{ExceptionOutcome, QueryKind, RealServerCase};
-use query_case::{HostProgram, SmokeDisposition};
+pub(crate) use query_case::{
+    ExceptionOutcome, QueryKind, RealServerCapabilitiesCase, RealServerCase,
+};
+use query_case::{HostProgram, QueryProfile, SmokeDisposition};
 #[path = "manifest/dispositions.rs"]
 mod dispositions;
 use dispositions::require_text;
+#[path = "manifest/coverage.rs"]
+mod coverage_cases;
 
-const MANIFEST_SCHEMA_VERSION: u32 = 7;
+const MANIFEST_SCHEMA_VERSION: u32 = 8;
 
 #[derive(Clone, Debug)]
 pub(crate) struct Manifest {
     schema_version: u32,
     coverage: Coverage,
+    platform: Platform,
     commands: Vec<CommandCase>,
     servers: Vec<ServerCase>,
     languages: Vec<LanguageCase>,
@@ -47,6 +52,7 @@ pub(crate) struct Manifest {
 struct SuiteFile {
     schema_version: u32,
     coverage: Coverage,
+    platform: Platform,
     commands: Vec<CommandCase>,
     servers: Vec<ServerCase>,
 }
@@ -89,6 +95,26 @@ struct LanguageCase {
     id: String,
     kind: ProjectKind,
     project: PathBuf,
+    query_profile: Option<QueryProfile>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+struct Platform {
+    os: OperatingSystem,
+    architecture: Architecture,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "kebab-case")]
+enum OperatingSystem {
+    Linux,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "kebab-case")]
+enum Architecture {
+    X86_64,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
@@ -142,6 +168,7 @@ impl Manifest {
         Ok(Self {
             schema_version: suite.schema_version,
             coverage: suite.coverage,
+            platform: suite.platform,
             commands: suite.commands,
             servers: suite.servers,
             languages,
@@ -172,7 +199,7 @@ impl Manifest {
 
         if self.coverage == Coverage::Complete {
             Self::validate_complete_coverage(&data, &declared_languages)?;
-            self.compatible_pair_inventory(&data)?;
+            self.validate_complete_pairs(&data, &servers, &declared_pairs)?;
         }
         Ok(())
     }
@@ -190,10 +217,6 @@ impl Manifest {
     pub(crate) fn real_server_smoke_cases(&self) -> impl Iterator<Item = RealServerCase<'_>> {
         self.pairs.iter().filter_map(|pair| {
             let SmokeDisposition::Queries {
-                symbol_query,
-                callable_query,
-                format_file,
-                expected_names,
                 exceptions,
                 lsp_timeout_seconds,
                 deadline_seconds,
@@ -205,15 +228,16 @@ impl Manifest {
                 .languages
                 .iter()
                 .find(|language| language.id == pair.language)?;
+            let profile = language.query_profile.as_ref()?;
             let setup = setup_for_pair(pair, &self.servers)?;
             Some(RealServerCase {
                 language,
                 pair,
                 setup,
-                symbol_query,
-                callable_query,
-                format_file,
-                expected_names,
+                symbol_query: &profile.symbol_query,
+                callable_query: &profile.callable_query,
+                format_file: &profile.format_file,
+                expected_names: &profile.expected_names,
                 exceptions,
                 lsp_timeout_seconds: *lsp_timeout_seconds,
                 deadline_seconds: *deadline_seconds,
@@ -254,12 +278,6 @@ impl Manifest {
             .map(|language| language.id.clone())
             .collect();
         compatible_pairs(data, &languages)
-    }
-
-    pub(crate) fn declares_pair(&self, label: &str) -> bool {
-        self.pairs
-            .iter()
-            .any(|pair| format!("{}/{}", pair.language, pair.server) == label)
     }
 
     pub(crate) fn declares_server(&self, id: &str) -> bool {
@@ -320,6 +338,15 @@ impl Manifest {
                 ));
             }
             language.validate_project(repository)?;
+            if language.kind == ProjectKind::Source && language.query_profile.is_none() {
+                return Err(format!(
+                    "E2E source language {:?} requires a query profile",
+                    language.id
+                ));
+            }
+            if let Some(profile) = &language.query_profile {
+                profile.validate(&language.id)?;
+            }
         }
         Ok(declared)
     }
@@ -398,12 +425,36 @@ impl Manifest {
             }
             if let Some(smoke) = &pair.smoke {
                 smoke.validate(pair)?;
+                let language = self
+                    .languages
+                    .iter()
+                    .find(|item| item.id == pair.language)
+                    .expect("declared language was checked above");
+                match smoke {
+                    SmokeDisposition::Queries { .. } if language.query_profile.is_none() => {
+                        return Err(format!(
+                            "E2E query pair {}/{} requires a language query profile",
+                            pair.language, pair.server
+                        ));
+                    }
+                    SmokeDisposition::Capabilities { .. }
+                        if language.kind != ProjectKind::Metadata =>
+                    {
+                        return Err(format!(
+                            "E2E capabilities-only pair {}/{} requires a metadata project",
+                            pair.language, pair.server
+                        ));
+                    }
+                    _ => {}
+                }
             }
             if let Some(lifecycle) = &pair.lifecycle {
                 lifecycle.validate(pair)?;
             }
-            if matches!(pair.smoke, Some(SmokeDisposition::Queries { .. }))
-                || matches!(pair.lifecycle, Some(LifecycleDisposition::Scenarios { .. }))
+            if matches!(
+                pair.smoke,
+                Some(SmokeDisposition::Queries { .. } | SmokeDisposition::Capabilities { .. })
+            ) || matches!(pair.lifecycle, Some(LifecycleDisposition::Scenarios { .. }))
             {
                 let Some(server) = servers.get(pair.server.as_str()) else {
                     return Err(format!(

@@ -72,6 +72,32 @@
 
 # LSP server implementations
 
+## Mason PyPI launchers
+
+- In isolated current-Mason runs, the generated launchers for basedpyright,
+  jedi-language-server, python-lsp-server, and Pyre resolved from the package directory but the system
+  Python interpreter could not import their installed modules. Provisioning tests that only prove
+  executable resolution do not establish that a PyPI-backed language server can initialize.
+
+## ty
+
+- Current-Mason ty returned an empty callers result in one isolated Python fixture run and a
+  non-empty result in the next otherwise identical run. The exhaustive pair remains excluded until
+  call-hierarchy results are deterministic enough for a stable expectation.
+
+## Pyrefly
+
+- Current-Mason Pyrefly initializes against the Python playground but returns no workspace
+  symbols, document symbols, or document functions. The pair is excluded because later named
+  queries cannot be given a meaningful semantic assertion without a discoverable symbol.
+
+## deno lsp
+
+- The current Mason Deno server initializes for JavaScript and TypeScript, but rejects the LSP
+  `shutdown` request when its parameters are `null`, returning `-32602` and asking for non-null
+  parameters. LSP 3.17 defines `shutdown` with no parameters, so direct lsp-cli commands currently
+  report an unclean shutdown and the Deno pairs remain excluded.
+
 ## typescript-language-server
 
 - Version 4.4.0 with TypeScript 6.0.3 advertises `workspaceSymbolProvider`, but a fresh
@@ -95,6 +121,13 @@
   and stall initialization. Lifecycle tests wait, with a deadline, for the recorded upstream PID
   to exit after `stop`; socket disappearance alone does not prove complete process termination.
 
+## kotlin-language-server
+
+- The current Mason Kotlin Language Server launcher also needs `uname` and `xargs` in its isolated
+  path. With those tools present it initializes and answers the request, but the process does not
+  exit before the direct-run deadline after shutdown. Its exhaustive pair remains excluded until
+  direct shutdown is reliable.
+
 ## kotlin-lsp
 
 - The Mason package exposes Kotlin LSP as `intellij-server`, not `kotlin-lsp`. The data config must
@@ -114,6 +147,12 @@
 - The Mason package exposes Roslyn through the `roslyn-language-server` .NET tool launcher. A data
   config containing a literal installation placeholder cannot work with generic `--download`;
   launch the Mason-exposed command and let the NuGet backend manage its concrete installation path.
+
+## emmylua_ls
+
+- Current-Mason EmmyLua answers semantic requests for the Lua playground, but its formatting
+  response contains a line outside the requested file. lsp-cli correctly rejects that invalid edit;
+  exhaustive coverage records the stable user-facing failure.
 
 ## lua-language-server
 

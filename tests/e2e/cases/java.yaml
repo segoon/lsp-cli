@@ -2,6 +2,11 @@ language:
   id: java
   kind: source
   project: playground/java
+  query-profile:
+    symbol-query: Order
+    callable-query: createSampleOrder
+    format-file: src/main/java/playground/App.java
+    expected-names: [Order, OrderItem, OrderService, createSampleOrder]
 
 pairs:
   - language: java

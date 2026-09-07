@@ -6,7 +6,9 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::harness::{E2eContext, E2eOutput};
-use crate::manifest::{ExceptionOutcome, Manifest, QueryKind, RealServerCase};
+use crate::manifest::{
+    ExceptionOutcome, Manifest, QueryKind, RealServerCapabilitiesCase, RealServerCase,
+};
 use crate::repository_root;
 
 const QUERY_COMMANDS: [QueryKind; 12] = [
@@ -26,6 +28,11 @@ const QUERY_COMMANDS: [QueryKind; 12] = [
 
 struct RealServerTest<'a> {
     case: RealServerCase<'a>,
+    repository: &'a Path,
+}
+
+struct CapabilitiesTest<'a> {
+    case: RealServerCapabilitiesCase<'a>,
     repository: &'a Path,
 }
 
@@ -173,6 +180,50 @@ impl<'a> RealServerTest<'a> {
             QueryKind::ServerCapabilities => {
                 Err("capabilities must be validated before query execution".to_string())
             }
+        }
+    }
+}
+
+impl CapabilitiesTest<'_> {
+    fn run(self) -> Result<(), String> {
+        let label = self.case.label();
+        eprintln!("E2E case {label}: started");
+        let result = self
+            .run_inner()
+            .map_err(|error| format!("E2E capabilities case {label} failed:\n{error}"));
+        eprintln!("E2E case {label}: finished");
+        result
+    }
+
+    fn run_inner(&self) -> Result<(), String> {
+        let deadline = Duration::from_secs(self.case.deadline_seconds());
+        let context = E2eContext::new()
+            .map_err(|error| format!("failed to create an isolated E2E context: {error}"))?;
+        context.copy_project(&self.repository.join(self.case.project()))?;
+        for (name, resolver) in self.case.host_programs() {
+            context.stage_host_program(name, resolver, deadline)?;
+        }
+        let server = self.case.server_name(self.repository)?;
+        let args = [
+            "server-capabilities".to_string(),
+            ".".to_string(),
+            "--lang".to_string(),
+            self.case.language().to_string(),
+            "--lsp".to_string(),
+            server,
+            "--download".to_string(),
+            "--no-detach".to_string(),
+            "--timeout".to_string(),
+            self.case.lsp_timeout_seconds().to_string(),
+            "--json".to_string(),
+        ];
+        let output = run(&context, &args, deadline)?;
+        output.ensure_success()?;
+        let response: CapabilitiesOutput = output.try_json()?;
+        if response.capabilities.is_object() && !response.server.command.is_empty() {
+            Ok(())
+        } else {
+            Err("server-capabilities returned an invalid semantic payload".to_string())
         }
     }
 }
@@ -373,24 +424,48 @@ fn manifest_real_server_smoke_cases() {
     let manifest = Manifest::load_validated(repository).expect("E2E manifest should be valid");
     let selected = std::env::var("E2E_CASE").ok();
     assert!(
+        manifest.supports_current_platform(),
+        "real-server E2E requires {}; current platform is {}/{}",
+        manifest.platform_label(),
+        std::env::consts::OS,
+        std::env::consts::ARCH
+    );
+    assert!(
         selected
             .as_deref()
             .is_none_or(|label| manifest.declares_pair(label)),
         "E2E_CASE {:?} does not select a declared manifest pair",
         selected.as_deref().unwrap_or_default()
     );
+    if let Some(label) = selected.as_deref()
+        && let Some(reason) = manifest.exclusion_reason(label)
+    {
+        eprintln!("E2E case {label}: reviewed exclusion: {reason}");
+        return;
+    }
     let cases = manifest
         .real_server_smoke_cases()
         .filter(|case| {
-            selected
-                .as_ref()
-                .is_none_or(|expected| case.label() == *expected)
+            selected.as_ref().map_or_else(
+                || manifest.is_preferred_pair(&case.label()),
+                |expected| case.label() == *expected,
+            )
         })
         .collect::<Vec<_>>();
-    let failures = cases
+    let mut failures = cases
         .into_iter()
         .filter_map(|case| RealServerTest::new(case, repository).run().err())
         .collect::<Vec<_>>();
+    failures.extend(
+        manifest
+            .real_server_capabilities_cases()
+            .filter(|case| {
+                selected
+                    .as_ref()
+                    .is_some_and(|expected| case.label() == *expected)
+            })
+            .filter_map(|case| CapabilitiesTest { case, repository }.run().err()),
+    );
     assert!(
         failures.is_empty(),
         "real-server E2E failures:\n{}",

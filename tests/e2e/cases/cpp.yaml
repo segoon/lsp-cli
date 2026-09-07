@@ -2,16 +2,17 @@ language:
   id: cpp
   kind: source
   project: playground/cpp
+  query-profile:
+    symbol-query: Order
+    callable-query: format_order
+    format-file: src/main.cpp
+    expected-names: [Order, OrderItem, format_order]
 
 pairs:
   - language: cpp
     server: clangd
     smoke:
       status: queries
-      symbol-query: Order
-      callable-query: format_order
-      format-file: src/main.cpp
-      expected-names: [Order, OrderItem, format_order]
       exceptions:
         - { command: grep, outcome: empty-matches, reason: "clangd may not publish workspace symbols before background indexing completes" }
         - { command: build-index, outcome: failure, message: "background-work progress", reason: "clangd exposes no background-work completion notification" }

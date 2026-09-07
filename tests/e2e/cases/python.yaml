@@ -2,16 +2,51 @@ language:
   id: python
   kind: source
   project: playground/python
+  query-profile:
+    symbol-query: Order
+    callable-query: build_sample_order
+    format-file: main.py
+    expected-names: [Order, OrderItem, build_sample_order, format_order]
 
 pairs:
+  - language: python
+    server: basedpyright
+    smoke:
+      status: excluded
+      reason: "The isolated Mason launcher cannot import the installed basedpyright Python module."
+  - language: python
+    server: jedi_language_server
+    smoke:
+      status: excluded
+      reason: "The isolated Mason launcher cannot import the installed jedi-language-server Python module."
+  - language: python
+    server: pylsp
+    smoke:
+      status: excluded
+      reason: "The isolated Mason launcher cannot import the installed python-lsp-server module."
+  - language: python
+    server: pylyzer
+    smoke:
+      status: queries
+      exceptions:
+        - { command: grep, outcome: empty-matches, reason: "pylyzer returns no immediate workspace-symbol matches" }
+        - { command: callers, outcome: empty-matches, reason: "pylyzer returns no incoming call-hierarchy edges for the fixture function" }
+      lsp-timeout-seconds: 30
+      deadline-seconds: 300
+  - language: python
+    server: pyre
+    smoke:
+      status: excluded
+      reason: "The isolated Mason launcher cannot import the installed pyre-check Python module."
+  - language: python
+    server: pyrefly
+    smoke:
+      status: excluded
+      reason: "Current Pyrefly initializes but returns no workspace or document symbols for the Python fixture."
   - language: python
     server: pyright
     smoke:
       status: queries
-      symbol-query: Order
-      callable-query: build_sample_order
-      format-file: main.py
-      expected-names: [Order, OrderItem, build_sample_order, format_order]
       exceptions:
         - { command: grep, outcome: empty-matches, reason: "pyright advertises workspace symbols but returns no matches before background analysis completes" }
         - { command: build-index, outcome: failure, message: "background-work progress", reason: "pyright exposes no background-work progress signal" }
@@ -22,3 +57,16 @@ pairs:
       direct-run: { status: exchange }
       lsp-timeout-seconds: 20
       deadline-seconds: 240
+  - language: python
+    server: ty
+    smoke:
+      status: excluded
+      reason: "Current ty returns inconsistent call-hierarchy results across clean isolated runs."
+  - language: python
+    server: zuban
+    smoke:
+      status: queries
+      exceptions:
+        - { command: build-index, outcome: failure, message: "background-work progress", reason: "Zuban exposes no background-work progress signal" }
+      lsp-timeout-seconds: 30
+      deadline-seconds: 300

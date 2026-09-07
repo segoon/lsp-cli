@@ -253,7 +253,7 @@ A validation test should fail when:
 - two cases select the same user-visible server ambiguously;
 - a new top-level subcommand has no assigned coverage class.
 
-The version 7 manifest assigns every canonical command to a coverage strategy, derives one
+The version 8 manifest assigns every canonical command to a coverage strategy, derives one
 preferred smoke-matrix server for every source-language project from `data/lsp-cli.yaml`, and uses
 `coverage: complete`. The compatible inventory—16 detectable languages, 57 relevant servers, and
 141 language/server pairs—is resolved directly from the pinned data. Case YAML contains only
@@ -281,8 +281,9 @@ merge-gate smoke server.
 Manifest validation resolves that user-visible name to one compatible LSP config and requires the
 corresponding pair to exist. Each preferred pair has a tagged `smoke` disposition: either a generic
 query suite or an exclusion with a mandatory reviewed reason. Executable pairs keep provisioning
-and runtime host programs in the shared `setup` block. Query suites declare semantic query terms,
-expected symbols, deadlines, and narrowly scoped known-result exceptions. Language-specific
+and runtime host programs in the shared `setup` block. Source-language query profiles declare
+shared semantic terms, expected symbols, and format paths; pair entries keep only deadlines and
+narrowly scoped known-result exceptions. Language-specific
 prerequisites and expectations belong in YAML, not in the Rust runner. The first provisioning
 method is `download`; add other mechanisms as typed methods when needed instead of branching on
 server names.
@@ -411,8 +412,10 @@ roslyn_ls rust_analyzer ts_ls ty vtsls zuban
 Exclusions cover specialized framework, lint, formatting, spelling, security, AI, and adapter
 servers; deprecated servers; `sourcekit` on the Linux lane; configs without current Mason packages;
 and `java_language_server`, whose Mason source-build recipe is not supported by lsp-cli. These are
-provisioning decisions only. Pair-specific protocol behavior and reviewed query exceptions remain
-the next phase item.
+provisioning decisions only. On the approved Linux x86_64 lane, all 31 compatible pairs backed by
+downloadable servers have an explicit query, capabilities-only, or reviewed-exclusion disposition.
+The other 110 pairs inherit their server's reviewed provisioning exclusion, avoiding duplicate
+policy text while keeping all 141 compatible pairs classified.
 
 Always using Mason latest detects upstream compatibility changes immediately and avoids maintaining
 a second installation path. The tradeoff is a nondeterministic merge gate: a registry or server
@@ -535,7 +538,7 @@ when the harness copies a project.
 
 - [x] Resolve all 141 compatible pairs from pinned data without duplicating `filetypes` in cases.
 - [x] Provision every non-excluded server and required SDK.
-- [ ] Record reviewed exceptions and platform constraints.
+- [x] Record reviewed exceptions and platform constraints.
 - [ ] Add sharded nightly and manual workflows.
 - [ ] Verify failures retain server version, command line, capabilities, stderr summary, and cleanup
   state.

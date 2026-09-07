@@ -2,8 +2,23 @@ language:
   id: lua
   kind: source
   project: playground/lua
+  query-profile:
+    symbol-query: normalize_timestamp
+    callable-query: format_timestamp
+    format-file: timestamp.lua
+    expected-names: [normalize_timestamp, format_timestamp]
 
 pairs:
+  - language: lua
+    server: emmylua_ls
+    smoke:
+      status: queries
+      exceptions:
+        - { command: format, outcome: failure, message: "returned a line outside", reason: "EmmyLua returns an invalid formatting edit outside the requested file" }
+        - { command: grep, outcome: empty-matches, reason: "EmmyLua returns no immediate workspace-symbol matches" }
+        - { command: callees, outcome: empty-matches, reason: "EmmyLua returns no outgoing call-hierarchy edges for the fixture function" }
+      lsp-timeout-seconds: 30
+      deadline-seconds: 300
   - language: lua
     server: lua_ls
     smoke:

@@ -35,6 +35,8 @@ fn complete_manifest_matches_pinned_data() {
     assert_eq!(detectable.len(), 16);
     assert_eq!(servers.len(), 57);
     assert_eq!(compatible.len(), 141);
+    assert_eq!(declared.len(), 31);
+    assert_eq!(compatible.difference(&declared).count(), 110);
     assert_eq!(manifest.servers.len(), 57);
     assert_eq!(
         manifest
@@ -53,6 +55,7 @@ fn complete_manifest_matches_pinned_data() {
         servers
     );
     assert!(declared.is_subset(&compatible));
+    assert_eq!(manifest.platform_label(), "linux/x86_64");
     assert!(
         manifest
             .pairs
@@ -62,6 +65,30 @@ fn complete_manifest_matches_pinned_data() {
     manifest
         .validate(repository_root())
         .expect("complete E2E manifest should be valid");
+}
+
+#[test]
+fn complete_manifest_rejects_a_missing_downloadable_pair() {
+    let mut manifest = Manifest::load().expect("E2E manifest should parse");
+    manifest
+        .pairs
+        .retain(|pair| !(pair.language == "python" && pair.server == "basedpyright"));
+
+    let error = manifest
+        .validate(repository_root())
+        .expect_err("downloadable compatibility must have reviewed behavior");
+
+    assert!(error.contains("missing downloadable pairs"));
+    assert!(error.contains("python/basedpyright"));
+}
+
+#[test]
+fn pair_selection_reports_explicit_and_inherited_exclusions() {
+    let manifest = Manifest::load_validated(repository_root()).expect("manifest should validate");
+    for pair in ["python/basedpyright", "c/ast_grep"] {
+        assert!(manifest.declares_pair(pair));
+        assert!(manifest.exclusion_reason(pair).is_some());
+    }
 }
 
 #[test]
@@ -554,7 +581,7 @@ fn manifest_rejects_a_failure_exception_without_a_message() {
             SmokeDisposition::Queries { exceptions, .. } => exceptions
                 .iter_mut()
                 .find(|item| item.outcome == ExceptionOutcome::Failure),
-            SmokeDisposition::Excluded { .. } => None,
+            SmokeDisposition::Capabilities { .. } | SmokeDisposition::Excluded { .. } => None,
         })
         .expect("manifest should contain an expected failure");
     exception.message = None;

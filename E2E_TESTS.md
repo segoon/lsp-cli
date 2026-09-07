@@ -560,7 +560,7 @@ when the harness copies a project.
 - [x] Check every source file remains below 600 lines.
 - [x] Add regression tests for every bug uncovered during rollout.
 - [x] Add LSP/server-specific discoveries to `GOTCHAS.md`.
-- [ ] Document how to identify upstream server versions and triage nightly failures.
+- [x] Document upstream server version identification and nightly triage in [E2E_TRIAGE.md](E2E_TRIAGE.md).
 
 ## Definition of done
 

@@ -39,6 +39,8 @@ mod real_server_lifecycle;
 mod real_server_support;
 #[path = "e2e/real_servers.rs"]
 mod real_servers;
+#[path = "e2e/run_e2e_test.rs"]
+mod run_e2e_test;
 #[path = "e2e/update.rs"]
 mod update;
 

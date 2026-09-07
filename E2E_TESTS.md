@@ -253,11 +253,16 @@ A validation test should fail when:
 - two cases select the same user-visible server ambiguously;
 - a new top-level subcommand has no assigned coverage class.
 
-The version 6 manifest assigns every canonical command to a coverage strategy, derives one
+The version 7 manifest assigns every canonical command to a coverage strategy, derives one
 preferred smoke-matrix server for every source-language project from `data/lsp-cli.yaml`, and uses
 `coverage: complete`. The compatible inventory—16 detectable languages, 57 relevant servers, and
 141 language/server pairs—is resolved directly from the pinned data. Case YAML contains only
 E2E-specific behavior, avoiding a second copy of each server's `filetypes` list.
+
+The suite manifest also assigns each of the 57 relevant server configs exactly one provisioning
+disposition. Twenty-two general-purpose servers are downloaded through the production Mason path;
+the other 35 have explicit policy or technical exclusions. Shared server setup owns installer and
+runtime prerequisites so language/server behavior overlays do not duplicate them.
 
 ### Extending the manifest
 
@@ -377,8 +382,37 @@ Do not silently skip a required pair because its executable is absent. A CI lane
 the server or reports the pair as an explicit, reviewed exclusion.
 
 Downloading these external test tools requires product-owner approval under the repository's
-dependency policy. They need not become Rust package dependencies, but they are still operational
-dependencies with maintenance, security, licensing, storage, and network consequences.
+dependency policy. Latest-Mason server downloads and official free SDK/runtime provisioning are
+approved. They do not become Rust package dependencies, but they remain operational dependencies
+with maintenance, security, licensing, storage, and network consequences. Proprietary and
+unsupported-platform prerequisites are excluded.
+
+### Provisioning inventory
+
+Run the complete downloadable-server inventory manually with:
+
+```sh
+make test-server-provisioning-e2e
+```
+
+Set `E2E_SERVER=<config-id>` to diagnose one downloadable server. The test copies the server's
+owner project into an isolated context, stages its declared host programs, invokes `detect` with
+`--download`, and verifies that exactly one selected command resolves inside the isolated home.
+It does not initialize the server or substitute for the later language/server behavior matrix.
+
+The downloadable inventory is:
+
+```text
+basedpyright clangd denols emmylua_ls gopls jdtls jedi_language_server
+kotlin_language_server kotlin_lsp lua_ls omnisharp pylsp pylyzer pyre pyrefly pyright
+roslyn_ls rust_analyzer ts_ls ty vtsls zuban
+```
+
+Exclusions cover specialized framework, lint, formatting, spelling, security, AI, and adapter
+servers; deprecated servers; `sourcekit` on the Linux lane; configs without current Mason packages;
+and `java_language_server`, whose Mason source-build recipe is not supported by lsp-cli. These are
+provisioning decisions only. Pair-specific protocol behavior and reviewed query exceptions remain
+the next phase item.
 
 Always using Mason latest detects upstream compatibility changes immediately and avoids maintaining
 a second installation path. The tradeoff is a nondeterministic merge gate: a registry or server
@@ -500,7 +534,7 @@ when the harness copies a project.
 ### Phase 4: exhaustive compatibility
 
 - [x] Resolve all 141 compatible pairs from pinned data without duplicating `filetypes` in cases.
-- [ ] Provision every non-excluded server and required SDK.
+- [x] Provision every non-excluded server and required SDK.
 - [ ] Record reviewed exceptions and platform constraints.
 - [ ] Add sharded nightly and manual workflows.
 - [ ] Verify failures retain server version, command line, capabilities, stderr summary, and cleanup

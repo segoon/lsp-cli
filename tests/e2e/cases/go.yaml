@@ -6,10 +6,6 @@ language:
 pairs:
   - language: go
     server: gopls
-    setup:
-      provision: { method: download }
-      host-programs:
-        - { name: go, resolve: [which, go] }
     smoke:
       status: queries
       symbol-query: Order

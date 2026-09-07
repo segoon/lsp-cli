@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
@@ -18,17 +18,26 @@ mod lifecycle_case;
 mod real_server_case;
 use lifecycle_case::LifecycleDisposition;
 pub(crate) use lifecycle_case::RealServerLifecycleCase;
+#[path = "manifest/provisioning_case.rs"]
+mod provisioning_case;
+pub(crate) use provisioning_case::ServerProvisioningCase;
+use provisioning_case::{ProvisioningDisposition, ServerCase, setup_for_pair};
+#[path = "manifest/query_case.rs"]
+mod query_case;
+pub(crate) use query_case::{ExceptionOutcome, QueryKind, RealServerCase};
+use query_case::{HostProgram, SmokeDisposition};
 #[path = "manifest/dispositions.rs"]
 mod dispositions;
 use dispositions::require_text;
 
-const MANIFEST_SCHEMA_VERSION: u32 = 6;
+const MANIFEST_SCHEMA_VERSION: u32 = 7;
 
 #[derive(Clone, Debug)]
 pub(crate) struct Manifest {
     schema_version: u32,
     coverage: Coverage,
     commands: Vec<CommandCase>,
+    servers: Vec<ServerCase>,
     languages: Vec<LanguageCase>,
     pairs: Vec<PairCase>,
 }
@@ -39,6 +48,7 @@ struct SuiteFile {
     schema_version: u32,
     coverage: Coverage,
     commands: Vec<CommandCase>,
+    servers: Vec<ServerCase>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -102,105 +112,8 @@ impl ProjectKind {
 struct PairCase {
     language: String,
     server: String,
-    setup: Option<ServerSetup>,
     smoke: Option<SmokeDisposition>,
     lifecycle: Option<LifecycleDisposition>,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-#[serde(
-    tag = "status",
-    rename_all = "kebab-case",
-    rename_all_fields = "kebab-case",
-    deny_unknown_fields
-)]
-enum SmokeDisposition {
-    Queries {
-        symbol_query: String,
-        callable_query: String,
-        format_file: PathBuf,
-        expected_names: Vec<String>,
-        #[serde(default)]
-        exceptions: Vec<QueryException>,
-        lsp_timeout_seconds: u64,
-        deadline_seconds: u64,
-    },
-    Excluded {
-        reason: String,
-    },
-}
-
-#[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
-struct ServerSetup {
-    provision: Provision,
-    #[serde(default)]
-    host_programs: Vec<HostProgram>,
-}
-
-#[derive(Clone, Copy, Debug, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
-struct Provision {
-    method: ProvisionMethod,
-}
-
-#[derive(Clone, Copy, Debug, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub(crate) enum ProvisionMethod {
-    Download,
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd)]
-#[serde(rename_all = "kebab-case")]
-pub(crate) enum QueryKind {
-    ServerCapabilities,
-    Diagnostics,
-    Format,
-    Grep,
-    ListSymbols,
-    ListFunctions,
-    References,
-    Callers,
-    Callees,
-    Definition,
-    Declaration,
-    BuildIndex,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
-struct QueryException {
-    command: QueryKind,
-    outcome: ExceptionOutcome,
-    message: Option<String>,
-    reason: String,
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
-#[serde(rename_all = "kebab-case")]
-pub(crate) enum ExceptionOutcome {
-    EmptyMatches,
-    Failure,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
-struct HostProgram {
-    name: String,
-    resolve: Vec<String>,
-}
-
-pub(crate) struct RealServerCase<'a> {
-    language: &'a LanguageCase,
-    pair: &'a PairCase,
-    setup: &'a ServerSetup,
-    symbol_query: &'a str,
-    callable_query: &'a str,
-    format_file: &'a Path,
-    expected_names: &'a [String],
-    exceptions: &'a [QueryException],
-    lsp_timeout_seconds: u64,
-    deadline_seconds: u64,
 }
 
 impl Manifest {
@@ -230,6 +143,7 @@ impl Manifest {
             schema_version: suite.schema_version,
             coverage: suite.coverage,
             commands: suite.commands,
+            servers: suite.servers,
             languages,
             pairs,
         })
@@ -252,7 +166,8 @@ impl Manifest {
 
         let data = repository.join("data");
         let declared_languages = self.validate_languages(repository, &data)?;
-        let declared_pairs = self.validate_pairs(&data, &declared_languages)?;
+        let servers = self.validate_servers(&data)?;
+        let declared_pairs = self.validate_pairs(&data, &declared_languages, &servers)?;
         self.validate_preferred_servers(&data, &declared_pairs)?;
 
         if self.coverage == Coverage::Complete {
@@ -290,7 +205,7 @@ impl Manifest {
                 .languages
                 .iter()
                 .find(|language| language.id == pair.language)?;
-            let setup = pair.setup.as_ref()?;
+            let setup = setup_for_pair(pair, &self.servers)?;
             Some(RealServerCase {
                 language,
                 pair,
@@ -309,9 +224,17 @@ impl Manifest {
     pub(crate) fn real_server_lifecycle_cases(
         &self,
     ) -> impl Iterator<Item = RealServerLifecycleCase<'_>> {
-        self.pairs
+        self.pairs.iter().filter_map(|pair| {
+            RealServerLifecycleCase::from_pair(pair, &self.languages, &self.servers)
+        })
+    }
+
+    pub(crate) fn server_provisioning_cases(
+        &self,
+    ) -> impl Iterator<Item = ServerProvisioningCase<'_>> {
+        self.servers
             .iter()
-            .filter_map(|pair| RealServerLifecycleCase::from_pair(pair, &self.languages))
+            .filter_map(|server| ServerProvisioningCase::from_server(server, &self.languages))
     }
 
     pub(crate) fn command_names(&self) -> BTreeSet<&str> {
@@ -337,6 +260,16 @@ impl Manifest {
         self.pairs
             .iter()
             .any(|pair| format!("{}/{}", pair.language, pair.server) == label)
+    }
+
+    pub(crate) fn declares_server(&self, id: &str) -> bool {
+        self.servers.iter().any(|server| server.id == id)
+    }
+
+    pub(crate) fn server_is_downloadable(&self, id: &str) -> bool {
+        self.servers
+            .iter()
+            .any(|server| server.id == id && server.is_downloadable())
     }
 
     pub(crate) fn commands_for(&self, strategy: CommandStrategy) -> impl Iterator<Item = &str> {
@@ -391,10 +324,47 @@ impl Manifest {
         Ok(declared)
     }
 
-    fn validate_pairs(
+    fn validate_servers<'a>(
+        &'a self,
+        data: &Path,
+    ) -> Result<BTreeMap<&'a str, &'a ServerCase>, String> {
+        let languages = self
+            .languages
+            .iter()
+            .map(|language| (language.id.as_str(), language))
+            .collect::<BTreeMap<_, _>>();
+        let detectable = languages.keys().map(|id| (*id).to_string()).collect();
+        let compatible = compatible_pairs(data, &detectable)?;
+        let expected = compatible
+            .iter()
+            .map(|pair| pair.server.as_str())
+            .collect::<BTreeSet<_>>();
+        let mut declared = BTreeMap::new();
+        for server in &self.servers {
+            server.validate(data, &languages, &compatible)?;
+            if declared.insert(server.id.as_str(), server).is_some() {
+                return Err(format!(
+                    "E2E provisioning inventory declares server {:?} more than once",
+                    server.id
+                ));
+            }
+        }
+        let actual = declared.keys().copied().collect::<BTreeSet<_>>();
+        let missing = expected.difference(&actual).copied().collect::<Vec<_>>();
+        let extra = actual.difference(&expected).copied().collect::<Vec<_>>();
+        if !missing.is_empty() || !extra.is_empty() {
+            return Err(format!(
+                "E2E provisioning inventory does not match compatible servers; missing: {missing:?}; extra: {extra:?}"
+            ));
+        }
+        Ok(declared)
+    }
+
+    fn validate_pairs<'a>(
         &self,
         data: &Path,
         declared_languages: &BTreeSet<String>,
+        servers: &BTreeMap<&'a str, &'a ServerCase>,
     ) -> Result<BTreeSet<PairKey>, String> {
         let mut declared = BTreeSet::new();
         for pair in &self.pairs {
@@ -435,15 +405,18 @@ impl Manifest {
             if matches!(pair.smoke, Some(SmokeDisposition::Queries { .. }))
                 || matches!(pair.lifecycle, Some(LifecycleDisposition::Scenarios { .. }))
             {
-                pair.setup
-                    .as_ref()
-                    .ok_or_else(|| {
-                        format!(
-                            "E2E executable pair {}/{} must declare server setup",
-                            pair.language, pair.server
-                        )
-                    })?
-                    .validate(pair)?;
+                let Some(server) = servers.get(pair.server.as_str()) else {
+                    return Err(format!(
+                        "E2E executable pair {}/{} has no provisioning inventory entry",
+                        pair.language, pair.server
+                    ));
+                };
+                if !server.is_downloadable() {
+                    return Err(format!(
+                        "E2E executable pair {}/{} uses an excluded provisioning server",
+                        pair.language, pair.server
+                    ));
+                }
             }
         }
         Ok(declared)

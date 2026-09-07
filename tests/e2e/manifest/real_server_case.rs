@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use super::{ExceptionOutcome, LspConfig, ProvisionMethod, QueryKind, RealServerCase, read_yaml};
+use super::{ExceptionOutcome, LspConfig, QueryKind, RealServerCase, read_yaml};
 
 impl RealServerCase<'_> {
     pub(crate) fn label(&self) -> String {
@@ -20,14 +20,7 @@ impl RealServerCase<'_> {
     }
 
     pub(crate) fn host_programs(&self) -> impl Iterator<Item = (&str, &[String])> {
-        self.setup
-            .host_programs
-            .iter()
-            .map(|program| (program.name.as_str(), program.resolve.as_slice()))
-    }
-
-    pub(crate) fn provision_method(&self) -> ProvisionMethod {
-        self.setup.provision.method
+        self.setup.host_programs()
     }
 
     pub(crate) fn symbol_query(&self) -> &str {

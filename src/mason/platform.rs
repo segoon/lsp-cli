@@ -44,7 +44,10 @@ impl MasonPlatform {
 
     #[must_use]
     pub fn matches(&self, target: &str) -> bool {
-        target == self.full || target == self.family || target == self.os
+        target == self.full
+            || target == self.family
+            || target == self.os
+            || (target == "unix" && self.os != "win")
     }
 }
 
@@ -73,6 +76,7 @@ mod tests {
         assert!(platform.matches("linux_x64_gnu"));
         assert!(platform.matches("linux_x64"));
         assert!(platform.matches("linux"));
+        assert!(platform.matches("unix"));
         assert!(!platform.matches("darwin_x64"));
     }
 }

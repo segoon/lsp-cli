@@ -6,11 +6,6 @@ language:
 pairs:
   - language: javascript
     server: ts_ls
-    setup:
-      provision: { method: download }
-      host-programs:
-        - { name: node, resolve: [which, node] }
-        - { name: npm, resolve: [which, npm] }
     smoke:
       status: queries
       symbol-query: Order

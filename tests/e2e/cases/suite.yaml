@@ -1,5 +1,243 @@
-schema-version: 6
+schema-version: 7
 coverage: complete
+
+servers:
+  - id: anakin_language_server
+    owner-language: python
+    provisioning: { status: excluded, reason: "The current Mason registry has no package for anakin-language-server." }
+  - id: angularls
+    owner-language: typescript
+    provisioning: { status: excluded, reason: "Angular Language Service is framework-specific and the E2E scope is general-purpose language servers." }
+  - id: ast_grep
+    owner-language: rust
+    provisioning: { status: excluded, reason: "ast-grep is a structural search and lint tool rather than a general-purpose language server." }
+  - id: bacon_ls
+    owner-language: rust
+    provisioning: { status: excluded, reason: "bacon-ls is a diagnostics adapter rather than a general-purpose Rust language server." }
+  - id: basedpyright
+    owner-language: python
+    provisioning:
+      status: download
+      host-programs: [{ name: python3, resolve: [which, python3] }]
+      deadline-seconds: 600
+  - id: ccls
+    owner-language: c
+    provisioning: { status: excluded, reason: "The current Mason registry has no package for ccls." }
+  - id: clangd
+    owner-language: c
+    provisioning: { status: download, deadline-seconds: 600 }
+  - id: codebook
+    owner-language: rust
+    provisioning: { status: excluded, reason: "codebook is a spell checker rather than a general-purpose language server." }
+  - id: cssmodules_ls
+    owner-language: javascript
+    provisioning: { status: excluded, reason: "cssmodules-language-server is framework-specific rather than a general-purpose JavaScript server." }
+  - id: denols
+    owner-language: javascript
+    provisioning: { status: download, deadline-seconds: 600 }
+  - id: djls
+    owner-language: python
+    provisioning: { status: excluded, reason: "django-language-server is framework-specific rather than a general-purpose Python server." }
+  - id: dprint
+    owner-language: typescript
+    provisioning: { status: excluded, reason: "dprint is a formatter rather than a general-purpose language server." }
+  - id: efm
+    owner-language: lua
+    provisioning: { status: excluded, reason: "efm is a wrapper for external lint and format tools rather than a language server implementation." }
+  - id: ember
+    owner-language: javascript
+    provisioning: { status: excluded, reason: "ember-language-server is framework-specific and requires an Ember project." }
+  - id: emmylua_ls
+    owner-language: lua
+    provisioning: { status: download, deadline-seconds: 600 }
+  - id: eslint
+    owner-language: javascript
+    provisioning: { status: excluded, reason: "eslint-lsp provides lint diagnostics rather than general-purpose language intelligence." }
+  - id: flow
+    owner-language: javascript
+    provisioning: { status: excluded, reason: "The current Mason registry has no package for Flow." }
+  - id: gitlab_duo
+    owner-language: javascript
+    provisioning: { status: excluded, reason: "GitLab Duo requires an authenticated external service and is outside general-purpose server coverage." }
+  - id: golangci_lint_ls
+    owner-language: go
+    provisioning: { status: excluded, reason: "golangci-lint-langserver is a lint adapter rather than a general-purpose Go language server." }
+  - id: gopls
+    owner-language: go
+    provisioning:
+      status: download
+      host-programs: [{ name: go, resolve: [which, go] }]
+      deadline-seconds: 600
+  - id: harper_ls
+    owner-language: rust
+    provisioning: { status: excluded, reason: "harper-ls is a prose grammar checker rather than a general-purpose language server." }
+  - id: htmx
+    owner-language: javascript
+    provisioning: { status: excluded, reason: "htmx-lsp is framework-specific rather than a general-purpose JavaScript server." }
+  - id: java_language_server
+    owner-language: java
+    provisioning: { status: excluded, reason: "Its Mason package requires a source-build recipe that lsp-cli does not support." }
+  - id: jdtls
+    owner-language: java
+    provisioning:
+      status: download
+      host-programs:
+        - { name: java, resolve: [which, java] }
+        - { name: python3, resolve: [which, python3] }
+      deadline-seconds: 600
+  - id: jedi_language_server
+    owner-language: python
+    provisioning:
+      status: download
+      host-programs: [{ name: python3, resolve: [which, python3] }]
+      deadline-seconds: 600
+  - id: kakehashi
+    owner-language: python
+    provisioning: { status: excluded, reason: "kakehashi bridges other tools rather than providing general-purpose language intelligence." }
+  - id: kotlin_language_server
+    owner-language: kotlin
+    provisioning:
+      status: download
+      host-programs: [{ name: java, resolve: [which, java] }]
+      deadline-seconds: 600
+  - id: kotlin_lsp
+    owner-language: kotlin
+    provisioning: { status: download, deadline-seconds: 600 }
+  - id: lua_ls
+    owner-language: lua
+    provisioning: { status: download, deadline-seconds: 600 }
+  - id: lwc_ls
+    owner-language: javascript
+    provisioning: { status: excluded, reason: "lwc-language-server is Salesforce-framework-specific rather than a general-purpose JavaScript server." }
+  - id: omnisharp
+    owner-language: cs
+    provisioning:
+      status: download
+      host-programs: [{ name: dotnet, resolve: [which, dotnet] }]
+      deadline-seconds: 600
+  - id: pylsp
+    owner-language: python
+    provisioning:
+      status: download
+      host-programs: [{ name: python3, resolve: [which, python3] }]
+      deadline-seconds: 600
+  - id: pylyzer
+    owner-language: python
+    provisioning:
+      status: download
+      host-programs: [{ name: python3, resolve: [which, python3] }]
+      deadline-seconds: 600
+  - id: pyre
+    owner-language: python
+    provisioning:
+      status: download
+      host-programs: [{ name: python3, resolve: [which, python3] }]
+      deadline-seconds: 600
+  - id: pyrefly
+    owner-language: python
+    provisioning:
+      status: download
+      host-programs: [{ name: python3, resolve: [which, python3] }]
+      deadline-seconds: 600
+  - id: pyright
+    owner-language: python
+    provisioning:
+      status: download
+      host-programs:
+        - { name: node, resolve: [which, node] }
+        - { name: npm, resolve: [which, npm] }
+      deadline-seconds: 600
+  - id: quick_lint_js
+    owner-language: javascript
+    provisioning: { status: excluded, reason: "quick-lint-js provides lint diagnostics rather than general-purpose language intelligence." }
+  - id: rls
+    owner-language: rust
+    provisioning: { status: excluded, reason: "RLS is deprecated and replaced by rust-analyzer." }
+  - id: rome
+    owner-language: javascript
+    provisioning: { status: excluded, reason: "Rome is discontinued and replaced by Biome." }
+  - id: roslyn_ls
+    owner-language: cs
+    provisioning:
+      status: download
+      host-programs:
+        - { name: chmod, resolve: [which, chmod] }
+        - { name: dotnet, resolve: [which, dotnet] }
+        - { name: env, resolve: [which, env] }
+      deadline-seconds: 600
+  - id: ruff
+    owner-language: python
+    provisioning: { status: excluded, reason: "Ruff provides lint and format features rather than general-purpose Python language intelligence." }
+  - id: ruff_lsp
+    owner-language: python
+    provisioning: { status: excluded, reason: "ruff-lsp is deprecated in favor of Ruff's native server and remains lint/format-specific." }
+  - id: rust_analyzer
+    owner-language: rust
+    provisioning:
+      status: download
+      host-programs:
+        - { name: cargo, resolve: [rustup, which, cargo] }
+        - { name: rustc, resolve: [rustup, which, rustc] }
+        - { name: rustfmt, resolve: [rustup, which, rustfmt] }
+      deadline-seconds: 600
+  - id: selene3p_ls
+    owner-language: lua
+    provisioning: { status: excluded, reason: "selene-3p-language-server is lint-specific rather than a general-purpose Lua server." }
+  - id: snyk_ls
+    owner-language: python
+    provisioning: { status: excluded, reason: "Snyk requires an authenticated security service and is outside general-purpose server coverage." }
+  - id: sourcekit
+    owner-language: objc
+    provisioning: { status: excluded, reason: "sourcekit-lsp requires an Apple or Swift toolchain and is not provisionable in the Linux E2E lane." }
+  - id: stylua
+    owner-language: lua
+    provisioning: { status: excluded, reason: "StyLua is a formatter rather than a general-purpose Lua language server." }
+  - id: stylua3p_ls
+    owner-language: lua
+    provisioning: { status: excluded, reason: "stylua-3p-language-server exposes formatting only rather than general-purpose Lua intelligence." }
+  - id: tailwindcss
+    owner-language: javascript
+    provisioning: { status: excluded, reason: "tailwindcss-language-server is framework-specific rather than a general-purpose JavaScript server." }
+  - id: ts_ls
+    owner-language: javascript
+    provisioning:
+      status: download
+      host-programs:
+        - { name: node, resolve: [which, node] }
+        - { name: npm, resolve: [which, npm] }
+      deadline-seconds: 600
+  - id: ttags
+    owner-language: rust
+    provisioning: { status: excluded, reason: "ttags is a tags adapter rather than a general-purpose language server." }
+  - id: tvm_ffi_navigator
+    owner-language: python
+    provisioning: { status: excluded, reason: "FFI Navigator is specific to TVM foreign-function interfaces rather than general-purpose language intelligence." }
+  - id: ty
+    owner-language: python
+    provisioning:
+      status: download
+      host-programs: [{ name: python3, resolve: [which, python3] }]
+      deadline-seconds: 600
+  - id: unocss
+    owner-language: typescript
+    provisioning: { status: excluded, reason: "unocss-language-server is framework-specific rather than a general-purpose TypeScript server." }
+  - id: vtsls
+    owner-language: typescript
+    provisioning:
+      status: download
+      host-programs:
+        - { name: node, resolve: [which, node] }
+        - { name: npm, resolve: [which, npm] }
+      deadline-seconds: 600
+  - id: wc_language_server
+    owner-language: typescript
+    provisioning: { status: excluded, reason: "wc-language-server is Web-Components-specific rather than a general-purpose TypeScript server." }
+  - id: zuban
+    owner-language: python
+    provisioning:
+      status: download
+      host-programs: [{ name: python3, resolve: [which, python3] }]
+      deadline-seconds: 600
 
 commands:
   - { name: commands, strategy: catalog }

@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 
 use crate::harness::{E2eContext, SocketSnapshot};
 use crate::lsp_exchange;
-use crate::manifest::{Manifest, ProvisionMethod, RealServerLifecycleCase};
+use crate::manifest::{Manifest, RealServerLifecycleCase};
 use crate::repository_root;
 
 struct LifecycleTest<'a> {
@@ -151,9 +151,7 @@ impl<'a> LifecycleTest<'a> {
             "--json".to_string(),
             "--debug".to_string(),
         ];
-        if matches!(self.case.provision_method(), ProvisionMethod::Download) {
-            args.push("--download".to_string());
-        }
+        args.push("--download".to_string());
         let output = context.try_run_with_deadline(&refs(&args), deadline)?;
         output.ensure_success()?;
         let _: serde_json::Value = output.try_json()?;
@@ -170,9 +168,7 @@ impl<'a> LifecycleTest<'a> {
             server.to_string(),
             "--debug".to_string(),
         ];
-        if matches!(self.case.provision_method(), ProvisionMethod::Download) {
-            args.push("--download".to_string());
-        }
+        args.push("--download".to_string());
         args
     }
 

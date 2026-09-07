@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use super::{ExceptionOutcome, PairCase, ServerSetup, SmokeDisposition, validate_config_id};
+use super::{ExceptionOutcome, PairCase, SmokeDisposition};
 
 impl SmokeDisposition {
     pub(super) fn validate(&self, pair: &PairCase) -> Result<(), String> {
@@ -58,22 +58,6 @@ impl SmokeDisposition {
                     ));
                 }
                 (ExceptionOutcome::EmptyMatches, None) => {}
-            }
-        }
-        Ok(())
-    }
-}
-
-impl ServerSetup {
-    pub(super) fn validate(&self, pair: &PairCase) -> Result<(), String> {
-        let mut names = BTreeSet::new();
-        for program in &self.host_programs {
-            validate_config_id("host program", &program.name)?;
-            if !names.insert(&program.name) || program.resolve.is_empty() {
-                return Err(format!(
-                    "E2E setup for {}/{} has an invalid host program",
-                    pair.language, pair.server
-                ));
             }
         }
         Ok(())

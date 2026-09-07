@@ -6,16 +6,6 @@ language:
 pairs:
   - language: rust
     server: rust_analyzer
-    setup:
-      provision:
-        method: download
-      host-programs:
-        - name: cargo
-          resolve: [rustup, which, cargo]
-        - name: rustc
-          resolve: [rustup, which, rustc]
-        - name: rustfmt
-          resolve: [rustup, which, rustfmt]
     smoke:
       status: queries
       symbol-query: Order

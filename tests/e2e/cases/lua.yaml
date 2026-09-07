@@ -6,8 +6,6 @@ language:
 pairs:
   - language: lua
     server: lua_ls
-    setup:
-      provision: { method: download }
     smoke:
       status: excluded
       reason: "LuaLS answers queries but does not exit after direct shutdown; detached lifecycle coverage is required instead."

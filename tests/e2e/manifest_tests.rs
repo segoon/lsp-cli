@@ -35,6 +35,23 @@ fn complete_manifest_matches_pinned_data() {
     assert_eq!(detectable.len(), 16);
     assert_eq!(servers.len(), 57);
     assert_eq!(compatible.len(), 141);
+    assert_eq!(manifest.servers.len(), 57);
+    assert_eq!(
+        manifest
+            .servers
+            .iter()
+            .filter(|server| server.is_downloadable())
+            .count(),
+        22
+    );
+    assert_eq!(
+        manifest
+            .servers
+            .iter()
+            .map(|server| server.id.as_str())
+            .collect::<BTreeSet<_>>(),
+        servers
+    );
     assert!(declared.is_subset(&compatible));
     assert!(
         manifest
@@ -45,6 +62,67 @@ fn complete_manifest_matches_pinned_data() {
     manifest
         .validate(repository_root())
         .expect("complete E2E manifest should be valid");
+}
+
+#[test]
+fn provisioning_inventory_rejects_missing_and_duplicate_servers() {
+    let mut missing = Manifest::load().expect("E2E manifest should parse");
+    let duplicate = missing
+        .servers
+        .first()
+        .expect("manifest should contain provisioning servers")
+        .clone();
+    missing.servers.remove(0);
+    let error = missing
+        .validate(repository_root())
+        .expect_err("missing provisioning server should fail");
+    assert!(error.contains("does not match compatible servers"));
+
+    let mut duplicated = Manifest::load().expect("E2E manifest should parse");
+    duplicated.servers.push(duplicate);
+    let error = duplicated
+        .validate(repository_root())
+        .expect_err("duplicate provisioning server should fail");
+    assert!(error.contains("more than once"));
+}
+
+#[test]
+fn provisioning_inventory_validates_dispositions_and_owners() {
+    assert_invalid_provisioning(
+        |server| {
+            server.provisioning = ProvisioningDisposition::Excluded {
+                reason: " ".to_string(),
+            };
+        },
+        "must be non-empty",
+    );
+    assert_invalid_provisioning(
+        |server| {
+            server.provisioning = ProvisioningDisposition::Download {
+                host_programs: Vec::new(),
+                deadline_seconds: 0,
+            };
+        },
+        "deadline",
+    );
+    assert_invalid_provisioning(
+        |server| server.owner_language = "gomod".to_string(),
+        "not compatible with owner language",
+    );
+}
+
+fn assert_invalid_provisioning(mutate: impl FnOnce(&mut ServerCase), expected_error: &str) {
+    let mut manifest = Manifest::load().expect("E2E manifest should parse");
+    let server = manifest
+        .servers
+        .iter_mut()
+        .find(|server| server.id == "clangd")
+        .expect("clangd provisioning should exist");
+    mutate(server);
+    let error = manifest
+        .validate(repository_root())
+        .expect_err("invalid provisioning inventory should fail");
+    assert!(error.contains(expected_error), "unexpected error: {error}");
 }
 
 #[test]
@@ -269,18 +347,25 @@ fn manifest_rejects_invalid_smoke_deadlines() {
 #[test]
 fn manifest_rejects_duplicate_host_programs() {
     let mut manifest = Manifest::load().expect("E2E manifest should parse");
-    let setup = manifest
-        .pairs
+    let programs = manifest
+        .servers
         .iter_mut()
-        .filter_map(|pair| pair.setup.as_mut())
-        .find(|setup| !setup.host_programs.is_empty())
-        .expect("manifest should contain a host-dependent query case");
-    let duplicate = setup
-        .host_programs
+        .find_map(|server| match &mut server.provisioning {
+            ProvisioningDisposition::Download { host_programs, .. }
+                if !host_programs.is_empty() =>
+            {
+                Some(host_programs)
+            }
+            ProvisioningDisposition::Download { .. } | ProvisioningDisposition::Excluded { .. } => {
+                None
+            }
+        })
+        .expect("manifest should contain a host-dependent provisioning case");
+    let duplicate = programs
         .first()
-        .expect("setup should have a host program")
+        .expect("provisioning should have a host program")
         .clone();
-    setup.host_programs.push(duplicate);
+    programs.push(duplicate);
 
     let error = manifest
         .validate(repository_root())
@@ -367,20 +452,29 @@ fn preferred_server_rejects_duplicate_lifecycle_owners() {
 }
 
 #[test]
-fn executable_lifecycle_requires_server_setup() {
+fn executable_lifecycle_requires_downloadable_server() {
     let mut manifest = Manifest::load().expect("E2E manifest should parse");
-    let pair = manifest
+    let server_id = manifest
         .pairs
-        .iter_mut()
+        .iter()
         .find(|pair| matches!(pair.lifecycle, Some(LifecycleDisposition::Scenarios { .. })))
-        .expect("manifest should contain a lifecycle scenario");
-    pair.setup = None;
+        .expect("manifest should contain a lifecycle scenario")
+        .server
+        .clone();
+    manifest
+        .servers
+        .iter_mut()
+        .find(|server| server.id == server_id)
+        .expect("lifecycle server should have provisioning")
+        .provisioning = ProvisioningDisposition::Excluded {
+        reason: "test exclusion".to_string(),
+    };
 
     let error = manifest
         .validate(repository_root())
-        .expect_err("lifecycle scenario should require setup");
+        .expect_err("lifecycle scenario should require downloadable provisioning");
 
-    assert!(error.contains("must declare server setup"));
+    assert!(error.contains("uses an excluded provisioning server"));
 }
 
 #[test]

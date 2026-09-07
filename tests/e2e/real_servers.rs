@@ -6,7 +6,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::harness::{E2eContext, E2eOutput};
-use crate::manifest::{ExceptionOutcome, Manifest, ProvisionMethod, QueryKind, RealServerCase};
+use crate::manifest::{ExceptionOutcome, Manifest, QueryKind, RealServerCase};
 use crate::repository_root;
 
 const QUERY_COMMANDS: [QueryKind; 12] = [
@@ -138,9 +138,7 @@ impl<'a> RealServerTest<'a> {
             "--lsp".to_string(),
             server.to_string(),
         ]);
-        if matches!(self.case.provision_method(), ProvisionMethod::Download) {
-            args.push("--download".to_string());
-        }
+        args.push("--download".to_string());
         args.extend([
             "--no-detach".to_string(),
             "--timeout".to_string(),

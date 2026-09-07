@@ -29,6 +29,8 @@ mod manifest;
 mod manifest_data;
 #[path = "e2e/process.rs"]
 mod process;
+#[path = "e2e/provisioning.rs"]
+mod provisioning;
 #[path = "e2e/queries.rs"]
 mod queries;
 #[path = "e2e/real_server_lifecycle.rs"]

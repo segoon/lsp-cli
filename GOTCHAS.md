@@ -79,6 +79,26 @@
   Python interpreter could not import their installed modules. Provisioning tests that only prove
   executable resolution do not establish that a PyPI-backed language server can initialize.
 
+## pylyzer
+
+- In an isolated current-Mason run against the Python playground, pylyzer returned no immediate
+  `workspace/symbol` matches and no incoming call-hierarchy edges for `build_sample_order`, while
+  its other applicable semantic queries completed. Exhaustive coverage records those two empty
+  results explicitly instead of treating advertised capabilities as a guarantee of fixture matches.
+
+## pyright
+
+- In an isolated current-Mason run against the Python playground, pyright advertised workspace
+  symbols but returned no matches before background analysis completed. It also exposed no
+  background-work completion signal usable by `build-index`; tests assert both bounded outcomes
+  instead of adding a fixed indexing sleep.
+
+## zuban
+
+- Current-Mason Zuban answers the Python playground's semantic queries but exposes no
+  background-work progress signal usable by `build-index`. Exhaustive coverage asserts the bounded
+  user-facing failure rather than inferring that indexing has completed.
+
 ## ty
 
 - Current-Mason ty returned an empty callers result in one isolated Python fixture run and a
@@ -106,6 +126,13 @@
   unsupported capability.
 - The server exposes no background-work progress notification usable by `build-index`; assert the
   bounded user-facing failure instead of sleeping or assuming that project analysis completed.
+
+## vtsls
+
+- In isolated current-Mason runs against the JavaScript and TypeScript playgrounds, vtsls returned
+  no immediate workspace-symbol matches before project analysis completed and exposed no
+  background-work completion notification usable by `build-index`. Exhaustive coverage records
+  both bounded outcomes instead of relying on a fixed indexing delay.
 
 ## jdtls
 
@@ -153,6 +180,9 @@
 - Current-Mason EmmyLua answers semantic requests for the Lua playground, but its formatting
   response contains a line outside the requested file. lsp-cli correctly rejects that invalid edit;
   exhaustive coverage records the stable user-facing failure.
+- The same run returned no immediate workspace-symbol matches and no outgoing call-hierarchy edges
+  for the fixture's `format_timestamp` function. Those empty results are explicit pair exceptions,
+  not evidence that the corresponding capabilities are universally unsupported.
 
 ## lua-language-server
 

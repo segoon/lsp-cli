@@ -559,7 +559,7 @@ when the harness copies a project.
 - [x] Check every new or edited test file for boilerplate and duplication.
 - [x] Check every source file remains below 600 lines.
 - [x] Add regression tests for every bug uncovered during rollout.
-- [ ] Add LSP/server-specific discoveries to `GOTCHAS.md`.
+- [x] Add LSP/server-specific discoveries to `GOTCHAS.md`.
 - [ ] Document how to identify upstream server versions and triage nightly failures.
 
 ## Definition of done

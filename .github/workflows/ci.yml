@@ -16,7 +16,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust: [stable, beta, "1.91"]
+        rust:
+          - stable
+          - beta
+          - "1.91"
 
     steps:
       - name: Check out repository
@@ -65,6 +68,12 @@ jobs:
 
       - name: Cache cargo artifacts
         uses: Swatinem/rust-cache@v2
+
+      - name: Install Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
 
       - name: Run real-server E2E tests
         run: make test-real-server-e2e

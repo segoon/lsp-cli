@@ -20,13 +20,13 @@ check-dependencies:
 	cargo deny check
 
 test-real-server-e2e:
-	RUST_BACKTRACE=full cargo test --locked --test e2e manifest_real_server -- --ignored --nocapture --test-threads=1
+	RUST_BACKTRACE=full scripts/run_e2e_test.sh manifest_real_server
 
 test-real-server-smoke-e2e:
-	RUST_BACKTRACE=full cargo test --locked --test e2e manifest_real_server_smoke_cases -- --ignored --nocapture --test-threads=1
+	RUST_BACKTRACE=full scripts/run_e2e_test.sh manifest_real_server_smoke_cases
 
 test-server-provisioning-e2e:
-	RUST_BACKTRACE=full cargo test --locked --test e2e manifest_server_provisioning_cases -- --ignored --nocapture --test-threads=1
+	RUST_BACKTRACE=full scripts/run_e2e_test.sh manifest_server_provisioning_cases
 
 gen-readme:
 	python3 scripts/update_readme_commands.py

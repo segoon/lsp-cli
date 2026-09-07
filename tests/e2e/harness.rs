@@ -246,6 +246,9 @@ impl E2eContext {
                 format!("-Djava.io.tmpdir={}", self.temp_dir.display()),
             )
             .env("CARGO_TARGET_DIR", &self.build_dir)
+            // Go makes module-cache directories read-only unless this flag is set, preventing the
+            // isolated sandbox from being removed after a real-server case.
+            .env("GOFLAGS", "-modcacherw")
             .env("XDG_CONFIG_HOME", &self.config_home)
             .env("XDG_RUNTIME_DIR", &self.runtime_dir)
             .env("LSP_DATA", &self.data_dir)
@@ -438,6 +441,7 @@ mod tests {
                 context.build_dir.as_os_str().to_os_string(),
             ),
             ("HOME", context.home.as_os_str().to_os_string()),
+            ("GOFLAGS", OsString::from("-modcacherw")),
             (
                 "JAVA_TOOL_OPTIONS",
                 OsString::from(format!("-Djava.io.tmpdir={}", context.temp_dir.display())),

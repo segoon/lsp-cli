@@ -219,19 +219,7 @@ fn install_pypi_package(
             require_command("python3", package, program)?;
             let install_dir = prepare_install_dir(state, package)?;
 
-            let install_spec = if extras.is_empty() {
-                format!("{package_name}=={version}")
-            } else {
-                format!("{package_name}[{}]=={version}", extras.join(","))
-            };
-            let mut cmd = Command::new("python3");
-            cmd.arg("-m")
-                .arg("pip")
-                .arg("install")
-                .arg("--disable-pip-version-check")
-                .arg("--prefix")
-                .arg(&install_dir)
-                .arg(&install_spec);
+            let mut cmd = pypi_install_command(package_name, version, extras, &install_dir);
             run_install_command(&mut cmd, package, "python3 -m pip")?;
 
             finalize_install(
@@ -244,6 +232,31 @@ fn install_pypi_package(
             )
         },
     )
+}
+
+fn pypi_install_command(
+    package_name: &str,
+    version: &str,
+    extras: &[String],
+    install_dir: &std::path::Path,
+) -> Command {
+    let install_spec = if extras.is_empty() {
+        format!("{package_name}=={version}")
+    } else {
+        format!("{package_name}[{}]=={version}", extras.join(","))
+    };
+    let mut command = Command::new("python3");
+    command
+        .arg("-m")
+        .arg("pip")
+        .arg("install")
+        .arg("--disable-pip-version-check")
+        // An isolated prefix must not try to reuse or uninstall ambient distribution packages.
+        .arg("--ignore-installed")
+        .arg("--prefix")
+        .arg(install_dir)
+        .arg(install_spec);
+    command
 }
 
 fn install_cargo_package(

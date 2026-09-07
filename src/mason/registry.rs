@@ -4,9 +4,11 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::Path;
 
+#[path = "registry/cache.rs"]
 mod cache;
 
 #[cfg(test)]
+#[path = "registry/tests.rs"]
 mod tests;
 
 #[derive(Clone, Debug, Eq, PartialEq)]

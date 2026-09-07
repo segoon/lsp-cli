@@ -2,3 +2,8 @@ language:
   id: gomod
   kind: metadata
   project: playground/gomod
+pairs:
+  - language: gomod
+    server: gopls
+    smoke:
+      status: capabilities

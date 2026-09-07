@@ -2,26 +2,26 @@ language:
   id: go
   kind: source
   project: playground/go
-
+  query-profile:
+    symbol-query: Order
+    callable-query: SampleOrder
+    format-file: cmd/playground/main.go
+    expected-names:
+      - Order
+      - Item
+      - SampleOrder
+      - Format
 pairs:
   - language: go
     server: gopls
-    setup:
-      provision: { method: download }
-      host-programs:
-        - { name: go, resolve: [which, go] }
     smoke:
       status: queries
-      symbol-query: Order
-      callable-query: SampleOrder
-      format-file: cmd/playground/main.go
-      expected-names: [Order, Item, SampleOrder, Format]
       exceptions:
-        - { command: callees, outcome: empty-matches, reason: "SampleOrder constructs data directly and has no outgoing call-hierarchy edges" }
-      lsp-timeout-seconds: 30
-      deadline-seconds: 300
+        - command: callees
+          outcome: empty-matches
+          reason: SampleOrder constructs data directly and has no outgoing call-hierarchy edges
     lifecycle:
       status: scenarios
-      direct-run: { status: exchange }
-      lsp-timeout-seconds: 30
+      direct-run:
+        status: exchange
       deadline-seconds: 300

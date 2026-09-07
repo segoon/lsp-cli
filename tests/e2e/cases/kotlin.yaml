@@ -2,13 +2,26 @@ language:
   id: kotlin
   kind: source
   project: playground/kotlin
-
+  query-profile:
+    symbol-query: Order
+    callable-query: sampleOrder
+    format-file: src/main/kotlin/playground/App.kt
+    expected-names:
+      - Order
+      - OrderItem
+      - sampleOrder
+      - formatOrder
 pairs:
+  - language: kotlin
+    server: kotlin_language_server
+    smoke:
+      status: excluded
+      reason: kotlin-language-server initializes but does not exit after a direct shutdown exchange.
   - language: kotlin
     server: kotlin_lsp
     smoke:
       status: excluded
-      reason: "Mason kotlin-lsp/v262.9593.0 reports that its build has expired before LSP initialization."
+      reason: Mason kotlin-lsp/v262.9593.0 reports that its build has expired before LSP initialization.
     lifecycle:
       status: excluded
-      reason: "The current Mason build expires before a lifecycle client can initialize it."
+      reason: The current Mason build expires before a lifecycle client can initialize it.

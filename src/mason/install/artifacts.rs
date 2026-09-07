@@ -205,15 +205,20 @@ pub(super) fn ensure_command_success(
     }
 
     let stderr = String::from_utf8_lossy(&output.stderr);
-    let detail = stderr
-        .lines()
-        .map(str::trim)
-        .find(|line| !line.is_empty())
-        .unwrap_or("command failed");
+    let detail = command_failure_detail(&stderr);
     Err(Error::unexpected(format!(
         "cannot install {} because {} failed: {detail}",
         package.name, command_name
     )))
+}
+
+pub(super) fn command_failure_detail(stderr: &str) -> &str {
+    // Installers often print banners before the actionable error, so prefer the final detail.
+    stderr
+        .lines()
+        .map(str::trim)
+        .rfind(|line| !line.is_empty())
+        .unwrap_or("command failed")
 }
 
 pub(super) fn http_client() -> Result<Client> {

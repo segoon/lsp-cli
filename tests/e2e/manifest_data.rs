@@ -30,6 +30,8 @@ pub(crate) struct LspConfig {
     #[serde(default)]
     pub(crate) filetypes: Vec<String>,
     pub(crate) name: String,
+    #[serde(default, rename = "cmdline")]
+    pub(crate) _cmdline: String,
 }
 
 #[derive(Deserialize)]

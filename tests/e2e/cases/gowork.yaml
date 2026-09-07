@@ -2,3 +2,8 @@ language:
   id: gowork
   kind: metadata
   project: playground/gowork
+pairs:
+  - language: gowork
+    server: gopls
+    smoke:
+      status: capabilities

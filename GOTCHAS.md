@@ -72,6 +72,52 @@
 
 # LSP server implementations
 
+## Mason PyPI launchers
+
+- In isolated current-Mason runs, the generated launchers for basedpyright,
+  jedi-language-server, python-lsp-server, and Pyre resolved from the package directory but the system
+  Python interpreter could not import their installed modules. Provisioning tests that only prove
+  executable resolution do not establish that a PyPI-backed language server can initialize.
+
+## pylyzer
+
+- In an isolated current-Mason run against the Python playground, pylyzer returned no immediate
+  `workspace/symbol` matches and no incoming call-hierarchy edges for `build_sample_order`, while
+  its other applicable semantic queries completed. Exhaustive coverage records those two empty
+  results explicitly instead of treating advertised capabilities as a guarantee of fixture matches.
+
+## pyright
+
+- In an isolated current-Mason run against the Python playground, pyright advertised workspace
+  symbols but returned no matches before background analysis completed. It also exposed no
+  background-work completion signal usable by `build-index`; tests assert both bounded outcomes
+  instead of adding a fixed indexing sleep.
+
+## zuban
+
+- Current-Mason Zuban answers the Python playground's semantic queries but exposes no
+  background-work progress signal usable by `build-index`. Exhaustive coverage asserts the bounded
+  user-facing failure rather than inferring that indexing has completed.
+
+## ty
+
+- Current-Mason ty returned an empty callers result in one isolated Python fixture run and a
+  non-empty result in the next otherwise identical run. The exhaustive pair remains excluded until
+  call-hierarchy results are deterministic enough for a stable expectation.
+
+## Pyrefly
+
+- Current-Mason Pyrefly initializes against the Python playground but returns no workspace
+  symbols, document symbols, or document functions. The pair is excluded because later named
+  queries cannot be given a meaningful semantic assertion without a discoverable symbol.
+
+## deno lsp
+
+- The current Mason Deno server initializes for JavaScript and TypeScript, but rejects the LSP
+  `shutdown` request when its parameters are `null`, returning `-32602` and asking for non-null
+  parameters. LSP 3.17 defines `shutdown` with no parameters, so direct lsp-cli commands currently
+  report an unclean shutdown and the Deno pairs remain excluded.
+
 ## typescript-language-server
 
 - Version 4.4.0 with TypeScript 6.0.3 advertises `workspaceSymbolProvider`, but a fresh
@@ -80,6 +126,13 @@
   unsupported capability.
 - The server exposes no background-work progress notification usable by `build-index`; assert the
   bounded user-facing failure instead of sleeping or assuming that project analysis completed.
+
+## vtsls
+
+- In isolated current-Mason runs against the JavaScript and TypeScript playgrounds, vtsls returned
+  no immediate workspace-symbol matches before project analysis completed and exposed no
+  background-work completion notification usable by `build-index`. Exhaustive coverage records
+  both bounded outcomes instead of relying on a fixed indexing delay.
 
 ## jdtls
 
@@ -94,6 +147,13 @@
   shutdown. Immediately starting another jdtls for the same workspace can overlap the old process
   and stall initialization. Lifecycle tests wait, with a deadline, for the recorded upstream PID
   to exit after `stop`; socket disappearance alone does not prove complete process termination.
+
+## kotlin-language-server
+
+- The current Mason Kotlin Language Server launcher also needs `uname` and `xargs` in its isolated
+  path. With those tools present it initializes and answers the request, but the process does not
+  exit before the direct-run deadline after shutdown. Its exhaustive pair remains excluded until
+  direct shutdown is reliable.
 
 ## kotlin-lsp
 
@@ -114,6 +174,15 @@
 - The Mason package exposes Roslyn through the `roslyn-language-server` .NET tool launcher. A data
   config containing a literal installation placeholder cannot work with generic `--download`;
   launch the Mason-exposed command and let the NuGet backend manage its concrete installation path.
+
+## emmylua_ls
+
+- Current-Mason EmmyLua answers semantic requests for the Lua playground, but its formatting
+  response contains a line outside the requested file. lsp-cli correctly rejects that invalid edit;
+  exhaustive coverage records the stable user-facing failure.
+- The same run returned no immediate workspace-symbol matches and no outgoing call-hierarchy edges
+  for the fixture's `format_timestamp` function. Those empty results are explicit pair exceptions,
+  not evidence that the corresponding capabilities are universally unsupported.
 
 ## lua-language-server
 

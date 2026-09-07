@@ -2,7 +2,7 @@ use std::path::Path;
 
 use serde::Deserialize;
 
-use super::{LanguageCase, PairCase, ProvisionMethod, ServerSetup, require_text};
+use super::{LanguageCase, PairCase, ServerCase, require_text, setup_for_pair, suite::Timeouts};
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(
@@ -14,8 +14,8 @@ use super::{LanguageCase, PairCase, ProvisionMethod, ServerSetup, require_text};
 pub(super) enum LifecycleDisposition {
     Scenarios {
         direct_run: DirectRunDisposition,
-        lsp_timeout_seconds: u64,
-        deadline_seconds: u64,
+        lsp_timeout_seconds: Option<u64>,
+        deadline_seconds: Option<u64>,
     },
     Excluded {
         reason: String,
@@ -37,14 +37,14 @@ pub(super) enum DirectRunDisposition {
 pub(crate) struct RealServerLifecycleCase<'a> {
     language: &'a LanguageCase,
     pair: &'a PairCase,
-    setup: &'a ServerSetup,
+    setup: &'a ServerCase,
     direct_run: &'a DirectRunDisposition,
     lsp_timeout_seconds: u64,
     deadline_seconds: u64,
 }
 
 impl LifecycleDisposition {
-    pub(super) fn validate(&self, pair: &PairCase) -> Result<(), String> {
+    pub(super) fn validate(&self, pair: &PairCase, defaults: Timeouts) -> Result<(), String> {
         let label = format!("{}/{}", pair.language, pair.server);
         match self {
             Self::Excluded { reason } => {
@@ -55,7 +55,9 @@ impl LifecycleDisposition {
                 lsp_timeout_seconds,
                 deadline_seconds,
             } => {
-                if *lsp_timeout_seconds == 0 || *deadline_seconds < *lsp_timeout_seconds {
+                let (lsp_timeout_seconds, deadline_seconds) =
+                    defaults.resolve(*lsp_timeout_seconds, *deadline_seconds);
+                if lsp_timeout_seconds == 0 || deadline_seconds < lsp_timeout_seconds {
                     return Err(format!(
                         "E2E lifecycle case {label} deadlines must be positive and ordered"
                     ));
@@ -70,7 +72,12 @@ impl LifecycleDisposition {
 }
 
 impl<'a> RealServerLifecycleCase<'a> {
-    pub(super) fn from_pair(pair: &'a PairCase, languages: &'a [LanguageCase]) -> Option<Self> {
+    pub(super) fn from_pair(
+        pair: &'a PairCase,
+        languages: &'a [LanguageCase],
+        servers: &'a [ServerCase],
+        defaults: Timeouts,
+    ) -> Option<Self> {
         let LifecycleDisposition::Scenarios {
             direct_run,
             lsp_timeout_seconds,
@@ -79,15 +86,17 @@ impl<'a> RealServerLifecycleCase<'a> {
         else {
             return None;
         };
+        let (lsp_timeout_seconds, deadline_seconds) =
+            defaults.resolve(*lsp_timeout_seconds, *deadline_seconds);
         Some(Self {
             language: languages
                 .iter()
                 .find(|language| language.id == pair.language)?,
             pair,
-            setup: pair.setup.as_ref()?,
+            setup: setup_for_pair(pair, servers)?,
             direct_run,
-            lsp_timeout_seconds: *lsp_timeout_seconds,
-            deadline_seconds: *deadline_seconds,
+            lsp_timeout_seconds,
+            deadline_seconds,
         })
     }
 
@@ -108,14 +117,7 @@ impl<'a> RealServerLifecycleCase<'a> {
     }
 
     pub(crate) fn host_programs(&self) -> impl Iterator<Item = (&str, &[String])> {
-        self.setup
-            .host_programs
-            .iter()
-            .map(|program| (program.name.as_str(), program.resolve.as_slice()))
-    }
-
-    pub(crate) fn provision_method(&self) -> ProvisionMethod {
-        self.setup.provision.method
+        self.setup.host_programs()
     }
 
     pub(crate) fn direct_run_enabled(&self) -> bool {

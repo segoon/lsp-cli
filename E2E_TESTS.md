@@ -253,11 +253,16 @@ A validation test should fail when:
 - two cases select the same user-visible server ambiguously;
 - a new top-level subcommand has no assigned coverage class.
 
-The version 6 manifest assigns every canonical command to a coverage strategy, derives one
+The version 8 manifest assigns every canonical command to a coverage strategy, derives one
 preferred smoke-matrix server for every source-language project from `data/lsp-cli.yaml`, and uses
 `coverage: complete`. The compatible inventory—16 detectable languages, 57 relevant servers, and
 141 language/server pairs—is resolved directly from the pinned data. Case YAML contains only
 E2E-specific behavior, avoiding a second copy of each server's `filetypes` list.
+
+The suite manifest also assigns each of the 57 relevant server configs exactly one provisioning
+disposition. Twenty-two general-purpose servers are downloaded through the production Mason path;
+the other 35 have explicit policy or technical exclusions. Shared server setup owns installer and
+runtime prerequisites so language/server behavior overlays do not duplicate them.
 
 ### Extending the manifest
 
@@ -276,8 +281,9 @@ merge-gate smoke server.
 Manifest validation resolves that user-visible name to one compatible LSP config and requires the
 corresponding pair to exist. Each preferred pair has a tagged `smoke` disposition: either a generic
 query suite or an exclusion with a mandatory reviewed reason. Executable pairs keep provisioning
-and runtime host programs in the shared `setup` block. Query suites declare semantic query terms,
-expected symbols, deadlines, and narrowly scoped known-result exceptions. Language-specific
+and runtime host programs in the shared `setup` block. Source-language query profiles declare
+shared semantic terms, expected symbols, and format paths; pair entries keep only deadlines and
+narrowly scoped known-result exceptions. Language-specific
 prerequisites and expectations belong in YAML, not in the Rust runner. The first provisioning
 method is `download`; add other mechanisms as typed methods when needed instead of branching on
 server names.
@@ -377,8 +383,39 @@ Do not silently skip a required pair because its executable is absent. A CI lane
 the server or reports the pair as an explicit, reviewed exclusion.
 
 Downloading these external test tools requires product-owner approval under the repository's
-dependency policy. They need not become Rust package dependencies, but they are still operational
-dependencies with maintenance, security, licensing, storage, and network consequences.
+dependency policy. Latest-Mason server downloads and official free SDK/runtime provisioning are
+approved. They do not become Rust package dependencies, but they remain operational dependencies
+with maintenance, security, licensing, storage, and network consequences. Proprietary and
+unsupported-platform prerequisites are excluded.
+
+### Provisioning inventory
+
+Run the complete downloadable-server inventory manually with:
+
+```sh
+make test-server-provisioning-e2e
+```
+
+Set `E2E_SERVER=<config-id>` to diagnose one downloadable server. The test copies the server's
+owner project into an isolated context, stages its declared host programs, invokes `detect` with
+`--download`, and verifies that exactly one selected command resolves inside the isolated home.
+It does not initialize the server or substitute for the later language/server behavior matrix.
+
+The downloadable inventory is:
+
+```text
+basedpyright clangd denols emmylua_ls gopls jdtls jedi_language_server
+kotlin_language_server kotlin_lsp lua_ls omnisharp pylsp pylyzer pyre pyrefly pyright
+roslyn_ls rust_analyzer ts_ls ty vtsls zuban
+```
+
+Exclusions cover specialized framework, lint, formatting, spelling, security, AI, and adapter
+servers; deprecated servers; `sourcekit` on the Linux lane; configs without current Mason packages;
+and `java_language_server`, whose Mason source-build recipe is not supported by lsp-cli. These are
+provisioning decisions only. On the approved Linux x86_64 lane, all 31 compatible pairs backed by
+downloadable servers have an explicit query, capabilities-only, or reviewed-exclusion disposition.
+The other 110 pairs inherit their server's reviewed provisioning exclusion, avoiding duplicate
+policy text while keeping all 141 compatible pairs classified.
 
 Always using Mason latest detects upstream compatibility changes immediately and avoids maintaining
 a second installation path. The tradeoff is a nondeterministic merge gate: a registry or server
@@ -402,9 +439,18 @@ Run:
 Run all 141 compatible pairs, sharded by language and server installation family. Use fail-fast
 disabled so one broken server does not hide the rest of the compatibility report.
 
+The planner resolves installation families from the current Mason registry rather than copying
+that registry metadata into `cases/`. Each shard receives a comma-separated `E2E_CASES` selection.
+Suite-level smoke, lifecycle, and provisioning deadlines provide the common defaults; cases only
+declare intentional overrides.
+
 Do not share homes, daemon runtime directories, or mutable workspaces between parallel jobs. CI may
 cache immutable download transport data, but each case must retain isolated runtime state and must
 not substitute a separately installed server for `--download`.
+
+Every real-server case explicitly tears down its isolated home and temporary roots before the next
+case starts. This includes Mason packages, Go module/build caches, and other server download state;
+only immutable Rust build artifacts are shared by CI.
 
 ### Manual workflow
 
@@ -500,21 +546,21 @@ when the harness copies a project.
 ### Phase 4: exhaustive compatibility
 
 - [x] Resolve all 141 compatible pairs from pinned data without duplicating `filetypes` in cases.
-- [ ] Provision every non-excluded server and required SDK.
-- [ ] Record reviewed exceptions and platform constraints.
-- [ ] Add sharded nightly and manual workflows.
-- [ ] Verify failures retain server version, command line, capabilities, stderr summary, and cleanup
+- [x] Provision every non-excluded server and required SDK.
+- [x] Record reviewed exceptions and platform constraints.
+- [x] Add sharded nightly and manual workflows.
+- [x] Verify failures retain server version, command line, capabilities, stderr summary, and cleanup
   state.
 
 ### Phase 5: hardening
 
-- [ ] Run `make test`.
-- [ ] Run the full latest-Mason E2E matrix from a clean environment.
-- [ ] Check every new or edited test file for boilerplate and duplication.
-- [ ] Check every source file remains below 600 lines.
-- [ ] Add regression tests for every bug uncovered during rollout.
-- [ ] Add LSP/server-specific discoveries to `GOTCHAS.md`.
-- [ ] Document how to identify upstream server versions and triage nightly failures.
+- [x] Run `make test`.
+- [x] Run the full latest-Mason E2E matrix from a clean environment.
+- [x] Check every new or edited test file for boilerplate and duplication.
+- [x] Check every source file remains below 600 lines.
+- [x] Add regression tests for every bug uncovered during rollout.
+- [x] Add LSP/server-specific discoveries to `GOTCHAS.md`.
+- [x] Document upstream server version identification and nightly triage in [E2E_TRIAGE.md](E2E_TRIAGE.md).
 
 ## Definition of done
 

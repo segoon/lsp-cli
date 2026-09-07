@@ -4,7 +4,8 @@ use std::path::Path;
 use std::fs;
 
 use super::{
-    artifacts::parse_archive_file_spec, nuget_install_command, resolve_or_install_program,
+    artifacts::{command_failure_detail, parse_archive_file_spec},
+    nuget_install_command, pypi_install_command, resolve_or_install_program,
 };
 #[cfg(unix)]
 use crate::runtime_state::RuntimeState;
@@ -46,6 +47,41 @@ fn builds_exact_nuget_tool_install_command() {
             "--version",
             "5.11.0-1.26380.4",
         ]
+    );
+}
+
+#[test]
+fn isolates_pypi_install_from_ambient_packages() {
+    let command = pypi_install_command(
+        "python-lsp-server",
+        "1.15.0",
+        &["all".to_string()],
+        Path::new("managed/python"),
+    );
+
+    assert_eq!(command.get_program(), "python3");
+    assert_eq!(
+        command.get_args().collect::<Vec<_>>(),
+        [
+            "-m",
+            "pip",
+            "install",
+            "--disable-pip-version-check",
+            "--ignore-installed",
+            "--prefix",
+            "managed/python",
+            "python-lsp-server[all]==1.15.0",
+        ]
+    );
+}
+
+#[test]
+fn installer_failure_detail_skips_leading_banner() {
+    let stderr = "Welcome to the installer\n\nCould not execute required helper\n";
+
+    assert_eq!(
+        command_failure_detail(stderr),
+        "Could not execute required helper"
     );
 }
 

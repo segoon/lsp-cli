@@ -99,6 +99,7 @@ impl<'a> RealServerTest<'a> {
         )?;
         output.ensure_success()?;
         let response: CapabilitiesOutput = output.try_json()?;
+        context.record_server_capabilities(&response.capabilities)?;
         let program = response
             .server
             .command
@@ -220,6 +221,7 @@ impl CapabilitiesTest<'_> {
             let output = run(context, &args, deadline)?;
             output.ensure_success()?;
             let response: CapabilitiesOutput = output.try_json()?;
+            context.record_server_capabilities(&response.capabilities)?;
             if response.capabilities.is_object() && !response.server.command.is_empty() {
                 Ok(())
             } else {

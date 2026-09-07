@@ -22,7 +22,7 @@ pub(crate) fn run(
     let mut command = context.command();
     command.args(args);
     let mut session = Session::start(&mut command, workspace, deadline)?;
-    session.exchange()
+    session.exchange(|capabilities| context.record_server_capabilities(capabilities))
 }
 
 struct Session {
@@ -82,7 +82,10 @@ impl Session {
         })
     }
 
-    fn exchange(&mut self) -> Result<(), String> {
+    fn exchange(
+        &mut self,
+        retain_capabilities: impl FnOnce(&Value) -> Result<(), String>,
+    ) -> Result<(), String> {
         let initialize = json!({
             "jsonrpc": "2.0",
             "id": 1,
@@ -95,7 +98,12 @@ impl Session {
             }
         });
         self.send(&initialize)?;
-        self.wait_for_response(1)?;
+        let initialize = self.wait_for_response(1)?;
+        let capabilities = initialize
+            .pointer("/result/capabilities")
+            .cloned()
+            .ok_or_else(|| self.diagnostic("initialize response omitted server capabilities"))?;
+        retain_capabilities(&capabilities)?;
         self.send(&json!({
             "jsonrpc": "2.0", "method": "initialized", "params": {}
         }))?;

@@ -21,6 +21,8 @@ mod lifecycle_support;
 pub(crate) use lifecycle_support::SocketSnapshot;
 #[path = "harness/cache_cleanup.rs"]
 mod cache_cleanup;
+#[path = "harness/failure_diagnostics.rs"]
+mod failure_diagnostics;
 
 const DEFAULT_COMMAND_DEADLINE: Duration = Duration::from_secs(30);
 const DAEMON_CLEANUP_DEADLINE: Duration = Duration::from_secs(5);

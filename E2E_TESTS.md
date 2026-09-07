@@ -549,7 +549,7 @@ when the harness copies a project.
 - [x] Provision every non-excluded server and required SDK.
 - [x] Record reviewed exceptions and platform constraints.
 - [x] Add sharded nightly and manual workflows.
-- [ ] Verify failures retain server version, command line, capabilities, stderr summary, and cleanup
+- [x] Verify failures retain server version, command line, capabilities, stderr summary, and cleanup
   state.
 
 ### Phase 5: hardening

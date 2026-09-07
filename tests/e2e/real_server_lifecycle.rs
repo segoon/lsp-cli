@@ -154,8 +154,11 @@ impl<'a> LifecycleTest<'a> {
         args.push("--download".to_string());
         let output = context.try_run_with_deadline(&refs(&args), deadline)?;
         output.ensure_success()?;
-        let _: serde_json::Value = output.try_json()?;
-        Ok(())
+        let response: serde_json::Value = output.try_json()?;
+        let capabilities = response
+            .get("capabilities")
+            .ok_or_else(|| "server-capabilities response omitted capabilities".to_string())?;
+        context.record_server_capabilities(capabilities)
     }
 
     fn server_args(&self, command: &str, workspace: &str, server: &str) -> Vec<String> {

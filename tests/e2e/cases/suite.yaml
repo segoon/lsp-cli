@@ -671,6 +671,11 @@ servers:
     provisioning:
       status: excluded
       reason: laravel_ls is a linter, formatter, or otherwise not a general-purpose language server.
+  - id: lean3ls
+    owner-language: lean3
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: lexical
     owner-language: eelixir
     provisioning:
@@ -854,6 +859,11 @@ servers:
     owner-language: d
     provisioning:
       status: download
+  - id: shopify_theme_ls
+    owner-language: liquid
+    provisioning:
+      status: excluded
+      reason: shopify_theme_ls is a linter, formatter, or otherwise not a general-purpose language server.
   - id: slangd
     owner-language: hlsl
     provisioning:
@@ -919,6 +929,11 @@ servers:
     owner-language: bib
     provisioning:
       status: download
+  - id: theme_check
+    owner-language: liquid
+    provisioning:
+      status: excluded
+      reason: theme_check is a linter, formatter, or otherwise not a general-purpose language server.
   - id: ts_ls
     owner-language: javascript
     provisioning:

@@ -130,6 +130,33 @@ servers:
     provisioning:
       status: excluded
       reason: The current Mason registry has no package for this server.
+  - id: blueprint_ls
+    owner-language: blueprint
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: bright_script
+    owner-language: brs
+    provisioning:
+      status: download
+  - id: brioche
+    owner-language: brioche
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: buck2
+    owner-language: bzl
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: buf_ls
+    owner-language: buf-config
+    provisioning:
+      status: download
+  - id: bzl
+    owner-language: bzl
+    provisioning:
+      status: download
   - id: ccls
     owner-language: c
     provisioning:
@@ -321,6 +348,11 @@ servers:
           resolve:
             - which
             - dotnet
+  - id: please
+    owner-language: bzl
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: pylsp
     owner-language: python
     provisioning:
@@ -449,6 +481,10 @@ servers:
       reason: sourcekit-lsp requires an Apple or Swift toolchain and is not provisionable in the Linux E2E lane.
   - id: starlark_rust
     owner-language: BUILD.bazel
+    provisioning:
+      status: download
+  - id: starpls
+    owner-language: bzl
     provisioning:
       status: download
   - id: stimulus_ls

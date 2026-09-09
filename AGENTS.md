@@ -81,6 +81,8 @@ Use OOP where appropriate.
 
 See @SMELLS.md for known code smells in Rust.
 
+See @GOTCHAS.md for LSP protocol/servers tricky/buggy details.
+
 # Commands
 
 Test the code with the following commands:

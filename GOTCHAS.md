@@ -92,6 +92,15 @@
   symbols but returned no matches before background analysis completed. It also exposed no
   background-work completion signal usable by `build-index`; tests assert both bounded outcomes
   instead of adding a fixed indexing sleep.
+- pyright does not implement `$/progress`/`workDoneProgress` or `experimental/serverStatus` over
+  the language server protocol at all (it only reports progress via its separate CLI's
+  `--outputjson` mode), so `wait_for_background_work` has no protocol signal to key off for this
+  server specifically. A pyright-only readiness heuristic would need to open the target document
+  and treat the first `textDocument/publishDiagnostics` for that URI as "analyzed enough", since
+  pyright reliably publishes diagnostics (even an empty list) once it has actually checked a file.
+  That is a per-server heuristic, not a real completion signal: it cannot distinguish "not analyzed
+  yet" from "analyzed with zero diagnostics" until the notification actually arrives, so it still
+  needs a bounded timeout and remains unverified against pyright's actual behavior.
 
 ## zuban
 

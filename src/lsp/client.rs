@@ -373,16 +373,11 @@ impl LspClient {
                         self.handle_server_request(&request_id, &message)?;
                     }
                 }
-                Ok(IncomingMessage::EndOfStream)
+                // The server is already being torn down after `exit`, so a broken or truncated
+                // read (`Error`) just means the pipe closed mid-message. Keep polling `try_wait`
+                // for the authoritative exit status instead of failing shutdown.
+                Ok(IncomingMessage::EndOfStream | IncomingMessage::Error(_))
                 | Err(RecvTimeoutError::Timeout | RecvTimeoutError::Disconnected) => {}
-                Ok(IncomingMessage::Error(error)) => {
-                    let error = error
-                        .with_prefix("failed to read LSP message while waiting for server exit");
-                    if error.should_log_as_unexpected() {
-                        log_unexpected_error(&error.to_string());
-                    }
-                    return Err(error);
-                }
             }
         }
     }

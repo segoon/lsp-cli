@@ -1,0 +1,4 @@
+language:
+  id: gohtml
+  kind: metadata
+  project: playground/gohtml

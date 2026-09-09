@@ -465,6 +465,15 @@ servers:
     owner-language: comp
     provisioning:
       status: download
+  - id: gn_language_server
+    owner-language: gn
+    provisioning:
+      status: download
+  - id: gnls
+    owner-language: gn
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: golangci_lint_ls
     owner-language: go
     provisioning:

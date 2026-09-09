@@ -27,6 +27,10 @@ servers:
     owner-language: aiken
     provisioning:
       status: download
+  - id: air
+    owner-language: r
+    provisioning:
+      status: download
   - id: alloy_ls
     owner-language: alloy
     provisioning:
@@ -991,6 +995,10 @@ servers:
     owner-language: puppet
     provisioning:
       status: download
+  - id: purescriptls
+    owner-language: purescript
+    provisioning:
+      status: download
   - id: pylsp
     owner-language: python
     provisioning:
@@ -1040,11 +1048,19 @@ servers:
           resolve:
             - which
             - npm
+  - id: qmlls
+    owner-language: qml
+    provisioning:
+      status: download
   - id: quick_lint_js
     owner-language: javascript
     provisioning:
       status: excluded
       reason: quick-lint-js provides lint diagnostics rather than general-purpose language intelligence.
+  - id: r_language_server
+    owner-language: quarto
+    provisioning:
+      status: download
   - id: remark_ls
     owner-language: markdown
     provisioning:
@@ -1238,6 +1254,10 @@ servers:
           resolve:
             - which
             - npm
+  - id: ts_query_ls
+    owner-language: query
+    provisioning:
+      status: download
   - id: ttags
     owner-language: rust
     provisioning:

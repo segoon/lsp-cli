@@ -1,0 +1,9 @@
+language:
+  id: qml
+  kind: metadata
+  project: playground/qml
+pairs:
+  - language: qml
+    server: qmlls
+    smoke:
+      status: capabilities

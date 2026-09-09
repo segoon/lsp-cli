@@ -1,0 +1,9 @@
+language:
+  id: query
+  kind: metadata
+  project: playground/query
+pairs:
+  - language: query
+    server: ts_query_ls
+    smoke:
+      status: capabilities

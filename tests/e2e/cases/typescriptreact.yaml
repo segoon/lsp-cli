@@ -1,0 +1,21 @@
+language:
+  id: typescriptreact
+  kind: metadata
+  project: playground/typescriptreact
+pairs:
+  - language: typescriptreact
+    server: denols
+    smoke:
+      status: capabilities
+  - language: typescriptreact
+    server: graphql
+    smoke:
+      status: capabilities
+  - language: typescriptreact
+    server: ts_ls
+    smoke:
+      status: capabilities
+  - language: typescriptreact
+    server: vtsls
+    smoke:
+      status: capabilities

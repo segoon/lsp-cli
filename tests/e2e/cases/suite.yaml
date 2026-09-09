@@ -1509,11 +1509,20 @@ servers:
     provisioning:
       status: excluded
       reason: turbo_ls is a linter, formatter, or otherwise not a general-purpose language server.
+  - id: turtle_ls
+    owner-language: ttl
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: tvm_ffi_navigator
     owner-language: python
     provisioning:
       status: excluded
       reason: FFI Navigator is specific to TVM foreign-function interfaces rather than general-purpose language intelligence.
+  - id: twiggy_language_server
+    owner-language: twig
+    provisioning:
+      status: download
   - id: ty
     owner-language: python
     provisioning:

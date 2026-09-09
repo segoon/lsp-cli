@@ -1624,6 +1624,19 @@ servers:
     owner-language: vhd
     provisioning:
       status: download
+  - id: vimls
+    owner-language: vim
+    provisioning:
+      status: download
+  - id: visualforce_ls
+    owner-language: visualforce
+    provisioning:
+      status: download
+      host-programs:
+        - name: node
+          resolve:
+            - which
+            - node
   - id: vls
     owner-language: v
     provisioning:

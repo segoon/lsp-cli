@@ -1,0 +1,9 @@
+language:
+  id: vmasm
+  kind: metadata
+  project: playground/vmasm
+pairs:
+  - language: vmasm
+    server: asm_lsp
+    smoke:
+      status: capabilities

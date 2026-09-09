@@ -1,0 +1,9 @@
+language:
+  id: visualforce
+  kind: metadata
+  project: playground/visualforce
+pairs:
+  - language: visualforce
+    server: visualforce_ls
+    smoke:
+      status: capabilities

@@ -1,0 +1,9 @@
+language:
+  id: vsh
+  kind: metadata
+  project: playground/vsh
+pairs:
+  - language: vsh
+    server: v_analyzer
+    smoke:
+      status: capabilities

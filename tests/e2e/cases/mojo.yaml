@@ -1,0 +1,4 @@
+language:
+  id: mojo
+  kind: metadata
+  project: playground/mojo

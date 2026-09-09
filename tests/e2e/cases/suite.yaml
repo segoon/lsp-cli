@@ -149,6 +149,11 @@ servers:
     provisioning:
       status: excluded
       reason: The current Mason registry has no package for this server.
+  - id: buddy_ls
+    owner-language: mlir
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: buf_ls
     owner-language: buf-config
     provisioning:
@@ -739,6 +744,29 @@ servers:
       status: download
   - id: mesonlsp
     owner-language: meson
+    provisioning:
+      status: download
+  - id: mint
+    owner-language: mint
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: mlir_lsp_server
+    owner-language: mlir
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: mm0_ls
+    owner-language: metamath-zero
+    provisioning:
+      status: download
+  - id: mojo
+    owner-language: mojo
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: motoko_lsp
+    owner-language: motoko
     provisioning:
       status: download
   - id: mpls

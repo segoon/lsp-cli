@@ -1,0 +1,4 @@
+language:
+  id: tablegen
+  kind: metadata
+  project: playground/tablegen

@@ -1,0 +1,9 @@
+language:
+  id: tcl
+  kind: metadata
+  project: playground/tcl
+pairs:
+  - language: tcl
+    server: tclsp
+    smoke:
+      status: capabilities

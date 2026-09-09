@@ -543,6 +543,10 @@ servers:
     provisioning:
       status: excluded
       reason: harper-ls is a prose grammar checker rather than a general-purpose language server.
+  - id: hdl_checker
+    owner-language: systemverilog
+    provisioning:
+      status: download
   - id: helm_ls
     owner-language: helm
     provisioning:
@@ -1382,6 +1386,14 @@ servers:
     owner-language: svelte
     provisioning:
       status: download
+  - id: svlangserver
+    owner-language: systemverilog
+    provisioning:
+      status: download
+  - id: svls
+    owner-language: systemverilog
+    provisioning:
+      status: download
   - id: swift_mesonls
     owner-language: meson
     provisioning:
@@ -1401,8 +1413,21 @@ servers:
     provisioning:
       status: excluded
       reason: tailwindcss-language-server is framework-specific rather than a general-purpose JavaScript server.
+  - id: tblgen_lsp_server
+    owner-language: tablegen
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: tclsp
     owner-language: sdc
+    provisioning:
+      status: download
+  - id: teal_ls
+    owner-language: teal
+    provisioning:
+      status: download
+  - id: templ
+    owner-language: templ
     provisioning:
       status: download
   - id: terraform_lsp
@@ -1492,6 +1517,15 @@ servers:
     provisioning:
       status: excluded
       reason: vale_ls is a linter, formatter, or otherwise not a general-purpose language server.
+  - id: verible
+    owner-language: systemverilog
+    provisioning:
+      status: download
+  - id: veridian
+    owner-language: systemverilog
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: vespa_ls
     owner-language: profile
     provisioning:

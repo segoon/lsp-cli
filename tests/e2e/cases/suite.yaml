@@ -63,6 +63,28 @@ servers:
     owner-language: astro
     provisioning:
       status: download
+  - id: atlas
+    owner-language: atlas
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: atopile
+    owner-language: ato
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: autohotkey_lsp
+    owner-language: autohotkey
+    provisioning:
+      status: download
+  - id: autotools_ls
+    owner-language: automake
+    provisioning:
+      status: download
+  - id: awk_ls
+    owner-language: awk
+    provisioning:
+      status: download
   - id: bacon_ls
     owner-language: rust
     provisioning:

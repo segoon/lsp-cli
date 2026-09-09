@@ -1,0 +1,4 @@
+language:
+  id: coffee
+  kind: metadata
+  project: playground/coffee

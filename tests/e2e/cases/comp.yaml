@@ -1,0 +1,13 @@
+language:
+  id: comp
+  kind: metadata
+  project: playground/comp
+pairs:
+  - language: comp
+    server: glsl_analyzer
+    smoke:
+      status: capabilities
+  - language: comp
+    server: glslls
+    smoke:
+      status: capabilities

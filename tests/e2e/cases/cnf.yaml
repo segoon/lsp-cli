@@ -1,0 +1,4 @@
+language:
+  id: cnf
+  kind: metadata
+  project: playground/cnf

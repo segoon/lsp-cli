@@ -174,8 +174,25 @@ servers:
     owner-language: cds
     provisioning:
       status: download
+  - id: cir_lsp_server
+    owner-language: cir
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: circom-lsp
+    owner-language: circom
+    provisioning:
+      status: download
   - id: clangd
     owner-language: c
+    provisioning:
+      status: download
+  - id: clarinet
+    owner-language: clar
+    provisioning:
+      status: download
+  - id: clojure_lsp
+    owner-language: clojure
     provisioning:
       status: download
   - id: codebook

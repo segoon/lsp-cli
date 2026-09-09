@@ -1,0 +1,9 @@
+language:
+  id: fsd
+  kind: metadata
+  project: playground/fsd
+pairs:
+  - language: fsd
+    server: facility_language_server
+    smoke:
+      status: capabilities

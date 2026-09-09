@@ -381,6 +381,10 @@ servers:
     owner-language: eelixir
     provisioning:
       status: download
+  - id: facility_language_server
+    owner-language: fsd
+    provisioning:
+      status: download
   - id: fennel_language_server
     owner-language: fennel
     provisioning:
@@ -398,8 +402,21 @@ servers:
     provisioning:
       status: excluded
       reason: The current Mason registry has no package for Flow.
+  - id: flux_lsp
+    owner-language: flux
+    provisioning:
+      status: download
   - id: foam_ls
     owner-language: OpenFOAM
+    provisioning:
+      status: download
+  - id: fortitude
+    owner-language: fortran
+    provisioning:
+      status: excluded
+      reason: fortitude is a linter rather than a general-purpose language server.
+  - id: fortls
+    owner-language: fortran
     provisioning:
       status: download
   - id: ginko_ls

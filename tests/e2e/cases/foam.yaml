@@ -1,0 +1,9 @@
+language:
+  id: foam
+  kind: metadata
+  project: playground/foam
+pairs:
+  - language: foam
+    server: foam_ls
+    smoke:
+      status: capabilities

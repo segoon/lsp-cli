@@ -1,0 +1,13 @@
+language:
+  id: cue
+  kind: metadata
+  project: playground/cue
+pairs:
+  - language: cue
+    server: cue
+    smoke:
+      status: capabilities
+  - language: cue
+    server: dagger
+    smoke:
+      status: capabilities

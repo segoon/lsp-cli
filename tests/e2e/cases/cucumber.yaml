@@ -1,0 +1,9 @@
+language:
+  id: cucumber
+  kind: metadata
+  project: playground/cucumber
+pairs:
+  - language: cucumber
+    server: cucumber_language_server
+    smoke:
+      status: capabilities

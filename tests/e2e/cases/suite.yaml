@@ -238,6 +238,32 @@ servers:
     provisioning:
       status: excluded
       reason: cssmodules-language-server is framework-specific rather than a general-purpose JavaScript server.
+  - id: cucumber_language_server
+    owner-language: cucumber
+    provisioning:
+      status: download
+  - id: cue
+    owner-language: cue
+    provisioning:
+      status: download
+  - id: cypher_ls
+    owner-language: cypher
+    provisioning:
+      status: download
+  - id: daedalus_ls
+    owner-language: d
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: dafny
+    owner-language: dafny
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: dagger
+    owner-language: cue
+    provisioning:
+      status: download
   - id: denols
     owner-language: javascript
     provisioning:
@@ -561,6 +587,10 @@ servers:
     provisioning:
       status: excluded
       reason: selene-3p-language-server is lint-specific rather than a general-purpose Lua server.
+  - id: serve_d
+    owner-language: d
+    provisioning:
+      status: download
   - id: snyk_ls
     owner-language: python
     provisioning:

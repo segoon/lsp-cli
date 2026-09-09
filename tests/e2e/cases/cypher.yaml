@@ -1,0 +1,9 @@
+language:
+  id: cypher
+  kind: metadata
+  project: playground/cypher
+pairs:
+  - language: cypher
+    server: cypher_ls
+    smoke:
+      status: capabilities

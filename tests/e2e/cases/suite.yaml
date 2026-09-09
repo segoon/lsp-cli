@@ -1,5 +1,5 @@
 schema-version: 9
-coverage: partial
+coverage: complete
 platform:
   os: linux
   architecture: x86-64

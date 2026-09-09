@@ -1723,8 +1723,22 @@ servers:
     provisioning:
       status: excluded
       reason: The current Mason registry has no package for this server.
+  - id: ziggy
+    owner-language: ziggy
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: ziggy_schema
+    owner-language: ziggy_schema
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: zk
     owner-language: markdown
+    provisioning:
+      status: download
+  - id: zls
+    owner-language: zig
     provisioning:
       status: download
   - id: zuban

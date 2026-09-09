@@ -1,0 +1,9 @@
+language:
+  id: zig
+  kind: metadata
+  project: playground/zig
+pairs:
+  - language: zig
+    server: zls
+    smoke:
+      status: capabilities

@@ -1,0 +1,4 @@
+language:
+  id: erb
+  kind: metadata
+  project: playground/erb

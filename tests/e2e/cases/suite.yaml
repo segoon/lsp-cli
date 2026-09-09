@@ -337,6 +337,14 @@ servers:
     provisioning:
       status: excluded
       reason: efm is a wrapper for external lint and format tools rather than a language server implementation.
+  - id: elixirls
+    owner-language: eelixir
+    provisioning:
+      status: download
+  - id: elmls
+    owner-language: elm
+    provisioning:
+      status: download
   - id: ember
     owner-language: javascript
     provisioning:
@@ -361,6 +369,10 @@ servers:
     provisioning:
       status: excluded
       reason: eslint-lsp provides lint diagnostics rather than general-purpose language intelligence.
+  - id: expert
+    owner-language: eelixir
+    provisioning:
+      status: download
   - id: flow
     owner-language: javascript
     provisioning:
@@ -473,6 +485,10 @@ servers:
     provisioning:
       status: excluded
       reason: laravel_ls is a linter, formatter, or otherwise not a general-purpose language server.
+  - id: lexical
+    owner-language: eelixir
+    provisioning:
+      status: download
   - id: ltex
     owner-language: bib
     provisioning:
@@ -499,6 +515,10 @@ servers:
       reason: The current Mason registry has no package for this server.
   - id: neocmake
     owner-language: cmake
+    provisioning:
+      status: download
+  - id: nextls
+    owner-language: eelixir
     provisioning:
       status: download
   - id: ocamllsp

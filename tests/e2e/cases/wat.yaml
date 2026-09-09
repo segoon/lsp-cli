@@ -1,0 +1,9 @@
+language:
+  id: wat
+  kind: metadata
+  project: playground/wat
+pairs:
+  - language: wat
+    server: wasm_language_tools
+    smoke:
+      status: capabilities

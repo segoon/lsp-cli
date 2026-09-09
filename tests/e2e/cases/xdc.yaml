@@ -1,0 +1,9 @@
+language:
+  id: xdc
+  kind: metadata
+  project: playground/xdc
+pairs:
+  - language: xdc
+    server: tclsp
+    smoke:
+      status: capabilities

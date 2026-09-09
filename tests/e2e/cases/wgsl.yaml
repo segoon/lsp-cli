@@ -1,0 +1,9 @@
+language:
+  id: wgsl
+  kind: metadata
+  project: playground/wgsl
+pairs:
+  - language: wgsl
+    server: wgsl_analyzer
+    smoke:
+      status: capabilities

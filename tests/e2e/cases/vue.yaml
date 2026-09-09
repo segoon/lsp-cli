@@ -1,0 +1,13 @@
+language:
+  id: vue
+  kind: metadata
+  project: playground/vue
+pairs:
+  - language: vue
+    server: vtsls
+    smoke:
+      status: capabilities
+  - language: vue
+    server: vue_ls
+    smoke:
+      status: capabilities

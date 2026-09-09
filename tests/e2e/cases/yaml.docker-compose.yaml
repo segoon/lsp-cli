@@ -1,0 +1,17 @@
+language:
+  id: yaml.docker-compose
+  kind: metadata
+  project: playground/yaml.docker-compose
+pairs:
+  - language: yaml.docker-compose
+    server: docker_compose_language_service
+    smoke:
+      status: capabilities
+  - language: yaml.docker-compose
+    server: docker_language_server
+    smoke:
+      status: capabilities
+  - language: yaml.docker-compose
+    server: yamlls
+    smoke:
+      status: capabilities

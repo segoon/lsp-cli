@@ -89,6 +89,11 @@ servers:
     owner-language: awk
     provisioning:
       status: download
+  - id: azure_pipelines_ls
+    owner-language: yaml
+    provisioning:
+      status: excluded
+      reason: azure_pipelines_ls is a linter, formatter, or otherwise not a general-purpose language server.
   - id: bacon_ls
     owner-language: rust
     provisioning:
@@ -314,6 +319,10 @@ servers:
     provisioning:
       status: excluded
       reason: djlsp is a linter, formatter, or otherwise not a general-purpose language server.
+  - id: docker_compose_language_service
+    owner-language: yaml.docker-compose
+    provisioning:
+      status: download
   - id: docker_language_server
     owner-language: dockerfile
     provisioning:
@@ -465,6 +474,11 @@ servers:
     provisioning:
       status: excluded
       reason: The current Mason registry has no package for this server.
+  - id: gh_actions_ls
+    owner-language: yaml
+    provisioning:
+      status: excluded
+      reason: gh_actions_ls is a linter, formatter, or otherwise not a general-purpose language server.
   - id: ghcide
     owner-language: haskell
     provisioning:
@@ -477,6 +491,10 @@ servers:
       reason: The current Mason registry has no package for this server.
   - id: ginko_ls
     owner-language: dts
+    provisioning:
+      status: download
+  - id: gitlab_ci_ls
+    owner-language: yaml.gitlab
     provisioning:
       status: download
   - id: gitlab_duo
@@ -585,6 +603,11 @@ servers:
     owner-language: cabal
     provisioning:
       status: download
+  - id: home_assistant
+    owner-language: yaml
+    provisioning:
+      status: excluded
+      reason: home_assistant is a linter, formatter, or otherwise not a general-purpose language server.
   - id: hoon_ls
     owner-language: hoon
     provisioning:
@@ -598,6 +621,11 @@ servers:
     provisioning:
       status: excluded
       reason: htmx-lsp is framework-specific rather than a general-purpose JavaScript server.
+  - id: hydra_lsp
+    owner-language: yaml
+    provisioning:
+      status: excluded
+      reason: hydra_lsp is a linter, formatter, or otherwise not a general-purpose language server.
   - id: hylo_ls
     owner-language: hylo
     provisioning:
@@ -1679,6 +1707,10 @@ servers:
       reason: wc-language-server is Web-Components-specific rather than a general-purpose TypeScript server.
   - id: wgsl_analyzer
     owner-language: wgsl
+    provisioning:
+      status: download
+  - id: yamlls
+    owner-language: yaml
     provisioning:
       status: download
   - id: zk

@@ -75,6 +75,10 @@ pub(crate) enum RawCommand {
     Definition(RawDefinitionArgs),
     #[command(about = "Find declarations of a symbol name")]
     Declaration(RawDeclarationArgs),
+    #[command(about = "Find implementations of a symbol name")]
+    Implementation(RawImplementationArgs),
+    #[command(about = "Find type definitions of a symbol name")]
+    TypeDefinition(RawTypeDefinitionArgs),
     #[command(about = "Wait for the server to finish indexing a workspace")]
     BuildIndex(RawBuildIndexArgs),
     #[command(about = "Force update langages/servers database")]
@@ -319,6 +323,26 @@ pub(crate) struct RawDefinitionArgs {
 
 #[derive(Debug, Args, Eq, PartialEq)]
 pub(crate) struct RawDeclarationArgs {
+    #[arg(value_name = "NAME", help = "Symbol name to search for.")]
+    pub(crate) name: String,
+    #[command(flatten)]
+    pub(crate) query: RawLspWorkspaceQueryArgs,
+    #[arg(long, help = "Include full source text for each match in output.")]
+    pub(crate) full: bool,
+}
+
+#[derive(Debug, Args, Eq, PartialEq)]
+pub(crate) struct RawImplementationArgs {
+    #[arg(value_name = "NAME", help = "Symbol name to search for.")]
+    pub(crate) name: String,
+    #[command(flatten)]
+    pub(crate) query: RawLspWorkspaceQueryArgs,
+    #[arg(long, help = "Include full source text for each match in output.")]
+    pub(crate) full: bool,
+}
+
+#[derive(Debug, Args, Eq, PartialEq)]
+pub(crate) struct RawTypeDefinitionArgs {
     #[arg(value_name = "NAME", help = "Symbol name to search for.")]
     pub(crate) name: String,
     #[command(flatten)]

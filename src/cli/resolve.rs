@@ -1,17 +1,18 @@
 use crate::cli::{
     BuildIndexArgs, Command, CommandsArgs, DEFAULT_IDLE_TIMEOUT, DEFAULT_LIMIT, DEFAULT_TIMEOUT,
     DEFAULT_WRITE_STALL_TIMEOUT, DaemonArgs, DeclarationArgs, DefinitionArgs, DetectArgs,
-    DiagnosticsArgs, FormatArgs, GrepArgs, InstallDebugArgs, LanguagesArgs, ListFilesArgs,
-    ListFunctionsArgs, ListSymbolsArgs, LspWorkspaceQueryArgs, RunArgs, SelectionArgs,
-    ServerCapabilitiesArgs, ServersArgs, StopAllArgs, StopArgs, SymbolQueryArgs, UpdateArgs,
-    WorkspaceQueryArgs,
+    DiagnosticsArgs, FormatArgs, GrepArgs, ImplementationArgs, InstallDebugArgs, LanguagesArgs,
+    ListFilesArgs, ListFunctionsArgs, ListSymbolsArgs, LspWorkspaceQueryArgs, RunArgs,
+    SelectionArgs, ServerCapabilitiesArgs, ServersArgs, StopAllArgs, StopArgs, SymbolQueryArgs,
+    TypeDefinitionArgs, UpdateArgs, WorkspaceQueryArgs,
 };
 use crate::cli::{
     RawBuildIndexArgs, RawCommand, RawCommandsArgs, RawDaemonArgs, RawDeclarationArgs,
     RawDefinitionArgs, RawDetectArgs, RawDiagnosticsArgs, RawFormatArgs, RawGrepArgs,
-    RawLanguagesArgs, RawListFilesArgs, RawListFunctionsArgs, RawListSymbolsArgs,
-    RawLspWorkspaceQueryArgs, RawRunArgs, RawServerCapabilitiesArgs, RawServersArgs,
-    RawStopAllArgs, RawStopArgs, RawSymbolQueryArgs, RawUpdateArgs, RawWorkspaceQueryArgs,
+    RawImplementationArgs, RawLanguagesArgs, RawListFilesArgs, RawListFunctionsArgs,
+    RawListSymbolsArgs, RawLspWorkspaceQueryArgs, RawRunArgs, RawServerCapabilitiesArgs,
+    RawServersArgs, RawStopAllArgs, RawStopArgs, RawSymbolQueryArgs, RawTypeDefinitionArgs,
+    RawUpdateArgs, RawWorkspaceQueryArgs,
 };
 use crate::config::CliConfig;
 use crate::error::{Error, Result};
@@ -40,6 +41,8 @@ pub(crate) fn resolve_command(command: RawCommand, defaults: &CliConfig) -> Resu
         RawCommand::Callees(args) => Command::Callees(args.resolve(defaults)),
         RawCommand::Definition(args) => Command::Definition(args.resolve(defaults)),
         RawCommand::Declaration(args) => Command::Declaration(args.resolve(defaults)),
+        RawCommand::Implementation(args) => Command::Implementation(args.resolve(defaults)),
+        RawCommand::TypeDefinition(args) => Command::TypeDefinition(args.resolve(defaults)),
         RawCommand::BuildIndex(args) => Command::BuildIndex(args.resolve(defaults)),
         RawCommand::Update(_) => Command::Update(RawUpdateArgs::resolve()),
         RawCommand::Completion(args) => Command::Completion(args),
@@ -245,6 +248,26 @@ impl RawDeclarationArgs {
     }
 }
 
+impl RawImplementationArgs {
+    fn resolve(self, defaults: &CliConfig) -> ImplementationArgs {
+        ImplementationArgs {
+            name: self.name,
+            query: self.query.resolve(defaults),
+            full: self.full,
+        }
+    }
+}
+
+impl RawTypeDefinitionArgs {
+    fn resolve(self, defaults: &CliConfig) -> TypeDefinitionArgs {
+        TypeDefinitionArgs {
+            name: self.name,
+            query: self.query.resolve(defaults),
+            full: self.full,
+        }
+    }
+}
+
 impl RawBuildIndexArgs {
     fn resolve(self, defaults: &CliConfig) -> BuildIndexArgs {
         BuildIndexArgs {
@@ -392,7 +415,7 @@ fn resolve_install_debug_args(
 fn validate_command(command: &Command) -> Result<()> {
     match command {
         Command::ListFunctions(args) if args.query.files_with_matches => Err(Error::invalid_input(
-            "`--files-with-matches` is only supported by grep, references, definition, declaration, callers, and callees",
+            "`--files-with-matches` is only supported by grep, references, definition, declaration, implementation, type-definition, callers, and callees",
         )),
         Command::Definition(args) if args.full && args.query.files_with_matches => {
             Err(Error::invalid_input(
@@ -402,6 +425,16 @@ fn validate_command(command: &Command) -> Result<()> {
         Command::Declaration(args) if args.full && args.query.files_with_matches => {
             Err(Error::invalid_input(
                 "`declaration` does not support using `--full` together with `--files-with-matches`",
+            ))
+        }
+        Command::Implementation(args) if args.full && args.query.files_with_matches => {
+            Err(Error::invalid_input(
+                "`implementation` does not support using `--full` together with `--files-with-matches`",
+            ))
+        }
+        Command::TypeDefinition(args) if args.full && args.query.files_with_matches => {
+            Err(Error::invalid_input(
+                "`type-definition` does not support using `--full` together with `--files-with-matches`",
             ))
         }
         Command::Format(args) if args.check && args.stdout => Err(Error::invalid_input(

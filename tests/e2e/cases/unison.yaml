@@ -1,0 +1,4 @@
+language:
+  id: unison
+  kind: metadata
+  project: playground/unison

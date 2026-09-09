@@ -1474,6 +1474,10 @@ servers:
     provisioning:
       status: excluded
       reason: The current Mason registry has no package for this server.
+  - id: tinymist
+    owner-language: typst
+    provisioning:
+      status: download
   - id: tofu_ls
     owner-language: opentofu
     provisioning:
@@ -1497,6 +1501,10 @@ servers:
             - npm
   - id: ts_query_ls
     owner-language: query
+    provisioning:
+      status: download
+  - id: tsp_server
+    owner-language: typespec
     provisioning:
       status: download
   - id: ttags
@@ -1534,6 +1542,26 @@ servers:
             - python3
   - id: typeprof
     owner-language: eruby
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: typst_lsp
+    owner-language: typst
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: uiua
+    owner-language: uiua
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: ungrammar_languageserver
+    owner-language: ungrammar
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: unison
+    owner-language: unison
     provisioning:
       status: excluded
       reason: The current Mason registry has no package for this server.

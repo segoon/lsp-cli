@@ -12,8 +12,7 @@ use crate::cli::LspWorkspaceQueryArgs;
 use crate::config::ConfigStore;
 use crate::error::Result;
 use crate::lsp::{
-    LspClient, SourceCache, SymbolMatch, document_symbol_supported,
-    ensure_workspace_symbol_support,
+    LspClient, SourceCache, SymbolMatch, document_symbol_supported, ensure_workspace_symbol_support,
 };
 use crate::lsp::{
     ensure_call_hierarchy_support, location_matches_from_response,

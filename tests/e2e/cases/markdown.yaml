@@ -1,0 +1,33 @@
+language:
+  id: markdown
+  kind: metadata
+  project: playground/markdown
+pairs:
+  - language: markdown
+    server: markdown_oxide
+    smoke:
+      status: capabilities
+  - language: markdown
+    server: marksman
+    smoke:
+      status: capabilities
+  - language: markdown
+    server: mpls
+    smoke:
+      status: capabilities
+  - language: markdown
+    server: prosemd_lsp
+    smoke:
+      status: capabilities
+  - language: markdown
+    server: remark_ls
+    smoke:
+      status: capabilities
+  - language: markdown
+    server: rumdl
+    smoke:
+      status: capabilities
+  - language: markdown
+    server: zk
+    smoke:
+      status: capabilities

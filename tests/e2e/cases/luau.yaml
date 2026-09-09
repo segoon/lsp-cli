@@ -1,0 +1,9 @@
+language:
+  id: luau
+  kind: metadata
+  project: playground/luau
+pairs:
+  - language: luau
+    server: luau_lsp
+    smoke:
+      status: capabilities

@@ -498,6 +498,11 @@ servers:
           resolve:
             - which
             - go
+  - id: grammarly
+    owner-language: markdown
+    provisioning:
+      status: excluded
+      reason: grammarly is a linter, formatter, or otherwise not a general-purpose language server.
   - id: graphql
     owner-language: graphql
     provisioning:
@@ -676,6 +681,10 @@ servers:
     provisioning:
       status: excluded
       reason: The current Mason registry has no package for this server.
+  - id: lelwel_ls
+    owner-language: llw
+    provisioning:
+      status: download
   - id: lexical
     owner-language: eelixir
     provisioning:
@@ -694,6 +703,10 @@ servers:
     owner-language: lua
     provisioning:
       status: download
+  - id: luau_lsp
+    owner-language: luau
+    provisioning:
+      status: download
   - id: lwc_ls
     owner-language: javascript
     provisioning:
@@ -704,6 +717,22 @@ servers:
     provisioning:
       status: excluded
       reason: The current Mason registry has no package for this server.
+  - id: markdown_oxide
+    owner-language: markdown
+    provisioning:
+      status: download
+  - id: marko-js
+    owner-language: marko
+    provisioning:
+      status: download
+  - id: marksman
+    owner-language: markdown
+    provisioning:
+      status: download
+  - id: mpls
+    owner-language: markdown
+    provisioning:
+      status: download
   - id: neocmake
     owner-language: cmake
     provisioning:
@@ -734,6 +763,10 @@ servers:
     provisioning:
       status: excluded
       reason: The current Mason registry has no package for this server.
+  - id: prosemd_lsp
+    owner-language: markdown
+    provisioning:
+      status: download
   - id: pylsp
     owner-language: python
     provisioning:
@@ -788,6 +821,10 @@ servers:
     provisioning:
       status: excluded
       reason: quick-lint-js provides lint diagnostics rather than general-purpose language intelligence.
+  - id: remark_ls
+    owner-language: markdown
+    provisioning:
+      status: download
   - id: rls
     owner-language: rust
     provisioning:
@@ -825,6 +862,10 @@ servers:
     provisioning:
       status: excluded
       reason: ruff-lsp is deprecated in favor of Ruff's native server and remains lint/format-specific.
+  - id: rumdl
+    owner-language: markdown
+    provisioning:
+      status: download
   - id: rust_analyzer
     owner-language: rust
     provisioning:
@@ -1018,6 +1059,10 @@ servers:
     provisioning:
       status: excluded
       reason: wc-language-server is Web-Components-specific rather than a general-purpose TypeScript server.
+  - id: zk
+    owner-language: markdown
+    provisioning:
+      status: download
   - id: zuban
     owner-language: python
     provisioning:

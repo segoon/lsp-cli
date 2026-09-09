@@ -132,6 +132,8 @@ fn command_placeholder(command: &str) -> Option<&'static str> {
         "list-files" => Some("CMD/LIST_FILES"),
         "definition" => Some("CMD/DEFINITION"),
         "declaration" => Some("CMD/DECLARATION"),
+        "implementation" => Some("CMD/IMPLEMENTATION"),
+        "type-definition" => Some("CMD/TYPE_DEFINITION"),
         "references" => Some("CMD/REFERENCES"),
         "callers" => Some("CMD/CALLERS"),
         "callees" => Some("CMD/CALLEES"),

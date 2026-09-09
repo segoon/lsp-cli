@@ -5,7 +5,8 @@ use lsp_types::notification::{DidOpenTextDocument, Initialized};
 use lsp_types::request::{
     CallHierarchyIncomingCalls, CallHierarchyOutgoingCalls, CallHierarchyPrepare,
     DocumentDiagnosticRequest, DocumentSymbolRequest, Formatting, GotoDeclaration,
-    GotoDeclarationParams, GotoDefinition, Initialize, References, WorkspaceSymbolRequest,
+    GotoDeclarationParams, GotoDefinition, GotoImplementation, GotoTypeDefinition, Initialize,
+    References, WorkspaceSymbolRequest,
 };
 use lsp_types::{
     CallHierarchyIncomingCallsParams, CallHierarchyItem, CallHierarchyOutgoingCallsParams,
@@ -187,6 +188,30 @@ impl LspClient {
             partial_result_params: PartialResultParams::default(),
         };
         self.send_request::<GotoDeclaration>(&params)
+    }
+
+    pub fn implementation(&mut self, uri: &str, line: u32, character: u32) -> Result<Value> {
+        let params = GotoDefinitionParams {
+            text_document_position_params: TextDocumentPositionParams::new(
+                TextDocumentIdentifier::new(parse_lsp_uri(uri, "document")?),
+                Position::new(line, character),
+            ),
+            work_done_progress_params: WorkDoneProgressParams::default(),
+            partial_result_params: PartialResultParams::default(),
+        };
+        self.send_request::<GotoImplementation>(&params)
+    }
+
+    pub fn type_definition(&mut self, uri: &str, line: u32, character: u32) -> Result<Value> {
+        let params = GotoDefinitionParams {
+            text_document_position_params: TextDocumentPositionParams::new(
+                TextDocumentIdentifier::new(parse_lsp_uri(uri, "document")?),
+                Position::new(line, character),
+            ),
+            work_done_progress_params: WorkDoneProgressParams::default(),
+            partial_result_params: PartialResultParams::default(),
+        };
+        self.send_request::<GotoTypeDefinition>(&params)
     }
 
     pub fn prepare_call_hierarchy(

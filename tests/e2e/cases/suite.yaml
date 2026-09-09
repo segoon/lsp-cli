@@ -618,11 +618,28 @@ servers:
     owner-language: jsonnet
     provisioning:
       status: download
+  - id: julials
+    owner-language: julia
+    provisioning:
+      status: download
+  - id: just
+    owner-language: just
+    provisioning:
+      status: download
   - id: kakehashi
     owner-language: python
     provisioning:
       status: excluded
       reason: kakehashi bridges other tools rather than providing general-purpose language intelligence.
+  - id: kcl
+    owner-language: kcl
+    provisioning:
+      status: download
+  - id: koka
+    owner-language: koka
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: kotlin_language_server
     owner-language: kotlin
     provisioning:

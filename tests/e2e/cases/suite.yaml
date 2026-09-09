@@ -27,6 +27,11 @@ servers:
     owner-language: aiken
     provisioning:
       status: download
+  - id: alloy_ls
+    owner-language: alloy
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: anakin_language_server
     owner-language: python
     provisioning:
@@ -37,6 +42,14 @@ servers:
     provisioning:
       status: excluded
       reason: Angular Language Service is framework-specific and the E2E scope is general-purpose language servers.
+  - id: antlersls
+    owner-language: antlers
+    provisioning:
+      status: download
+  - id: arduino_language_server
+    owner-language: arduino
+    provisioning:
+      status: download
   - id: ast_grep
     owner-language: rust
     provisioning:

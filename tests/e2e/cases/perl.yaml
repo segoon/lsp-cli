@@ -1,0 +1,9 @@
+language:
+  id: perl
+  kind: metadata
+  project: playground/perl
+pairs:
+  - language: perl
+    server: perlnavigator
+    smoke:
+      status: capabilities

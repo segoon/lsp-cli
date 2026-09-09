@@ -580,6 +580,10 @@ servers:
     provisioning:
       status: excluded
       reason: The current Mason registry has no package for this server.
+  - id: intelephense
+    owner-language: php
+    provisioning:
+      status: download
   - id: janet_lsp
     owner-language: janet
     provisioning:
@@ -878,6 +882,11 @@ servers:
     owner-language: openscad
     provisioning:
       status: download
+  - id: oso
+    owner-language: polar
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: pact_ls
     owner-language: pact
     provisioning:
@@ -885,6 +894,38 @@ servers:
       reason: The current Mason registry has no package for this server.
   - id: pasls
     owner-language: pascal
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: perlls
+    owner-language: perl
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: perlnavigator
+    owner-language: perl
+    provisioning:
+      status: download
+  - id: perlpls
+    owner-language: perl
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: pest_ls
+    owner-language: pest
+    provisioning:
+      status: download
+  - id: phan
+    owner-language: php
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: phpactor
+    owner-language: php
+    provisioning:
+      status: download
+  - id: phptools
+    owner-language: php
     provisioning:
       status: excluded
       reason: The current Mason registry has no package for this server.
@@ -897,8 +938,17 @@ servers:
     provisioning:
       status: excluded
       reason: The current Mason registry has no package for this server.
+  - id: pli
+    owner-language: pli
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: prosemd_lsp
     owner-language: markdown
+    provisioning:
+      status: download
+  - id: psalm
+    owner-language: php
     provisioning:
       status: download
   - id: pylsp

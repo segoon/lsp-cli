@@ -1570,6 +1570,15 @@ servers:
     provisioning:
       status: excluded
       reason: unocss-language-server is framework-specific rather than a general-purpose TypeScript server.
+  - id: uvls
+    owner-language: uvl
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: v_analyzer
+    owner-language: v
+    provisioning:
+      status: download
   - id: vacuum
     owner-language: json.openapi
     provisioning:
@@ -1602,6 +1611,10 @@ servers:
           resolve:
             - which
             - java
+  - id: vls
+    owner-language: v
+    provisioning:
+      status: download
   - id: vsrocq
     owner-language: coq
     provisioning:

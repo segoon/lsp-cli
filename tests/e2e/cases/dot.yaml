@@ -1,0 +1,9 @@
+language:
+  id: dot
+  kind: metadata
+  project: playground/dot
+pairs:
+  - language: dot
+    server: dotls
+    smoke:
+      status: capabilities

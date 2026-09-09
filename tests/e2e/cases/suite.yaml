@@ -283,6 +283,10 @@ servers:
     owner-language: javascript
     provisioning:
       status: download
+  - id: dhall_lsp_server
+    owner-language: dhall
+    provisioning:
+      status: download
   - id: digestif
     owner-language: context
     provisioning:
@@ -292,16 +296,33 @@ servers:
     provisioning:
       status: excluded
       reason: django-language-server is framework-specific rather than a general-purpose Python server.
+  - id: docker_language_server
+    owner-language: dockerfile
+    provisioning:
+      status: download
+  - id: dockerls
+    owner-language: dockerfile
+    provisioning:
+      status: download
   - id: dolmenls
     owner-language: cnf
     provisioning:
       status: excluded
       reason: The current Mason registry has no package for this server.
+  - id: dotls
+    owner-language: dot
+    provisioning:
+      status: download
   - id: dprint
     owner-language: typescript
     provisioning:
       status: excluded
       reason: dprint is a formatter rather than a general-purpose language server.
+  - id: dts_lsp
+    owner-language: dts
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: efm
     owner-language: lua
     provisioning:
@@ -338,6 +359,10 @@ servers:
       reason: The current Mason registry has no package for Flow.
   - id: foam_ls
     owner-language: OpenFOAM
+    provisioning:
+      status: download
+  - id: ginko_ls
+    owner-language: dts
     provisioning:
       status: download
   - id: gitlab_duo

@@ -1,0 +1,9 @@
+language:
+  id: dhall
+  kind: metadata
+  project: playground/dhall
+pairs:
+  - language: dhall
+    server: dhall_lsp_server
+    smoke:
+      status: capabilities

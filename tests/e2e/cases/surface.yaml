@@ -1,0 +1,21 @@
+language:
+  id: surface
+  kind: metadata
+  project: playground/surface
+pairs:
+  - language: surface
+    server: elixirls
+    smoke:
+      status: capabilities
+  - language: surface
+    server: expert
+    smoke:
+      status: capabilities
+  - language: surface
+    server: lexical
+    smoke:
+      status: capabilities
+  - language: surface
+    server: nextls
+    smoke:
+      status: capabilities

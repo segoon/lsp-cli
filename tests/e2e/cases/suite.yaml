@@ -711,6 +711,10 @@ servers:
     owner-language: llw
     provisioning:
       status: download
+  - id: lemminx
+    owner-language: svg
+    provisioning:
+      status: download
   - id: lexical
     owner-language: eelixir
     provisioning:
@@ -1374,6 +1378,10 @@ servers:
     provisioning:
       status: excluded
       reason: stylua-3p-language-server exposes formatting only rather than general-purpose Lua intelligence.
+  - id: svelte
+    owner-language: svelte
+    provisioning:
+      status: download
   - id: swift_mesonls
     owner-language: meson
     provisioning:
@@ -1384,6 +1392,10 @@ servers:
     provisioning:
       status: excluded
       reason: The current Mason registry has no package for this server.
+  - id: systemd_lsp
+    owner-language: systemd
+    provisioning:
+      status: download
   - id: tailwindcss
     owner-language: javascript
     provisioning:

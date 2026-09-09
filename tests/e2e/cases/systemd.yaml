@@ -1,0 +1,9 @@
+language:
+  id: systemd
+  kind: metadata
+  project: playground/systemd
+pairs:
+  - language: systemd
+    server: systemd_lsp
+    smoke:
+      status: capabilities

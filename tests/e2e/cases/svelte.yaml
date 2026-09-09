@@ -1,0 +1,9 @@
+language:
+  id: svelte
+  kind: metadata
+  project: playground/svelte
+pairs:
+  - language: svelte
+    server: svelte
+    smoke:
+      status: capabilities

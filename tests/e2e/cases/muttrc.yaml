@@ -1,0 +1,9 @@
+language:
+  id: muttrc
+  kind: metadata
+  project: playground/muttrc
+pairs:
+  - language: muttrc
+    server: mutt_ls
+    smoke:
+      status: capabilities

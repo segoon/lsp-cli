@@ -1,0 +1,4 @@
+language:
+  id: msbuild
+  kind: metadata
+  project: playground/msbuild

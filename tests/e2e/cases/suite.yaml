@@ -769,21 +769,38 @@ servers:
     owner-language: motoko
     provisioning:
       status: download
+  - id: move_analyzer
+    owner-language: move
+    provisioning:
+      status: download
   - id: mpls
     owner-language: markdown
     provisioning:
       status: download
+  - id: msbuild_project_tools_server
+    owner-language: msbuild
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: muon
     owner-language: meson
     provisioning:
       status: excluded
       reason: The current Mason registry has no package for this server.
+  - id: mutt_ls
+    owner-language: muttrc
+    provisioning:
+      status: download
   - id: neocmake
     owner-language: cmake
     provisioning:
       status: download
   - id: nextls
     owner-language: eelixir
+    provisioning:
+      status: download
+  - id: nickel_ls
+    owner-language: ncl
     provisioning:
       status: download
   - id: nxls

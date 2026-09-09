@@ -1,0 +1,9 @@
+language:
+  id: mcfunction
+  kind: metadata
+  project: playground/mcfunction
+pairs:
+  - language: mcfunction
+    server: spyglassmc_language_server
+    smoke:
+      status: capabilities

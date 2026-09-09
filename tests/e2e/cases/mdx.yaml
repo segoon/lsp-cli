@@ -1,0 +1,9 @@
+language:
+  id: mdx
+  kind: metadata
+  project: playground/mdx
+pairs:
+  - language: mdx
+    server: mdx_analyzer
+    smoke:
+      status: capabilities

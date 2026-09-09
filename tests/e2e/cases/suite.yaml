@@ -729,10 +729,27 @@ servers:
     owner-language: markdown
     provisioning:
       status: download
+  - id: matlab_ls
+    owner-language: matlab
+    provisioning:
+      status: download
+  - id: mdx_analyzer
+    owner-language: mdx
+    provisioning:
+      status: download
+  - id: mesonlsp
+    owner-language: meson
+    provisioning:
+      status: download
   - id: mpls
     owner-language: markdown
     provisioning:
       status: download
+  - id: muon
+    owner-language: meson
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: neocmake
     owner-language: cmake
     provisioning:
@@ -924,6 +941,10 @@ servers:
     provisioning:
       status: excluded
       reason: spectral is a linter, formatter, or otherwise not a general-purpose language server.
+  - id: spyglassmc_language_server
+    owner-language: mcfunction
+    provisioning:
+      status: download
   - id: starlark_rust
     owner-language: BUILD.bazel
     provisioning:
@@ -956,6 +977,11 @@ servers:
     provisioning:
       status: excluded
       reason: stylua-3p-language-server exposes formatting only rather than general-purpose Lua intelligence.
+  - id: swift_mesonls
+    owner-language: meson
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: tailwindcss
     owner-language: javascript
     provisioning:

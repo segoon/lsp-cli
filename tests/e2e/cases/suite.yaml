@@ -488,6 +488,19 @@ servers:
           resolve:
             - which
             - go
+  - id: graphql
+    owner-language: graphql
+    provisioning:
+      status: download
+  - id: groovyls
+    owner-language: groovy
+    provisioning:
+      status: download
+      host-programs:
+        - name: java
+          resolve:
+            - which
+            - java
   - id: harper_ls
     owner-language: rust
     provisioning:
@@ -498,6 +511,11 @@ servers:
     provisioning:
       status: excluded
       reason: herb_ls is a linter, formatter, or otherwise not a general-purpose language server.
+  - id: hhvm
+    owner-language: hack
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: hls
     owner-language: cabal
     provisioning:

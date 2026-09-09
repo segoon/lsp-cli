@@ -1,0 +1,4 @@
+language:
+  id: haml
+  kind: metadata
+  project: playground/haml

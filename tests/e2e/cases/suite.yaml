@@ -345,6 +345,10 @@ servers:
     owner-language: elm
     provisioning:
       status: download
+  - id: elp
+    owner-language: erlang
+    provisioning:
+      status: download
   - id: ember
     owner-language: javascript
     provisioning:
@@ -364,6 +368,10 @@ servers:
     owner-language: lua
     provisioning:
       status: download
+  - id: erg_language_server
+    owner-language: erg
+    provisioning:
+      status: download
   - id: eslint
     owner-language: javascript
     provisioning:
@@ -371,6 +379,18 @@ servers:
       reason: eslint-lsp provides lint diagnostics rather than general-purpose language intelligence.
   - id: expert
     owner-language: eelixir
+    provisioning:
+      status: download
+  - id: fennel_language_server
+    owner-language: fennel
+    provisioning:
+      status: download
+  - id: fennel_ls
+    owner-language: fennel
+    provisioning:
+      status: download
+  - id: fish_lsp
+    owner-language: fish
     provisioning:
       status: download
   - id: flow
@@ -418,6 +438,11 @@ servers:
     provisioning:
       status: excluded
       reason: harper-ls is a prose grammar checker rather than a general-purpose language server.
+  - id: herb_ls
+    owner-language: eruby
+    provisioning:
+      status: excluded
+      reason: herb_ls is a linter, formatter, or otherwise not a general-purpose language server.
   - id: hls
     owner-language: cabal
     provisioning:
@@ -682,6 +707,10 @@ servers:
     owner-language: bzl
     provisioning:
       status: download
+  - id: steep
+    owner-language: eruby
+    provisioning:
+      status: download
   - id: stimulus_ls
     owner-language: blade
     provisioning:
@@ -748,6 +777,11 @@ servers:
           resolve:
             - which
             - python3
+  - id: typeprof
+    owner-language: eruby
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: unocss
     owner-language: typescript
     provisioning:

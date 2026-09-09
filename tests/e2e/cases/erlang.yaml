@@ -1,0 +1,9 @@
+language:
+  id: erlang
+  kind: metadata
+  project: playground/erlang
+pairs:
+  - language: erlang
+    server: elp
+    smoke:
+      status: capabilities

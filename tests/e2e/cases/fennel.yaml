@@ -1,0 +1,13 @@
+language:
+  id: fennel
+  kind: metadata
+  project: playground/fennel
+pairs:
+  - language: fennel
+    server: fennel_language_server
+    smoke:
+      status: capabilities
+  - language: fennel
+    server: fennel_ls
+    smoke:
+      status: capabilities

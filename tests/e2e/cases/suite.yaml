@@ -296,6 +296,11 @@ servers:
     provisioning:
       status: excluded
       reason: django-language-server is framework-specific rather than a general-purpose Python server.
+  - id: djlsp
+    owner-language: html
+    provisioning:
+      status: excluded
+      reason: djlsp is a linter, formatter, or otherwise not a general-purpose language server.
   - id: docker_language_server
     owner-language: dockerfile
     provisioning:
@@ -530,8 +535,21 @@ servers:
     provisioning:
       status: excluded
       reason: The current Mason registry has no package for this server.
+  - id: hlasm
+    owner-language: hlasm
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: hls
     owner-language: cabal
+    provisioning:
+      status: download
+  - id: hoon_ls
+    owner-language: hoon
+    provisioning:
+      status: download
+  - id: html
+    owner-language: html
     provisioning:
       status: download
   - id: htmx
@@ -774,6 +792,10 @@ servers:
       reason: selene-3p-language-server is lint-specific rather than a general-purpose Lua server.
   - id: serve_d
     owner-language: d
+    provisioning:
+      status: download
+  - id: slangd
+    owner-language: hlsl
     provisioning:
       status: download
   - id: snyk_ls

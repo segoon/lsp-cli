@@ -1,0 +1,9 @@
+language:
+  id: genie
+  kind: metadata
+  project: playground/genie
+pairs:
+  - language: genie
+    server: vala_ls
+    smoke:
+      status: capabilities

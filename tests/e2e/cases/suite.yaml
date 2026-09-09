@@ -452,6 +452,11 @@ servers:
     provisioning:
       status: excluded
       reason: GitLab Duo requires an authenticated external service and is outside general-purpose server coverage.
+  - id: gleam
+    owner-language: gleam
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: glsl_analyzer
     owner-language: comp
     provisioning:
@@ -828,6 +833,10 @@ servers:
     provisioning:
       status: excluded
       reason: unocss-language-server is framework-specific rather than a general-purpose TypeScript server.
+  - id: vala_ls
+    owner-language: genie
+    provisioning:
+      status: download
   - id: vale_ls
     owner-language: asciidoc
     provisioning:

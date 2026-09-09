@@ -1061,6 +1061,32 @@ servers:
     owner-language: quarto
     provisioning:
       status: download
+  - id: racket_langserver
+    owner-language: racket
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: raku_navigator
+    owner-language: raku
+    provisioning:
+      status: download
+      host-programs:
+        - name: node
+          resolve:
+            - which
+            - node
+  - id: reason_ls
+    owner-language: reason
+    provisioning:
+      status: download
+  - id: regal
+    owner-language: rego
+    provisioning:
+      status: download
+  - id: regols
+    owner-language: rego
+    provisioning:
+      status: download
   - id: remark_ls
     owner-language: markdown
     provisioning:

@@ -1,0 +1,9 @@
+language:
+  id: prisma
+  kind: metadata
+  project: playground/prisma
+pairs:
+  - language: prisma
+    server: prismals
+    smoke:
+      status: capabilities

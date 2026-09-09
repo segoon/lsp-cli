@@ -943,6 +943,20 @@ servers:
     provisioning:
       status: excluded
       reason: The current Mason registry has no package for this server.
+  - id: pony_lsp
+    owner-language: pony
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: poryscript_pls
+    owner-language: pory
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: prismals
+    owner-language: prisma
+    provisioning:
+      status: download
   - id: prosemd_lsp
     owner-language: markdown
     provisioning:
@@ -1246,6 +1260,15 @@ servers:
     provisioning:
       status: excluded
       reason: vale_ls is a linter, formatter, or otherwise not a general-purpose language server.
+  - id: vespa_ls
+    owner-language: profile
+    provisioning:
+      status: download
+      host-programs:
+        - name: java
+          resolve:
+            - which
+            - java
   - id: vsrocq
     owner-language: coq
     provisioning:

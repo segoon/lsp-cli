@@ -1,0 +1,4 @@
+language:
+  id: pony
+  kind: metadata
+  project: playground/pony

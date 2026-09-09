@@ -1,0 +1,4 @@
+language:
+  id: agda
+  kind: metadata
+  project: playground/agda

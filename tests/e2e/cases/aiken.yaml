@@ -1,0 +1,9 @@
+language:
+  id: aiken
+  kind: metadata
+  project: playground/aiken
+pairs:
+  - language: aiken
+    server: aiken
+    smoke:
+      status: capabilities

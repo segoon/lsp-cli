@@ -1,0 +1,9 @@
+language:
+  id: BUILD.bazel
+  kind: metadata
+  project: playground/BUILD.bazel
+pairs:
+  - language: BUILD.bazel
+    server: starlark_rust
+    smoke:
+      status: capabilities

@@ -1,5 +1,5 @@
 schema-version: 9
-coverage: complete
+coverage: partial
 platform:
   os: linux
   architecture: x86-64
@@ -13,6 +13,20 @@ defaults:
   provisioning:
     deadline-seconds: 600
 servers:
+  - id: ada_ls
+    owner-language: ada
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: agda_ls
+    owner-language: agda
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: aiken
+    owner-language: aiken
+    provisioning:
+      status: download
   - id: anakin_language_server
     owner-language: python
     provisioning:
@@ -99,6 +113,10 @@ servers:
     provisioning:
       status: excluded
       reason: The current Mason registry has no package for Flow.
+  - id: foam_ls
+    owner-language: OpenFOAM
+    provisioning:
+      status: download
   - id: gitlab_duo
     owner-language: javascript
     provisioning:
@@ -325,6 +343,10 @@ servers:
     provisioning:
       status: excluded
       reason: sourcekit-lsp requires an Apple or Swift toolchain and is not provisionable in the Linux E2E lane.
+  - id: starlark_rust
+    owner-language: BUILD.bazel
+    provisioning:
+      status: download
   - id: stylua
     owner-language: lua
     provisioning:
@@ -453,3 +475,4 @@ commands:
     strategy: lifecycle
   - name: update
     strategy: update-fixture
+

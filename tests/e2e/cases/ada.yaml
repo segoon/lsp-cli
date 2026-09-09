@@ -1,0 +1,4 @@
+language:
+  id: ada
+  kind: metadata
+  project: playground/ada

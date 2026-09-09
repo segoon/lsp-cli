@@ -570,6 +570,11 @@ servers:
     provisioning:
       status: excluded
       reason: The current Mason registry has no package for this server.
+  - id: janet_lsp
+    owner-language: janet
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: java_language_server
     owner-language: java
     provisioning:
@@ -597,6 +602,10 @@ servers:
           resolve:
             - which
             - python3
+  - id: jinja_lsp
+    owner-language: jinja
+    provisioning:
+      status: download
   - id: kakehashi
     owner-language: python
     provisioning:

@@ -1,0 +1,13 @@
+language:
+  id: terraform
+  kind: metadata
+  project: playground/terraform
+pairs:
+  - language: terraform
+    server: terraformls
+    smoke:
+      status: capabilities
+  - language: terraform
+    server: tofu_ls
+    smoke:
+      status: capabilities

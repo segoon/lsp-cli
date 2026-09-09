@@ -1,0 +1,13 @@
+language:
+  id: tese
+  kind: metadata
+  project: playground/tese
+pairs:
+  - language: tese
+    server: glsl_analyzer
+    smoke:
+      status: capabilities
+  - language: tese
+    server: glslls
+    smoke:
+      status: capabilities

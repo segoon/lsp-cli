@@ -1435,6 +1435,10 @@ servers:
     provisioning:
       status: excluded
       reason: The current Mason registry has no package for this server.
+  - id: terraformls
+    owner-language: terraform
+    provisioning:
+      status: download
   - id: texlab
     owner-language: bib
     provisioning:
@@ -1443,6 +1447,11 @@ servers:
     owner-language: org
     provisioning:
       status: download
+  - id: tflint
+    owner-language: terraform
+    provisioning:
+      status: excluded
+      reason: tflint is a linter, formatter, or otherwise not a general-purpose language server.
   - id: theme_check
     owner-language: liquid
     provisioning:

@@ -1,0 +1,17 @@
+language:
+  id: tex
+  kind: metadata
+  project: playground/tex
+pairs:
+  - language: tex
+    server: digestif
+    smoke:
+      status: capabilities
+  - language: tex
+    server: texlab
+    smoke:
+      status: capabilities
+  - language: tex
+    server: textlsp
+    smoke:
+      status: capabilities

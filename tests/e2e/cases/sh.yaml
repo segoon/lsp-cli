@@ -1,0 +1,9 @@
+language:
+  id: sh
+  kind: metadata
+  project: playground/sh
+pairs:
+  - language: sh
+    server: bashls
+    smoke:
+      status: capabilities

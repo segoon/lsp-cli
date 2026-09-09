@@ -50,11 +50,19 @@ servers:
     owner-language: arduino
     provisioning:
       status: download
+  - id: asm_lsp
+    owner-language: asm
+    provisioning:
+      status: download
   - id: ast_grep
     owner-language: rust
     provisioning:
       status: excluded
       reason: ast-grep is a structural search and lint tool rather than a general-purpose language server.
+  - id: astro
+    owner-language: astro
+    provisioning:
+      status: download
   - id: bacon_ls
     owner-language: rust
     provisioning:
@@ -112,6 +120,16 @@ servers:
     provisioning:
       status: excluded
       reason: ember-language-server is framework-specific and requires an Ember project.
+  - id: emmet_language_server
+    owner-language: astro
+    provisioning:
+      status: excluded
+      reason: emmet_language_server is a linter, formatter, or otherwise not a general-purpose language server.
+  - id: emmet_ls
+    owner-language: astro
+    provisioning:
+      status: excluded
+      reason: emmet_ls is a linter, formatter, or otherwise not a general-purpose language server.
   - id: emmylua_ls
     owner-language: lua
     provisioning:
@@ -212,6 +230,11 @@ servers:
     owner-language: kotlin
     provisioning:
       status: download
+  - id: ltex_plus
+    owner-language: asciidoc
+    provisioning:
+      status: excluded
+      reason: ltex_plus is a linter, formatter, or otherwise not a general-purpose language server.
   - id: lua_ls
     owner-language: lua
     provisioning:
@@ -221,6 +244,11 @@ servers:
     provisioning:
       status: excluded
       reason: lwc-language-server is Salesforce-framework-specific rather than a general-purpose JavaScript server.
+  - id: m68k
+    owner-language: asm68k
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: omnisharp
     owner-language: cs
     provisioning:
@@ -360,6 +388,11 @@ servers:
     owner-language: BUILD.bazel
     provisioning:
       status: download
+  - id: stylelint_lsp
+    owner-language: astro
+    provisioning:
+      status: excluded
+      reason: stylelint_lsp is a linter, formatter, or otherwise not a general-purpose language server.
   - id: stylua
     owner-language: lua
     provisioning:
@@ -412,6 +445,11 @@ servers:
     provisioning:
       status: excluded
       reason: unocss-language-server is framework-specific rather than a general-purpose TypeScript server.
+  - id: vale_ls
+    owner-language: asciidoc
+    provisioning:
+      status: excluded
+      reason: vale_ls is a linter, formatter, or otherwise not a general-purpose language server.
   - id: vtsls
     owner-language: typescript
     provisioning:

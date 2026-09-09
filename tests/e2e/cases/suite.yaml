@@ -157,11 +157,23 @@ servers:
     owner-language: bzl
     provisioning:
       status: download
+  - id: c3_lsp
+    owner-language: c3
+    provisioning:
+      status: download
+  - id: cairo_ls
+    owner-language: cairo
+    provisioning:
+      status: download
   - id: ccls
     owner-language: c
     provisioning:
       status: excluded
       reason: The current Mason registry has no package for ccls.
+  - id: cds_lsp
+    owner-language: cds
+    provisioning:
+      status: download
   - id: clangd
     owner-language: c
     provisioning:
@@ -252,6 +264,10 @@ servers:
     provisioning:
       status: excluded
       reason: harper-ls is a prose grammar checker rather than a general-purpose language server.
+  - id: hls
+    owner-language: cabal
+    provisioning:
+      status: download
   - id: htmx
     owner-language: javascript
     provisioning:

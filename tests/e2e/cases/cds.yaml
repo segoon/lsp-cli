@@ -1,0 +1,9 @@
+language:
+  id: cds
+  kind: metadata
+  project: playground/cds
+pairs:
+  - language: cds
+    server: cds_lsp
+    smoke:
+      status: capabilities

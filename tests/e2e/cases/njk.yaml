@@ -1,0 +1,4 @@
+language:
+  id: njk
+  kind: metadata
+  project: playground/njk

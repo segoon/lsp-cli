@@ -817,6 +817,28 @@ servers:
     owner-language: ncl
     provisioning:
       status: download
+  - id: nil_ls
+    owner-language: nix
+    provisioning:
+      status: download
+  - id: nim_langserver
+    owner-language: nim
+    provisioning:
+      status: download
+  - id: nimls
+    owner-language: nim
+    provisioning:
+      status: download
+  - id: nixd
+    owner-language: nix
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: nushell
+    owner-language: nu
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: nxls
     owner-language: json
     provisioning:
@@ -906,6 +928,10 @@ servers:
     provisioning:
       status: excluded
       reason: RLS is deprecated and replaced by rust-analyzer.
+  - id: rnix
+    owner-language: nix
+    provisioning:
+      status: download
   - id: rome
     owner-language: javascript
     provisioning:
@@ -1012,6 +1038,11 @@ servers:
     owner-language: bzl
     provisioning:
       status: download
+  - id: statix
+    owner-language: nix
+    provisioning:
+      status: excluded
+      reason: statix is a linter rather than a general-purpose language server.
   - id: steep
     owner-language: eruby
     provisioning:

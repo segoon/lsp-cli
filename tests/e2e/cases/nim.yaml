@@ -1,0 +1,13 @@
+language:
+  id: nim
+  kind: metadata
+  project: playground/nim
+pairs:
+  - language: nim
+    server: nim_langserver
+    smoke:
+      status: capabilities
+  - language: nim
+    server: nimls
+    smoke:
+      status: capabilities

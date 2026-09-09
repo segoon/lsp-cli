@@ -847,6 +847,10 @@ servers:
     owner-language: dune
     provisioning:
       status: download
+  - id: ols
+    owner-language: odin
+    provisioning:
+      status: download
   - id: omnisharp
     owner-language: cs
     provisioning:
@@ -856,6 +860,10 @@ servers:
           resolve:
             - which
             - dotnet
+  - id: opencl_ls
+    owner-language: opencl
+    provisioning:
+      status: download
   - id: please
     owner-language: bzl
     provisioning:

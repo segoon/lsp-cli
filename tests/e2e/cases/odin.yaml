@@ -1,0 +1,9 @@
+language:
+  id: odin
+  kind: metadata
+  project: playground/odin
+pairs:
+  - language: odin
+    server: ols
+    smoke:
+      status: capabilities

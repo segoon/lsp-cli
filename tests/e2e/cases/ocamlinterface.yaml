@@ -1,0 +1,9 @@
+language:
+  id: ocamlinterface
+  kind: metadata
+  project: playground/ocamlinterface
+pairs:
+  - language: ocamlinterface
+    server: ocamllsp
+    smoke:
+      status: capabilities

@@ -386,6 +386,10 @@ servers:
     owner-language: erg
     provisioning:
       status: download
+  - id: esbonio
+    owner-language: rst
+    provisioning:
+      status: download
   - id: eslint
     owner-language: javascript
     provisioning:
@@ -1108,6 +1112,14 @@ servers:
     owner-language: resource
     provisioning:
       status: download
+  - id: robotframework_ls
+    owner-language: robot
+    provisioning:
+      status: download
+  - id: roc_ls
+    owner-language: roc
+    provisioning:
+      status: download
   - id: rome
     owner-language: javascript
     provisioning:
@@ -1130,6 +1142,10 @@ servers:
           resolve:
             - which
             - env
+  - id: rubocop
+    owner-language: ruby
+    provisioning:
+      status: download
   - id: ruff
     owner-language: python
     provisioning:
@@ -1144,6 +1160,11 @@ servers:
     owner-language: markdown
     provisioning:
       status: download
+  - id: rune_languageserver
+    owner-language: rune
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: rust_analyzer
     owner-language: rust
     provisioning:
@@ -1192,6 +1213,14 @@ servers:
     provisioning:
       status: excluded
       reason: Snyk requires an authenticated security service and is outside general-purpose server coverage.
+  - id: solargraph
+    owner-language: ruby
+    provisioning:
+      status: download
+  - id: sorbet
+    owner-language: ruby
+    provisioning:
+      status: download
   - id: sourcekit
     owner-language: objc
     provisioning:
@@ -1204,6 +1233,10 @@ servers:
       reason: spectral is a linter, formatter, or otherwise not a general-purpose language server.
   - id: spyglassmc_language_server
     owner-language: mcfunction
+    provisioning:
+      status: download
+  - id: standardrb
+    owner-language: ruby
     provisioning:
       status: download
   - id: starlark_rust
@@ -1245,6 +1278,11 @@ servers:
       reason: stylua-3p-language-server exposes formatting only rather than general-purpose Lua intelligence.
   - id: swift_mesonls
     owner-language: meson
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: syntax_tree
+    owner-language: ruby
     provisioning:
       status: excluded
       reason: The current Mason registry has no package for this server.

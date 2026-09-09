@@ -1,0 +1,9 @@
+language:
+  id: roc
+  kind: metadata
+  project: playground/roc
+pairs:
+  - language: roc
+    server: roc_ls
+    smoke:
+      status: capabilities

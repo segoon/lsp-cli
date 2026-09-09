@@ -1,0 +1,4 @@
+language:
+  id: pact
+  kind: metadata
+  project: playground/pact

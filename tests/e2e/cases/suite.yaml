@@ -756,6 +756,11 @@ servers:
     provisioning:
       status: excluded
       reason: The current Mason registry has no package for this server.
+  - id: mlir_pdll_lsp_server
+    owner-language: pdll
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: mm0_ls
     owner-language: metamath-zero
     provisioning:
@@ -871,6 +876,20 @@ servers:
       reason: The current Mason registry has no package for this server.
   - id: openscad_lsp
     owner-language: openscad
+    provisioning:
+      status: download
+  - id: pact_ls
+    owner-language: pact
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: pasls
+    owner-language: pascal
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: pico8_ls
+    owner-language: p8
     provisioning:
       status: download
   - id: please

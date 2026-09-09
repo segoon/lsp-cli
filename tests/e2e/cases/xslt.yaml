@@ -1,0 +1,9 @@
+language:
+  id: xslt
+  kind: metadata
+  project: playground/xslt
+pairs:
+  - language: xslt
+    server: lemminx
+    smoke:
+      status: capabilities

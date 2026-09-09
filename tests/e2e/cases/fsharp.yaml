@@ -1,0 +1,9 @@
+language:
+  id: fsharp
+  kind: metadata
+  project: playground/fsharp
+pairs:
+  - language: fsharp
+    server: fsautocomplete
+    smoke:
+      status: capabilities

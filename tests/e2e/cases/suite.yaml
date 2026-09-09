@@ -419,6 +419,30 @@ servers:
     owner-language: fortran
     provisioning:
       status: download
+  - id: fsautocomplete
+    owner-language: fsharp
+    provisioning:
+      status: download
+  - id: fsharp_language_server
+    owner-language: fsharp
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: fstar
+    owner-language: fstar
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: futhark_lsp
+    owner-language: fut
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: gdshader_lsp
+    owner-language: gdshader
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: ginko_ls
     owner-language: dts
     provisioning:

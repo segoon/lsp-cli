@@ -1,0 +1,4 @@
+language:
+  id: fut
+  kind: metadata
+  project: playground/fut

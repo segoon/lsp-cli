@@ -1,0 +1,4 @@
+language:
+  id: gdshader
+  kind: metadata
+  project: playground/gdshader

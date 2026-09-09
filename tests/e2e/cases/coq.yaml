@@ -1,0 +1,9 @@
+language:
+  id: coq
+  kind: metadata
+  project: playground/coq
+pairs:
+  - language: coq
+    server: coq_lsp
+    smoke:
+      status: capabilities

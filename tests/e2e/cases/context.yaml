@@ -1,0 +1,9 @@
+language:
+  id: context
+  kind: metadata
+  project: playground/context
+pairs:
+  - language: context
+    server: digestif
+    smoke:
+      status: capabilities

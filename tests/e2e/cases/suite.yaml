@@ -213,6 +213,26 @@ servers:
     provisioning:
       status: excluded
       reason: The current Mason registry has no package for this server.
+  - id: coq_lsp
+    owner-language: coq
+    provisioning:
+      status: download
+  - id: crystalline
+    owner-language: crystal
+    provisioning:
+      status: download
+  - id: css_variables
+    owner-language: css
+    provisioning:
+      status: download
+  - id: csskit
+    owner-language: css
+    provisioning:
+      status: download
+  - id: cssls
+    owner-language: css
+    provisioning:
+      status: download
   - id: cssmodules_ls
     owner-language: javascript
     provisioning:
@@ -220,6 +240,10 @@ servers:
       reason: cssmodules-language-server is framework-specific rather than a general-purpose JavaScript server.
   - id: denols
     owner-language: javascript
+    provisioning:
+      status: download
+  - id: digestif
+    owner-language: context
     provisioning:
       status: download
   - id: djls
@@ -527,6 +551,11 @@ servers:
             - rustup
             - which
             - rustfmt
+  - id: scry
+    owner-language: crystal
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: selene3p_ls
     owner-language: lua
     provisioning:
@@ -626,6 +655,11 @@ servers:
     provisioning:
       status: excluded
       reason: vale_ls is a linter, formatter, or otherwise not a general-purpose language server.
+  - id: vsrocq
+    owner-language: coq
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: vtsls
     owner-language: typescript
     provisioning:

@@ -1,0 +1,4 @@
+language:
+  id: smarty
+  kind: metadata
+  project: playground/smarty

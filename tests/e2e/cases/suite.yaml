@@ -1195,6 +1195,10 @@ servers:
             - rustup
             - which
             - rustfmt
+  - id: salt_ls
+    owner-language: sls
+    provisioning:
+      status: download
   - id: scheme_langserver
     owner-language: scheme
     provisioning:
@@ -1226,6 +1230,20 @@ servers:
       reason: The current Mason registry has no package for this server.
   - id: slangd
     owner-language: hlsl
+    provisioning:
+      status: download
+  - id: slint_lsp
+    owner-language: slint
+    provisioning:
+      status: excluded
+      reason: slint_lsp is a linter, formatter, or otherwise not a general-purpose language server.
+  - id: smarty_ls
+    owner-language: smarty
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: smithy_ls
+    owner-language: smithy
     provisioning:
       status: download
   - id: snyk_ls

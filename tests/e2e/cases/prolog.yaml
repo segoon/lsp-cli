@@ -1,0 +1,4 @@
+language:
+  id: prolog
+  kind: metadata
+  project: playground/prolog

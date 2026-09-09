@@ -897,6 +897,10 @@ servers:
     provisioning:
       status: excluded
       reason: The current Mason registry has no package for this server.
+  - id: pbls
+    owner-language: proto
+    provisioning:
+      status: download
   - id: perlls
     owner-language: perl
     provisioning:
@@ -953,16 +957,38 @@ servers:
     provisioning:
       status: excluded
       reason: The current Mason registry has no package for this server.
+  - id: powershell_es
+    owner-language: ps1
+    provisioning:
+      status: download
   - id: prismals
     owner-language: prisma
     provisioning:
       status: download
+  - id: prolog_ls
+    owner-language: prolog
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: prosemd_lsp
     owner-language: markdown
     provisioning:
       status: download
+  - id: protols
+    owner-language: proto
+    provisioning:
+      status: download
   - id: psalm
     owner-language: php
+    provisioning:
+      status: download
+  - id: pug
+    owner-language: pug
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: puppet
+    owner-language: puppet
     provisioning:
       status: download
   - id: pylsp

@@ -1,0 +1,4 @@
+language:
+  id: pug
+  kind: metadata
+  project: playground/pug

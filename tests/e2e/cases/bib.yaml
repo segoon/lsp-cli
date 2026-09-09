@@ -1,0 +1,9 @@
+language:
+  id: bib
+  kind: metadata
+  project: playground/bib
+pairs:
+  - language: bib
+    server: texlab
+    smoke:
+      status: capabilities

@@ -1,0 +1,9 @@
+language:
+  id: bicep-params
+  kind: metadata
+  project: playground/bicep-params
+pairs:
+  - language: bicep-params
+    server: bicep
+    smoke:
+      status: capabilities

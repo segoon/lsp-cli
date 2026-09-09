@@ -116,6 +116,20 @@ servers:
     owner-language: bean
     provisioning:
       status: download
+  - id: bicep
+    owner-language: bicep
+    provisioning:
+      status: download
+      host-programs:
+        - name: dotnet
+          resolve:
+            - which
+            - dotnet
+  - id: bitbake_language_server
+    owner-language: bitbake
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: ccls
     owner-language: c
     provisioning:
@@ -269,6 +283,16 @@ servers:
     owner-language: kotlin
     provisioning:
       status: download
+  - id: laravel_ls
+    owner-language: blade
+    provisioning:
+      status: excluded
+      reason: laravel_ls is a linter, formatter, or otherwise not a general-purpose language server.
+  - id: ltex
+    owner-language: bib
+    provisioning:
+      status: excluded
+      reason: ltex is a linter, formatter, or otherwise not a general-purpose language server.
   - id: ltex_plus
     owner-language: asciidoc
     provisioning:
@@ -427,6 +451,11 @@ servers:
     owner-language: BUILD.bazel
     provisioning:
       status: download
+  - id: stimulus_ls
+    owner-language: blade
+    provisioning:
+      status: excluded
+      reason: stimulus_ls is a linter, formatter, or otherwise not a general-purpose language server.
   - id: stylelint_lsp
     owner-language: astro
     provisioning:
@@ -447,6 +476,10 @@ servers:
     provisioning:
       status: excluded
       reason: tailwindcss-language-server is framework-specific rather than a general-purpose JavaScript server.
+  - id: texlab
+    owner-language: bib
+    provisioning:
+      status: download
   - id: ts_ls
     owner-language: javascript
     provisioning:
@@ -465,6 +498,11 @@ servers:
     provisioning:
       status: excluded
       reason: ttags is a tags adapter rather than a general-purpose language server.
+  - id: turbo_ls
+    owner-language: blade
+    provisioning:
+      status: excluded
+      reason: turbo_ls is a linter, formatter, or otherwise not a general-purpose language server.
   - id: tvm_ffi_navigator
     owner-language: python
     provisioning:

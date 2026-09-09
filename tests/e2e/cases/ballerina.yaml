@@ -1,0 +1,4 @@
+language:
+  id: ballerina
+  kind: metadata
+  project: playground/ballerina

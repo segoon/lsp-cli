@@ -90,6 +90,11 @@ servers:
     provisioning:
       status: excluded
       reason: bacon-ls is a diagnostics adapter rather than a general-purpose Rust language server.
+  - id: ballerina
+    owner-language: ballerina
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: basedpyright
     owner-language: python
     provisioning:
@@ -99,6 +104,18 @@ servers:
           resolve:
             - which
             - python3
+  - id: bashls
+    owner-language: bash
+    provisioning:
+      status: download
+  - id: bazelrc_lsp
+    owner-language: bazelrc
+    provisioning:
+      status: download
+  - id: beancount
+    owner-language: bean
+    provisioning:
+      status: download
   - id: ccls
     owner-language: c
     provisioning:

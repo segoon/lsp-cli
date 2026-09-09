@@ -1,0 +1,9 @@
+language:
+  id: rmd
+  kind: metadata
+  project: playground/rmd
+pairs:
+  - language: rmd
+    server: r_language_server
+    smoke:
+      status: capabilities

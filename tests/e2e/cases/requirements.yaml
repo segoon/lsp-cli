@@ -1,0 +1,4 @@
+language:
+  id: requirements
+  kind: metadata
+  project: playground/requirements

@@ -1,0 +1,9 @@
+language:
+  id: resource
+  kind: metadata
+  project: playground/resource
+pairs:
+  - language: resource
+    server: robotcode
+    smoke:
+      status: capabilities

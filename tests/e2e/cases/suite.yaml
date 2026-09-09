@@ -1091,6 +1091,10 @@ servers:
     owner-language: markdown
     provisioning:
       status: download
+  - id: rescriptls
+    owner-language: rescript
+    provisioning:
+      status: download
   - id: rls
     owner-language: rust
     provisioning:
@@ -1098,6 +1102,10 @@ servers:
       reason: RLS is deprecated and replaced by rust-analyzer.
   - id: rnix
     owner-language: nix
+    provisioning:
+      status: download
+  - id: robotcode
+    owner-language: resource
     provisioning:
       status: download
   - id: rome

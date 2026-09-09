@@ -1,0 +1,4 @@
+language:
+  id: nextflow
+  kind: metadata
+  project: playground/nextflow

@@ -1,0 +1,4 @@
+language:
+  id: nelua
+  kind: metadata
+  project: playground/nelua

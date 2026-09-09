@@ -791,12 +791,26 @@ servers:
     owner-language: muttrc
     provisioning:
       status: download
+  - id: nelua_lsp
+    owner-language: nelua
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: neocmake
     owner-language: cmake
     provisioning:
       status: download
+  - id: nextflow_ls
+    owner-language: nextflow
+    provisioning:
+      status: excluded
+      reason: nextflow_ls is a linter, formatter, or otherwise not a general-purpose language server.
   - id: nextls
     owner-language: eelixir
+    provisioning:
+      status: download
+  - id: nginx_language_server
+    owner-language: nginx
     provisioning:
       status: download
   - id: nickel_ls

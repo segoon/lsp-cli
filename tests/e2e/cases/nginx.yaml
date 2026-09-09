@@ -1,0 +1,9 @@
+language:
+  id: nginx
+  kind: metadata
+  project: playground/nginx
+pairs:
+  - language: nginx
+    server: nginx_language_server
+    smoke:
+      status: capabilities

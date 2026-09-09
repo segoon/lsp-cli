@@ -23,12 +23,16 @@ func (order Order) Total() float64 {
     return total
 }
 
+func newItem(name string, quantity int, price float64) Item {
+    return Item{Name: name, Quantity: quantity, Price: price}
+}
+
 func SampleOrder() Order {
     return Order{
         Customer: "Ken",
         Items: []Item{
-            {Name: "Router", Quantity: 1, Price: 79.0},
-            {Name: "Patch Cable", Quantity: 2, Price: 4.0},
+            newItem("Router", 1, 79.0),
+            newItem("Patch Cable", 2, 4.0),
         },
     }
 }

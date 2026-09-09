@@ -21,20 +21,17 @@ impl Order {
     }
 }
 
+fn new_item(name: &str, quantity: u32, price: f64) -> OrderItem {
+    OrderItem {
+        name: name.to_string(),
+        quantity,
+        price,
+    }
+}
+
 pub fn sample_order() -> Order {
     Order {
         customer: "Carol".to_string(),
-        items: vec![
-            OrderItem {
-                name: "Mouse".to_string(),
-                quantity: 1,
-                price: 35.0,
-            },
-            OrderItem {
-                name: "Pad".to_string(),
-                quantity: 1,
-                price: 12.5,
-            },
-        ],
+        items: vec![new_item("Mouse", 1, 35.0), new_item("Pad", 1, 12.5)],
     }
 }

@@ -1,0 +1,9 @@
+language:
+  id: jsonnet
+  kind: metadata
+  project: playground/jsonnet
+pairs:
+  - language: jsonnet
+    server: jsonnet_ls
+    smoke:
+      status: capabilities

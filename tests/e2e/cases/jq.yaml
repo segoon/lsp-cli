@@ -1,0 +1,9 @@
+language:
+  id: jq
+  kind: metadata
+  project: playground/jq
+pairs:
+  - language: jq
+    server: jqls
+    smoke:
+      status: capabilities

@@ -1,0 +1,13 @@
+language:
+  id: json
+  kind: metadata
+  project: playground/json
+pairs:
+  - language: json
+    server: jsonls
+    smoke:
+      status: capabilities
+  - language: json
+    server: nxls
+    smoke:
+      status: capabilities

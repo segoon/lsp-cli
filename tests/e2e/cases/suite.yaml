@@ -606,6 +606,18 @@ servers:
     owner-language: jinja
     provisioning:
       status: download
+  - id: jqls
+    owner-language: jq
+    provisioning:
+      status: download
+  - id: jsonls
+    owner-language: json
+    provisioning:
+      status: download
+  - id: jsonnet_ls
+    owner-language: jsonnet
+    provisioning:
+      status: download
   - id: kakehashi
     owner-language: python
     provisioning:
@@ -676,6 +688,10 @@ servers:
       status: download
   - id: nextls
     owner-language: eelixir
+    provisioning:
+      status: download
+  - id: nxls
+    owner-language: json
     provisioning:
       status: download
   - id: ocamllsp
@@ -835,6 +851,11 @@ servers:
     provisioning:
       status: excluded
       reason: sourcekit-lsp requires an Apple or Swift toolchain and is not provisionable in the Linux E2E lane.
+  - id: spectral
+    owner-language: json
+    provisioning:
+      status: excluded
+      reason: spectral is a linter, formatter, or otherwise not a general-purpose language server.
   - id: starlark_rust
     owner-language: BUILD.bazel
     provisioning:
@@ -928,6 +949,11 @@ servers:
     provisioning:
       status: excluded
       reason: unocss-language-server is framework-specific rather than a general-purpose TypeScript server.
+  - id: vacuum
+    owner-language: json.openapi
+    provisioning:
+      status: excluded
+      reason: vacuum is a linter, formatter, or otherwise not a general-purpose language server.
   - id: vala_ls
     owner-language: genie
     provisioning:

@@ -269,8 +269,8 @@ fn stop_socket_returns_not_running_when_socket_is_missing() {
 fn window_fixture() -> (super::Daemon, UnixStream, TestDir) {
     use super::events::EventQueue;
     use super::{ClientPhase, ClientSession, Daemon, UpstreamServer};
-    use std::collections::{BTreeMap, BTreeSet};
     use command_group::CommandGroup as _;
+    use std::collections::{BTreeMap, BTreeSet};
     use std::process::{Command, Stdio};
     use std::time::{Duration, Instant};
 

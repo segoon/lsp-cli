@@ -1,0 +1,17 @@
+language:
+  id: scss
+  kind: metadata
+  project: playground/scss
+pairs:
+  - language: scss
+    server: css_variables
+    smoke:
+      status: capabilities
+  - language: scss
+    server: cssls
+    smoke:
+      status: capabilities
+  - language: scss
+    server: somesass_ls
+    smoke:
+      status: capabilities

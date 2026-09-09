@@ -529,6 +529,11 @@ servers:
           resolve:
             - which
             - java
+  - id: guile_ls
+    owner-language: scheme.guile
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: harper_ls
     owner-language: rust
     provisioning:
@@ -758,6 +763,11 @@ servers:
     owner-language: meson
     provisioning:
       status: download
+  - id: metals
+    owner-language: scala
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: mint
     owner-language: mint
     provisioning:
@@ -1185,6 +1195,11 @@ servers:
             - rustup
             - which
             - rustfmt
+  - id: scheme_langserver
+    owner-language: scheme
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: scry
     owner-language: crystal
     provisioning:
@@ -1215,6 +1230,10 @@ servers:
       reason: Snyk requires an authenticated security service and is outside general-purpose server coverage.
   - id: solargraph
     owner-language: ruby
+    provisioning:
+      status: download
+  - id: somesass_ls
+    owner-language: sass
     provisioning:
       status: download
   - id: sorbet

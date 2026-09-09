@@ -864,6 +864,15 @@ servers:
     owner-language: opencl
     provisioning:
       status: download
+  - id: openscad_ls
+    owner-language: openscad
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: openscad_lsp
+    owner-language: openscad
+    provisioning:
+      status: download
   - id: please
     owner-language: bzl
     provisioning:
@@ -1094,11 +1103,19 @@ servers:
     owner-language: bib
     provisioning:
       status: download
+  - id: textlsp
+    owner-language: org
+    provisioning:
+      status: download
   - id: theme_check
     owner-language: liquid
     provisioning:
       status: excluded
       reason: theme_check is a linter, formatter, or otherwise not a general-purpose language server.
+  - id: tofu_ls
+    owner-language: opentofu
+    provisioning:
+      status: download
   - id: ts_ls
     owner-language: javascript
     provisioning:

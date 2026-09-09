@@ -101,6 +101,55 @@ fn starts_server_in_workspace_root() {
 
 #[cfg(unix)]
 #[test]
+fn shutdown_tolerates_truncated_final_message_before_exit() {
+    // Reproduces the gopls shutdown race: the server answers `shutdown`, then closes its
+    // stdout mid-write of one more message instead of cleanly ending the stream.
+    use crate::lsp::jsonrpc;
+    use crate::lsp::transport::frame_message;
+
+    let dir = TestDir::new("client-truncated-exit");
+    let workspace_root = dir.path().join("workspace");
+    fs::create_dir_all(&workspace_root).expect("workspace should be created");
+
+    // `LspClient` assigns sequential request ids starting at 1, and `shutdown()` sends the
+    // `shutdown` request before any other request, so its id is deterministically 1.
+    let shutdown_request = jsonrpc(Some(1u64), "shutdown", &())
+        .and_then(|message| frame_message(&message))
+        .expect("shutdown request should frame");
+    let exit_notification = jsonrpc::<u64, _>(None, "exit", &())
+        .and_then(|message| frame_message(&message))
+        .expect("exit notification should frame");
+
+    let shutdown_body = r#"{"jsonrpc":"2.0","id":1,"result":null}"#;
+    let truncated_body = r#"{"jsonrpc":"2.0","method":"window/logMessage","params":{}}"#;
+    let truncated_half = &truncated_body[..truncated_body.len() / 2];
+    // Read exactly the client's two outgoing frames in the foreground (no backgrounding) so the
+    // read/response sequencing matches the real protocol without any shell job-control races.
+    let script = format!(
+        "head -c {} >/dev/null; \
+         printf 'Content-Length: {}\\r\\n\\r\\n{}'; \
+         head -c {} >/dev/null; \
+         printf 'Content-Length: {}\\r\\n\\r\\n{}'; \
+         exit 0",
+        shutdown_request.len(),
+        shutdown_body.len(),
+        shutdown_body,
+        exit_notification.len(),
+        truncated_body.len(),
+        truncated_half,
+    );
+    let command = vec!["sh".to_string(), "-c".to_string(), script];
+
+    let mut client = LspClient::new(&command, &workspace_root, false, Duration::from_secs(5))
+        .expect("helper process should start");
+
+    client
+        .shutdown()
+        .expect("shutdown should tolerate a truncated final message from the server");
+}
+
+#[cfg(unix)]
+#[test]
 fn hides_server_stderr_without_debug() {
     assert_eq!(captured_server_stderr(false), "");
 }

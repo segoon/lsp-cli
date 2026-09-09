@@ -108,11 +108,11 @@ impl Session {
             "jsonrpc": "2.0", "method": "initialized", "params": {}
         }))?;
         self.send(&json!({
-            "jsonrpc": "2.0", "id": 2, "method": "shutdown", "params": null
+            "jsonrpc": "2.0", "id": 2, "method": "shutdown"
         }))?;
         self.wait_for_response(2)?;
         self.send(&json!({
-            "jsonrpc": "2.0", "method": "exit", "params": null
+            "jsonrpc": "2.0", "method": "exit"
         }))?;
         // Closing stdin tells servers that ignore `exit` that no more protocol input can arrive.
         drop(self.input.take());

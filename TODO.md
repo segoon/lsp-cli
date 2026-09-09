@@ -17,6 +17,8 @@
 - code duplication
 - disabled features
 - make sure --download cache is used
+- make download-e2e-deps && source activate-local-deps.inc
+- fix github "no space" issue
 
 # Features
 

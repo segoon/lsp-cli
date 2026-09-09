@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::ffi::OsStr;
 use std::fs;
 use std::io;
@@ -38,6 +39,9 @@ pub(crate) struct E2eContext {
     bin_dir: PathBuf,
     build_dir: PathBuf,
     data_dir: PathBuf,
+    // The staged `dotnet` apphost resolves its runtime via DOTNET_ROOT rather than PATH, so its
+    // install root must be threaded through explicitly once `stage_host_program` resolves it.
+    dotnet_root: RefCell<Option<PathBuf>>,
 }
 
 pub(crate) struct E2eOutput {
@@ -88,6 +92,7 @@ impl E2eContext {
             bin_dir,
             build_dir,
             data_dir: PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data"),
+            dotnet_root: RefCell::new(None),
         })
     }
 
@@ -174,6 +179,12 @@ impl E2eContext {
             )
         })?;
 
+        if name == "dotnet"
+            && let Some(root) = resolved.parent()
+        {
+            *self.dotnet_root.borrow_mut() = Some(root.to_path_buf());
+        }
+
         self.link_host_program(&resolved, &self.bin_dir.join(name))
             .map_err(|error| {
                 format!(
@@ -258,6 +269,9 @@ impl E2eContext {
             .env("LC_ALL", "C")
             .env("TZ", "UTC")
             .current_dir(&self.workspace);
+        if let Some(root) = self.dotnet_root.borrow().as_deref() {
+            command.env("DOTNET_ROOT", root);
+        }
         command
     }
 

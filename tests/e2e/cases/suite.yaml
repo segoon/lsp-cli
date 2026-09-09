@@ -1262,6 +1262,10 @@ servers:
     owner-language: smithy
     provisioning:
       status: download
+  - id: snakeskin_ls
+    owner-language: ss
+    provisioning:
+      status: download
   - id: snyk_ls
     owner-language: python
     provisioning:
@@ -1323,6 +1327,10 @@ servers:
       status: download
   - id: sqruff
     owner-language: sql
+    provisioning:
+      status: download
+  - id: stan_ls
+    owner-language: stan
     provisioning:
       status: download
   - id: standardrb

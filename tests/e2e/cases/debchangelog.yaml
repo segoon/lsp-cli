@@ -1,0 +1,4 @@
+language:
+  id: debchangelog
+  kind: metadata
+  project: playground/debchangelog

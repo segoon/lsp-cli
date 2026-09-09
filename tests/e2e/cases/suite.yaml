@@ -264,6 +264,21 @@ servers:
     owner-language: cue
     provisioning:
       status: download
+  - id: dartls
+    owner-language: dart
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: dcmls
+    owner-language: dart
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: debputy
+    owner-language: debchangelog
+    provisioning:
+      status: excluded
+      reason: debputy is a linter, formatter, or otherwise not a general-purpose language server.
   - id: denols
     owner-language: javascript
     provisioning:

@@ -557,6 +557,19 @@ servers:
     provisioning:
       status: excluded
       reason: htmx-lsp is framework-specific rather than a general-purpose JavaScript server.
+  - id: hylo_ls
+    owner-language: hylo
+    provisioning:
+      status: download
+  - id: hyprls
+    owner-language: hyprlang
+    provisioning:
+      status: download
+  - id: idris2_lsp
+    owner-language: idris2
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: java_language_server
     owner-language: java
     provisioning:
@@ -610,6 +623,11 @@ servers:
     owner-language: kotlin
     provisioning:
       status: download
+  - id: kulala_ls
+    owner-language: http
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: laravel_ls
     owner-language: blade
     provisioning:

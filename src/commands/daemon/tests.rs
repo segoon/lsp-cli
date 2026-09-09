@@ -270,6 +270,7 @@ fn window_fixture() -> (super::Daemon, UnixStream, TestDir) {
     use super::events::EventQueue;
     use super::{ClientPhase, ClientSession, Daemon, UpstreamServer};
     use std::collections::{BTreeMap, BTreeSet};
+    use command_group::CommandGroup as _;
     use std::process::{Command, Stdio};
     use std::time::{Duration, Instant};
 
@@ -283,7 +284,7 @@ fn window_fixture() -> (super::Daemon, UnixStream, TestDir) {
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .spawn()
+        .group_spawn()
         .expect("start echo process");
     let generation = events.next_generation().expect("generation");
     let (process, io) = super::ProcessWorker::adopt(child, generation, &events);

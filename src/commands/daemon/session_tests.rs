@@ -1,6 +1,7 @@
 use super::*;
 use crate::lsp::transport::read_message;
 use crate::test_support::{TestDir, with_env_vars};
+use command_group::CommandGroup as _;
 use serde_json::json;
 use std::io::{BufRead, BufReader, ErrorKind};
 use std::os::unix::net::UnixListener;
@@ -167,7 +168,7 @@ fn fake_upstream(events: &mut EventQueue, logger: Logger) -> (UpstreamServer, Pr
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .spawn()
+            .group_spawn()
             .expect("fake server")
     });
     let generation = events.next_generation().expect("upstream generation");

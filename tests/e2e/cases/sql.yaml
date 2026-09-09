@@ -1,0 +1,25 @@
+language:
+  id: sql
+  kind: metadata
+  project: playground/sql
+pairs:
+  - language: sql
+    server: bqls
+    smoke:
+      status: capabilities
+  - language: sql
+    server: postgres_lsp
+    smoke:
+      status: capabilities
+  - language: sql
+    server: sqlls
+    smoke:
+      status: capabilities
+  - language: sql
+    server: sqls
+    smoke:
+      status: capabilities
+  - language: sql
+    server: sqruff
+    smoke:
+      status: capabilities

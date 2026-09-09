@@ -139,6 +139,10 @@ servers:
     provisioning:
       status: excluded
       reason: The current Mason registry has no package for this server.
+  - id: bqls
+    owner-language: sql
+    provisioning:
+      status: download
   - id: bright_script
     owner-language: brs
     provisioning:
@@ -768,6 +772,10 @@ servers:
     provisioning:
       status: excluded
       reason: The current Mason registry has no package for this server.
+  - id: millet
+    owner-language: sml
+    provisioning:
+      status: download
   - id: mint
     owner-language: mint
     provisioning:
@@ -975,6 +983,10 @@ servers:
     provisioning:
       status: excluded
       reason: The current Mason registry has no package for this server.
+  - id: postgres_lsp
+    owner-language: sql
+    provisioning:
+      status: download
   - id: powershell_es
     owner-language: ps1
     provisioning:
@@ -1152,6 +1164,10 @@ servers:
           resolve:
             - which
             - env
+  - id: rpmspec
+    owner-language: spec
+    provisioning:
+      status: download
   - id: rubocop
     owner-language: ruby
     provisioning:
@@ -1251,8 +1267,28 @@ servers:
     provisioning:
       status: excluded
       reason: Snyk requires an authenticated security service and is outside general-purpose server coverage.
+  - id: solang
+    owner-language: solidity
+    provisioning:
+      status: download
   - id: solargraph
     owner-language: ruby
+    provisioning:
+      status: download
+  - id: solc
+    owner-language: solidity
+    provisioning:
+      status: download
+  - id: solidity
+    owner-language: solidity
+    provisioning:
+      status: download
+  - id: solidity_ls
+    owner-language: solidity
+    provisioning:
+      status: download
+  - id: solidity_ls_nomicfoundation
+    owner-language: solidity
     provisioning:
       status: download
   - id: somesass_ls
@@ -1275,6 +1311,18 @@ servers:
       reason: spectral is a linter, formatter, or otherwise not a general-purpose language server.
   - id: spyglassmc_language_server
     owner-language: mcfunction
+    provisioning:
+      status: download
+  - id: sqlls
+    owner-language: sql
+    provisioning:
+      status: download
+  - id: sqls
+    owner-language: sql
+    provisioning:
+      status: download
+  - id: sqruff
+    owner-language: sql
     provisioning:
       status: download
   - id: standardrb

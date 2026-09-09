@@ -877,6 +877,10 @@ servers:
     provisioning:
       status: excluded
       reason: The current Mason registry has no package for this server.
+  - id: ntt
+    owner-language: ttcn
+    provisioning:
+      status: download
   - id: nushell
     owner-language: nu
     provisioning:
@@ -1413,6 +1417,10 @@ servers:
     provisioning:
       status: excluded
       reason: tailwindcss-language-server is framework-specific rather than a general-purpose JavaScript server.
+  - id: taplo
+    owner-language: toml
+    provisioning:
+      status: download
   - id: tblgen_lsp_server
     owner-language: tablegen
     provisioning:
@@ -1457,8 +1465,21 @@ servers:
     provisioning:
       status: excluded
       reason: theme_check is a linter, formatter, or otherwise not a general-purpose language server.
+  - id: thriftls
+    owner-language: thrift
+    provisioning:
+      status: download
+  - id: tilt_ls
+    owner-language: tiltfile
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: tofu_ls
     owner-language: opentofu
+    provisioning:
+      status: download
+  - id: tombi
+    owner-language: toml
     provisioning:
       status: download
   - id: ts_ls

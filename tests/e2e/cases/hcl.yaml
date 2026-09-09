@@ -1,0 +1,4 @@
+language:
+  id: hcl
+  kind: metadata
+  project: playground/hcl

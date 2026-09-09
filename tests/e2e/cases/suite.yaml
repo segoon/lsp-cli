@@ -443,6 +443,11 @@ servers:
     provisioning:
       status: excluded
       reason: The current Mason registry has no package for this server.
+  - id: ghcide
+    owner-language: haskell
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: ginko_ls
     owner-language: dts
     provisioning:
@@ -506,6 +511,10 @@ servers:
     provisioning:
       status: excluded
       reason: harper-ls is a prose grammar checker rather than a general-purpose language server.
+  - id: helm_ls
+    owner-language: helm
+    provisioning:
+      status: download
   - id: herb_ls
     owner-language: eruby
     provisioning:
@@ -513,6 +522,11 @@ servers:
       reason: herb_ls is a linter, formatter, or otherwise not a general-purpose language server.
   - id: hhvm
     owner-language: hack
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: hie
+    owner-language: haskell
     provisioning:
       status: excluded
       reason: The current Mason registry has no package for this server.
@@ -809,6 +823,11 @@ servers:
     provisioning:
       status: excluded
       reason: tailwindcss-language-server is framework-specific rather than a general-purpose JavaScript server.
+  - id: terraform_lsp
+    owner-language: hcl
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: texlab
     owner-language: bib
     provisioning:

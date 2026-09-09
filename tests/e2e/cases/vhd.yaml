@@ -1,0 +1,9 @@
+language:
+  id: vhd
+  kind: metadata
+  project: playground/vhd
+pairs:
+  - language: vhd
+    server: vhdl_ls
+    smoke:
+      status: capabilities

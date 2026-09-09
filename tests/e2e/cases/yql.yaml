@@ -1,0 +1,9 @@
+language:
+  id: yql
+  kind: metadata
+  project: playground/yql
+pairs:
+  - language: yql
+    server: vespa_ls
+    smoke:
+      status: capabilities

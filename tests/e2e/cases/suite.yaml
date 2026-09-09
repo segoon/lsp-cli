@@ -1713,6 +1713,16 @@ servers:
     owner-language: yaml
     provisioning:
       status: download
+  - id: yang_lsp
+    owner-language: yang
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: yls
+    owner-language: yar
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: zk
     owner-language: markdown
     provisioning:

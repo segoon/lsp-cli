@@ -1,0 +1,4 @@
+language:
+  id: yara
+  kind: metadata
+  project: playground/yara

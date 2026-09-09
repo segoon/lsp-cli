@@ -323,6 +323,15 @@ servers:
     provisioning:
       status: excluded
       reason: The current Mason registry has no package for this server.
+  - id: earthlyls
+    owner-language: earthfile
+    provisioning:
+      status: download
+  - id: ecsact
+    owner-language: ecsact
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: efm
     owner-language: lua
     provisioning:
@@ -490,6 +499,10 @@ servers:
       reason: The current Mason registry has no package for this server.
   - id: neocmake
     owner-language: cmake
+    provisioning:
+      status: download
+  - id: ocamllsp
+    owner-language: dune
     provisioning:
       status: download
   - id: omnisharp

@@ -1,0 +1,9 @@
+language:
+  id: edn
+  kind: metadata
+  project: playground/edn
+pairs:
+  - language: edn
+    server: clojure_lsp
+    smoke:
+      status: capabilities

@@ -57,15 +57,25 @@ regression still fails loudly.
    and re-checked for regressions against rust_analyzer/gopls/pyright, which
    share the same code path.
 
-4. **Call-hierarchy has no edges for the fixture.** ~~Go (`gopls`) and Rust
+4. **Call-hierarchy has no edges for the fixture.** Go (`gopls`) and Rust
    (`rust_analyzer`) report empty `callees` for `SampleOrder`/`sample_order`
    because that fixture constructs data directly rather than calling other
-   functions~~ **Fixed for Go/Rust** by extracting a `newItem`/`new_item`
-   helper so the fixture has a real outgoing call; verified against live
-   gopls/rust_analyzer. EmmyLua (lua) still has no outgoing edges despite a
-   real same-file call existing in source (a genuine EmmyLua limitation, not
-   fixable via fixture changes), and pylyzer (python) still has no incoming
-   (`callers`) edges despite a real cross-file caller existing.
+   functions. **Fixed for Go** by extracting a `newItem` helper so the
+   fixture has a real outgoing call; verified against live gopls across
+   multiple CI runs. **Attempted for Rust** the same way (`new_item`
+   helper) and it passed repeatedly in local testing, but failed
+   consistently in CI (`Callees returned no semantic matches`, twice in a
+   row, even with a retry-on-empty added to the test harness for exactly
+   this class of indexing race). Since local runs and CI disagree
+   reproducibly rather than intermittently, this looks like a CI-sandbox
+   limitation of rust-analyzer's project-model/semantic analysis (not a
+   timing race the harness can retry past), so the Rust fixture and
+   exception were reverted to the original state — CI is the trustworthy
+   signal here, not local runs. EmmyLua (lua) still has no outgoing edges
+   despite a real same-file call existing in source (a genuine EmmyLua
+   limitation, not fixable via fixture changes), and pylyzer (python) still
+   has no incoming (`callers`) edges despite a real cross-file caller
+   existing.
 
 5. **Server-specific formatting/output bugs.** EmmyLua's `format` returns an
    edit whose range falls outside the requested file — a genuine bug in the

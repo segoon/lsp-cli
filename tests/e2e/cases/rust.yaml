@@ -16,6 +16,10 @@ pairs:
     server: rust_analyzer
     smoke:
       status: queries
+      exceptions:
+        - command: callees
+          outcome: empty-matches
+          reason: sample_order constructs data directly and has no outgoing call-hierarchy edges
       deadline-seconds: 180
     lifecycle:
       status: scenarios

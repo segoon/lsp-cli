@@ -33,9 +33,6 @@ pairs:
     smoke:
       status: queries
       exceptions:
-        - command: grep
-          outcome: empty-matches
-          reason: vtsls returns no workspace symbols before project analysis completes
         - command: build-index
           outcome: failure
           message: background-work progress

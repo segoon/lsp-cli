@@ -1,9 +1,30 @@
 language:
   id: odin
-  kind: metadata
+  kind: source
   project: playground/odin
+  query-profile:
+    symbol-query: Order
+    callable-query: build_sample_order
+    format-file: main.odin
+    expected-names:
+      - Order
+      - OrderItem
+      - build_sample_order
+      - format_order
 pairs:
   - language: odin
     server: ols
     smoke:
-      status: capabilities
+      status: queries
+      exceptions:
+        - command: grep
+          outcome: empty-matches
+          reason: ols returns no workspace/symbol matches for this fixture
+        - command: build-index
+          outcome: failure
+          message: background-work progress
+          reason: ols exposes no background-work progress signal
+    lifecycle:
+      status: scenarios
+      direct-run:
+        status: exchange

@@ -76,6 +76,26 @@ pub fn ensure_declaration_support(initialize: &InitializeResponse) -> Result<()>
     Ok(())
 }
 
+pub fn ensure_implementation_support(initialize: &InitializeResponse) -> Result<()> {
+    if !supports(initialize.capability(&["implementationProvider"])) {
+        return Err(Error::lsp(
+            "selected LSP server does not support textDocument/implementation",
+        ));
+    }
+
+    Ok(())
+}
+
+pub fn ensure_type_definition_support(initialize: &InitializeResponse) -> Result<()> {
+    if !supports(initialize.capability(&["typeDefinitionProvider"])) {
+        return Err(Error::lsp(
+            "selected LSP server does not support textDocument/typeDefinition",
+        ));
+    }
+
+    Ok(())
+}
+
 pub fn ensure_call_hierarchy_support(initialize: &InitializeResponse) -> Result<()> {
     if !supports(initialize.capability(&["callHierarchyProvider"])) {
         return Err(Error::lsp(

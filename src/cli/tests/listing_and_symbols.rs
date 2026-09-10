@@ -1,6 +1,6 @@
 use super::super::{
-    Command, CompletionArgs, DeclarationArgs, DefinitionArgs, ListFilesArgs, ListFunctionsArgs,
-    SymbolQueryArgs,
+    Command, CompletionArgs, DeclarationArgs, DefinitionArgs, ImplementationArgs, ListFilesArgs,
+    ListFunctionsArgs, SymbolQueryArgs, TypeDefinitionArgs,
 };
 use super::{
     build_index_args, install_debug, list_symbols_args, lsp_workspace_query, parse, selection,
@@ -243,6 +243,84 @@ fn parses_declaration_full_arguments() {
 }
 
 #[test]
+fn parses_implementation_full_arguments() {
+    let mut query = lsp_workspace_query("workspace");
+    query.query.selector = selection(Some("go"), None);
+
+    assert_eq!(
+        parse(&[
+            "implementation",
+            "Reader",
+            "workspace",
+            "--lang",
+            "go",
+            "--full"
+        ])
+        .expect("implementation should parse"),
+        Command::Implementation(ImplementationArgs {
+            name: "Reader".to_string(),
+            query,
+            full: true,
+        })
+    );
+}
+
+#[test]
+fn parses_implementation_files_with_matches_arguments() {
+    let mut query = lsp_workspace_query("workspace");
+    query.files_with_matches = true;
+
+    assert_eq!(
+        parse(&["implementation", "Reader", "workspace", "-l"])
+            .expect("implementation should parse"),
+        Command::Implementation(ImplementationArgs {
+            name: "Reader".to_string(),
+            query,
+            full: false,
+        })
+    );
+}
+
+#[test]
+fn parses_type_definition_full_arguments() {
+    let mut query = lsp_workspace_query("workspace");
+    query.query.selector = selection(Some("go"), None);
+
+    assert_eq!(
+        parse(&[
+            "type-definition",
+            "reader",
+            "workspace",
+            "--lang",
+            "go",
+            "--full"
+        ])
+        .expect("type-definition should parse"),
+        Command::TypeDefinition(TypeDefinitionArgs {
+            name: "reader".to_string(),
+            query,
+            full: true,
+        })
+    );
+}
+
+#[test]
+fn parses_type_definition_files_with_matches_arguments() {
+    let mut query = lsp_workspace_query("workspace");
+    query.files_with_matches = true;
+
+    assert_eq!(
+        parse(&["type-definition", "reader", "workspace", "-l"])
+            .expect("type-definition should parse"),
+        Command::TypeDefinition(TypeDefinitionArgs {
+            name: "reader".to_string(),
+            query,
+            full: false,
+        })
+    );
+}
+
+#[test]
 fn rejects_full_for_references() {
     let error = parse(&["references", "main", "workspace", "--full"])
         .expect_err("references should reject --full");
@@ -255,7 +333,7 @@ fn rejects_files_with_matches_for_list_functions() {
     let error =
         parse(&["list-functions", "workspace", "-l"]).expect_err("list-functions should reject -l");
 
-    assert!(error.contains("`--files-with-matches` is only supported by grep, references, definition, declaration, callers, and callees"));
+    assert!(error.contains("`--files-with-matches` is only supported by grep, references, definition, declaration, implementation, type-definition, callers, and callees"));
 }
 
 #[test]
@@ -275,5 +353,25 @@ fn rejects_full_with_files_with_matches_for_declaration() {
 
     assert!(error.contains(
         "`declaration` does not support using `--full` together with `--files-with-matches`"
+    ));
+}
+
+#[test]
+fn rejects_full_with_files_with_matches_for_implementation() {
+    let error = parse(&["implementation", "Reader", "workspace", "--full", "-l"])
+        .expect_err("implementation should reject --full -l");
+
+    assert!(error.contains(
+        "`implementation` does not support using `--full` together with `--files-with-matches`"
+    ));
+}
+
+#[test]
+fn rejects_full_with_files_with_matches_for_type_definition() {
+    let error = parse(&["type-definition", "reader", "workspace", "--full", "-l"])
+        .expect_err("type-definition should reject --full -l");
+
+    assert!(error.contains(
+        "`type-definition` does not support using `--full` together with `--files-with-matches`"
     ));
 }

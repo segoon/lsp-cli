@@ -83,6 +83,28 @@ lsp-cli declaration --detach --json --limit 10 MySymbol path/to/project
 Useful flags:
 - `-l, --files-with-matches`: {OPT/FILES_WITH_MATCHES}
 
+### `implementation`
+```sh
+# {CMD/IMPLEMENTATION}
+# Use it when you need the concrete implementation(s) of an interface, abstract, or trait member.
+# Most useful in interface-heavy languages (Go, Java, C#, TypeScript, Rust traits).
+lsp-cli implementation --detach --json --limit 10 MySymbol path/to/project
+```
+Useful flags:
+- `--full`: {OPT/FULL}
+- `-l, --files-with-matches`: {OPT/FILES_WITH_MATCHES}
+
+### `type-definition`
+```sh
+# {CMD/TYPE_DEFINITION}
+# Use it when you need the type of a value rather than the value's own declaration site.
+# Useful for resolving an inferred or generic type back to where it is defined.
+lsp-cli type-definition --detach --json --limit 10 MySymbol path/to/project
+```
+Useful flags:
+- `--full`: {OPT/FULL}
+- `-l, --files-with-matches`: {OPT/FILES_WITH_MATCHES}
+
 ### `references`
 ```sh
 # {CMD/REFERENCES}

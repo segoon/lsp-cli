@@ -66,7 +66,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "range": range(1, 0, 13),
                 "newText": "    formatted"
             }]),
-            "textDocument/references" | "textDocument/definition" | "textDocument/declaration" => {
+            "textDocument/references"
+            | "textDocument/definition"
+            | "textDocument/declaration"
+            | "textDocument/implementation"
+            | "textDocument/typeDefinition" => {
                 json!([location(&root_uri)])
             }
             "textDocument/prepareCallHierarchy" => json!([call_item(&root_uri)]),
@@ -111,6 +115,8 @@ fn initialize_result(advertise_capabilities: bool) -> Value {
             "documentSymbolProvider": true,
             "definitionProvider": true,
             "declarationProvider": true,
+            "implementationProvider": true,
+            "typeDefinitionProvider": true,
             "referencesProvider": true,
             "callHierarchyProvider": true,
             "documentFormattingProvider": true,

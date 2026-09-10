@@ -93,12 +93,15 @@ Search for symbols across a workspace:
 lsp-cli grep MySymbol path/to/project
 ```
 
-Find definitions, declarations, and references by symbol name:
+Find definitions, declarations, implementations, type definitions, and references by symbol name:
 
 ```sh
 lsp-cli definition MySymbol path/to/project
 lsp-cli declaration MySymbol path/to/project
+lsp-cli implementation MySymbol path/to/project
+lsp-cli type-definition MySymbol path/to/project
 lsp-cli references MySymbol path/to/project
+```
 
 Find callers and callees by function name:
 
@@ -235,7 +238,8 @@ debug: false
 timeout: "10"
 
 # Maximum outstanding document-symbol requests while finding a symbol by name
-# (references, definition, declaration, callers, and callees). Default: 20.
+# (references, definition, declaration, implementation, type-definition, callers,
+# and callees). Default: 20.
 # Use 1 for sequential requests or a smaller value to reduce server load.
 max-requests-in-flight: 20
 # A file-symbol timeout fails the query instead of returning incomplete results.
@@ -401,6 +405,8 @@ Commands:
   callees              Find callees of a symbol name
   definition           Find definitions of a symbol name
   declaration          Find declarations of a symbol name
+  implementation       Find implementations of a symbol name
+  type-definition      Find type definitions of a symbol name
   build-index          Wait for the server to finish indexing a workspace
   update               Force update langages/servers database
   completion           Generate a shell completion script, write it to stdout
@@ -828,6 +834,64 @@ Options:
 ```
 
 ```text
+$ lsp-cli implementation --help
+Find implementations of a symbol name
+
+Usage: lsp-cli implementation [OPTIONS] <NAME> <DIRECTORY>
+
+Arguments:
+  <NAME>       Symbol name to search for.
+  <DIRECTORY>  Workspace directory to query.
+
+Options:
+      --lang <LANG>         Select this language.
+      --lsp <LSP>           Use a specific configured LSP server.
+      --wait-for-index      Wait for background indexing before sending the workspace query.
+      --json                Print results as JSON.
+      --no-json             Print human-readable output instead of JSON.
+      --debug               Print verbose debug logs to stderr.
+      --no-debug            Disable verbose debug logs.
+      --timeout <T>         Per-request LSP timeout. Plain numbers are seconds; values ending in `ms` are milliseconds.
+      --limit <N>           Maximum number of results to print. Mainly usable for code agents.
+      --download            Download LSP server if not found in PATH.
+      --no-download         Do not install missing servers automatically.
+      --detach              Use a background daemon socket when available, starting one if needed.
+      --no-detach           Talk to the server in this process instead of using a background daemon.
+  -l, --files-with-matches  Print only file paths that contain matches.
+      --full                Include full source text for each match in output.
+  -h, --help                Print help
+```
+
+```text
+$ lsp-cli type-definition --help
+Find type definitions of a symbol name
+
+Usage: lsp-cli type-definition [OPTIONS] <NAME> <DIRECTORY>
+
+Arguments:
+  <NAME>       Symbol name to search for.
+  <DIRECTORY>  Workspace directory to query.
+
+Options:
+      --lang <LANG>         Select this language.
+      --lsp <LSP>           Use a specific configured LSP server.
+      --wait-for-index      Wait for background indexing before sending the workspace query.
+      --json                Print results as JSON.
+      --no-json             Print human-readable output instead of JSON.
+      --debug               Print verbose debug logs to stderr.
+      --no-debug            Disable verbose debug logs.
+      --timeout <T>         Per-request LSP timeout. Plain numbers are seconds; values ending in `ms` are milliseconds.
+      --limit <N>           Maximum number of results to print. Mainly usable for code agents.
+      --download            Download LSP server if not found in PATH.
+      --no-download         Do not install missing servers automatically.
+      --detach              Use a background daemon socket when available, starting one if needed.
+      --no-detach           Talk to the server in this process instead of using a background daemon.
+  -l, --files-with-matches  Print only file paths that contain matches.
+      --full                Include full source text for each match in output.
+  -h, --help                Print help
+```
+
+```text
 $ lsp-cli build-index --help
 Wait for the server to finish indexing a workspace
 
@@ -931,6 +995,8 @@ Find locations and call relationships:
 ```sh
 lsp-cli definition format_order playground/c --lsp clangd
 lsp-cli declaration format_order playground/c --lsp clangd
+lsp-cli implementation format_order playground/c --lsp clangd
+lsp-cli type-definition format_order playground/c --lsp clangd
 lsp-cli references OrderFormatter playground/csharp
 lsp-cli callers format_order playground/c --lsp clangd
 lsp-cli callees format_order playground/c --lsp clangd

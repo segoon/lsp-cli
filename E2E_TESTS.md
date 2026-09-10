@@ -9,6 +9,14 @@ request check and as an exhaustive compatibility check.
 The tests must validate user-visible behavior: exit status, stdout, stderr, filesystem effects,
 server lifecycle, and semantically relevant LSP results. They must not depend on private Rust APIs.
 
+## Local dev environment
+
+The real-server E2E targets (`test-real-server-e2e`, `test-real-server-smoke-e2e`,
+`test-server-provisioning-e2e`) need `go`, `java`, `node`/`npm`, and `dotnet` on `PATH`, matching
+what CI installs in `.github/workflows/ci.yml` and `e2e.yml`. Run `make download-dev-env` to fetch
+project-local copies into `.env/` (not a system-wide install), then `source activate.sh` from the
+repo root to put them on `PATH` for the current shell.
+
 ## Working definition of supported
 
 At pinned `lsp-cli-data` revision `a71b45d8f0402c9aea220922d713eeead5880b72`, the data tree has:

@@ -12,6 +12,7 @@ mod detect;
 mod diagnostics;
 mod format;
 mod grep;
+mod implementation;
 mod languages;
 mod list_files;
 mod list_functions;
@@ -22,6 +23,7 @@ mod server_capabilities;
 mod servers;
 mod stop;
 mod symbol_query;
+mod type_definition;
 mod update;
 
 use crate::cli::{Command as CliCommand, CompletionArgs};
@@ -49,6 +51,8 @@ pub(crate) fn run(command: CliCommand, config: &ConfigStore) -> Result<String> {
         CliCommand::Callees(args) => callees::run(&args, config),
         CliCommand::Definition(args) => definition::run(&args, config),
         CliCommand::Declaration(args) => declaration::run(&args, config),
+        CliCommand::Implementation(args) => implementation::run(&args, config),
+        CliCommand::TypeDefinition(args) => type_definition::run(&args, config),
         CliCommand::BuildIndex(args) => build_index::run(&args, config),
         CliCommand::Update(args) => update::run(&args, config),
         CliCommand::Completion(_) => Err(Error::unexpected(

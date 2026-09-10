@@ -65,7 +65,8 @@ fn run_query(fixture: &LocalFixture, command: &str) {
 
 fn command_prefix(command: &str) -> Vec<String> {
     match command {
-        "grep" | "references" | "callers" | "callees" | "definition" | "declaration" => {
+        "grep" | "references" | "callers" | "callees" | "definition" | "declaration"
+        | "implementation" | "type-definition" => {
             vec![command.to_string(), "Target".to_string(), ".".to_string()]
         }
         "format" => vec![command.to_string(), "main.fake".to_string()],

@@ -1,8 +1,9 @@
 use super::events::{Event, EventQueue};
 use crate::error::{Error, Result};
+use command_group::{CommandGroup as _, GroupChild};
 use std::ffi::OsString;
 use std::path::PathBuf;
-use std::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command, ExitStatus, Stdio};
+use std::process::{ChildStderr, ChildStdin, ChildStdout, Command, ExitStatus, Stdio};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Sender, TryRecvError};
@@ -53,7 +54,10 @@ impl ProcessWorker {
                     .stdin(Stdio::piped())
                     .stdout(Stdio::piped())
                     .stderr(Stdio::piped());
-                let mut child = match command.spawn() {
+                // Spawned in its own process group so that `stop_child` can reap servers (like
+                // typescript-language-server) that fork long-lived helper processes of their own;
+                // killing only the direct child pid would leave those orphaned.
+                let mut child = match command.group_spawn() {
                     Ok(child) => child,
                     Err(error) => {
                         let _ = admission.publish(Event::Process(
@@ -129,7 +133,7 @@ impl ProcessWorker {
 
     #[cfg(test)]
     pub(super) fn adopt(
-        mut child: Child,
+        mut child: GroupChild,
         generation: u64,
         events: &EventQueue,
     ) -> (Self, ProcessIo) {
@@ -200,16 +204,18 @@ impl Drop for ProcessWorker {
     }
 }
 
-fn take_io(child: &mut Child) -> Option<ProcessIo> {
+fn take_io(child: &mut GroupChild) -> Option<ProcessIo> {
+    let pid = child.id();
+    let inner = child.inner();
     Some(ProcessIo {
-        stdin: child.stdin.take()?,
-        stdout: child.stdout.take()?,
-        stderr: child.stderr.take()?,
-        pid: child.id(),
+        stdin: inner.stdin.take()?,
+        stdout: inner.stdout.take()?,
+        stderr: inner.stderr.take()?,
+        pid,
     })
 }
 
-fn stop_child(child: &mut Child) -> std::result::Result<ExitStatus, String> {
+fn stop_child(child: &mut GroupChild) -> std::result::Result<ExitStatus, String> {
     match child.try_wait() {
         Ok(Some(status)) => return Ok(status),
         Ok(None) => {}

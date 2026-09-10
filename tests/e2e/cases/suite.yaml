@@ -1787,6 +1787,10 @@ commands:
     strategy: lsp-fixture
   - name: declaration
     strategy: lsp-fixture
+  - name: implementation
+    strategy: lsp-fixture
+  - name: type-definition
+    strategy: lsp-fixture
   - name: build-index
     strategy: lsp-fixture
   - name: daemon

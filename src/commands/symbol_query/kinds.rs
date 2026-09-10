@@ -1,7 +1,8 @@
 use crate::lsp::{
     LspClient, SourceCache, SymbolMatch, call_hierarchy_matches_from_incoming_response,
     call_hierarchy_matches_from_outgoing_response, ensure_declaration_support,
-    ensure_definition_support, ensure_references_support,
+    ensure_definition_support, ensure_implementation_support, ensure_references_support,
+    ensure_type_definition_support,
 };
 use serde_json::Value;
 
@@ -20,6 +21,8 @@ pub(super) enum LocationQueryKind {
     References,
     Definition,
     Declaration,
+    Implementation,
+    TypeDefinition,
 }
 
 impl LocationQueryKind {
@@ -28,6 +31,8 @@ impl LocationQueryKind {
             Self::References => "references",
             Self::Definition => "definition",
             Self::Declaration => "declaration",
+            Self::Implementation => "implementation",
+            Self::TypeDefinition => "typeDefinition",
         }
     }
 
@@ -36,6 +41,8 @@ impl LocationQueryKind {
             Self::References => ensure_references_support(initialize),
             Self::Definition => ensure_definition_support(initialize),
             Self::Declaration => ensure_declaration_support(initialize),
+            Self::Implementation => ensure_implementation_support(initialize),
+            Self::TypeDefinition => ensure_type_definition_support(initialize),
         }
     }
 
@@ -54,6 +61,12 @@ impl LocationQueryKind {
             }
             Self::Declaration => {
                 client.declaration(uri, zero_based_line(anchor), zero_based_col(anchor))
+            }
+            Self::Implementation => {
+                client.implementation(uri, zero_based_line(anchor), zero_based_col(anchor))
+            }
+            Self::TypeDefinition => {
+                client.type_definition(uri, zero_based_line(anchor), zero_based_col(anchor))
             }
         }
     }

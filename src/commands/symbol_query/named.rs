@@ -10,10 +10,9 @@ use super::{
 };
 use crate::cli::LspWorkspaceQueryArgs;
 use crate::config::ConfigStore;
-use crate::error::{Error, Result};
+use crate::error::Result;
 use crate::lsp::{
-    LspClient, SourceCache, SymbolMatch, document_symbol_supported,
-    ensure_workspace_symbol_support, symbol_matches_from_response,
+    LspClient, SourceCache, SymbolMatch, document_symbol_supported, ensure_workspace_symbol_support,
 };
 use crate::lsp::{
     ensure_call_hierarchy_support, location_matches_from_response,
@@ -39,13 +38,6 @@ fn collect_named_location_matches(
     ensure_workspace_symbol_support(initialize)?;
     context.kind.ensure_support(initialize)?;
 
-    let anchors = client.workspace_symbol(context.name).map_err(|error| {
-        Error::lsp(format!(
-            "failed to find matching symbols for {:?} with {}: {error}",
-            context.name, workspace.server.server
-        ))
-    })?;
-    let workspace_anchors = symbol_matches_from_response(&anchors)?;
     let anchors = select_named_anchors(
         workspace,
         initialize,
@@ -56,7 +48,6 @@ fn collect_named_location_matches(
             name: context.name,
             function_only: false,
         },
-        workspace_anchors,
     )?;
     let mut source_cache = SourceCache::default();
     let mut matches = Vec::new();
@@ -115,13 +106,6 @@ fn collect_call_hierarchy_matches(
     ensure_workspace_symbol_support(initialize)?;
     ensure_call_hierarchy_support(initialize)?;
 
-    let anchors = client.workspace_symbol(context.name).map_err(|error| {
-        Error::lsp(format!(
-            "failed to find matching symbols for {:?} with {}: {error}",
-            context.name, workspace.server.server
-        ))
-    })?;
-    let workspace_anchors = symbol_matches_from_response(&anchors)?;
     let anchors = select_named_anchors(
         workspace,
         initialize,
@@ -132,7 +116,6 @@ fn collect_call_hierarchy_matches(
             name: context.name,
             function_only: true,
         },
-        workspace_anchors,
     )?;
     let mut source_cache = SourceCache::default();
     let mut matches = Vec::new();

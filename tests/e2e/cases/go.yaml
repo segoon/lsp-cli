@@ -16,10 +16,6 @@ pairs:
     server: gopls
     smoke:
       status: queries
-      exceptions:
-        - command: callees
-          outcome: empty-matches
-          reason: SampleOrder constructs data directly and has no outgoing call-hierarchy edges
     lifecycle:
       status: scenarios
       direct-run:

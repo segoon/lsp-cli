@@ -66,9 +66,14 @@ pub(super) fn run_workspace_symbol_query(
         config,
         |workspace, initialize, client| {
             ensure_workspace_symbol_support(initialize)?;
-            let response = client.workspace_symbol(query).map_err(|error| {
-                error.with_prefix(format!("failed to query {}", workspace.server.server))
-            })?;
+            let response = if let Ok(response) = client.workspace_symbol(query) {
+                response
+            } else {
+                prime_workspace_document(&args.query.directory, config, workspace, client)?;
+                client.workspace_symbol(query).map_err(|error| {
+                    error.with_prefix(format!("failed to query {}", workspace.server.server))
+                })?
+            };
             symbol_matches_from_response(&response)
         },
     )?;
@@ -216,6 +221,19 @@ fn scan_workspace_files(
     })
 }
 
+fn prime_workspace_document(
+    directory: &Path,
+    config: &ConfigStore,
+    workspace: &PreparedWorkspace,
+    client: &mut LspClient,
+) -> Result<()> {
+    let files = scan_workspace_files(directory, config, workspace)?;
+    if let Some(file) = files.first() {
+        open_document_for(client, file, &workspace.server.server)?;
+    }
+    Ok(())
+}
+
 fn open_document_for(client: &mut LspClient, path: &Path, server_name: &str) -> Result<String> {
     let uri = path_to_file_uri(path)?;
     client.open_document(path, &uri).map_err(|error| {
@@ -311,6 +329,24 @@ pub(super) fn run_declaration_query(
     config: &ConfigStore,
 ) -> Result<WorkspaceSymbolQueryResult> {
     run_named_location_query(args, name, LocationQueryKind::Declaration, full, config)
+}
+
+pub(super) fn run_implementation_query(
+    args: &LspWorkspaceQueryArgs,
+    name: &str,
+    full: bool,
+    config: &ConfigStore,
+) -> Result<WorkspaceSymbolQueryResult> {
+    run_named_location_query(args, name, LocationQueryKind::Implementation, full, config)
+}
+
+pub(super) fn run_type_definition_query(
+    args: &LspWorkspaceQueryArgs,
+    name: &str,
+    full: bool,
+    config: &ConfigStore,
+) -> Result<WorkspaceSymbolQueryResult> {
+    run_named_location_query(args, name, LocationQueryKind::TypeDefinition, full, config)
 }
 
 pub(super) fn run_callers_query(
@@ -460,7 +496,6 @@ fn select_named_anchors(
     client: &mut LspClient,
     config: &ConfigStore,
     request: NamedAnchorRequest<'_>,
-    workspace_anchors: Vec<SymbolMatch>,
 ) -> Result<Vec<SymbolMatch>> {
     if document_symbol_supported(initialize) {
         let document_anchors = exact_named_document_anchors(workspace, client, config, request)?;
@@ -468,6 +503,14 @@ fn select_named_anchors(
             return Ok(document_anchors);
         }
     }
+
+    let anchors = client.workspace_symbol(request.name).map_err(|error| {
+        Error::lsp(format!(
+            "failed to find matching symbols for {:?} with {}: {error}",
+            request.name, workspace.server.server
+        ))
+    })?;
+    let workspace_anchors = symbol_matches_from_response(&anchors)?;
 
     Ok(if request.function_only {
         preferred_function_name_matches(workspace_anchors, request.name)

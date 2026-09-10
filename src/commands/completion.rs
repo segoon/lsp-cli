@@ -133,6 +133,8 @@ mod tests {
         assert!(output.contains("callees"));
         assert!(output.contains("definition"));
         assert!(output.contains("declaration"));
+        assert!(output.contains("implementation"));
+        assert!(output.contains("type-definition"));
         assert!(output.contains("list-files"));
         assert!(output.contains("list-functions"));
         assert!(output.contains("list-symbols"));

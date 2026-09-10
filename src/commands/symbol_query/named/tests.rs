@@ -50,6 +50,7 @@ impl Fixture {
         let initialize = crate::lsp::InitializeResponse::from_raw_value(json!({"capabilities": {
             "workspaceSymbolProvider":true, "documentSymbolProvider":true,
             "referencesProvider":true, "definitionProvider":true, "declarationProvider":true,
+            "implementationProvider":true, "typeDefinitionProvider":true,
             "callHierarchyProvider":true
         }}))
         .expect("capabilities");
@@ -99,6 +100,8 @@ fn named_location_queries_find_local_and_duplicate_names_in_file_order() {
         LocationQueryKind::References,
         LocationQueryKind::Definition,
         LocationQueryKind::Declaration,
+        LocationQueryKind::Implementation,
+        LocationQueryKind::TypeDefinition,
     ] {
         for limit in [1, 20] {
             let fixture = Fixture::new(limit);

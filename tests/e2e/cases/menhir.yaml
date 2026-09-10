@@ -1,0 +1,9 @@
+language:
+  id: menhir
+  kind: metadata
+  project: playground/menhir
+pairs:
+  - language: menhir
+    server: ocamllsp
+    smoke:
+      status: capabilities

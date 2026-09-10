@@ -1,0 +1,21 @@
+language:
+  id: systemverilog
+  kind: metadata
+  project: playground/systemverilog
+pairs:
+  - language: systemverilog
+    server: hdl_checker
+    smoke:
+      status: capabilities
+  - language: systemverilog
+    server: svlangserver
+    smoke:
+      status: capabilities
+  - language: systemverilog
+    server: svls
+    smoke:
+      status: capabilities
+  - language: systemverilog
+    server: verible
+    smoke:
+      status: capabilities

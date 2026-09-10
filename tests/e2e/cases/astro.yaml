@@ -1,0 +1,9 @@
+language:
+  id: astro
+  kind: metadata
+  project: playground/astro
+pairs:
+  - language: astro
+    server: astro
+    smoke:
+      status: capabilities

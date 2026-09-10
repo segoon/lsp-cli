@@ -1,0 +1,9 @@
+language:
+  id: libsonnet
+  kind: metadata
+  project: playground/libsonnet
+pairs:
+  - language: libsonnet
+    server: jsonnet_ls
+    smoke:
+      status: capabilities

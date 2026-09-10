@@ -1,0 +1,4 @@
+language:
+  id: dafny
+  kind: metadata
+  project: playground/dafny

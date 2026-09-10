@@ -1,0 +1,4 @@
+language:
+  id: javascript.glimmer
+  kind: metadata
+  project: playground/javascript.glimmer

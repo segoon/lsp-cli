@@ -1,0 +1,17 @@
+language:
+  id: proto
+  kind: metadata
+  project: playground/proto
+pairs:
+  - language: proto
+    server: buf_ls
+    smoke:
+      status: capabilities
+  - language: proto
+    server: pbls
+    smoke:
+      status: capabilities
+  - language: proto
+    server: protols
+    smoke:
+      status: capabilities

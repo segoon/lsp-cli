@@ -1,0 +1,4 @@
+language:
+  id: slint
+  kind: metadata
+  project: playground/slint

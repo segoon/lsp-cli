@@ -1,0 +1,9 @@
+language:
+  id: twig
+  kind: metadata
+  project: playground/twig
+pairs:
+  - language: twig
+    server: twiggy_language_server
+    smoke:
+      status: capabilities

@@ -1,0 +1,9 @@
+language:
+  id: sls
+  kind: metadata
+  project: playground/sls
+pairs:
+  - language: sls
+    server: salt_ls
+    smoke:
+      status: capabilities

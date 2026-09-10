@@ -1,0 +1,4 @@
+language:
+  id: hlasm
+  kind: metadata
+  project: playground/hlasm

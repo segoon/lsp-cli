@@ -1,0 +1,13 @@
+language:
+  id: rego
+  kind: metadata
+  project: playground/rego
+pairs:
+  - language: rego
+    server: regal
+    smoke:
+      status: capabilities
+  - language: rego
+    server: regols
+    smoke:
+      status: capabilities

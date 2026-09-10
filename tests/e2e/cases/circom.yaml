@@ -1,0 +1,9 @@
+language:
+  id: circom
+  kind: metadata
+  project: playground/circom
+pairs:
+  - language: circom
+    server: circom-lsp
+    smoke:
+      status: capabilities

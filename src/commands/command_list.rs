@@ -44,6 +44,8 @@ mod tests {
                 "callees\n",
                 "definition\n",
                 "declaration\n",
+                "implementation\n",
+                "type-definition\n",
                 "build-index\n",
                 "update\n",
                 "completion\n",

@@ -1,0 +1,9 @@
+language:
+  id: fortran
+  kind: metadata
+  project: playground/fortran
+pairs:
+  - language: fortran
+    server: fortls
+    smoke:
+      status: capabilities

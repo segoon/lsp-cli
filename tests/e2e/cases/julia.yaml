@@ -1,0 +1,9 @@
+language:
+  id: julia
+  kind: metadata
+  project: playground/julia
+pairs:
+  - language: julia
+    server: julials
+    smoke:
+      status: capabilities

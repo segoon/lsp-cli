@@ -1,0 +1,9 @@
+language:
+  id: pest
+  kind: metadata
+  project: playground/pest
+pairs:
+  - language: pest
+    server: pest_ls
+    smoke:
+      status: capabilities

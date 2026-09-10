@@ -1,0 +1,13 @@
+language:
+  id: cmake
+  kind: metadata
+  project: playground/cmake
+pairs:
+  - language: cmake
+    server: cmake
+    smoke:
+      status: capabilities
+  - language: cmake
+    server: neocmake
+    smoke:
+      status: capabilities

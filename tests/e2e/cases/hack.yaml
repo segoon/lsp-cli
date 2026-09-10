@@ -1,0 +1,4 @@
+language:
+  id: hack
+  kind: metadata
+  project: playground/hack

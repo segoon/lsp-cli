@@ -1,0 +1,9 @@
+language:
+  id: groovy
+  kind: metadata
+  project: playground/groovy
+pairs:
+  - language: groovy
+    server: groovyls
+    smoke:
+      status: capabilities

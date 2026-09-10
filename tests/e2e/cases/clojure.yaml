@@ -1,0 +1,9 @@
+language:
+  id: clojure
+  kind: metadata
+  project: playground/clojure
+pairs:
+  - language: clojure
+    server: clojure_lsp
+    smoke:
+      status: capabilities

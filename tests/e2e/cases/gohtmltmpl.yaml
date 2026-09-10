@@ -1,0 +1,4 @@
+language:
+  id: gohtmltmpl
+  kind: metadata
+  project: playground/gohtmltmpl

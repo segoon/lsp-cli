@@ -1,0 +1,4 @@
+language:
+  id: gitcommit
+  kind: metadata
+  project: playground/gitcommit

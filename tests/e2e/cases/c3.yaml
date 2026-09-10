@@ -1,0 +1,9 @@
+language:
+  id: c3
+  kind: metadata
+  project: playground/c3
+pairs:
+  - language: c3
+    server: c3_lsp
+    smoke:
+      status: capabilities

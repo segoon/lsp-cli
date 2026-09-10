@@ -1,0 +1,9 @@
+language:
+  id: just
+  kind: metadata
+  project: playground/just
+pairs:
+  - language: just
+    server: just
+    smoke:
+      status: capabilities

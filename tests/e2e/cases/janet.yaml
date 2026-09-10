@@ -1,0 +1,4 @@
+language:
+  id: janet
+  kind: metadata
+  project: playground/janet

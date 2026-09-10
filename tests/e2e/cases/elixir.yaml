@@ -1,0 +1,21 @@
+language:
+  id: elixir
+  kind: metadata
+  project: playground/elixir
+pairs:
+  - language: elixir
+    server: elixirls
+    smoke:
+      status: capabilities
+  - language: elixir
+    server: expert
+    smoke:
+      status: capabilities
+  - language: elixir
+    server: lexical
+    smoke:
+      status: capabilities
+  - language: elixir
+    server: nextls
+    smoke:
+      status: capabilities

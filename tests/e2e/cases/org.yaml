@@ -1,0 +1,9 @@
+language:
+  id: org
+  kind: metadata
+  project: playground/org
+pairs:
+  - language: org
+    server: textlsp
+    smoke:
+      status: capabilities

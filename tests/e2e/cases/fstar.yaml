@@ -1,0 +1,4 @@
+language:
+  id: fstar
+  kind: metadata
+  project: playground/fstar

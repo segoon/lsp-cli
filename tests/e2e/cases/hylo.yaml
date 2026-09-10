@@ -1,0 +1,9 @@
+language:
+  id: hylo
+  kind: metadata
+  project: playground/hylo
+pairs:
+  - language: hylo
+    server: hylo_ls
+    smoke:
+      status: capabilities

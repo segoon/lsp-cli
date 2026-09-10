@@ -1,0 +1,9 @@
+language:
+  id: haskell
+  kind: metadata
+  project: playground/haskell
+pairs:
+  - language: haskell
+    server: hls
+    smoke:
+      status: capabilities

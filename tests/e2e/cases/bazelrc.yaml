@@ -1,0 +1,9 @@
+language:
+  id: bazelrc
+  kind: metadata
+  project: playground/bazelrc
+pairs:
+  - language: bazelrc
+    server: bazelrc_lsp
+    smoke:
+      status: capabilities

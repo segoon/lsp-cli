@@ -1,0 +1,4 @@
+language:
+  id: yaml.openapi
+  kind: metadata
+  project: playground/yaml.openapi

@@ -1,0 +1,9 @@
+language:
+  id: typespec
+  kind: metadata
+  project: playground/typespec
+pairs:
+  - language: typespec
+    server: tsp_server
+    smoke:
+      status: capabilities

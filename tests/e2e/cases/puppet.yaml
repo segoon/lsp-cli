@@ -1,0 +1,9 @@
+language:
+  id: puppet
+  kind: metadata
+  project: playground/puppet
+pairs:
+  - language: puppet
+    server: puppet
+    smoke:
+      status: capabilities

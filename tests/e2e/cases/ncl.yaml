@@ -1,0 +1,9 @@
+language:
+  id: ncl
+  kind: metadata
+  project: playground/ncl
+pairs:
+  - language: ncl
+    server: nickel_ls
+    smoke:
+      status: capabilities

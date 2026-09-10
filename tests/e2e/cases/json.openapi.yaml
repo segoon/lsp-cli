@@ -1,0 +1,4 @@
+language:
+  id: json.openapi
+  kind: metadata
+  project: playground/json.openapi

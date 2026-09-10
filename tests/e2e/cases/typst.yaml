@@ -1,0 +1,9 @@
+language:
+  id: typst
+  kind: metadata
+  project: playground/typst
+pairs:
+  - language: typst
+    server: tinymist
+    smoke:
+      status: capabilities

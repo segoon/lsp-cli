@@ -1,0 +1,9 @@
+language:
+  id: beancount
+  kind: metadata
+  project: playground/beancount
+pairs:
+  - language: beancount
+    server: beancount
+    smoke:
+      status: capabilities

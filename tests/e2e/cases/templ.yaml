@@ -1,0 +1,9 @@
+language:
+  id: templ
+  kind: metadata
+  project: playground/templ
+pairs:
+  - language: templ
+    server: templ
+    smoke:
+      status: capabilities

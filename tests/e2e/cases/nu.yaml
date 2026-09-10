@@ -1,0 +1,4 @@
+language:
+  id: nu
+  kind: metadata
+  project: playground/nu

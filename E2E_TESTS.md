@@ -9,31 +9,41 @@ request check and as an exhaustive compatibility check.
 The tests must validate user-visible behavior: exit status, stdout, stderr, filesystem effects,
 server lifecycle, and semantically relevant LSP results. They must not depend on private Rust APIs.
 
+## Local dev environment
+
+The real-server E2E targets (`test-real-server-e2e`, `test-real-server-smoke-e2e`,
+`test-server-provisioning-e2e`) need `go`, `java`, `node`/`npm`, and `dotnet` on `PATH`, matching
+what CI installs in `.github/workflows/ci.yml` and `e2e.yml`. Run `make download-dev-env` to fetch
+project-local copies into `.env/` (not a system-wide install), then `source activate.sh` from the
+repo root to put them on `PATH` for the current shell.
+
 ## Working definition of supported
 
-At pinned `lsp-cli-data` revision `59ea88365855ca6a5ab35715c931d30c734e1b6e`, the data tree has:
+At pinned `lsp-cli-data` revision `a71b45d8f0402c9aea220922d713eeead5880b72`, the data tree has:
 
 - 362 filetype configurations;
 - 362 LSP configurations;
-- 16 detectable filetype IDs (a non-empty `extensions` or `patterns` list);
-- 57 distinct LSP configurations associated with those detectable filetypes;
-- 141 compatible detectable-filetype/LSP pairs.
+- 336 detectable filetype IDs (a non-empty `extensions` or `patterns` list);
+- 359 distinct LSP configurations associated with those detectable filetypes;
+- 850 compatible detectable-filetype/LSP pairs.
 
-The working E2E scope is the 16 detectable IDs:
+The working E2E scope is now the 336 detectable IDs (see `tests/e2e/cases/*.yaml`, one file per
+language ID, for the full list). The original ten source-project languages
+(`c cpp cs cuda go java javascript kotlin lua objc objcpp python rust typescript`, plus the
+`gomod`/`gowork` metadata projects) keep real symbol-query coverage; the remaining 320 IDs were
+added as `kind: metadata` cases (detection plus, where a compatible server is downloadable, a
+capabilities-only smoke check), matching the `gomod`/`gowork` pattern rather than building a real
+per-language source fixture and query profile for each one.
 
-```text
-c cpp cs cuda go gomod gowork java javascript kotlin lua objc objcpp python rust typescript
-```
-
-The remaining 346 filetype configurations have no detection rules. They are configuration catalog
+The remaining 26 filetype configurations have no detection rules. They are configuration catalog
 entries, but cannot currently drive a project-based E2E test. Separately test that the whole data
 tree parses and that catalog commands describe it consistently.
 
 This is a product-policy boundary rather than an implementation fact. Before declaring the suite
 complete, the product owner must confirm one of these definitions:
 
-1. **Detectable support (recommended):** exhaustive real-server tests cover the 16 detectable IDs,
-   57 relevant servers, and 141 compatible pairs.
+1. **Detectable support (recommended):** exhaustive real-server tests cover the 336 detectable IDs,
+   359 relevant servers, and 850 compatible pairs.
 2. **Configured support:** all 362 filetype and server configs are considered supported. This first
    requires adding detection rules, test projects, and provisioning for the presently inactive
    catalog entries.

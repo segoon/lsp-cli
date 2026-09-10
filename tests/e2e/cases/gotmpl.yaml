@@ -1,0 +1,9 @@
+language:
+  id: gotmpl
+  kind: metadata
+  project: playground/gotmpl
+pairs:
+  - language: gotmpl
+    server: gopls
+    smoke:
+      status: capabilities

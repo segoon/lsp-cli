@@ -1,0 +1,9 @@
+language:
+  id: opentofu
+  kind: metadata
+  project: playground/opentofu
+pairs:
+  - language: opentofu
+    server: tofu_ls
+    smoke:
+      status: capabilities

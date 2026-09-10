@@ -1,0 +1,13 @@
+language:
+  id: glsl
+  kind: metadata
+  project: playground/glsl
+pairs:
+  - language: glsl
+    server: glsl_analyzer
+    smoke:
+      status: capabilities
+  - language: glsl
+    server: glslls
+    smoke:
+      status: capabilities

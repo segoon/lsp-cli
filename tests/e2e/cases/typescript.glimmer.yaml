@@ -1,0 +1,4 @@
+language:
+  id: typescript.glimmer
+  kind: metadata
+  project: playground/typescript.glimmer

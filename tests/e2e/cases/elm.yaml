@@ -1,0 +1,9 @@
+language:
+  id: elm
+  kind: metadata
+  project: playground/elm
+pairs:
+  - language: elm
+    server: elmls
+    smoke:
+      status: capabilities

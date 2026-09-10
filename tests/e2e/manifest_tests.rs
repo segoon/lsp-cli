@@ -2,12 +2,12 @@ use super::*;
 use crate::repository_root;
 use std::fs;
 
-fn first_smoke(manifest: &mut Manifest) -> &mut SmokeDisposition {
+fn first_queries_smoke(manifest: &mut Manifest) -> &mut SmokeDisposition {
     manifest
         .pairs
         .iter_mut()
-        .find(|pair| pair.smoke.is_some())
-        .expect("manifest should contain a smoke pair")
+        .find(|pair| matches!(pair.smoke, Some(SmokeDisposition::Queries { .. })))
+        .expect("manifest should contain a queries smoke pair")
         .smoke
         .as_mut()
         .expect("selected pair should have a smoke case")
@@ -38,19 +38,19 @@ fn complete_manifest_matches_pinned_data() {
         .collect::<BTreeSet<_>>();
 
     assert_eq!(manifest.coverage, Coverage::Complete);
-    assert_eq!(detectable.len(), 16);
-    assert_eq!(servers.len(), 57);
-    assert_eq!(compatible.len(), 141);
-    assert_eq!(declared.len(), 31);
-    assert_eq!(compatible.difference(&declared).count(), 110);
-    assert_eq!(manifest.servers.len(), 57);
+    assert_eq!(detectable.len(), 336);
+    assert_eq!(servers.len(), 359);
+    assert_eq!(compatible.len(), 850);
+    assert_eq!(declared.len(), 322);
+    assert_eq!(compatible.difference(&declared).count(), 528);
+    assert_eq!(manifest.servers.len(), 359);
     assert_eq!(
         manifest
             .servers
             .iter()
             .filter(|server| server.is_downloadable())
             .count(),
-        22
+        211
     );
     assert_eq!(
         manifest
@@ -231,8 +231,8 @@ fn complete_mode_rejects_a_missing_language_project() {
     let metadata_index = manifest
         .languages
         .iter()
-        .position(|language| language.kind == ProjectKind::Metadata)
-        .expect("complete manifest should contain a metadata project");
+        .position(|language| language.id == "gomod")
+        .expect("complete manifest should contain the gomod metadata project");
     let removed = manifest.languages.remove(metadata_index);
     manifest.pairs.retain(|pair| pair.language != removed.id);
 
@@ -348,7 +348,7 @@ fn manifest_rejects_config_path_traversal() {
 #[test]
 fn manifest_rejects_invalid_smoke_deadlines() {
     let error = validation_error("short overall deadline should fail", |manifest| {
-        let smoke = first_smoke(manifest);
+        let smoke = first_queries_smoke(manifest);
         let SmokeDisposition::Queries {
             lsp_timeout_seconds,
             deadline_seconds,

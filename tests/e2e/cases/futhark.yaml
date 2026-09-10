@@ -1,0 +1,4 @@
+language:
+  id: futhark
+  kind: metadata
+  project: playground/futhark

@@ -355,6 +355,24 @@ pub(super) fn run_declaration_query(
     run_named_location_query(args, name, LocationQueryKind::Declaration, full, config)
 }
 
+pub(super) fn run_implementation_query(
+    args: &LspWorkspaceQueryArgs,
+    name: &str,
+    full: bool,
+    config: &ConfigStore,
+) -> Result<WorkspaceSymbolQueryResult> {
+    run_named_location_query(args, name, LocationQueryKind::Implementation, full, config)
+}
+
+pub(super) fn run_type_definition_query(
+    args: &LspWorkspaceQueryArgs,
+    name: &str,
+    full: bool,
+    config: &ConfigStore,
+) -> Result<WorkspaceSymbolQueryResult> {
+    run_named_location_query(args, name, LocationQueryKind::TypeDefinition, full, config)
+}
+
 pub(super) fn run_callers_query(
     args: &LspWorkspaceQueryArgs,
     name: &str,

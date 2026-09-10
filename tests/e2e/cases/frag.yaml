@@ -1,0 +1,13 @@
+language:
+  id: frag
+  kind: metadata
+  project: playground/frag
+pairs:
+  - language: frag
+    server: glsl_analyzer
+    smoke:
+      status: capabilities
+  - language: frag
+    server: glslls
+    smoke:
+      status: capabilities

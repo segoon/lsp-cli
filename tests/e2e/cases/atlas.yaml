@@ -1,0 +1,4 @@
+language:
+  id: atlas
+  kind: metadata
+  project: playground/atlas

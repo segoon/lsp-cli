@@ -1,0 +1,4 @@
+language:
+  id: cir
+  kind: metadata
+  project: playground/cir

@@ -1,0 +1,9 @@
+language:
+  id: dts
+  kind: metadata
+  project: playground/dts
+pairs:
+  - language: dts
+    server: ginko_ls
+    smoke:
+      status: capabilities

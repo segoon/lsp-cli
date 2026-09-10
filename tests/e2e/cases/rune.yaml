@@ -1,0 +1,4 @@
+language:
+  id: rune
+  kind: metadata
+  project: playground/rune

@@ -1,0 +1,4 @@
+language:
+  id: tptp
+  kind: metadata
+  project: playground/tptp

@@ -1,0 +1,17 @@
+language:
+  id: bzl
+  kind: metadata
+  project: playground/bzl
+pairs:
+  - language: bzl
+    server: bzl
+    smoke:
+      status: capabilities
+  - language: bzl
+    server: starlark_rust
+    smoke:
+      status: capabilities
+  - language: bzl
+    server: starpls
+    smoke:
+      status: capabilities

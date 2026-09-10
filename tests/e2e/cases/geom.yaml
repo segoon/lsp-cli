@@ -1,0 +1,13 @@
+language:
+  id: geom
+  kind: metadata
+  project: playground/geom
+pairs:
+  - language: geom
+    server: glsl_analyzer
+    smoke:
+      status: capabilities
+  - language: geom
+    server: glslls
+    smoke:
+      status: capabilities

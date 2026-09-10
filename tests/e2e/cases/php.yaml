@@ -1,0 +1,17 @@
+language:
+  id: php
+  kind: metadata
+  project: playground/php
+pairs:
+  - language: php
+    server: intelephense
+    smoke:
+      status: capabilities
+  - language: php
+    server: phpactor
+    smoke:
+      status: capabilities
+  - language: php
+    server: psalm
+    smoke:
+      status: capabilities

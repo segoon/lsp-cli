@@ -1,0 +1,13 @@
+language:
+  id: vhdl
+  kind: metadata
+  project: playground/vhdl
+pairs:
+  - language: vhdl
+    server: hdl_checker
+    smoke:
+      status: capabilities
+  - language: vhdl
+    server: vhdl_ls
+    smoke:
+      status: capabilities

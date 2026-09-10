@@ -1,0 +1,9 @@
+language:
+  id: sd
+  kind: metadata
+  project: playground/sd
+pairs:
+  - language: sd
+    server: vespa_ls
+    smoke:
+      status: capabilities

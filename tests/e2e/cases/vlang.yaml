@@ -1,0 +1,9 @@
+language:
+  id: vlang
+  kind: metadata
+  project: playground/vlang
+pairs:
+  - language: vlang
+    server: vls
+    smoke:
+      status: capabilities

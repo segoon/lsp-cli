@@ -13,6 +13,29 @@ defaults:
   provisioning:
     deadline-seconds: 600
 servers:
+  - id: ada_ls
+    owner-language: ada
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: agda_ls
+    owner-language: agda
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: aiken
+    owner-language: aiken
+    provisioning:
+      status: download
+  - id: air
+    owner-language: r
+    provisioning:
+      status: download
+  - id: alloy_ls
+    owner-language: alloy
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: anakin_language_server
     owner-language: python
     provisioning:
@@ -23,16 +46,64 @@ servers:
     provisioning:
       status: excluded
       reason: Angular Language Service is framework-specific and the E2E scope is general-purpose language servers.
+  - id: antlersls
+    owner-language: antlers
+    provisioning:
+      status: download
+  - id: arduino_language_server
+    owner-language: arduino
+    provisioning:
+      status: download
+  - id: asm_lsp
+    owner-language: asm
+    provisioning:
+      status: download
   - id: ast_grep
     owner-language: rust
     provisioning:
       status: excluded
       reason: ast-grep is a structural search and lint tool rather than a general-purpose language server.
+  - id: astro
+    owner-language: astro
+    provisioning:
+      status: download
+  - id: atlas
+    owner-language: atlas
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: atopile
+    owner-language: ato
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: autohotkey_lsp
+    owner-language: autohotkey
+    provisioning:
+      status: download
+  - id: autotools_ls
+    owner-language: automake
+    provisioning:
+      status: download
+  - id: awk_ls
+    owner-language: awk
+    provisioning:
+      status: download
+  - id: azure_pipelines_ls
+    owner-language: yaml
+    provisioning:
+      status: excluded
+      reason: azure_pipelines_ls is a linter, formatter, or otherwise not a general-purpose language server.
   - id: bacon_ls
     owner-language: rust
     provisioning:
       status: excluded
       reason: bacon-ls is a diagnostics adapter rather than a general-purpose Rust language server.
+  - id: ballerina
+    owner-language: ballerina
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: basedpyright
     owner-language: python
     provisioning:
@@ -42,13 +113,112 @@ servers:
           resolve:
             - which
             - python3
+  - id: bashls
+    owner-language: bash
+    provisioning:
+      status: download
+  - id: bazelrc_lsp
+    owner-language: bazelrc
+    provisioning:
+      status: download
+  - id: beancount
+    owner-language: bean
+    provisioning:
+      status: download
+  - id: bicep
+    owner-language: bicep
+    provisioning:
+      status: download
+      host-programs:
+        - name: dotnet
+          resolve:
+            - which
+            - dotnet
+  - id: bitbake_language_server
+    owner-language: bitbake
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: blueprint_ls
+    owner-language: blueprint
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: bqls
+    owner-language: sql
+    provisioning:
+      status: download
+  - id: bright_script
+    owner-language: brs
+    provisioning:
+      status: download
+  - id: brioche
+    owner-language: brioche
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: buck2
+    owner-language: bzl
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: buddy_ls
+    owner-language: mlir
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: buf_ls
+    owner-language: buf-config
+    provisioning:
+      status: download
+  - id: bzl
+    owner-language: bzl
+    provisioning:
+      status: download
+  - id: c3_lsp
+    owner-language: c3
+    provisioning:
+      status: download
+  - id: cairo_ls
+    owner-language: cairo
+    provisioning:
+      status: download
   - id: ccls
     owner-language: c
     provisioning:
       status: excluded
       reason: The current Mason registry has no package for ccls.
+  - id: cds_lsp
+    owner-language: cds
+    provisioning:
+      status: download
+  - id: cir_lsp_server
+    owner-language: cir
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: circom-lsp
+    owner-language: circom
+    provisioning:
+      status: download
   - id: clangd
     owner-language: c
+    provisioning:
+      status: download
+  - id: clarinet
+    owner-language: clar
+    provisioning:
+      status: download
+  - id: clojure_lsp
+    owner-language: clojure
+    provisioning:
+      status: download
+  - id: cmake
+    owner-language: cmake
+    provisioning:
+      status: download
+  - id: cobol_ls
+    owner-language: cobol
     provisioning:
       status: download
   - id: codebook
@@ -56,13 +226,87 @@ servers:
     provisioning:
       status: excluded
       reason: codebook is a spell checker rather than a general-purpose language server.
+  - id: coffeesense
+    owner-language: coffee
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: coq_lsp
+    owner-language: coq
+    provisioning:
+      status: download
+  - id: crystalline
+    owner-language: crystal
+    provisioning:
+      status: download
+  - id: css_variables
+    owner-language: css
+    provisioning:
+      status: download
+  - id: csskit
+    owner-language: css
+    provisioning:
+      status: download
+  - id: cssls
+    owner-language: css
+    provisioning:
+      status: download
   - id: cssmodules_ls
     owner-language: javascript
     provisioning:
       status: excluded
       reason: cssmodules-language-server is framework-specific rather than a general-purpose JavaScript server.
+  - id: cucumber_language_server
+    owner-language: cucumber
+    provisioning:
+      status: download
+  - id: cue
+    owner-language: cue
+    provisioning:
+      status: download
+  - id: cypher_ls
+    owner-language: cypher
+    provisioning:
+      status: download
+  - id: daedalus_ls
+    owner-language: d
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: dafny
+    owner-language: dafny
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: dagger
+    owner-language: cue
+    provisioning:
+      status: download
+  - id: dartls
+    owner-language: dart
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: dcmls
+    owner-language: dart
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: debputy
+    owner-language: debchangelog
+    provisioning:
+      status: excluded
+      reason: debputy is a linter, formatter, or otherwise not a general-purpose language server.
   - id: denols
     owner-language: javascript
+    provisioning:
+      status: download
+  - id: dhall_lsp_server
+    owner-language: dhall
+    provisioning:
+      status: download
+  - id: digestif
+    owner-language: context
     provisioning:
       status: download
   - id: djls
@@ -70,23 +314,93 @@ servers:
     provisioning:
       status: excluded
       reason: django-language-server is framework-specific rather than a general-purpose Python server.
+  - id: djlsp
+    owner-language: html
+    provisioning:
+      status: excluded
+      reason: djlsp is a linter, formatter, or otherwise not a general-purpose language server.
+  - id: docker_compose_language_service
+    owner-language: yaml.docker-compose
+    provisioning:
+      status: download
+  - id: docker_language_server
+    owner-language: dockerfile
+    provisioning:
+      status: download
+  - id: dockerls
+    owner-language: dockerfile
+    provisioning:
+      status: download
+  - id: dolmenls
+    owner-language: cnf
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: dotls
+    owner-language: dot
+    provisioning:
+      status: download
   - id: dprint
     owner-language: typescript
     provisioning:
       status: excluded
       reason: dprint is a formatter rather than a general-purpose language server.
+  - id: dts_lsp
+    owner-language: dts
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: earthlyls
+    owner-language: earthfile
+    provisioning:
+      status: download
+  - id: ecsact
+    owner-language: ecsact
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: efm
     owner-language: lua
     provisioning:
       status: excluded
       reason: efm is a wrapper for external lint and format tools rather than a language server implementation.
+  - id: elixirls
+    owner-language: eelixir
+    provisioning:
+      status: download
+  - id: elmls
+    owner-language: elm
+    provisioning:
+      status: download
+  - id: elp
+    owner-language: erlang
+    provisioning:
+      status: download
   - id: ember
     owner-language: javascript
     provisioning:
       status: excluded
       reason: ember-language-server is framework-specific and requires an Ember project.
+  - id: emmet_language_server
+    owner-language: astro
+    provisioning:
+      status: excluded
+      reason: emmet_language_server is a linter, formatter, or otherwise not a general-purpose language server.
+  - id: emmet_ls
+    owner-language: astro
+    provisioning:
+      status: excluded
+      reason: emmet_ls is a linter, formatter, or otherwise not a general-purpose language server.
   - id: emmylua_ls
     owner-language: lua
+    provisioning:
+      status: download
+  - id: erg_language_server
+    owner-language: erg
+    provisioning:
+      status: download
+  - id: esbonio
+    owner-language: rst
     provisioning:
       status: download
   - id: eslint
@@ -94,16 +408,127 @@ servers:
     provisioning:
       status: excluded
       reason: eslint-lsp provides lint diagnostics rather than general-purpose language intelligence.
+  - id: expert
+    owner-language: eelixir
+    provisioning:
+      status: download
+  - id: facility_language_server
+    owner-language: fsd
+    provisioning:
+      status: download
+  - id: fennel_language_server
+    owner-language: fennel
+    provisioning:
+      status: download
+  - id: fennel_ls
+    owner-language: fennel
+    provisioning:
+      status: download
+  - id: fish_lsp
+    owner-language: fish
+    provisioning:
+      status: download
   - id: flow
     owner-language: javascript
     provisioning:
       status: excluded
       reason: The current Mason registry has no package for Flow.
+  - id: flux_lsp
+    owner-language: flux
+    provisioning:
+      status: download
+  - id: foam_ls
+    owner-language: OpenFOAM
+    provisioning:
+      status: download
+  - id: fortitude
+    owner-language: fortran
+    provisioning:
+      status: excluded
+      reason: fortitude is a linter rather than a general-purpose language server.
+  - id: fortls
+    owner-language: fortran
+    provisioning:
+      status: download
+  - id: fsautocomplete
+    owner-language: fsharp
+    provisioning:
+      status: download
+  - id: fsharp_language_server
+    owner-language: fsharp
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: fstar
+    owner-language: fstar
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: futhark_lsp
+    owner-language: fut
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: gdshader_lsp
+    owner-language: gdshader
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: gh_actions_ls
+    owner-language: yaml
+    provisioning:
+      status: excluded
+      reason: gh_actions_ls is a linter, formatter, or otherwise not a general-purpose language server.
+  - id: ghcide
+    owner-language: haskell
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: ghdl_ls
+    owner-language: vhdl
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: ginko_ls
+    owner-language: dts
+    provisioning:
+      status: download
+  - id: gitlab_ci_ls
+    owner-language: yaml.gitlab
+    provisioning:
+      status: download
   - id: gitlab_duo
     owner-language: javascript
     provisioning:
       status: excluded
       reason: GitLab Duo requires an authenticated external service and is outside general-purpose server coverage.
+  - id: glasgow
+    owner-language: wgsl
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: gleam
+    owner-language: gleam
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: glsl_analyzer
+    owner-language: comp
+    provisioning:
+      status: download
+  - id: glslls
+    owner-language: comp
+    provisioning:
+      status: download
+  - id: gn_language_server
+    owner-language: gn
+    provisioning:
+      status: download
+  - id: gnls
+    owner-language: gn
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: golangci_lint_ls
     owner-language: go
     provisioning:
@@ -118,16 +543,111 @@ servers:
           resolve:
             - which
             - go
+  - id: grammarly
+    owner-language: markdown
+    provisioning:
+      status: excluded
+      reason: grammarly is a linter, formatter, or otherwise not a general-purpose language server.
+  - id: graphql
+    owner-language: graphql
+    provisioning:
+      status: download
+  - id: groovyls
+    owner-language: groovy
+    provisioning:
+      status: download
+      host-programs:
+        - name: java
+          resolve:
+            - which
+            - java
+  - id: guile_ls
+    owner-language: scheme.guile
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: harper_ls
     owner-language: rust
     provisioning:
       status: excluded
       reason: harper-ls is a prose grammar checker rather than a general-purpose language server.
+  - id: hdl_checker
+    owner-language: systemverilog
+    provisioning:
+      status: download
+  - id: helm_ls
+    owner-language: helm
+    provisioning:
+      status: download
+  - id: herb_ls
+    owner-language: eruby
+    provisioning:
+      status: excluded
+      reason: herb_ls is a linter, formatter, or otherwise not a general-purpose language server.
+  - id: hhvm
+    owner-language: hack
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: hie
+    owner-language: haskell
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: hlasm
+    owner-language: hlasm
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: hls
+    owner-language: cabal
+    provisioning:
+      status: download
+  - id: home_assistant
+    owner-language: yaml
+    provisioning:
+      status: excluded
+      reason: home_assistant is a linter, formatter, or otherwise not a general-purpose language server.
+  - id: hoon_ls
+    owner-language: hoon
+    provisioning:
+      status: download
+  - id: html
+    owner-language: html
+    provisioning:
+      status: download
   - id: htmx
     owner-language: javascript
     provisioning:
       status: excluded
       reason: htmx-lsp is framework-specific rather than a general-purpose JavaScript server.
+  - id: hydra_lsp
+    owner-language: yaml
+    provisioning:
+      status: excluded
+      reason: hydra_lsp is a linter, formatter, or otherwise not a general-purpose language server.
+  - id: hylo_ls
+    owner-language: hylo
+    provisioning:
+      status: download
+  - id: hyprls
+    owner-language: hyprlang
+    provisioning:
+      status: download
+  - id: idris2_lsp
+    owner-language: idris2
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: intelephense
+    owner-language: php
+    provisioning:
+      status: download
+  - id: janet_lsp
+    owner-language: janet
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: java_language_server
     owner-language: java
     provisioning:
@@ -155,11 +675,44 @@ servers:
           resolve:
             - which
             - python3
+  - id: jinja_lsp
+    owner-language: jinja
+    provisioning:
+      status: download
+  - id: jqls
+    owner-language: jq
+    provisioning:
+      status: download
+  - id: jsonls
+    owner-language: json
+    provisioning:
+      status: download
+  - id: jsonnet_ls
+    owner-language: jsonnet
+    provisioning:
+      status: download
+  - id: julials
+    owner-language: julia
+    provisioning:
+      status: download
+  - id: just
+    owner-language: just
+    provisioning:
+      status: download
   - id: kakehashi
     owner-language: python
     provisioning:
       status: excluded
       reason: kakehashi bridges other tools rather than providing general-purpose language intelligence.
+  - id: kcl
+    owner-language: kcl
+    provisioning:
+      status: download
+  - id: koka
+    owner-language: koka
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: kotlin_language_server
     owner-language: kotlin
     provisioning:
@@ -181,8 +734,49 @@ servers:
     owner-language: kotlin
     provisioning:
       status: download
+  - id: kulala_ls
+    owner-language: http
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: laravel_ls
+    owner-language: blade
+    provisioning:
+      status: excluded
+      reason: laravel_ls is a linter, formatter, or otherwise not a general-purpose language server.
+  - id: lean3ls
+    owner-language: lean3
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: lelwel_ls
+    owner-language: llw
+    provisioning:
+      status: download
+  - id: lemminx
+    owner-language: svg
+    provisioning:
+      status: download
+  - id: lexical
+    owner-language: eelixir
+    provisioning:
+      status: download
+  - id: ltex
+    owner-language: bib
+    provisioning:
+      status: excluded
+      reason: ltex is a linter, formatter, or otherwise not a general-purpose language server.
+  - id: ltex_plus
+    owner-language: asciidoc
+    provisioning:
+      status: excluded
+      reason: ltex_plus is a linter, formatter, or otherwise not a general-purpose language server.
   - id: lua_ls
     owner-language: lua
+    provisioning:
+      status: download
+  - id: luau_lsp
+    owner-language: luau
     provisioning:
       status: download
   - id: lwc_ls
@@ -190,6 +784,158 @@ servers:
     provisioning:
       status: excluded
       reason: lwc-language-server is Salesforce-framework-specific rather than a general-purpose JavaScript server.
+  - id: m68k
+    owner-language: asm68k
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: markdown_oxide
+    owner-language: markdown
+    provisioning:
+      status: download
+  - id: marko-js
+    owner-language: marko
+    provisioning:
+      status: download
+  - id: marksman
+    owner-language: markdown
+    provisioning:
+      status: download
+  - id: matlab_ls
+    owner-language: matlab
+    provisioning:
+      status: download
+  - id: mdx_analyzer
+    owner-language: mdx
+    provisioning:
+      status: download
+  - id: mesonlsp
+    owner-language: meson
+    provisioning:
+      status: download
+  - id: metals
+    owner-language: scala
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: millet
+    owner-language: sml
+    provisioning:
+      status: download
+  - id: mint
+    owner-language: mint
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: mlir_lsp_server
+    owner-language: mlir
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: mlir_pdll_lsp_server
+    owner-language: pdll
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: mm0_ls
+    owner-language: metamath-zero
+    provisioning:
+      status: download
+  - id: mojo
+    owner-language: mojo
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: motoko_lsp
+    owner-language: motoko
+    provisioning:
+      status: download
+  - id: move_analyzer
+    owner-language: move
+    provisioning:
+      status: download
+  - id: mpls
+    owner-language: markdown
+    provisioning:
+      status: download
+  - id: msbuild_project_tools_server
+    owner-language: msbuild
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: muon
+    owner-language: meson
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: mutt_ls
+    owner-language: muttrc
+    provisioning:
+      status: download
+  - id: nelua_lsp
+    owner-language: nelua
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: neocmake
+    owner-language: cmake
+    provisioning:
+      status: download
+  - id: nextflow_ls
+    owner-language: nextflow
+    provisioning:
+      status: excluded
+      reason: nextflow_ls is a linter, formatter, or otherwise not a general-purpose language server.
+  - id: nextls
+    owner-language: eelixir
+    provisioning:
+      status: download
+  - id: nginx_language_server
+    owner-language: nginx
+    provisioning:
+      status: download
+  - id: nickel_ls
+    owner-language: ncl
+    provisioning:
+      status: download
+  - id: nil_ls
+    owner-language: nix
+    provisioning:
+      status: download
+  - id: nim_langserver
+    owner-language: nim
+    provisioning:
+      status: download
+  - id: nimls
+    owner-language: nim
+    provisioning:
+      status: download
+  - id: nixd
+    owner-language: nix
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: ntt
+    owner-language: ttcn
+    provisioning:
+      status: download
+  - id: nushell
+    owner-language: nu
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: nxls
+    owner-language: json
+    provisioning:
+      status: download
+  - id: ocamllsp
+    owner-language: dune
+    provisioning:
+      status: download
+  - id: ols
+    owner-language: odin
+    provisioning:
+      status: download
   - id: omnisharp
     owner-language: cs
     provisioning:
@@ -199,6 +945,136 @@ servers:
           resolve:
             - which
             - dotnet
+  - id: opencl_ls
+    owner-language: opencl
+    provisioning:
+      status: download
+  - id: openscad_ls
+    owner-language: openscad
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: openscad_lsp
+    owner-language: openscad
+    provisioning:
+      status: download
+  - id: oso
+    owner-language: polar
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: pact_ls
+    owner-language: pact
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: pasls
+    owner-language: pascal
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: pbls
+    owner-language: proto
+    provisioning:
+      status: download
+  - id: perlls
+    owner-language: perl
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: perlnavigator
+    owner-language: perl
+    provisioning:
+      status: download
+  - id: perlpls
+    owner-language: perl
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: pest_ls
+    owner-language: pest
+    provisioning:
+      status: download
+  - id: phan
+    owner-language: php
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: phpactor
+    owner-language: php
+    provisioning:
+      status: download
+  - id: phptools
+    owner-language: php
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: pico8_ls
+    owner-language: p8
+    provisioning:
+      status: download
+  - id: please
+    owner-language: bzl
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: pli
+    owner-language: pli
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: pony_lsp
+    owner-language: pony
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: poryscript_pls
+    owner-language: pory
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: postgres_lsp
+    owner-language: sql
+    provisioning:
+      status: download
+  - id: powershell_es
+    owner-language: ps1
+    provisioning:
+      status: download
+  - id: prismals
+    owner-language: prisma
+    provisioning:
+      status: download
+  - id: prolog_ls
+    owner-language: prolog
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: prosemd_lsp
+    owner-language: markdown
+    provisioning:
+      status: download
+  - id: protols
+    owner-language: proto
+    provisioning:
+      status: download
+  - id: psalm
+    owner-language: php
+    provisioning:
+      status: download
+  - id: pug
+    owner-language: pug
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: puppet
+    owner-language: puppet
+    provisioning:
+      status: download
+  - id: purescriptls
+    owner-language: purescript
+    provisioning:
+      status: download
   - id: pylsp
     owner-language: python
     provisioning:
@@ -248,16 +1124,74 @@ servers:
           resolve:
             - which
             - npm
+  - id: qmlls
+    owner-language: qml
+    provisioning:
+      status: download
   - id: quick_lint_js
     owner-language: javascript
     provisioning:
       status: excluded
       reason: quick-lint-js provides lint diagnostics rather than general-purpose language intelligence.
+  - id: r_language_server
+    owner-language: quarto
+    provisioning:
+      status: download
+  - id: racket_langserver
+    owner-language: racket
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: raku_navigator
+    owner-language: raku
+    provisioning:
+      status: download
+      host-programs:
+        - name: node
+          resolve:
+            - which
+            - node
+  - id: reason_ls
+    owner-language: reason
+    provisioning:
+      status: download
+  - id: regal
+    owner-language: rego
+    provisioning:
+      status: download
+  - id: regols
+    owner-language: rego
+    provisioning:
+      status: download
+  - id: remark_ls
+    owner-language: markdown
+    provisioning:
+      status: download
+  - id: rescriptls
+    owner-language: rescript
+    provisioning:
+      status: download
   - id: rls
     owner-language: rust
     provisioning:
       status: excluded
       reason: RLS is deprecated and replaced by rust-analyzer.
+  - id: rnix
+    owner-language: nix
+    provisioning:
+      status: download
+  - id: robotcode
+    owner-language: resource
+    provisioning:
+      status: download
+  - id: robotframework_ls
+    owner-language: robot
+    provisioning:
+      status: download
+  - id: roc_ls
+    owner-language: roc
+    provisioning:
+      status: download
   - id: rome
     owner-language: javascript
     provisioning:
@@ -280,6 +1214,14 @@ servers:
           resolve:
             - which
             - env
+  - id: rpmspec
+    owner-language: spec
+    provisioning:
+      status: download
+  - id: rubocop
+    owner-language: ruby
+    provisioning:
+      status: download
   - id: ruff
     owner-language: python
     provisioning:
@@ -290,6 +1232,15 @@ servers:
     provisioning:
       status: excluded
       reason: ruff-lsp is deprecated in favor of Ruff's native server and remains lint/format-specific.
+  - id: rumdl
+    owner-language: markdown
+    provisioning:
+      status: download
+  - id: rune_languageserver
+    owner-language: rune
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: rust_analyzer
     owner-language: rust
     provisioning:
@@ -310,21 +1261,159 @@ servers:
             - rustup
             - which
             - rustfmt
+  - id: salt_ls
+    owner-language: sls
+    provisioning:
+      status: download
+  - id: scheme_langserver
+    owner-language: scheme
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: scry
+    owner-language: crystal
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: selene3p_ls
     owner-language: lua
     provisioning:
       status: excluded
       reason: selene-3p-language-server is lint-specific rather than a general-purpose Lua server.
+  - id: serve_d
+    owner-language: d
+    provisioning:
+      status: download
+  - id: shopify_theme_ls
+    owner-language: liquid
+    provisioning:
+      status: excluded
+      reason: shopify_theme_ls is a linter, formatter, or otherwise not a general-purpose language server.
+  - id: sixtyfps
+    owner-language: sixtyfps
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: slangd
+    owner-language: hlsl
+    provisioning:
+      status: download
+  - id: slint_lsp
+    owner-language: slint
+    provisioning:
+      status: excluded
+      reason: slint_lsp is a linter, formatter, or otherwise not a general-purpose language server.
+  - id: smarty_ls
+    owner-language: smarty
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: smithy_ls
+    owner-language: smithy
+    provisioning:
+      status: download
+  - id: snakeskin_ls
+    owner-language: ss
+    provisioning:
+      status: download
   - id: snyk_ls
     owner-language: python
     provisioning:
       status: excluded
       reason: Snyk requires an authenticated security service and is outside general-purpose server coverage.
+  - id: solang
+    owner-language: solidity
+    provisioning:
+      status: download
+  - id: solargraph
+    owner-language: ruby
+    provisioning:
+      status: download
+  - id: solc
+    owner-language: solidity
+    provisioning:
+      status: download
+  - id: solidity
+    owner-language: solidity
+    provisioning:
+      status: download
+  - id: solidity_ls
+    owner-language: solidity
+    provisioning:
+      status: download
+  - id: solidity_ls_nomicfoundation
+    owner-language: solidity
+    provisioning:
+      status: download
+  - id: somesass_ls
+    owner-language: sass
+    provisioning:
+      status: download
+  - id: sorbet
+    owner-language: ruby
+    provisioning:
+      status: download
   - id: sourcekit
     owner-language: objc
     provisioning:
       status: excluded
       reason: sourcekit-lsp requires an Apple or Swift toolchain and is not provisionable in the Linux E2E lane.
+  - id: spectral
+    owner-language: json
+    provisioning:
+      status: excluded
+      reason: spectral is a linter, formatter, or otherwise not a general-purpose language server.
+  - id: spyglassmc_language_server
+    owner-language: mcfunction
+    provisioning:
+      status: download
+  - id: sqlls
+    owner-language: sql
+    provisioning:
+      status: download
+  - id: sqls
+    owner-language: sql
+    provisioning:
+      status: download
+  - id: sqruff
+    owner-language: sql
+    provisioning:
+      status: download
+  - id: stan_ls
+    owner-language: stan
+    provisioning:
+      status: download
+  - id: standardrb
+    owner-language: ruby
+    provisioning:
+      status: download
+  - id: starlark_rust
+    owner-language: BUILD.bazel
+    provisioning:
+      status: download
+  - id: starpls
+    owner-language: bzl
+    provisioning:
+      status: download
+  - id: statix
+    owner-language: nix
+    provisioning:
+      status: excluded
+      reason: statix is a linter rather than a general-purpose language server.
+  - id: steep
+    owner-language: eruby
+    provisioning:
+      status: download
+  - id: stimulus_ls
+    owner-language: blade
+    provisioning:
+      status: excluded
+      reason: stimulus_ls is a linter, formatter, or otherwise not a general-purpose language server.
+  - id: stylelint_lsp
+    owner-language: astro
+    provisioning:
+      status: excluded
+      reason: stylelint_lsp is a linter, formatter, or otherwise not a general-purpose language server.
   - id: stylua
     owner-language: lua
     provisioning:
@@ -335,11 +1424,106 @@ servers:
     provisioning:
       status: excluded
       reason: stylua-3p-language-server exposes formatting only rather than general-purpose Lua intelligence.
+  - id: svelte
+    owner-language: svelte
+    provisioning:
+      status: download
+  - id: svlangserver
+    owner-language: systemverilog
+    provisioning:
+      status: download
+  - id: svls
+    owner-language: systemverilog
+    provisioning:
+      status: download
+  - id: swift_mesonls
+    owner-language: meson
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: syntax_tree
+    owner-language: ruby
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: systemd_lsp
+    owner-language: systemd
+    provisioning:
+      status: download
   - id: tailwindcss
     owner-language: javascript
     provisioning:
       status: excluded
       reason: tailwindcss-language-server is framework-specific rather than a general-purpose JavaScript server.
+  - id: taplo
+    owner-language: toml
+    provisioning:
+      status: download
+  - id: tblgen_lsp_server
+    owner-language: tablegen
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: tclsp
+    owner-language: sdc
+    provisioning:
+      status: download
+  - id: teal_ls
+    owner-language: teal
+    provisioning:
+      status: download
+  - id: templ
+    owner-language: templ
+    provisioning:
+      status: download
+  - id: terraform_lsp
+    owner-language: hcl
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: terraformls
+    owner-language: terraform
+    provisioning:
+      status: download
+  - id: texlab
+    owner-language: bib
+    provisioning:
+      status: download
+  - id: textlsp
+    owner-language: org
+    provisioning:
+      status: download
+  - id: tflint
+    owner-language: terraform
+    provisioning:
+      status: excluded
+      reason: tflint is a linter, formatter, or otherwise not a general-purpose language server.
+  - id: theme_check
+    owner-language: liquid
+    provisioning:
+      status: excluded
+      reason: theme_check is a linter, formatter, or otherwise not a general-purpose language server.
+  - id: thriftls
+    owner-language: thrift
+    provisioning:
+      status: download
+  - id: tilt_ls
+    owner-language: tiltfile
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: tinymist
+    owner-language: typst
+    provisioning:
+      status: download
+  - id: tofu_ls
+    owner-language: opentofu
+    provisioning:
+      status: download
+  - id: tombi
+    owner-language: toml
+    provisioning:
+      status: download
   - id: ts_ls
     owner-language: javascript
     provisioning:
@@ -353,16 +1537,38 @@ servers:
           resolve:
             - which
             - npm
+  - id: ts_query_ls
+    owner-language: query
+    provisioning:
+      status: download
+  - id: tsp_server
+    owner-language: typespec
+    provisioning:
+      status: download
   - id: ttags
     owner-language: rust
     provisioning:
       status: excluded
       reason: ttags is a tags adapter rather than a general-purpose language server.
+  - id: turbo_ls
+    owner-language: blade
+    provisioning:
+      status: excluded
+      reason: turbo_ls is a linter, formatter, or otherwise not a general-purpose language server.
+  - id: turtle_ls
+    owner-language: ttl
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: tvm_ffi_navigator
     owner-language: python
     provisioning:
       status: excluded
       reason: FFI Navigator is specific to TVM foreign-function interfaces rather than general-purpose language intelligence.
+  - id: twiggy_language_server
+    owner-language: twig
+    provisioning:
+      status: download
   - id: ty
     owner-language: python
     provisioning:
@@ -372,11 +1578,107 @@ servers:
           resolve:
             - which
             - python3
+  - id: typeprof
+    owner-language: eruby
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: typst_lsp
+    owner-language: typst
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: uiua
+    owner-language: uiua
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: ungrammar_languageserver
+    owner-language: ungrammar
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: unison
+    owner-language: unison
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: unocss
     owner-language: typescript
     provisioning:
       status: excluded
       reason: unocss-language-server is framework-specific rather than a general-purpose TypeScript server.
+  - id: uvls
+    owner-language: uvl
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: v_analyzer
+    owner-language: v
+    provisioning:
+      status: download
+  - id: vacuum
+    owner-language: json.openapi
+    provisioning:
+      status: excluded
+      reason: vacuum is a linter, formatter, or otherwise not a general-purpose language server.
+  - id: vala_ls
+    owner-language: genie
+    provisioning:
+      status: download
+  - id: vale_ls
+    owner-language: asciidoc
+    provisioning:
+      status: excluded
+      reason: vale_ls is a linter, formatter, or otherwise not a general-purpose language server.
+  - id: verible
+    owner-language: systemverilog
+    provisioning:
+      status: download
+  - id: veridian
+    owner-language: systemverilog
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: veryl_ls
+    owner-language: veryl
+    provisioning:
+      status: download
+  - id: vespa_ls
+    owner-language: profile
+    provisioning:
+      status: download
+      host-programs:
+        - name: java
+          resolve:
+            - which
+            - java
+  - id: vhdl_ls
+    owner-language: vhd
+    provisioning:
+      status: download
+  - id: vimls
+    owner-language: vim
+    provisioning:
+      status: download
+  - id: visualforce_ls
+    owner-language: visualforce
+    provisioning:
+      status: download
+      host-programs:
+        - name: node
+          resolve:
+            - which
+            - node
+  - id: vls
+    owner-language: v
+    provisioning:
+      status: download
+  - id: vsrocq
+    owner-language: coq
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
   - id: vtsls
     owner-language: typescript
     provisioning:
@@ -390,11 +1692,55 @@ servers:
           resolve:
             - which
             - npm
+  - id: vue_ls
+    owner-language: vue
+    provisioning:
+      status: download
+  - id: wasm_language_tools
+    owner-language: wat
+    provisioning:
+      status: download
   - id: wc_language_server
     owner-language: typescript
     provisioning:
       status: excluded
       reason: wc-language-server is Web-Components-specific rather than a general-purpose TypeScript server.
+  - id: wgsl_analyzer
+    owner-language: wgsl
+    provisioning:
+      status: download
+  - id: yamlls
+    owner-language: yaml
+    provisioning:
+      status: download
+  - id: yang_lsp
+    owner-language: yang
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: yls
+    owner-language: yar
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: ziggy
+    owner-language: ziggy
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: ziggy_schema
+    owner-language: ziggy_schema
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: zk
+    owner-language: markdown
+    provisioning:
+      status: download
+  - id: zls
+    owner-language: zig
+    provisioning:
+      status: download
   - id: zuban
     owner-language: python
     provisioning:
@@ -441,6 +1787,10 @@ commands:
     strategy: lsp-fixture
   - name: declaration
     strategy: lsp-fixture
+  - name: implementation
+    strategy: lsp-fixture
+  - name: type-definition
+    strategy: lsp-fixture
   - name: build-index
     strategy: lsp-fixture
   - name: daemon
@@ -453,3 +1803,4 @@ commands:
     strategy: lifecycle
   - name: update
     strategy: update-fixture
+

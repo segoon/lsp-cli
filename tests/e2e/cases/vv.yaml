@@ -1,0 +1,9 @@
+language:
+  id: vv
+  kind: metadata
+  project: playground/vv
+pairs:
+  - language: vv
+    server: v_analyzer
+    smoke:
+      status: capabilities

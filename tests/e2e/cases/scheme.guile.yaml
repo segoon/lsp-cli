@@ -1,0 +1,4 @@
+language:
+  id: scheme.guile
+  kind: metadata
+  project: playground/scheme.guile

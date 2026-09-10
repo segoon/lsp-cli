@@ -1,0 +1,17 @@
+language:
+  id: css
+  kind: metadata
+  project: playground/css
+pairs:
+  - language: css
+    server: css_variables
+    smoke:
+      status: capabilities
+  - language: css
+    server: csskit
+    smoke:
+      status: capabilities
+  - language: css
+    server: cssls
+    smoke:
+      status: capabilities

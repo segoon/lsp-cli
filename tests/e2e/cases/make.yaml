@@ -1,0 +1,9 @@
+language:
+  id: make
+  kind: metadata
+  project: playground/make
+pairs:
+  - language: make
+    server: autotools_ls
+    smoke:
+      status: capabilities

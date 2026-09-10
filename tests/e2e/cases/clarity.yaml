@@ -1,0 +1,9 @@
+language:
+  id: clarity
+  kind: metadata
+  project: playground/clarity
+pairs:
+  - language: clarity
+    server: clarinet
+    smoke:
+      status: capabilities

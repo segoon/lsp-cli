@@ -1,0 +1,9 @@
+language:
+  id: stan
+  kind: metadata
+  project: playground/stan
+pairs:
+  - language: stan
+    server: stan_ls
+    smoke:
+      status: capabilities

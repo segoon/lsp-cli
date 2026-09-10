@@ -1,0 +1,9 @@
+language:
+  id: kcl
+  kind: metadata
+  project: playground/kcl
+pairs:
+  - language: kcl
+    server: kcl
+    smoke:
+      status: capabilities

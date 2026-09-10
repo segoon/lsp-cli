@@ -1,0 +1,4 @@
+language:
+  id: asm68k
+  kind: metadata
+  project: playground/asm68k

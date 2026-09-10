@@ -8,10 +8,11 @@ pub use raw::{AgentSkillArgs, CompletionArgs, clap_command};
 pub(crate) use raw::{
     RawBuildIndexArgs, RawCommand, RawCommandsArgs, RawDaemonArgs, RawDebugArgs,
     RawDeclarationArgs, RawDefinitionArgs, RawDetectArgs, RawDiagnosticsArgs, RawDownloadArgs,
-    RawFormatArgs, RawGrepArgs, RawLangLspArgs, RawLanguagesArgs, RawListFilesArgs,
-    RawListFunctionsArgs, RawListSymbolsArgs, RawLspWorkspaceQueryArgs, RawRunArgs,
-    RawServerCapabilitiesArgs, RawServersArgs, RawStopAllArgs, RawStopArgs, RawSymbolQueryArgs,
-    RawUpdateArgs, RawWorkspaceQueryArgs, parse_raw_args,
+    RawFormatArgs, RawGrepArgs, RawImplementationArgs, RawLangLspArgs, RawLanguagesArgs,
+    RawListFilesArgs, RawListFunctionsArgs, RawListSymbolsArgs, RawLspWorkspaceQueryArgs,
+    RawRunArgs, RawServerCapabilitiesArgs, RawServersArgs, RawStopAllArgs, RawStopArgs,
+    RawSymbolQueryArgs, RawTypeDefinitionArgs, RawUpdateArgs, RawWorkspaceQueryArgs,
+    parse_raw_args,
 };
 pub(crate) use resolve::resolve_command;
 
@@ -44,6 +45,8 @@ pub enum Command {
     Callees(SymbolQueryArgs),
     Definition(DefinitionArgs),
     Declaration(DeclarationArgs),
+    Implementation(ImplementationArgs),
+    TypeDefinition(TypeDefinitionArgs),
     BuildIndex(BuildIndexArgs),
     Update(UpdateArgs),
     Completion(CompletionArgs),
@@ -185,6 +188,20 @@ pub struct DefinitionArgs {
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct DeclarationArgs {
+    pub name: String,
+    pub query: LspWorkspaceQueryArgs,
+    pub full: bool,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct ImplementationArgs {
+    pub name: String,
+    pub query: LspWorkspaceQueryArgs,
+    pub full: bool,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct TypeDefinitionArgs {
     pub name: String,
     pub query: LspWorkspaceQueryArgs,
     pub full: bool,

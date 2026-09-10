@@ -1,0 +1,4 @@
+language:
+  id: lean3
+  kind: metadata
+  project: playground/lean3

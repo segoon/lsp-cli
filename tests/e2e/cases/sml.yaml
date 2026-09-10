@@ -1,0 +1,9 @@
+language:
+  id: sml
+  kind: metadata
+  project: playground/sml
+pairs:
+  - language: sml
+    server: millet
+    smoke:
+      status: capabilities

@@ -1,0 +1,9 @@
+language:
+  id: quarto
+  kind: metadata
+  project: playground/quarto
+pairs:
+  - language: quarto
+    server: r_language_server
+    smoke:
+      status: capabilities

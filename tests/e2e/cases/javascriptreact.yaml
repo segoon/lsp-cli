@@ -1,0 +1,21 @@
+language:
+  id: javascriptreact
+  kind: metadata
+  project: playground/javascriptreact
+pairs:
+  - language: javascriptreact
+    server: denols
+    smoke:
+      status: capabilities
+  - language: javascriptreact
+    server: graphql
+    smoke:
+      status: capabilities
+  - language: javascriptreact
+    server: ts_ls
+    smoke:
+      status: capabilities
+  - language: javascriptreact
+    server: vtsls
+    smoke:
+      status: capabilities

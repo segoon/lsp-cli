@@ -1,0 +1,13 @@
+language:
+  id: r
+  kind: metadata
+  project: playground/r
+pairs:
+  - language: r
+    server: air
+    smoke:
+      status: capabilities
+  - language: r
+    server: r_language_server
+    smoke:
+      status: capabilities

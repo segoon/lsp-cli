@@ -1,0 +1,4 @@
+language:
+  id: mint
+  kind: metadata
+  project: playground/mint

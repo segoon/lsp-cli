@@ -1,0 +1,13 @@
+language:
+  id: nix
+  kind: metadata
+  project: playground/nix
+pairs:
+  - language: nix
+    server: nil_ls
+    smoke:
+      status: capabilities
+  - language: nix
+    server: rnix
+    smoke:
+      status: capabilities

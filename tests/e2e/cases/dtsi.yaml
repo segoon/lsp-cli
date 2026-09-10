@@ -1,0 +1,4 @@
+language:
+  id: dtsi
+  kind: metadata
+  project: playground/dtsi

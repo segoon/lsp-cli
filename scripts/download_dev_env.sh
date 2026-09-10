@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 #
-# Downloads the external runtimes needed by the real-server E2E tests (go, java, node, dotnet)
-# into a project-local .env/ directory, so contributors don't need to install them system-wide.
+# Downloads the external runtimes needed by the real-server E2E tests (go, java, node, dotnet,
+# zig, ruby) into a project-local .env/ directory, so contributors don't need to install them
+# system-wide.
 #
 # Default versions mirror .github/workflows/ci.yml / e2e.yml (actions/setup-go,
 # actions/setup-java, actions/setup-node, actions/setup-dotnet). Keep them in sync manually if
 # CI's pins change; override per-tool via GO_VERSION / JAVA_VERSION / NODE_VERSION /
-# DOTNET_CHANNEL.
+# DOTNET_CHANNEL / ZIG_VERSION / RUBY_VERSION.
 #
 # Usage: scripts/download_dev_env.sh
 # Then:  source activate.sh   (from the repo root)
@@ -17,6 +18,8 @@ GO_VERSION="${GO_VERSION:-1.27.1}"
 JAVA_VERSION="${JAVA_VERSION:-21}"
 NODE_VERSION="${NODE_VERSION:-24}"
 DOTNET_CHANNEL="${DOTNET_CHANNEL:-10.0}"
+ZIG_VERSION="${ZIG_VERSION:-0.15.2}"
+RUBY_VERSION="${RUBY_VERSION:-3.3.6}"
 
 repo_root=$(git rev-parse --show-toplevel)
 env_dir="$repo_root/.env"
@@ -141,10 +144,57 @@ install_dotnet() {
     link "$tool_dir/dotnet" dotnet
 }
 
+install_zig() {
+    local tool_dir="$env_dir/zig"
+    if is_up_to_date "$tool_dir" "$ZIG_VERSION"; then
+        echo "zig $ZIG_VERSION already installed, skipping"
+        return
+    fi
+    echo "Installing zig $ZIG_VERSION..."
+    local archive="$tmp_dir/zig.tar.xz"
+    curl -fsSL -o "$archive" "https://ziglang.org/download/${ZIG_VERSION}/zig-x86_64-${os}-${ZIG_VERSION}.tar.xz"
+    rm -rf "$tool_dir"
+    mkdir -p "$tool_dir"
+    tar -xJf "$archive" -C "$tool_dir" --strip-components=1
+    echo "$ZIG_VERSION" > "$(version_stamp "$tool_dir")"
+    link "$tool_dir/zig" zig
+}
+
+install_ruby() {
+    # Prebuilt CRuby from ruby/ruby-builder (same source actions/setup-ruby uses), matched to
+    # this host's Ubuntu release so the dynamically linked build actually runs.
+    local tool_dir="$env_dir/ruby"
+    if is_up_to_date "$tool_dir" "$RUBY_VERSION"; then
+        echo "ruby $RUBY_VERSION already installed, skipping"
+        return
+    fi
+    local ubuntu_codename
+    ubuntu_codename=$(. /etc/os-release && echo "$VERSION_ID")
+    echo "Installing ruby $RUBY_VERSION (ubuntu-${ubuntu_codename})..."
+    local archive="$tmp_dir/ruby.tar.gz"
+    curl -fsSL -o "$archive" "https://github.com/ruby/ruby-builder/releases/download/ruby-${RUBY_VERSION}/ruby-${RUBY_VERSION}-ubuntu-${ubuntu_codename}-x64.tar.gz"
+    rm -rf "$tool_dir"
+    mkdir -p "$tool_dir"
+    tar -xzf "$archive" -C "$tool_dir" --strip-components=1
+    # ruby-builder bakes its hosted-toolcache build path into every bin/ shebang and into the
+    # binary's RUNPATH; rewrite the shebangs to this install's real ruby, and rely on
+    # LD_LIBRARY_PATH (set by the E2E harness / activate.sh) rather than RUNPATH for libruby.
+    for script in "$tool_dir"/bin/*; do
+        [[ -f "$script" ]] || continue
+        sed -i "1s|^#!.*/bin/ruby\$|#!${tool_dir}/bin/ruby|" "$script"
+    done
+    echo "$RUBY_VERSION" > "$(version_stamp "$tool_dir")"
+    link "$tool_dir/bin/ruby" ruby
+    link "$tool_dir/bin/gem" gem
+    link "$tool_dir/bin/bundle" bundle
+}
+
 install_go
 install_java
 install_node
 install_dotnet
+install_zig
+install_ruby
 
 echo
 echo "Dev env ready under $env_dir"

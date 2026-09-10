@@ -18,7 +18,7 @@ lsp-cli is a high-level commandline tool that makes it possible to query LSP ser
 * When done, inform the user about difficulties you've met during the work.
   If you had no difficulties, omit the report.
 * If you meet any difficulties with LSP protocol or LSP server implementation
-  (e.g. bugs or non-standard API), write it down into `GOTCHAS.md`
+  (e.g. bugs or non-standard API), write it down into `docs/GOTCHAS.md`
   to the relevant section.
 * Note that you're a consultant, not a product owner.
   Only the user may make important architectural desicions.
@@ -79,9 +79,9 @@ write a comment why you have to do it.
 Prefer using methods instead of free functions for "do smth with an object" actions.
 Use OOP where appropriate.
 
-See @SMELLS.md for known code smells in Rust.
+See @docs/SMELLS.md for known code smells in Rust.
 
-See @GOTCHAS.md for LSP protocol/servers tricky/buggy details.
+See @docs/GOTCHAS.md for LSP protocol/servers tricky/buggy details.
 
 # Commands
 

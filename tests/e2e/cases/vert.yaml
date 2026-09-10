@@ -1,0 +1,13 @@
+language:
+  id: vert
+  kind: metadata
+  project: playground/vert
+pairs:
+  - language: vert
+    server: glsl_analyzer
+    smoke:
+      status: capabilities
+  - language: vert
+    server: glslls
+    smoke:
+      status: capabilities

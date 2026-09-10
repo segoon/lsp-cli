@@ -1,0 +1,9 @@
+language:
+  id: teal
+  kind: metadata
+  project: playground/teal
+pairs:
+  - language: teal
+    server: teal_ls
+    smoke:
+      status: capabilities

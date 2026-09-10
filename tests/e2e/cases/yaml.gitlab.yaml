@@ -1,0 +1,13 @@
+language:
+  id: yaml.gitlab
+  kind: metadata
+  project: playground/yaml.gitlab
+pairs:
+  - language: yaml.gitlab
+    server: gitlab_ci_ls
+    smoke:
+      status: capabilities
+  - language: yaml.gitlab
+    server: yamlls
+    smoke:
+      status: capabilities

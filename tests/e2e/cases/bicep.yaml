@@ -1,0 +1,9 @@
+language:
+  id: bicep
+  kind: metadata
+  project: playground/bicep
+pairs:
+  - language: bicep
+    server: bicep
+    smoke:
+      status: capabilities

@@ -1,0 +1,9 @@
+language:
+  id: hlsl
+  kind: metadata
+  project: playground/hlsl
+pairs:
+  - language: hlsl
+    server: slangd
+    smoke:
+      status: capabilities

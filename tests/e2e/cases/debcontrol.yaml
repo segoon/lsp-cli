@@ -1,0 +1,4 @@
+language:
+  id: debcontrol
+  kind: metadata
+  project: playground/debcontrol

@@ -1,0 +1,9 @@
+language:
+  id: sass
+  kind: metadata
+  project: playground/sass
+pairs:
+  - language: sass
+    server: somesass_ls
+    smoke:
+      status: capabilities

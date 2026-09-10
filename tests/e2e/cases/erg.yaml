@@ -1,0 +1,9 @@
+language:
+  id: erg
+  kind: metadata
+  project: playground/erg
+pairs:
+  - language: erg
+    server: erg_language_server
+    smoke:
+      status: capabilities

@@ -1,0 +1,9 @@
+language:
+  id: asm
+  kind: metadata
+  project: playground/asm
+pairs:
+  - language: asm
+    server: asm_lsp
+    smoke:
+      status: capabilities

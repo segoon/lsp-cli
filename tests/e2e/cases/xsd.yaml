@@ -1,0 +1,9 @@
+language:
+  id: xsd
+  kind: metadata
+  project: playground/xsd
+pairs:
+  - language: xsd
+    server: lemminx
+    smoke:
+      status: capabilities

@@ -1,0 +1,4 @@
+language:
+  id: mustache
+  kind: metadata
+  project: playground/mustache

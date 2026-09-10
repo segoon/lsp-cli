@@ -1,0 +1,13 @@
+language:
+  id: jsonc
+  kind: metadata
+  project: playground/jsonc
+pairs:
+  - language: jsonc
+    server: jsonls
+    smoke:
+      status: capabilities
+  - language: jsonc
+    server: nxls
+    smoke:
+      status: capabilities

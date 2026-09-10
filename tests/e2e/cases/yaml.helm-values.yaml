@@ -1,0 +1,13 @@
+language:
+  id: yaml.helm-values
+  kind: metadata
+  project: playground/yaml.helm-values
+pairs:
+  - language: yaml.helm-values
+    server: helm_ls
+    smoke:
+      status: capabilities
+  - language: yaml.helm-values
+    server: yamlls
+    smoke:
+      status: capabilities

@@ -1,0 +1,4 @@
+language:
+  id: alloy
+  kind: metadata
+  project: playground/alloy

@@ -1,0 +1,4 @@
+language:
+  id: scheme
+  kind: metadata
+  project: playground/scheme

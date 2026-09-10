@@ -1,0 +1,25 @@
+language:
+  id: ruby
+  kind: metadata
+  project: playground/ruby
+pairs:
+  - language: ruby
+    server: rubocop
+    smoke:
+      status: capabilities
+  - language: ruby
+    server: solargraph
+    smoke:
+      status: capabilities
+  - language: ruby
+    server: sorbet
+    smoke:
+      status: capabilities
+  - language: ruby
+    server: standardrb
+    smoke:
+      status: capabilities
+  - language: ruby
+    server: steep
+    smoke:
+      status: capabilities

@@ -1,0 +1,13 @@
+language:
+  id: toml
+  kind: metadata
+  project: playground/toml
+pairs:
+  - language: toml
+    server: taplo
+    smoke:
+      status: capabilities
+  - language: toml
+    server: tombi
+    smoke:
+      status: capabilities

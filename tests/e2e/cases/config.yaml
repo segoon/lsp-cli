@@ -1,0 +1,9 @@
+language:
+  id: config
+  kind: metadata
+  project: playground/config
+pairs:
+  - language: config
+    server: autotools_ls
+    smoke:
+      status: capabilities

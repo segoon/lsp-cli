@@ -1,0 +1,9 @@
+language:
+  id: star
+  kind: metadata
+  project: playground/star
+pairs:
+  - language: star
+    server: starlark_rust
+    smoke:
+      status: capabilities

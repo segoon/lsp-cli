@@ -1,0 +1,9 @@
+language:
+  id: motoko
+  kind: metadata
+  project: playground/motoko
+pairs:
+  - language: motoko
+    server: motoko_lsp
+    smoke:
+      status: capabilities

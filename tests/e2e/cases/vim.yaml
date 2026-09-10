@@ -1,0 +1,9 @@
+language:
+  id: vim
+  kind: metadata
+  project: playground/vim
+pairs:
+  - language: vim
+    server: vimls
+    smoke:
+      status: capabilities

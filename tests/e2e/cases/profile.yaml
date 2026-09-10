@@ -1,0 +1,9 @@
+language:
+  id: profile
+  kind: metadata
+  project: playground/profile
+pairs:
+  - language: profile
+    server: vespa_ls
+    smoke:
+      status: capabilities

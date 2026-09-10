@@ -1,0 +1,9 @@
+language:
+  id: cabal
+  kind: metadata
+  project: playground/cabal
+pairs:
+  - language: cabal
+    server: hls
+    smoke:
+      status: capabilities

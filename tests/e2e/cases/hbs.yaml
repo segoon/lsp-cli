@@ -1,0 +1,4 @@
+language:
+  id: hbs
+  kind: metadata
+  project: playground/hbs

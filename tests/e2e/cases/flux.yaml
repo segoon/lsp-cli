@@ -1,0 +1,9 @@
+language:
+  id: flux
+  kind: metadata
+  project: playground/flux
+pairs:
+  - language: flux
+    server: flux_lsp
+    smoke:
+      status: capabilities

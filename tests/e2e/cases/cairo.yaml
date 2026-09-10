@@ -1,0 +1,9 @@
+language:
+  id: cairo
+  kind: metadata
+  project: playground/cairo
+pairs:
+  - language: cairo
+    server: cairo_ls
+    smoke:
+      status: capabilities

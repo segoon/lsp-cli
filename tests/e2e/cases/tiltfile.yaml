@@ -1,0 +1,4 @@
+language:
+  id: tiltfile
+  kind: metadata
+  project: playground/tiltfile

@@ -1,0 +1,9 @@
+language:
+  id: arduino
+  kind: metadata
+  project: playground/arduino
+pairs:
+  - language: arduino
+    server: arduino_language_server
+    smoke:
+      status: capabilities

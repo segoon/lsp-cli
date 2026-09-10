@@ -1,0 +1,9 @@
+language:
+  id: sdc
+  kind: metadata
+  project: playground/sdc
+pairs:
+  - language: sdc
+    server: tclsp
+    smoke:
+      status: capabilities

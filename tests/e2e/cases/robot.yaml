@@ -1,0 +1,13 @@
+language:
+  id: robot
+  kind: metadata
+  project: playground/robot
+pairs:
+  - language: robot
+    server: robotcode
+    smoke:
+      status: capabilities
+  - language: robot
+    server: robotframework_ls
+    smoke:
+      status: capabilities

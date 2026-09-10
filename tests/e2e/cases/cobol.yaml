@@ -1,0 +1,9 @@
+language:
+  id: cobol
+  kind: metadata
+  project: playground/cobol
+pairs:
+  - language: cobol
+    server: cobol_ls
+    smoke:
+      status: capabilities

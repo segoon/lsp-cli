@@ -1,0 +1,9 @@
+language:
+  id: metamath-zero
+  kind: metadata
+  project: playground/metamath-zero
+pairs:
+  - language: metamath-zero
+    server: mm0_ls
+    smoke:
+      status: capabilities

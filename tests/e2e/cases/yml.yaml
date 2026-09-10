@@ -1,0 +1,4 @@
+language:
+  id: yml
+  kind: metadata
+  project: playground/yml

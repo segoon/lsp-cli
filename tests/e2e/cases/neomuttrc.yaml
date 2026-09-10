@@ -1,0 +1,9 @@
+language:
+  id: neomuttrc
+  kind: metadata
+  project: playground/neomuttrc
+pairs:
+  - language: neomuttrc
+    server: mutt_ls
+    smoke:
+      status: capabilities

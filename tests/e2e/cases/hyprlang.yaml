@@ -1,0 +1,9 @@
+language:
+  id: hyprlang
+  kind: metadata
+  project: playground/hyprlang
+pairs:
+  - language: hyprlang
+    server: hyprls
+    smoke:
+      status: capabilities

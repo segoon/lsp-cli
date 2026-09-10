@@ -1,0 +1,9 @@
+language:
+  id: gn
+  kind: metadata
+  project: playground/gn
+pairs:
+  - language: gn
+    server: gn_language_server
+    smoke:
+      status: capabilities

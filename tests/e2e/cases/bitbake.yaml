@@ -1,0 +1,4 @@
+language:
+  id: bitbake
+  kind: metadata
+  project: playground/bitbake

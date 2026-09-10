@@ -1,0 +1,4 @@
+language:
+  id: xhtml
+  kind: metadata
+  project: playground/xhtml

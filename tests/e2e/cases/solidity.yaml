@@ -1,0 +1,25 @@
+language:
+  id: solidity
+  kind: metadata
+  project: playground/solidity
+pairs:
+  - language: solidity
+    server: solang
+    smoke:
+      status: capabilities
+  - language: solidity
+    server: solc
+    smoke:
+      status: capabilities
+  - language: solidity
+    server: solidity
+    smoke:
+      status: capabilities
+  - language: solidity
+    server: solidity_ls
+    smoke:
+      status: capabilities
+  - language: solidity
+    server: solidity_ls_nomicfoundation
+    smoke:
+      status: capabilities

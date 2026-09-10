@@ -1,0 +1,4 @@
+language:
+  id: scala
+  kind: metadata
+  project: playground/scala

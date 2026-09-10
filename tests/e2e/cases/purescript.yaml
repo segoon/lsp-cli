@@ -1,0 +1,9 @@
+language:
+  id: purescript
+  kind: metadata
+  project: playground/purescript
+pairs:
+  - language: purescript
+    server: purescriptls
+    smoke:
+      status: capabilities

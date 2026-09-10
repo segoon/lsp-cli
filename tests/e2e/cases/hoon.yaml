@@ -1,0 +1,9 @@
+language:
+  id: hoon
+  kind: metadata
+  project: playground/hoon
+pairs:
+  - language: hoon
+    server: hoon_ls
+    smoke:
+      status: capabilities

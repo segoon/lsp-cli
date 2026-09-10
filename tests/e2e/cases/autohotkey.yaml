@@ -1,0 +1,9 @@
+language:
+  id: autohotkey
+  kind: metadata
+  project: playground/autohotkey
+pairs:
+  - language: autohotkey
+    server: autohotkey_lsp
+    smoke:
+      status: capabilities

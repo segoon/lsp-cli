@@ -1,0 +1,4 @@
+language:
+  id: koka
+  kind: metadata
+  project: playground/koka

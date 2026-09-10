@@ -1,0 +1,9 @@
+language:
+  id: antlers
+  kind: metadata
+  project: playground/antlers
+pairs:
+  - language: antlers
+    server: antlersls
+    smoke:
+      status: capabilities

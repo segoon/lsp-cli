@@ -1,0 +1,9 @@
+language:
+  id: ttcn
+  kind: metadata
+  project: playground/ttcn
+pairs:
+  - language: ttcn
+    server: ntt
+    smoke:
+      status: capabilities

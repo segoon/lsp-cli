@@ -1,0 +1,9 @@
+language:
+  id: spec
+  kind: metadata
+  project: playground/spec
+pairs:
+  - language: spec
+    server: rpmspec
+    smoke:
+      status: capabilities

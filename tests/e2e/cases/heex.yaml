@@ -1,0 +1,21 @@
+language:
+  id: heex
+  kind: metadata
+  project: playground/heex
+pairs:
+  - language: heex
+    server: elixirls
+    smoke:
+      status: capabilities
+  - language: heex
+    server: expert
+    smoke:
+      status: capabilities
+  - language: heex
+    server: lexical
+    smoke:
+      status: capabilities
+  - language: heex
+    server: nextls
+    smoke:
+      status: capabilities

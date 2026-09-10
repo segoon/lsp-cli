@@ -1,0 +1,4 @@
+language:
+  id: ziggy_schema
+  kind: metadata
+  project: playground/ziggy_schema

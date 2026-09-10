@@ -1,0 +1,9 @@
+language:
+  id: terraform-vars
+  kind: metadata
+  project: playground/terraform-vars
+pairs:
+  - language: terraform-vars
+    server: terraformls
+    smoke:
+      status: capabilities

@@ -1,0 +1,9 @@
+language:
+  id: awk
+  kind: metadata
+  project: playground/awk
+pairs:
+  - language: awk
+    server: awk_ls
+    smoke:
+      status: capabilities

@@ -1,0 +1,9 @@
+language:
+  id: svg
+  kind: metadata
+  project: playground/svg
+pairs:
+  - language: svg
+    server: lemminx
+    smoke:
+      status: capabilities

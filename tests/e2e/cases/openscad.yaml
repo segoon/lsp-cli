@@ -1,0 +1,9 @@
+language:
+  id: openscad
+  kind: metadata
+  project: playground/openscad
+pairs:
+  - language: openscad
+    server: openscad_lsp
+    smoke:
+      status: capabilities

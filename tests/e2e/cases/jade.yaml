@@ -1,0 +1,4 @@
+language:
+  id: jade
+  kind: metadata
+  project: playground/jade

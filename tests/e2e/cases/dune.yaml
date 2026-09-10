@@ -1,0 +1,9 @@
+language:
+  id: dune
+  kind: metadata
+  project: playground/dune
+pairs:
+  - language: dune
+    server: ocamllsp
+    smoke:
+      status: capabilities

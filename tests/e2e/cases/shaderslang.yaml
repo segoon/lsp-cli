@@ -1,0 +1,9 @@
+language:
+  id: shaderslang
+  kind: metadata
+  project: playground/shaderslang
+pairs:
+  - language: shaderslang
+    server: slangd
+    smoke:
+      status: capabilities

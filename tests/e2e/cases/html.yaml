@@ -1,0 +1,13 @@
+language:
+  id: html
+  kind: metadata
+  project: playground/html
+pairs:
+  - language: html
+    server: antlersls
+    smoke:
+      status: capabilities
+  - language: html
+    server: html
+    smoke:
+      status: capabilities

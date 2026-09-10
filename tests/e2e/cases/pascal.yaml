@@ -1,0 +1,4 @@
+language:
+  id: pascal
+  kind: metadata
+  project: playground/pascal

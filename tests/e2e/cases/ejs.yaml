@@ -1,0 +1,4 @@
+language:
+  id: ejs
+  kind: metadata
+  project: playground/ejs

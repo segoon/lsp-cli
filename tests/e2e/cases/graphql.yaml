@@ -1,0 +1,9 @@
+language:
+  id: graphql
+  kind: metadata
+  project: playground/graphql
+pairs:
+  - language: graphql
+    server: graphql
+    smoke:
+      status: capabilities

@@ -1,0 +1,9 @@
+language:
+  id: xml
+  kind: metadata
+  project: playground/xml
+pairs:
+  - language: xml
+    server: lemminx
+    smoke:
+      status: capabilities

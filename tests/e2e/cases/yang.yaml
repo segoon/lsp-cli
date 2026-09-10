@@ -1,0 +1,4 @@
+language:
+  id: yang
+  kind: metadata
+  project: playground/yang

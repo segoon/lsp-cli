@@ -1,0 +1,4 @@
+language:
+  id: aspnetcorerazor
+  kind: metadata
+  project: playground/aspnetcorerazor

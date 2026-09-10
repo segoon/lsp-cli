@@ -1,0 +1,9 @@
+language:
+  id: vala
+  kind: metadata
+  project: playground/vala
+pairs:
+  - language: vala
+    server: vala_ls
+    smoke:
+      status: capabilities

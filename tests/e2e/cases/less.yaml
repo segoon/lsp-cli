@@ -1,0 +1,13 @@
+language:
+  id: less
+  kind: metadata
+  project: playground/less
+pairs:
+  - language: less
+    server: css_variables
+    smoke:
+      status: capabilities
+  - language: less
+    server: cssls
+    smoke:
+      status: capabilities

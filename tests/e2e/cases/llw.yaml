@@ -1,0 +1,9 @@
+language:
+  id: llw
+  kind: metadata
+  project: playground/llw
+pairs:
+  - language: llw
+    server: lelwel_ls
+    smoke:
+      status: capabilities

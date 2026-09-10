@@ -1,0 +1,4 @@
+language:
+  id: smt2
+  kind: metadata
+  project: playground/smt2

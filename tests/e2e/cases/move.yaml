@@ -1,0 +1,9 @@
+language:
+  id: move
+  kind: metadata
+  project: playground/move
+pairs:
+  - language: move
+    server: move_analyzer
+    smoke:
+      status: capabilities

@@ -1,0 +1,4 @@
+language:
+  id: razor
+  kind: metadata
+  project: playground/razor

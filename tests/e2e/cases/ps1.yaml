@@ -1,0 +1,9 @@
+language:
+  id: ps1
+  kind: metadata
+  project: playground/ps1
+pairs:
+  - language: ps1
+    server: powershell_es
+    smoke:
+      status: capabilities

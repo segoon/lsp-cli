@@ -1,0 +1,4 @@
+language:
+  id: brioche
+  kind: metadata
+  project: playground/brioche

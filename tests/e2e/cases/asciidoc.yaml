@@ -1,0 +1,4 @@
+language:
+  id: asciidoc
+  kind: metadata
+  project: playground/asciidoc

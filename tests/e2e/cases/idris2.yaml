@@ -1,0 +1,4 @@
+language:
+  id: idris2
+  kind: metadata
+  project: playground/idris2

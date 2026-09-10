@@ -1,0 +1,13 @@
+language:
+  id: dockerfile
+  kind: metadata
+  project: playground/dockerfile
+pairs:
+  - language: dockerfile
+    server: docker_language_server
+    smoke:
+      status: capabilities
+  - language: dockerfile
+    server: dockerls
+    smoke:
+      status: capabilities

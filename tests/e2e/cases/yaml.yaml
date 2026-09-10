@@ -1,0 +1,9 @@
+language:
+  id: yaml
+  kind: metadata
+  project: playground/yaml
+pairs:
+  - language: yaml
+    server: yamlls
+    smoke:
+      status: capabilities

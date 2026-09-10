@@ -1,0 +1,13 @@
+language:
+  id: tesc
+  kind: metadata
+  project: playground/tesc
+pairs:
+  - language: tesc
+    server: glsl_analyzer
+    smoke:
+      status: capabilities
+  - language: tesc
+    server: glslls
+    smoke:
+      status: capabilities

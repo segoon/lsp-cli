@@ -1,0 +1,4 @@
+language:
+  id: blade
+  kind: metadata
+  project: playground/blade

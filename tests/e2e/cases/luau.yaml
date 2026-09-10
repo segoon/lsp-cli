@@ -1,9 +1,30 @@
 language:
   id: luau
-  kind: metadata
+  kind: source
   project: playground/luau
+  query-profile:
+    symbol-query: Order
+    callable-query: build_sample_order
+    format-file: main.luau
+    expected-names:
+      - Order
+      - OrderItem
+      - build_sample_order
+      - format_order
 pairs:
   - language: luau
     server: luau_lsp
     smoke:
-      status: capabilities
+      status: queries
+      exceptions:
+        - command: callees
+          outcome: empty-matches
+          reason: build_sample_order constructs data directly and has no outgoing call-hierarchy edges
+        - command: build-index
+          outcome: failure
+          message: background-work progress
+          reason: luau-lsp exposes no background-work progress signal
+    lifecycle:
+      status: scenarios
+      direct-run:
+        status: exchange

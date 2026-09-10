@@ -126,7 +126,47 @@ impl<'a> RealServerTest<'a> {
             return validate_exception(command, outcome, message, reason, &output);
         }
         output.ensure_success()?;
+        if matches!(
+            command,
+            QueryKind::Grep
+                | QueryKind::References
+                | QueryKind::Callers
+                | QueryKind::Callees
+                | QueryKind::Definition
+                | QueryKind::Declaration
+        ) {
+            return self.retry_symbol_query_if_empty(context, server, command, deadline, output);
+        }
         self.validate_success(command, context, &output)
+    }
+
+    // Symbol- and call-hierarchy resolution can transiently lag behind a
+    // server's background-indexing-done signal, so an unexpected empty
+    // result gets a couple of retries before it's treated as a real failure.
+    fn retry_symbol_query_if_empty(
+        &self,
+        context: &E2eContext,
+        server: &str,
+        command: QueryKind,
+        deadline: Duration,
+        mut output: E2eOutput,
+    ) -> Result<(), String> {
+        const ATTEMPTS: u32 = 3;
+        let mut last_error = String::new();
+        for attempt in 1..=ATTEMPTS {
+            match self.validate_success(command, context, &output) {
+                Ok(()) => return Ok(()),
+                Err(error) => last_error = error,
+            }
+            if attempt == ATTEMPTS {
+                break;
+            }
+            std::thread::sleep(Duration::from_secs(2));
+            output = run(context, &self.command_args(command, server), deadline)
+                .map_err(|error| format!("{command:?} could not complete:\n{error}"))?;
+            output.ensure_success()?;
+        }
+        Err(last_error)
     }
 
     fn command_args(&self, command: QueryKind, server: &str) -> Vec<String> {

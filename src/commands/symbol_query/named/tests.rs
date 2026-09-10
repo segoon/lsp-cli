@@ -107,9 +107,6 @@ fn named_location_queries_find_local_and_duplicate_names_in_file_order() {
             let fixture = Fixture::new(limit);
             let (mut client, server) =
                 LspPeer::spawn(&fixture.dir, Duration::from_secs(3), move |peer| {
-                    let workspace = peer.read();
-                    assert_eq!(workspace["method"], "workspace/symbol");
-                    peer.reply(&workspace, Value::Null);
                     serve_symbols(peer, limit, true);
                     for file in ["a.lua", "b.lua", "c.lua"] {
                         let request = peer.read();
@@ -166,8 +163,6 @@ fn call_hierarchy_queries_filter_non_functions() {
             &fixture.dir,
             Duration::from_secs(3),
             move |peer| {
-                let workspace = peer.read();
-                peer.reply(&workspace, Value::Null);
                 serve_symbols(peer, 20, true);
                 for file in ["a.lua", "b.lua"] {
                     let prepare = peer.read();
@@ -217,8 +212,17 @@ fn falls_back_to_workspace_symbols_when_no_document_name_matches() {
         line_content: "local target = 1".into(),
         full_content: None,
     };
-    let (mut client, server) = LspPeer::spawn(&fixture.dir, Duration::from_secs(3), |peer| {
+    let anchor_uri = path_to_file_uri(&fixture.dir.path().join("a.lua")).expect("uri");
+    let (mut client, server) = LspPeer::spawn(&fixture.dir, Duration::from_secs(3), move |peer| {
         serve_symbols(peer, 20, false);
+        let request = peer.read();
+        assert_eq!(request["method"], "workspace/symbol");
+        let symbol = json!({
+            "name": "target",
+            "kind": 12,
+            "location": {"uri": anchor_uri, "range": range()},
+        });
+        peer.reply(&request, json!([symbol]));
         peer.finish();
     });
     let matches = select_named_anchors(
@@ -227,7 +231,6 @@ fn falls_back_to_workspace_symbols_when_no_document_name_matches() {
         &mut client,
         &fixture.config,
         fixture.request(false),
-        vec![anchor.clone()],
     )
     .expect("fallback");
     assert_eq!(matches, vec![anchor]);

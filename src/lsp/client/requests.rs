@@ -268,6 +268,7 @@ fn language_id(path: &Path) -> &'static str {
         Some("py") => "python",
         Some("rs") => "rust",
         Some("ts" | "mts" | "cts") => "typescript",
+        Some("vim") => "vim",
         _ => "plaintext",
     }
 }

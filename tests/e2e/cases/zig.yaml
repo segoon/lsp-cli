@@ -1,9 +1,27 @@
 language:
   id: zig
-  kind: metadata
+  kind: source
   project: playground/zig
+  query-profile:
+    symbol-query: Order
+    callable-query: sample_order
+    format-file: main.zig
+    expected-names:
+      - Order
+      - OrderItem
+      - sample_order
+      - format_order
 pairs:
   - language: zig
     server: zls
     smoke:
-      status: capabilities
+      status: queries
+      exceptions:
+        - command: build-index
+          outcome: failure
+          message: background-work progress
+          reason: zls exposes no background-work progress signal
+    lifecycle:
+      status: scenarios
+      direct-run:
+        status: exchange

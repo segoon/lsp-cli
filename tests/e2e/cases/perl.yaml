@@ -1,9 +1,30 @@
 language:
   id: perl
-  kind: metadata
+  kind: source
   project: playground/perl
+  query-profile:
+    symbol-query: Order
+    callable-query: build_sample_order
+    format-file: main.pl
+    expected-names:
+      - Order
+      - OrderItem
+      - build_sample_order
+      - format_order
 pairs:
   - language: perl
     server: perlnavigator
     smoke:
-      status: capabilities
+      status: queries
+      exceptions:
+        - command: definition
+          outcome: empty-matches
+          reason: perlnavigator does not resolve goto-definition for a sub called from the same file it is defined in
+        - command: build-index
+          outcome: failure
+          message: background-work progress
+          reason: perlnavigator exposes no background-work progress signal
+    lifecycle:
+      status: scenarios
+      direct-run:
+        status: exchange

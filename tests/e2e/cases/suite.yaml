@@ -986,6 +986,19 @@ servers:
     owner-language: perl
     provisioning:
       status: download
+      host-programs:
+        - name: node
+          resolve:
+            - which
+            - node
+        - name: npm
+          resolve:
+            - which
+            - npm
+        - name: perl
+          resolve:
+            - which
+            - perl
   - id: perlpls
     owner-language: perl
     provisioning:

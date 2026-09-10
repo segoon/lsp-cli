@@ -42,6 +42,15 @@ pub(crate) struct E2eContext {
     // The staged `dotnet` apphost resolves its runtime via DOTNET_ROOT rather than PATH, so its
     // install root must be threaded through explicitly once `stage_host_program` resolves it.
     dotnet_root: RefCell<Option<PathBuf>>,
+    // Prebuilt ruby-builder binaries carry a hard-coded RUNPATH and default $LOAD_PATH baked in
+    // at build time, which don't match wherever this sandbox happens to stage them;
+    // LD_LIBRARY_PATH/RUBYLIB are the overrides.
+    ruby_env: RefCell<Option<RubyEnv>>,
+}
+
+struct RubyEnv {
+    lib_dir: PathBuf,
+    rubylib: std::ffi::OsString,
 }
 
 pub(crate) struct E2eOutput {
@@ -93,6 +102,7 @@ impl E2eContext {
             build_dir,
             data_dir: PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data"),
             dotnet_root: RefCell::new(None),
+            ruby_env: RefCell::new(None),
         })
     }
 
@@ -184,6 +194,32 @@ impl E2eContext {
         {
             *self.dotnet_root.borrow_mut() = Some(root.to_path_buf());
         }
+        if name == "ruby"
+            && let Some(root) = resolved.parent().and_then(Path::parent)
+        {
+            let lib_dir = root.join("lib");
+            let stdlib_root = lib_dir.join("ruby");
+            let mut rubylib_entries = Vec::new();
+            if let Ok(versions) = std::fs::read_dir(&stdlib_root) {
+                for version_dir in versions.flatten().map(|entry| entry.path()) {
+                    rubylib_entries.push(version_dir.clone());
+                    if let Ok(archs) = std::fs::read_dir(&version_dir) {
+                        rubylib_entries.extend(archs.flatten().map(|entry| entry.path()).filter(
+                            |path| {
+                                path.file_name()
+                                    .and_then(|name| name.to_str())
+                                    .is_some_and(|name| name.contains("linux"))
+                            },
+                        ));
+                    }
+                }
+            }
+            if lib_dir.is_dir() && !rubylib_entries.is_empty() {
+                let rubylib = std::env::join_paths(&rubylib_entries)
+                    .map_err(|error| format!("failed to build RUBYLIB for staged ruby: {error}"))?;
+                *self.ruby_env.borrow_mut() = Some(RubyEnv { lib_dir, rubylib });
+            }
+        }
 
         self.link_host_program(&resolved, &self.bin_dir.join(name))
             .map_err(|error| {
@@ -271,6 +307,11 @@ impl E2eContext {
             .current_dir(&self.workspace);
         if let Some(root) = self.dotnet_root.borrow().as_deref() {
             command.env("DOTNET_ROOT", root);
+        }
+        if let Some(ruby_env) = self.ruby_env.borrow().as_ref() {
+            command
+                .env("LD_LIBRARY_PATH", &ruby_env.lib_dir)
+                .env("RUBYLIB", &ruby_env.rubylib);
         }
         command
     }

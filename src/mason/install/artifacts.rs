@@ -259,6 +259,8 @@ pub(super) fn install_downloaded_artifact(
 
     if relative_name_lower.ends_with(".tar.gz") {
         extract_tar_gz(root, bytes)
+    } else if relative_name_lower.ends_with(".tar.xz") {
+        extract_tar_xz(root, bytes)
     } else if extension.is_some_and(|value| value.eq_ignore_ascii_case("zip")) {
         extract_zip(root, bytes)
     } else if extension.is_some_and(|value| value.eq_ignore_ascii_case("gz")) {
@@ -272,6 +274,55 @@ pub(super) fn install_downloaded_artifact(
 
 fn extract_tar_gz(root: &Path, bytes: &[u8]) -> Result<()> {
     let reader = GzDecoder::new(Cursor::new(bytes));
+    unpack_tar(root, reader)
+}
+
+fn extract_tar_xz(root: &Path, bytes: &[u8]) -> Result<()> {
+    let mut decompressed = BoundedWriter::new(MAX_DECOMPRESSED_BYTES);
+    lzma_rs::xz_decompress(&mut Cursor::new(bytes), &mut decompressed).map_err(
+        format_root_error("failed to decompress downloaded xz archive in", root),
+    )?;
+    unpack_tar(root, Cursor::new(decompressed.into_inner()))
+}
+
+/// A `Write` sink that errors once more than `limit` bytes have been written, guarding xz
+/// decompression (which lzma-rs only exposes as "decompress fully into a sink") against
+/// decompression bombs the way the streaming tar.gz/zip paths already are per-entry.
+struct BoundedWriter {
+    buffer: Vec<u8>,
+    limit: u64,
+}
+
+impl BoundedWriter {
+    fn new(limit: u64) -> Self {
+        Self {
+            buffer: Vec::new(),
+            limit,
+        }
+    }
+
+    fn into_inner(self) -> Vec<u8> {
+        self.buffer
+    }
+}
+
+impl std::io::Write for BoundedWriter {
+    fn write(&mut self, data: &[u8]) -> std::io::Result<usize> {
+        if self.buffer.len() as u64 + data.len() as u64 > self.limit {
+            return Err(std::io::Error::other(
+                "decompressed archive exceeds size limit",
+            ));
+        }
+        self.buffer.extend_from_slice(data);
+        Ok(data.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+fn unpack_tar(root: &Path, reader: impl Read) -> Result<()> {
     let mut archive = Archive::new(reader);
     for entry in archive.entries().map_err(format_root_error(
         "failed to open downloaded tar archive in",

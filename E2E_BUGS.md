@@ -32,11 +32,32 @@ regression still fails loudly.
    typescript-language-server (js/ts). This is the single most common
    exception across the suite.
 
-2. **Workspace-symbol search (`grep`) returns nothing before indexing
-   finishes.** clangd, vtsls, pylyzer, pyright, EmmyLua all report empty
-   `matches` for `workspace/symbol` queries issued immediately after startup,
-   since none exposes a synchronous "ready" signal — the server hasn't
-   indexed the workspace yet when the query fires.
+2. ~~**Workspace-symbol search (`grep`) returns nothing before indexing
+   finishes.**~~ **Fixed for clangd, vtsls, and pyright.** clangd, vtsls,
+   pylyzer, pyright, and EmmyLua used to report empty `matches` for
+   `workspace/symbol` queries issued immediately after startup, since none
+   exposes a synchronous "ready" signal. This turned out to be the same
+   class of bug as item 3 below rather than a pure server quirk:
+   `run_workspace_symbol_query` (`src/commands/symbol_query.rs`) already had
+   a prime-and-retry path (`prime_workspace_document`, opening a workspace
+   file to give the server something to index) but it only triggered when
+   the first `workspace/symbol` call *errored* — an empty-but-successful
+   `[]` response was accepted as final. Changed the condition to also prime
+   and retry on an empty result, with a short poll (a few hundred-ms-spaced
+   attempts) after priming since indexing an opened document is still
+   asynchronous. Verified against live clangd (`E2E_CASES="cpp/clangd,c/clangd"`,
+   also spot-checked `objc`/`objcpp`/`cuda`, which share clangd's exact code
+   path): `grep Order` now reliably returns real matches instead of `[]`,
+   even from a cold index, across repeated runs. Removed the `grep`
+   empty-matches exceptions for clangd (cpp/c/objc/objcpp/cuda), vtsls
+   (typescript/javascript), and pyright/pylyzer (python) — the same fix
+   applies architecturally to all of them since they're all document-driven
+   analyzers with no true "ready" signal. vtsls, pyright, and pylyzer
+   weren't available to verify locally in this sandbox, so those removals
+   are provisional pending CI; if any disagrees, revert just that server's
+   exception (same discipline as the Rust `callees` revert below). EmmyLua's
+   `grep` exception was left in place — untouched pending separate
+   investigation.
 
 3. ~~**ts_ls (typescript-language-server) "No Project" errors.**~~ **Fixed.**
    For both TS and JS, ts_ls used to throw `No Project` on `grep`,

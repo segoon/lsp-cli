@@ -32,9 +32,6 @@ pairs:
     smoke:
       status: queries
       exceptions:
-        - command: grep
-          outcome: empty-matches
-          reason: pylyzer returns no immediate workspace-symbol matches
         - command: callers
           outcome: empty-matches
           reason: pylyzer returns no incoming call-hierarchy edges for the fixture function
@@ -53,9 +50,6 @@ pairs:
     smoke:
       status: queries
       exceptions:
-        - command: grep
-          outcome: empty-matches
-          reason: pyright advertises workspace symbols but returns no matches before background analysis completes
         - command: build-index
           outcome: failure
           message: background-work progress

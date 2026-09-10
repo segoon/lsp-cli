@@ -16,9 +16,6 @@ pairs:
     smoke:
       status: queries
       exceptions:
-        - command: grep
-          outcome: empty-matches
-          reason: clangd may not publish workspace symbols before background indexing completes
         - command: build-index
           outcome: failure
           message: background-work progress

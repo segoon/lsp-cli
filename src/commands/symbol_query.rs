@@ -25,6 +25,9 @@ mod tests;
 
 use kinds::{CallHierarchyDirection, LocationQueryKind};
 
+const PRIME_RETRY_ATTEMPTS: u32 = 5;
+const PRIME_RETRY_DELAY: Duration = Duration::from_millis(750);
+
 pub(super) use render::{
     render_file_list_json, render_list_symbols_json, render_paths_text,
     render_symbol_match_paths_text, render_symbol_matches_text, render_symbol_names_text,
@@ -66,15 +69,36 @@ pub(super) fn run_workspace_symbol_query(
         config,
         |workspace, initialize, client| {
             ensure_workspace_symbol_support(initialize)?;
-            let response = if let Ok(response) = client.workspace_symbol(query) {
-                response
-            } else {
-                prime_workspace_document(&args.query.directory, config, workspace, client)?;
-                client.workspace_symbol(query).map_err(|error| {
+            let matches = client
+                .workspace_symbol(query)
+                .ok()
+                .map(|response| symbol_matches_from_response(&response))
+                .transpose()?
+                .unwrap_or_default();
+            if !matches.is_empty() {
+                return Ok(matches);
+            }
+
+            prime_workspace_document(&args.query.directory, config, workspace, client)?;
+
+            // A freshly opened document can take a moment for the server to
+            // fold into its workspace-wide symbol index (e.g. clangd indexes
+            // headers pulled in by the opened file asynchronously), so poll
+            // briefly rather than giving up on the first still-empty result.
+            let mut matches = Vec::new();
+            for attempt in 0..PRIME_RETRY_ATTEMPTS {
+                if attempt > 0 {
+                    std::thread::sleep(PRIME_RETRY_DELAY);
+                }
+                let response = client.workspace_symbol(query).map_err(|error| {
                     error.with_prefix(format!("failed to query {}", workspace.server.server))
-                })?
-            };
-            symbol_matches_from_response(&response)
+                })?;
+                matches = symbol_matches_from_response(&response)?;
+                if !matches.is_empty() {
+                    break;
+                }
+            }
+            Ok(matches)
         },
     )?;
 

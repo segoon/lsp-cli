@@ -116,14 +116,19 @@ mod tests {
     use crate::error::Error;
     use crate::test_support::{TestDir, env_var, with_env_vars};
     use clap_complete::Shell;
+    use std::ffi::OsString;
     use std::process::Command;
+
+    fn generate_completion(vars: &[(&str, OsString)], shell: Shell) -> Result<String, Error> {
+        // Completion reads process-wide environment variables, so synchronize reads with tests
+        // that temporarily replace those variables.
+        with_env_vars(vars, || run(CompletionArgs { shell: Some(shell) }))
+    }
 
     #[test]
     fn generates_bash_completion_script() {
-        let output = run(CompletionArgs {
-            shell: Some(Shell::Bash),
-        })
-        .expect("completion script should generate");
+        let output =
+            generate_completion(&[], Shell::Bash).expect("completion script should generate");
 
         assert!(output.contains("lsp-cli"));
         assert!(output.contains("detect"));
@@ -156,10 +161,8 @@ mod tests {
 
     #[test]
     fn bash_detect_lsp_completion_reaches_value_candidates() {
-        let script = run(CompletionArgs {
-            shell: Some(Shell::Bash),
-        })
-        .expect("bash completion should generate");
+        let script =
+            generate_completion(&[], Shell::Bash).expect("bash completion should generate");
 
         let output = Command::new("/bin/bash")
             .arg("-lc")
@@ -202,12 +205,8 @@ mod tests {
             "filetypes:\n  - rust\nroot_markers: []\nname: rust-analyzer\ncmdline: rust-analyzer\n",
         );
 
-        let output = with_env_vars(&[env_var("LSP_DATA", config.path())], || {
-            run(CompletionArgs {
-                shell: Some(Shell::Bash),
-            })
-        })
-        .expect("completion script should include configured values");
+        let output = generate_completion(&[env_var("LSP_DATA", config.path())], Shell::Bash)
+            .expect("completion script should include configured values");
 
         assert!(output.contains("python"));
         assert!(output.contains("rust"));
@@ -219,12 +218,8 @@ mod tests {
     fn errors_when_completion_values_cannot_be_loaded() {
         let config = TestDir::new("completion-missing-config");
 
-        let error = with_env_vars(&[env_var("LSP_DATA", config.path())], || {
-            run(CompletionArgs {
-                shell: Some(Shell::Bash),
-            })
-        })
-        .expect_err("completion should fail when config cannot be loaded");
+        let error = generate_completion(&[env_var("LSP_DATA", config.path())], Shell::Bash)
+            .expect_err("completion should fail when config cannot be loaded");
 
         assert!(error.contains("failed to load completion values from"));
         assert!(error.contains("missing directory"));

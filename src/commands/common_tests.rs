@@ -497,7 +497,7 @@ fn preserves_daemon_root_error_for_strict_detach_mode() {
         load_config_store(&std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data"))
             .expect("repo config should load");
     let workspace = without_env_vars(&["XDG_RUNTIME_DIR"], || {
-        prepare_workspace(&workspace_root, None, None, false, &config)
+        prepare_workspace(&workspace_root, None, Some("rust"), false, &config)
             .expect("workspace should still prepare")
     });
 

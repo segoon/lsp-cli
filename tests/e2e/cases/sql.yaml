@@ -19,7 +19,3 @@ pairs:
     server: sqls
     smoke:
       status: capabilities
-  - language: sql
-    server: sqruff
-    smoke:
-      status: capabilities

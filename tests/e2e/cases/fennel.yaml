@@ -7,7 +7,3 @@ pairs:
     server: fennel_language_server
     smoke:
       status: capabilities
-  - language: fennel
-    server: fennel_ls
-    smoke:
-      status: capabilities

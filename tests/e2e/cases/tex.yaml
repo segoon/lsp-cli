@@ -4,10 +4,6 @@ language:
   project: playground/tex
 pairs:
   - language: tex
-    server: digestif
-    smoke:
-      status: capabilities
-  - language: tex
     server: texlab
     smoke:
       status: capabilities

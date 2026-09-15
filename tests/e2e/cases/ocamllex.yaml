@@ -2,8 +2,3 @@ language:
   id: ocamllex
   kind: metadata
   project: playground/ocamllex
-pairs:
-  - language: ocamllex
-    server: ocamllsp
-    smoke:
-      status: capabilities

@@ -11,7 +11,3 @@ pairs:
     server: phpactor
     smoke:
       status: capabilities
-  - language: php
-    server: psalm
-    smoke:
-      status: capabilities

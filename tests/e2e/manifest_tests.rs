@@ -39,18 +39,18 @@ fn complete_manifest_matches_pinned_data() {
 
     assert_eq!(manifest.coverage, Coverage::Complete);
     assert_eq!(detectable.len(), 336);
-    assert_eq!(servers.len(), 359);
-    assert_eq!(compatible.len(), 850);
-    assert_eq!(declared.len(), 322);
-    assert_eq!(compatible.difference(&declared).count(), 528);
-    assert_eq!(manifest.servers.len(), 359);
+    assert_eq!(servers.len(), 358);
+    assert_eq!(compatible.len(), 849);
+    assert_eq!(declared.len(), 302);
+    assert_eq!(compatible.difference(&declared).count(), 547);
+    assert_eq!(manifest.servers.len(), 358);
     assert_eq!(
         manifest
             .servers
             .iter()
             .filter(|server| server.is_downloadable())
             .count(),
-        211
+        198
     );
     assert_eq!(
         manifest

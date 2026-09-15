@@ -231,10 +231,6 @@ servers:
     provisioning:
       status: excluded
       reason: The current Mason registry has no package for this server.
-  - id: coq_lsp
-    owner-language: coq
-    provisioning:
-      status: download
   - id: crystalline
     owner-language: crystal
     provisioning:
@@ -308,7 +304,8 @@ servers:
   - id: digestif
     owner-language: context
     provisioning:
-      status: download
+      status: excluded
+      reason: lsp-cli cannot install this server because its Mason package uses the unsupported LuaRocks backend.
   - id: djls
     owner-language: python
     provisioning:
@@ -423,7 +420,8 @@ servers:
   - id: fennel_ls
     owner-language: fennel
     provisioning:
-      status: download
+      status: excluded
+      reason: lsp-cli cannot install this server because its Mason package uses the unsupported LuaRocks backend.
   - id: fish_lsp
     owner-language: fish
     provisioning:
@@ -849,7 +847,8 @@ servers:
   - id: motoko_lsp
     owner-language: motoko
     provisioning:
-      status: download
+      status: excluded
+      reason: lsp-cli cannot install this server because its Mason package uses the unsupported Open VSX backend.
   - id: move_analyzer
     owner-language: move
     provisioning:
@@ -931,7 +930,8 @@ servers:
   - id: ocamllsp
     owner-language: dune
     provisioning:
-      status: download
+      status: excluded
+      reason: lsp-cli cannot install this server because its Mason package uses the unsupported OPAM backend.
   - id: ols
     owner-language: odin
     provisioning:
@@ -1074,7 +1074,8 @@ servers:
   - id: psalm
     owner-language: php
     provisioning:
-      status: download
+      status: excluded
+      reason: lsp-cli cannot install this server because its Mason package uses the unsupported Composer backend.
   - id: pug
     owner-language: pug
     provisioning:
@@ -1234,7 +1235,8 @@ servers:
   - id: rubocop
     owner-language: ruby
     provisioning:
-      status: download
+      status: excluded
+      reason: lsp-cli cannot install this server because its Mason package uses the unsupported RubyGems backend.
   - id: ruff
     owner-language: python
     provisioning:
@@ -1341,7 +1343,8 @@ servers:
   - id: solargraph
     owner-language: ruby
     provisioning:
-      status: download
+      status: excluded
+      reason: lsp-cli cannot install this server because its Mason package uses the unsupported RubyGems backend.
   - id: solc
     owner-language: solidity
     provisioning:
@@ -1365,7 +1368,8 @@ servers:
   - id: sorbet
     owner-language: ruby
     provisioning:
-      status: download
+      status: excluded
+      reason: lsp-cli cannot install this server because its Mason package uses the unsupported RubyGems backend.
   - id: sourcekit
     owner-language: objc
     provisioning:
@@ -1391,7 +1395,8 @@ servers:
   - id: sqruff
     owner-language: sql
     provisioning:
-      status: download
+      status: excluded
+      reason: The Mason registry classifies this package as a formatter or linter instead of an LSP server.
   - id: stan_ls
     owner-language: stan
     provisioning:
@@ -1399,7 +1404,8 @@ servers:
   - id: standardrb
     owner-language: ruby
     provisioning:
-      status: download
+      status: excluded
+      reason: The Mason registry classifies this package as a formatter or linter instead of an LSP server.
   - id: starlark_rust
     owner-language: BUILD.bazel
     provisioning:
@@ -1416,7 +1422,8 @@ servers:
   - id: steep
     owner-language: eruby
     provisioning:
-      status: download
+      status: excluded
+      reason: lsp-cli cannot install this server because its Mason package uses the unsupported RubyGems backend.
   - id: stimulus_ls
     owner-language: blade
     provisioning:
@@ -1484,7 +1491,8 @@ servers:
   - id: teal_ls
     owner-language: teal
     provisioning:
-      status: download
+      status: excluded
+      reason: lsp-cli cannot install this server because its Mason package uses the unsupported LuaRocks backend.
   - id: templ
     owner-language: templ
     provisioning:

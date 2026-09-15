@@ -2,8 +2,3 @@ language:
   id: eruby
   kind: metadata
   project: playground/eruby
-pairs:
-  - language: eruby
-    server: steep
-    smoke:
-      status: capabilities

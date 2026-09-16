@@ -17,7 +17,21 @@ impl E2eContext {
         operation: impl FnOnce(&Self) -> Result<(), String>,
     ) -> Result<(), String> {
         let context = Self::new()
-            .map_err(|error| format!("failed to create an isolated E2E context: {error}"))?;
+            .map_err(|error| format!("failed to create an isolated E2E context: {error}"));
+        Self::run_cleaned_context(context, operation)
+    }
+
+    pub(crate) fn run_cleaned_real_server(
+        operation: impl FnOnce(&Self) -> Result<(), String>,
+    ) -> Result<(), String> {
+        Self::run_cleaned_context(Self::new_for_real_server(), operation)
+    }
+
+    fn run_cleaned_context(
+        context: Result<Self, String>,
+        operation: impl FnOnce(&Self) -> Result<(), String>,
+    ) -> Result<(), String> {
+        let context = context?;
         let [cache_root, runtime_root] = context.isolated_roots();
         let result = operation(&context);
         let retained = context.retained_failure_state();

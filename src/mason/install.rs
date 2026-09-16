@@ -1,7 +1,8 @@
+use crate::env_vars;
 use crate::error::{Error, Result};
 use crate::mason::link::{
-    ResolvedProgram, finalize_install, is_resolved_program_runnable, join_relative_path,
-    resolve_program,
+    ResolvedProgram, finalize_install, is_install_command_runnable, is_resolved_program_runnable,
+    join_relative_path, resolve_program,
 };
 use crate::mason::platform::MasonPlatform;
 use crate::mason::registry::MasonPackage;
@@ -127,7 +128,7 @@ fn install_npm_package(
             }
 
             let install_spec = format!("{package_name}@{version}");
-            let mut cmd = Command::new("npm");
+            let mut cmd = installer_command("npm");
             cmd.arg("install")
                 .arg("--no-package-lock")
                 .arg("--prefix")
@@ -147,9 +148,6 @@ fn install_npm_package(
         },
     )
 }
-
-#[cfg(test)]
-use crate::env_vars;
 
 #[cfg(test)]
 fn fake_npm_install(install_dir: &std::path::Path, program: &str) -> Result<bool> {
@@ -245,7 +243,7 @@ fn pypi_install_command(
     } else {
         format!("{package_name}[{}]=={version}", extras.join(","))
     };
-    let mut command = Command::new("python3");
+    let mut command = installer_command("python3");
     command
         .arg("-m")
         .arg("pip")
@@ -275,7 +273,7 @@ fn install_cargo_package(
             require_command("cargo", package, program)?;
             let install_dir = prepare_install_dir(state, package)?;
 
-            let mut cmd = Command::new("cargo");
+            let mut cmd = installer_command("cargo");
             cmd.arg("install")
                 .arg("--root")
                 .arg(&install_dir)
@@ -319,7 +317,7 @@ fn install_golang_package(
             };
             crate::fs::create_dir_all(bin_dir)?;
 
-            let mut cmd = Command::new("go");
+            let mut cmd = installer_command("go");
             cmd.arg("install")
                 .arg(format!("{module_path}@{version}"))
                 .env("GOBIN", bin_dir);
@@ -374,7 +372,7 @@ fn nuget_install_command(
     version: &str,
     install_dir: &std::path::Path,
 ) -> Command {
-    let mut command = Command::new("dotnet");
+    let mut command = installer_command("dotnet");
     command
         .arg("tool")
         .arg("install")
@@ -535,8 +533,16 @@ fn run_install_command(cmd: &mut Command, package: &MasonPackage, tool: &str) ->
     ensure_command_success(&output, package, tool)
 }
 
+fn installer_command(program: &str) -> Command {
+    let mut command = Command::new(program);
+    if let Some(path) = env_vars::install_path() {
+        command.env(env_vars::PATH, path);
+    }
+    command
+}
+
 fn require_command(command: &str, package: &MasonPackage, program: &str) -> Result<()> {
-    if crate::mason::link::is_command_runnable(command) {
+    if is_install_command_runnable(command) {
         Ok(())
     } else {
         Err(Error::unexpected(format!(

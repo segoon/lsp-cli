@@ -1,6 +1,6 @@
 use super::{
-    ResolvedProgram, WrapperRuntime, is_command_runnable, is_resolved_program_runnable,
-    join_relative_path, resolve_program, rewrite_program,
+    ResolvedProgram, WrapperRuntime, is_command_runnable, is_install_command_runnable,
+    is_resolved_program_runnable, join_relative_path, resolve_program, rewrite_program,
 };
 use crate::error::Result;
 use crate::mason::registry::{
@@ -475,4 +475,38 @@ fn detects_runnable_command_on_path() {
     });
 
     assert!(detected);
+}
+
+#[cfg(unix)]
+#[test]
+fn separates_server_lookup_from_installer_tool_lookup() {
+    let dir = TestDir::new("mason-link-paths");
+    let server_bin = dir.path().join("servers");
+    let installer_bin = dir.path().join("installers");
+    fs::create_dir_all(&server_bin).expect("server bin should be created");
+    fs::create_dir_all(&installer_bin).expect("installer bin should be created");
+    let rust_analyzer = server_bin.join("rust-analyzer");
+    let npm = installer_bin.join("npm");
+    fs::write(&rust_analyzer, b"stub\n").expect("server should be written");
+    fs::write(&npm, b"stub\n").expect("installer should be written");
+    make_executable(&rust_analyzer);
+    make_executable(&npm);
+
+    let (server_visible, npm_visible, installer_npm, installer_server) = with_env_vars(
+        &[
+            env_var("PATH", &server_bin),
+            env_var("LSP_CLI_INSTALL_PATH", &installer_bin),
+        ],
+        || {
+            (
+                is_command_runnable("rust-analyzer"),
+                is_command_runnable("npm"),
+                is_install_command_runnable("npm"),
+                is_install_command_runnable("rust-analyzer"),
+            )
+        },
+    );
+
+    assert_eq!((server_visible, npm_visible), (true, false));
+    assert_eq!((installer_npm, installer_server), (true, false));
 }

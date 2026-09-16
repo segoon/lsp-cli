@@ -37,7 +37,7 @@ pub(crate) fn run_isolated_case<'a>(
     deadline: &CaseDeadline,
     operation: impl FnOnce(&E2eContext) -> Result<(), String>,
 ) -> Result<(), String> {
-    E2eContext::run_cleaned(|context| {
+    E2eContext::run_cleaned_real_server(|context| {
         context.copy_project(project)?;
         for (name, resolver) in host_programs {
             context.stage_host_program(name, resolver, deadline.remaining()?)?;

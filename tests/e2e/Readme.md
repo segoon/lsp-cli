@@ -157,7 +157,9 @@ Each test process sets at least:
 - `XDG_CONFIG_HOME` to an isolated configuration directory;
 - `XDG_RUNTIME_DIR` to an isolated daemon directory;
 - `LSP_DATA` to the pinned repository submodule;
-- `PATH` to the explicitly provisioned toolchain/server environment.
+- `PATH` to the isolated server directory for local fixtures; real-server cases put that directory
+  first and then append the host toolchain path so package installers and server launchers can use
+  programs provisioned by CI.
 
 Do not rely on a developer's user configuration, downloaded server cache, daemon sockets, current
 shell, or ambient server versions.
@@ -304,8 +306,10 @@ default. Selecting a compatible pair with no E2E behavior fails with a clear err
 silently running no tests.
 
 These commands download external tools and require the host programs declared by the manifest, and
-they use the current Mason registry — compare the resulting source ID with an earlier run before
-concluding that local behavior has changed.
+local runs use the current Mason registry — compare the resulting source ID with an earlier run
+before concluding that local behavior has changed. CI sets `E2E_MASON_REGISTRY_SNAPSHOT` to the
+registry snapshot created by its planner; the harness rejects incomplete snapshots instead of
+silently downloading different metadata.
 
 The manual **End-to-end compatibility** GitHub Actions workflow can select `language`, `server`, or
 `installation-family` (the value is respectively a case language ID, an LSP config ID, or one of
@@ -330,11 +334,12 @@ planner resolves installation families from the current Mason registry rather th
 registry metadata into `cases/`. Suite-level smoke, lifecycle, and provisioning deadlines provide
 common defaults; cases only declare intentional overrides.
 
-Jobs never share homes, daemon runtime directories, or mutable workspaces. CI may cache immutable
-download transport data, but each case retains isolated runtime state and never substitutes a
-separately installed server for `--download`. Every real-server case tears down its isolated home
-and temporary roots (Mason packages, Go module/build caches, other server download state) before
-the next case starts; only immutable Rust build artifacts are shared by CI.
+Jobs never share homes, daemon runtime directories, or mutable workspaces. The planner uploads one
+immutable, verified Mason registry snapshot for all shards; each case copies that snapshot into its
+own runtime state. A case never substitutes a separately installed server for `--download`. Every
+real-server case tears down its isolated home and temporary roots (Mason packages, Go module/build
+caches, other server download state) before the next case starts; only immutable Rust build
+artifacts and registry input are shared by CI.
 
 Split CI (fast PR smoke + exhaustive nightly) trades "a regression affecting a non-preferred server
 may surface the following night rather than on the originating PR" for much lower latency, cost,

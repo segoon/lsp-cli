@@ -49,10 +49,18 @@ jobs:
           E2E_SELECTOR_VALUE: ${{ github.event.inputs.value }}
           E2E_PLAN_OUTPUT: ${{ runner.temp }}/e2e-plan.json
           E2E_REPORT_OUTPUT: ${{ runner.temp }}/e2e-report.md
+          E2E_REGISTRY_SNAPSHOT_OUTPUT: ${{ runner.temp }}/mason-registry
         run: |
           cargo run --locked --features e2e-workflow-planner --bin e2e-workflow-plan
           echo "plan=$(<"$E2E_PLAN_OUTPUT")" >> "$GITHUB_OUTPUT"
           cat "$E2E_REPORT_OUTPUT" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload Mason registry snapshot
+        uses: actions/upload-artifact@v7
+        with:
+          name: mason-registry-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/mason-registry
+          if-no-files-found: error
+          retention-days: 1
 
   test:
     name: ${{ matrix.name }}
@@ -69,6 +77,11 @@ jobs:
         uses: actions/checkout@v7
         with:
           submodules: recursive
+      - name: Download Mason registry snapshot
+        uses: actions/download-artifact@v8
+        with:
+          name: mason-registry-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/mason-registry
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
       - name: Cache Rust build artifacts
@@ -97,4 +110,5 @@ jobs:
       - name: Run real-server smoke cases
         env:
           E2E_CASES: ${{ matrix.cases }}
+          E2E_MASON_REGISTRY_SNAPSHOT: ${{ runner.temp }}/mason-registry
         run: make test-real-server-smoke-e2e

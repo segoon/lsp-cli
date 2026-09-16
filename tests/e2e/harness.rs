@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::ffi::OsStr;
+use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -7,7 +7,6 @@ use std::process::Command;
 use std::time::Duration;
 
 use fs_extra::dir::CopyOptions;
-use serde::de::DeserializeOwned;
 use tempfile::TempDir;
 
 use crate::process::{self, ProcessOutput};
@@ -22,11 +21,16 @@ mod lifecycle_support;
 pub(crate) use lifecycle_support::SocketSnapshot;
 #[path = "harness/cache_cleanup.rs"]
 mod cache_cleanup;
+#[path = "harness/environment.rs"]
+mod environment;
 #[path = "harness/failure_diagnostics.rs"]
 mod failure_diagnostics;
+#[path = "harness/process_state.rs"]
+mod process_state;
+
+use self::process_state::runtime_state;
 
 const DEFAULT_COMMAND_DEADLINE: Duration = Duration::from_secs(30);
-const DAEMON_CLEANUP_DEADLINE: Duration = Duration::from_secs(5);
 
 pub(crate) struct E2eContext {
     _sandbox: TempDir,
@@ -39,6 +43,7 @@ pub(crate) struct E2eContext {
     bin_dir: PathBuf,
     build_dir: PathBuf,
     data_dir: PathBuf,
+    host_path: Option<OsString>,
     // The staged `dotnet` apphost resolves its runtime via DOTNET_ROOT rather than PATH, so its
     // install root must be threaded through explicitly once `stage_host_program` resolves it.
     dotnet_root: RefCell<Option<PathBuf>>,
@@ -101,6 +106,7 @@ impl E2eContext {
             bin_dir,
             build_dir,
             data_dir: PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data"),
+            host_path: None,
             dotnet_root: RefCell::new(None),
             ruby_env: RefCell::new(None),
         })
@@ -299,7 +305,7 @@ impl E2eContext {
             .env("XDG_CONFIG_HOME", &self.config_home)
             .env("XDG_RUNTIME_DIR", &self.runtime_dir)
             .env("LSP_DATA", &self.data_dir)
-            .env("PATH", &self.bin_dir)
+            .env("PATH", self.process_path())
             .env("TMPDIR", &self.temp_dir)
             .env("LANG", "C")
             .env("LC_ALL", "C")
@@ -335,113 +341,6 @@ impl E2eContext {
         let mut command = self.command_for(program);
         command.args(args);
         self.run_command(&mut command, deadline)
-    }
-}
-
-impl Drop for E2eContext {
-    fn drop(&mut self) {
-        let daemon_root = self.runtime_dir.join("lsp-cli");
-        if !daemon_root.exists() {
-            return;
-        }
-
-        // Detached daemons outlive command process groups, so the context must stop them explicitly.
-        let mut command = self.command();
-        command.args(["stop-all", "--debug"]);
-        let cleanup = process::run(&mut command, DAEMON_CLEANUP_DEADLINE);
-        let diagnostic = match cleanup {
-            Ok(output) if output.status().success() => return,
-            Ok(output) => output.diagnostic(
-                "E2E daemon cleanup exited unsuccessfully",
-                &runtime_state(&self.runtime_dir),
-            ),
-            Err(failure) => failure.diagnostic(&runtime_state(&self.runtime_dir)),
-        };
-        if std::thread::panicking() {
-            eprintln!("E2E daemon cleanup failed:\n{diagnostic}");
-        } else {
-            panic!("E2E daemon cleanup failed:\n{diagnostic}");
-        }
-    }
-}
-
-impl E2eOutput {
-    pub(crate) fn assert_success(&self) {
-        self.ensure_success()
-            .unwrap_or_else(|diagnostic| panic!("{diagnostic}"));
-    }
-
-    pub(crate) fn ensure_success(&self) -> Result<(), String> {
-        if self.process.status().success() {
-            Ok(())
-        } else {
-            Err(self.diagnostic("lsp-cli exited unsuccessfully"))
-        }
-    }
-
-    pub(crate) fn stdout_text(&self) -> &str {
-        std::str::from_utf8(self.process.stdout()).unwrap_or_else(|error| {
-            panic!(
-                "{}",
-                self.diagnostic(&format!("stdout is not valid UTF-8: {error}"))
-            )
-        })
-    }
-
-    pub(crate) fn assert_stdout_contains(&self, expected: &str) {
-        if !self.stdout_text().contains(expected) {
-            panic!(
-                "{}",
-                self.diagnostic(&format!("stdout does not contain {expected:?}"))
-            );
-        }
-    }
-
-    pub(crate) fn stderr_text(&self) -> &str {
-        std::str::from_utf8(self.process.stderr()).unwrap_or_else(|error| {
-            panic!(
-                "{}",
-                self.diagnostic(&format!("stderr is not valid UTF-8: {error}"))
-            )
-        })
-    }
-
-    pub(crate) fn json<T: DeserializeOwned>(&self) -> T {
-        self.try_json()
-            .unwrap_or_else(|diagnostic| panic!("{diagnostic}"))
-    }
-
-    fn diagnostic(&self, reason: &str) -> String {
-        self.process
-            .diagnostic(reason, &runtime_state(&self.runtime_dir))
-    }
-
-    pub(crate) fn try_json<T: DeserializeOwned>(&self) -> Result<T, String> {
-        serde_json::from_slice(self.process.stdout())
-            .map_err(|error| self.diagnostic(&format!("stdout is not valid JSON: {error}")))
-    }
-}
-
-fn runtime_state(runtime_dir: &std::path::Path) -> String {
-    let daemon_root = runtime_dir.join("lsp-cli");
-    let entries = match fs::read_dir(&daemon_root) {
-        Ok(entries) => entries,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => {
-            return format!("{} does not exist", daemon_root.display());
-        }
-        Err(error) => return format!("failed to read {}: {error}", daemon_root.display()),
-    };
-    let mut paths = entries
-        .map(|entry| match entry {
-            Ok(entry) => entry.path().display().to_string(),
-            Err(error) => format!("<failed to read entry: {error}>"),
-        })
-        .collect::<Vec<_>>();
-    paths.sort();
-    if paths.is_empty() {
-        format!("{} is empty", daemon_root.display())
-    } else {
-        paths.join("\n")
     }
 }
 

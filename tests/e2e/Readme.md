@@ -157,9 +157,10 @@ Each test process sets at least:
 - `XDG_CONFIG_HOME` to an isolated configuration directory;
 - `XDG_RUNTIME_DIR` to an isolated daemon directory;
 - `LSP_DATA` to the pinned repository submodule;
-- `PATH` to the isolated server directory for local fixtures; real-server cases put that directory
-  first and then append the host toolchain path so package installers and server launchers can use
-  programs provisioned by CI.
+- `PATH` to the isolated server directory, preventing ambient server executables from satisfying
+  `--download`; real-server cases pass the host toolchain path separately to Mason package
+  installers, while manifest-declared runtime programs are explicitly staged into the isolated
+  directory.
 
 Do not rely on a developer's user configuration, downloaded server cache, daemon sockets, current
 shell, or ambient server versions.

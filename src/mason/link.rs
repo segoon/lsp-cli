@@ -7,6 +7,7 @@ use crate::runtime_state::RuntimeState;
 use crate::suggest::SuggestedLanguage;
 use serde::Serialize;
 use std::env;
+use std::ffi::OsStr;
 use std::fs;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -203,15 +204,24 @@ pub(crate) fn rewrite_program(suggestion: &SuggestedLanguage, program: &Path) ->
 }
 
 pub(crate) fn is_command_runnable(program: &str) -> bool {
+    is_command_runnable_in(program, env_vars::path().as_deref())
+}
+
+pub(crate) fn is_install_command_runnable(program: &str) -> bool {
+    let path = env_vars::install_path().or_else(env_vars::path);
+    is_command_runnable_in(program, path.as_deref())
+}
+
+fn is_command_runnable_in(program: &str, path: Option<&OsStr>) -> bool {
     if program.contains(std::path::MAIN_SEPARATOR) {
         return is_command_runnable_path(Path::new(program));
     }
 
-    let Some(path) = env_vars::path() else {
+    let Some(path) = path else {
         return false;
     };
 
-    env::split_paths(&path).any(|entry| is_command_runnable_path(&entry.join(program)))
+    env::split_paths(path).any(|entry| is_command_runnable_path(&entry.join(program)))
 }
 
 pub(crate) fn join_relative_path(root: &Path, relative: &str) -> Result<PathBuf> {
@@ -336,7 +346,7 @@ fn shell_quote(path: &Path) -> String {
 }
 
 fn require_command(command: &str, package: &MasonPackage, program: &str) -> Result<()> {
-    if is_command_runnable(command) {
+    if is_install_command_runnable(command) {
         Ok(())
     } else {
         Err(Error::unexpected(format!(

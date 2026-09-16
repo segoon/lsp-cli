@@ -5,7 +5,7 @@ use std::fs;
 
 use super::{
     artifacts::{command_failure_detail, parse_archive_file_spec},
-    nuget_install_command, pypi_install_command, resolve_or_install_program,
+    installer_command, nuget_install_command, pypi_install_command, resolve_or_install_program,
 };
 #[cfg(unix)]
 use crate::runtime_state::RuntimeState;
@@ -116,4 +116,20 @@ fn installs_and_caches_nuget_tool_with_a_receipt() {
     let cached = resolve_or_install_program(&state, &roslyn_package(), "roslyn-language-server")
         .expect("installed NuGet tool should be reusable from cache");
     assert_eq!(cached, installed);
+}
+
+#[cfg(unix)]
+#[test]
+fn installer_command_uses_the_dedicated_toolchain_path() {
+    let dir = TestDir::new("mason-installer-path");
+    let path = dir.path().join("toolchain");
+
+    let command = with_env_vars(&[env_var("LSP_CLI_INSTALL_PATH", &path)], || {
+        installer_command("npm")
+    });
+    let actual = command
+        .get_envs()
+        .find_map(|(name, value)| (name == "PATH").then_some(value).flatten());
+
+    assert_eq!(actual, Some(path.as_os_str()));
 }

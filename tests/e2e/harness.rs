@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::ffi::{OsStr, OsString};
+use std::ffi::OsStr;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -28,6 +28,7 @@ mod failure_diagnostics;
 #[path = "harness/process_state.rs"]
 mod process_state;
 
+use self::environment::INSTALL_PATH_ENV;
 use self::process_state::runtime_state;
 
 const DEFAULT_COMMAND_DEADLINE: Duration = Duration::from_secs(30);
@@ -43,7 +44,7 @@ pub(crate) struct E2eContext {
     bin_dir: PathBuf,
     build_dir: PathBuf,
     data_dir: PathBuf,
-    host_path: Option<OsString>,
+    install_path: Option<std::ffi::OsString>,
     // The staged `dotnet` apphost resolves its runtime via DOTNET_ROOT rather than PATH, so its
     // install root must be threaded through explicitly once `stage_host_program` resolves it.
     dotnet_root: RefCell<Option<PathBuf>>,
@@ -106,7 +107,7 @@ impl E2eContext {
             bin_dir,
             build_dir,
             data_dir: PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data"),
-            host_path: None,
+            install_path: None,
             dotnet_root: RefCell::new(None),
             ruby_env: RefCell::new(None),
         })
@@ -313,6 +314,9 @@ impl E2eContext {
             .current_dir(&self.workspace);
         if let Some(root) = self.dotnet_root.borrow().as_deref() {
             command.env("DOTNET_ROOT", root);
+        }
+        if let Some(path) = self.install_path.as_deref() {
+            command.env(INSTALL_PATH_ENV, path);
         }
         if let Some(ruby_env) = self.ruby_env.borrow().as_ref() {
             command

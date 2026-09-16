@@ -8,6 +8,7 @@ use serde_json::Value;
 use super::E2eContext;
 
 pub(crate) const REGISTRY_SNAPSHOT_ENV: &str = "E2E_MASON_REGISTRY_SNAPSHOT";
+pub(super) const INSTALL_PATH_ENV: &str = "LSP_CLI_INSTALL_PATH";
 const RUNTIME_STATE_DIR: &str = ".local/share/lsp-cli";
 const REGISTRY_FILES: [&str; 2] = ["registry.json", "metadata.json"];
 
@@ -22,7 +23,7 @@ impl E2eContext {
     pub(crate) fn new_for_real_server() -> Result<Self, String> {
         let mut context = Self::new()
             .map_err(|error| format!("failed to create an isolated E2E context: {error}"))?;
-        context.host_path = std::env::var_os("PATH");
+        context.install_path = std::env::var_os("PATH");
         if let Some(snapshot) = std::env::var_os(REGISTRY_SNAPSHOT_ENV) {
             context.seed_registry_snapshot(Path::new(&snapshot))?;
         }
@@ -30,13 +31,7 @@ impl E2eContext {
     }
 
     pub(super) fn process_path(&self) -> OsString {
-        let paths = std::iter::once(self.bin_dir.clone()).chain(
-            self.host_path
-                .as_deref()
-                .into_iter()
-                .flat_map(std::env::split_paths),
-        );
-        std::env::join_paths(paths).expect("existing PATH entries should remain valid")
+        self.bin_dir.as_os_str().to_owned()
     }
 
     fn seed_registry_snapshot(&self, source: &Path) -> Result<(), String> {
@@ -67,8 +62,8 @@ impl E2eContext {
     }
 
     #[cfg(test)]
-    pub(super) fn use_host_path(&mut self, path: OsString) {
-        self.host_path = Some(path);
+    pub(super) fn use_install_path(&mut self, path: OsString) {
+        self.install_path = Some(path);
     }
 
     #[cfg(test)]
@@ -161,20 +156,23 @@ mod tests {
     }
 
     #[test]
-    fn real_server_path_prefers_isolated_bin_and_preserves_host_tools() {
+    fn real_server_isolates_server_lookup_and_preserves_installer_tools() {
         let mut context = context();
         let host_paths = [
             context.workspace.join("host-one"),
             context.workspace.join("host-two"),
         ];
-        context.use_host_path(std::env::join_paths(&host_paths).expect("host PATH should join"));
+        let install_path = std::env::join_paths(&host_paths).expect("host PATH should join");
+        context.use_install_path(install_path.clone());
 
         let actual = std::env::split_paths(&context.process_path()).collect::<Vec<_>>();
+        let command = context.command();
+        let actual_install_path = command
+            .get_envs()
+            .find_map(|(name, value)| (name == INSTALL_PATH_ENV).then_some(value).flatten());
 
-        assert_eq!(
-            actual,
-            [vec![context.bin_dir.clone()], host_paths.to_vec()].concat()
-        );
+        assert_eq!(actual, [context.bin_dir.clone()]);
+        assert_eq!(actual_install_path, Some(install_path.as_os_str()));
     }
 
     #[test]

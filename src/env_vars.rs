@@ -16,6 +16,9 @@ pub(crate) const XDG_CONFIG_HOME: &str = "XDG_CONFIG_HOME";
 /// Executable search path used to locate runtimes and already-installed servers.
 pub(crate) const PATH: &str = "PATH";
 
+/// Executable search path reserved for package installers and their build tools.
+pub(crate) const INSTALL_PATH: &str = "LSP_CLI_INSTALL_PATH";
+
 /// Current interactive shell used for shell auto-detection in completion output.
 pub(crate) const SHELL: &str = "SHELL";
 
@@ -48,6 +51,10 @@ pub(crate) fn xdg_config_home() -> Option<PathBuf> {
 
 pub(crate) fn path() -> Option<OsString> {
     std::env::var_os(PATH)
+}
+
+pub(crate) fn install_path() -> Option<OsString> {
+    std::env::var_os(INSTALL_PATH)
 }
 
 pub(crate) fn shell() -> Option<OsString> {

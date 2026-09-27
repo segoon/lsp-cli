@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 
+use crate::dependencies::ManagedDependencies;
 use crate::manifest::{Manifest, ServerProvisioningCase};
 use crate::real_server_support::{CaseDeadline, run_isolated_case, run_reported_case};
 use crate::repository_root;
@@ -10,6 +11,7 @@ use crate::results::{AtStage, CaseKind, E2eResult, FailureStage};
 struct ProvisioningTest<'a> {
     case: ServerProvisioningCase<'a>,
     repository: &'a Path,
+    dependencies: &'a ManagedDependencies,
 }
 
 #[derive(Deserialize)]
@@ -25,8 +27,16 @@ struct DetectedServer {
 }
 
 impl<'a> ProvisioningTest<'a> {
-    fn new(case: ServerProvisioningCase<'a>, repository: &'a Path) -> Self {
-        Self { case, repository }
+    fn new(
+        case: ServerProvisioningCase<'a>,
+        repository: &'a Path,
+        dependencies: &'a ManagedDependencies,
+    ) -> Self {
+        Self {
+            case,
+            repository,
+            dependencies,
+        }
     }
 
     fn run(self) -> Result<(), String> {
@@ -37,6 +47,7 @@ impl<'a> ProvisioningTest<'a> {
     fn run_inner(&self) -> E2eResult {
         let deadline = CaseDeadline::new(self.case.deadline_seconds(), "server provisioning");
         run_isolated_case(
+            self.dependencies,
             &self.repository.join(self.case.project()),
             self.case.host_programs(),
             &deadline,
@@ -127,6 +138,8 @@ fn validate_program(program: &str, home: &Path) -> Result<(), String> {
 #[ignore = "downloads real LSP servers; executed explicitly by the provisioning target"]
 fn manifest_server_provisioning_cases() {
     let repository = repository_root();
+    let dependencies = ManagedDependencies::prepare()
+        .expect("server-provisioning E2E dependencies should be available");
     let manifest = Manifest::load_validated(repository).expect("E2E manifest should be valid");
     let selected = std::env::var("E2E_SERVER").ok();
     assert!(
@@ -150,7 +163,11 @@ fn manifest_server_provisioning_cases() {
                 .as_ref()
                 .is_none_or(|expected| case.server_id() == expected)
         })
-        .filter_map(|case| ProvisioningTest::new(case, repository).run().err())
+        .filter_map(|case| {
+            ProvisioningTest::new(case, repository, &dependencies)
+                .run()
+                .err()
+        })
         .collect::<Vec<_>>();
     assert!(
         failures.is_empty(),

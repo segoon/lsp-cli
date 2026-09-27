@@ -156,6 +156,9 @@ impl E2eContext {
             .ok_or_else(|| format!("host program {name:?} has no resolver command"))?;
         let mut command = Command::new(program);
         command.args(args).current_dir(env!("CARGO_MANIFEST_DIR"));
+        if let Some(path) = self.install_path.as_deref() {
+            command.env("PATH", path);
+        }
         let output = process::run(&mut command, deadline)
             .map_err(|failure| failure.diagnostic(&runtime_state(&self.runtime_dir)))?;
         if !output.status().success() {

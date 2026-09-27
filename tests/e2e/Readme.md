@@ -43,14 +43,20 @@ entries) is a product-policy call, not an implementation fact.
 
 The real-server E2E targets (`test-real-server-e2e`, `test-real-server-smoke-e2e`,
 `test-server-provisioning-e2e`) automatically install pinned Go, Java, Node.js, .NET, Zig, and Ruby
-runtimes under `.env/`. Downloads are checksum-verified and reused after their version and
-executable have been validated. The complete managed environment supports Ubuntu 22.04 and 24.04
-on x86-64; Ruby's upstream binary distribution is the limiting dependency.
+runtimes. Verified archives are cached under `.env/downloads/`, and immutable versioned
+installations are cached under `.env/installations/`. Each test run builds its installer `PATH`
+directly from those installations; it does not create an aggregate bin directory. The complete
+managed environment supports Ubuntu 22.04 and 24.04 on x86-64; Ruby's upstream binary distribution
+is the limiting dependency.
 
 Rust/Cargo, Bash, curl, `tar`, `xz`, checksum utilities, Git, Python with pip/venv, Perl, and basic
 system utilities remain host prerequisites. Set `E2E_AUTO_DOWNLOAD=0` to disable automatic setup
-for an offline run which already supplies every required runtime on `PATH`. Remove `.env/` to clear
-the project-local runtime cache; the next real-server target recreates it.
+for an offline run which already supplies every required runtime on `PATH`. Normal tests never
+remove completed downloads or installations, including versions no longer selected. Run
+`make clean-e2e-dependencies` to remove the entire project-local `.env/` cache; it cannot be
+recovered without downloading and extracting the runtimes again. Installations created by the old
+shell bootstrap directly under `.env/` are ignored and remain there until the same cleanup target
+is run.
 
 Real-server contexts keep `HOME` isolated but preserve the host `CARGO_HOME`, `RUSTUP_HOME`, and an
 explicit `RUSTUP_TOOLCHAIN` for Cargo package installation. When either home variable is unset, an

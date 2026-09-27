@@ -11,6 +11,8 @@
 mod case_files;
 #[path = "e2e/catalog.rs"]
 mod catalog;
+#[path = "e2e/dependencies.rs"]
+mod dependencies;
 #[path = "e2e/filesystem.rs"]
 mod filesystem;
 #[path = "e2e/fixture.rs"]

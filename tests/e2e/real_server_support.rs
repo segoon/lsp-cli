@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::time::{Duration, Instant};
 
+use crate::dependencies::ManagedDependencies;
 use crate::harness::E2eContext;
 #[cfg(test)]
 use crate::results::E2eFailure;
@@ -38,12 +39,13 @@ impl CaseDeadline {
 }
 
 pub(crate) fn run_isolated_case<'a>(
+    dependencies: &ManagedDependencies,
     project: &Path,
     host_programs: impl IntoIterator<Item = (&'a str, &'a [String])>,
     deadline: &CaseDeadline,
     operation: impl FnOnce(&E2eContext) -> E2eResult,
 ) -> E2eResult {
-    E2eContext::run_cleaned_real_server(|context| {
+    E2eContext::run_cleaned_real_server(dependencies, |context| {
         context
             .copy_project(project)
             .at_stage(FailureStage::Setup)?;

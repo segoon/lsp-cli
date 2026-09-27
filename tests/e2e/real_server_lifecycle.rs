@@ -1,6 +1,7 @@
 use std::path::Path;
 use std::time::Duration;
 
+use crate::dependencies::ManagedDependencies;
 use crate::harness::{E2eContext, SocketSnapshot};
 use crate::lsp_exchange;
 use crate::manifest::{Manifest, RealServerLifecycleCase};
@@ -11,11 +12,20 @@ use crate::results::{AtStage, CaseKind, E2eResult, FailureStage};
 struct LifecycleTest<'a> {
     case: RealServerLifecycleCase<'a>,
     repository: &'a Path,
+    dependencies: &'a ManagedDependencies,
 }
 
 impl<'a> LifecycleTest<'a> {
-    fn new(case: RealServerLifecycleCase<'a>, repository: &'a Path) -> Self {
-        Self { case, repository }
+    fn new(
+        case: RealServerLifecycleCase<'a>,
+        repository: &'a Path,
+        dependencies: &'a ManagedDependencies,
+    ) -> Self {
+        Self {
+            case,
+            repository,
+            dependencies,
+        }
     }
 
     fn run(self) -> Result<(), String> {
@@ -26,21 +36,27 @@ impl<'a> LifecycleTest<'a> {
     fn run_inner(&self) -> E2eResult {
         let deadline = CaseDeadline::new(self.case.deadline_seconds(), "lifecycle case");
         let source = self.repository.join(self.case.project());
-        run_isolated_case(&source, self.case.host_programs(), &deadline, |context| {
-            let server = self
-                .case
-                .server_name(self.repository)
-                .at_stage(FailureStage::Setup)?;
-            if self.case.direct_run_enabled() {
-                let remaining = deadline.remaining().at_stage(FailureStage::Lifecycle)?;
-                self.direct_run(context, &server, remaining)
-                    .at_stage(FailureStage::Lifecycle)?;
-            }
-            let detached = self
-                .detached(context, &source, &server, &deadline)
-                .map_err(|error| format!("{error}\n{}", context.lifecycle_state()));
-            detached.at_stage(FailureStage::Lifecycle)
-        })
+        run_isolated_case(
+            self.dependencies,
+            &source,
+            self.case.host_programs(),
+            &deadline,
+            |context| {
+                let server = self
+                    .case
+                    .server_name(self.repository)
+                    .at_stage(FailureStage::Setup)?;
+                if self.case.direct_run_enabled() {
+                    let remaining = deadline.remaining().at_stage(FailureStage::Lifecycle)?;
+                    self.direct_run(context, &server, remaining)
+                        .at_stage(FailureStage::Lifecycle)?;
+                }
+                let detached = self
+                    .detached(context, &source, &server, &deadline)
+                    .map_err(|error| format!("{error}\n{}", context.lifecycle_state()));
+                detached.at_stage(FailureStage::Lifecycle)
+            },
+        )
     }
 
     fn direct_run(
@@ -199,6 +215,8 @@ fn expect_socket_count(context: &E2eContext, expected: usize) -> Result<(), Stri
 #[ignore = "downloads and runs real LSP servers; executed explicitly in CI"]
 fn manifest_real_server_lifecycle_cases() {
     let repository = repository_root();
+    let dependencies = ManagedDependencies::prepare()
+        .expect("real-server lifecycle E2E dependencies should be available");
     let manifest = Manifest::load_validated(repository).expect("E2E manifest should be valid");
     let selected = std::env::var("E2E_CASE").ok();
     assert!(
@@ -218,7 +236,11 @@ fn manifest_real_server_lifecycle_cases() {
         .collect::<Vec<_>>();
     let failures = cases
         .into_iter()
-        .filter_map(|case| LifecycleTest::new(case, repository).run().err())
+        .filter_map(|case| {
+            LifecycleTest::new(case, repository, &dependencies)
+                .run()
+                .err()
+        })
         .collect::<Vec<_>>();
     assert!(
         failures.is_empty(),

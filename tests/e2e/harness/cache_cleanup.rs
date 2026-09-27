@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use super::E2eContext;
+use crate::dependencies::ManagedDependencies;
 use crate::results::{E2eFailure, E2eResult, FailureStage};
 
 trait CleanupFailure: Sized {
@@ -57,8 +58,11 @@ impl E2eContext {
         Self::run_cleaned_context(context, operation)
     }
 
-    pub(crate) fn run_cleaned_real_server(operation: impl FnOnce(&Self) -> E2eResult) -> E2eResult {
-        let context = Self::new_for_real_server()
+    pub(crate) fn run_cleaned_real_server(
+        dependencies: &ManagedDependencies,
+        operation: impl FnOnce(&Self) -> E2eResult,
+    ) -> E2eResult {
+        let context = Self::new_for_real_server(dependencies)
             .map_err(|error| E2eFailure::new(FailureStage::Setup, error));
         Self::run_cleaned_context(context, operation)
     }

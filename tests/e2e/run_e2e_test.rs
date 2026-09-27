@@ -7,11 +7,7 @@ mod tests {
     use std::os::unix::fs::PermissionsExt;
     use std::process::{Command, Output};
 
-    fn run_wrapper_with_auto_download(
-        cargo_output: &str,
-        cargo_status: u8,
-        auto_download: &str,
-    ) -> Output {
+    fn run_wrapper(cargo_output: &str, cargo_status: u8) -> Output {
         let context = E2eContext::new().expect("E2E context should initialize");
         let bin_dir = context.workspace().join("bin");
         fs::create_dir(&bin_dir).expect("fake Cargo directory should be created");
@@ -31,7 +27,6 @@ mod tests {
         paths.extend(env::split_paths(&env::var_os("PATH").unwrap_or_default()));
         Command::new(repository_root().join("scripts/run_e2e_test.sh"))
             .arg("manifest_real_server")
-            .env("E2E_AUTO_DOWNLOAD", auto_download)
             .env("FAKE_CARGO_OUTPUT", cargo_output)
             .env("FAKE_CARGO_STATUS", cargo_status.to_string())
             .env(
@@ -41,10 +36,6 @@ mod tests {
             .env("TMPDIR", context.workspace())
             .output()
             .expect("E2E test wrapper should run")
-    }
-
-    fn run_wrapper(cargo_output: &str, cargo_status: u8) -> Output {
-        run_wrapper_with_auto_download(cargo_output, cargo_status, "0")
     }
 
     fn stdout(output: &Output) -> String {
@@ -86,17 +77,5 @@ mod tests {
 
         assert!(output.status.success());
         assert_eq!(stdout(&output), "all tests passed\n");
-    }
-
-    #[test]
-    fn rejects_invalid_auto_download_setting_before_cargo() {
-        let output = run_wrapper_with_auto_download("cargo must not run\n", 0, "sometimes");
-
-        assert_eq!(output.status.code(), Some(2));
-        assert_eq!(stdout(&output), "");
-        assert_eq!(
-            String::from_utf8(output.stderr).expect("wrapper stderr should be UTF-8"),
-            "E2E_AUTO_DOWNLOAD must be 0 or 1\n"
-        );
     }
 }

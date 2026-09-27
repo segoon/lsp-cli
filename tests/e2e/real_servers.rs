@@ -5,6 +5,7 @@ use std::time::Duration;
 use serde::Deserialize;
 use serde_json::Value;
 
+use crate::dependencies::ManagedDependencies;
 use crate::harness::{E2eContext, E2eOutput};
 use crate::manifest::{
     ExceptionOutcome, Manifest, QueryKind, RealServerCapabilitiesCase, RealServerCase,
@@ -31,11 +32,13 @@ const QUERY_COMMANDS: [QueryKind; 12] = [
 struct RealServerTest<'a> {
     case: RealServerCase<'a>,
     repository: &'a Path,
+    dependencies: &'a ManagedDependencies,
 }
 
 struct CapabilitiesTest<'a> {
     case: RealServerCapabilitiesCase<'a>,
     repository: &'a Path,
+    dependencies: &'a ManagedDependencies,
 }
 
 #[derive(Deserialize)]
@@ -50,8 +53,16 @@ struct ServerOutput {
 }
 
 impl<'a> RealServerTest<'a> {
-    fn new(case: RealServerCase<'a>, repository: &'a Path) -> Self {
-        Self { case, repository }
+    fn new(
+        case: RealServerCase<'a>,
+        repository: &'a Path,
+        dependencies: &'a ManagedDependencies,
+    ) -> Self {
+        Self {
+            case,
+            repository,
+            dependencies,
+        }
     }
 
     fn run(self) -> Result<(), String> {
@@ -62,6 +73,7 @@ impl<'a> RealServerTest<'a> {
     fn run_inner(&self) -> E2eResult {
         let deadline = CaseDeadline::new(self.case.deadline_seconds(), "case");
         run_isolated_case(
+            self.dependencies,
             &self.repository.join(self.case.project()),
             self.case.host_programs(),
             &deadline,
@@ -239,6 +251,7 @@ impl CapabilitiesTest<'_> {
     fn run_inner(&self) -> E2eResult {
         let deadline = CaseDeadline::new(self.case.deadline_seconds(), "capabilities case");
         run_isolated_case(
+            self.dependencies,
             &self.repository.join(self.case.project()),
             self.case.host_programs(),
             &deadline,
@@ -465,6 +478,8 @@ fn run(context: &E2eContext, args: &[String], deadline: Duration) -> Result<E2eO
 #[ignore = "downloads and runs real LSP servers; executed explicitly in CI"]
 fn manifest_real_server_smoke_cases() {
     let repository = repository_root();
+    let dependencies =
+        ManagedDependencies::prepare().expect("real-server E2E dependencies should be available");
     let manifest = Manifest::load_validated(repository).expect("E2E manifest should be valid");
     let selected = selected_cases(&manifest);
     assert!(
@@ -498,7 +513,11 @@ fn manifest_real_server_smoke_cases() {
         .collect::<Vec<_>>();
     let mut failures = cases
         .into_iter()
-        .filter_map(|case| RealServerTest::new(case, repository).run().err())
+        .filter_map(|case| {
+            RealServerTest::new(case, repository, &dependencies)
+                .run()
+                .err()
+        })
         .collect::<Vec<_>>();
     failures.extend(
         manifest
@@ -508,7 +527,15 @@ fn manifest_real_server_smoke_cases() {
                     .as_ref()
                     .is_some_and(|expected| expected.contains(&case.label()))
             })
-            .filter_map(|case| CapabilitiesTest { case, repository }.run().err()),
+            .filter_map(|case| {
+                CapabilitiesTest {
+                    case,
+                    repository,
+                    dependencies: &dependencies,
+                }
+                .run()
+                .err()
+            }),
     );
     assert!(
         failures.is_empty(),

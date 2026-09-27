@@ -73,7 +73,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .env
-          key: e2e-runtimes-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/ensure_e2e_dependencies.sh', 'scripts/e2e_dependencies/**') }}
+          key: e2e-runtimes-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('tests/e2e/dependencies/catalog.rs') }}
+          restore-keys: e2e-runtimes-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Run real-server E2E tests
         run: make test-real-server-e2e

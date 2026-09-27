@@ -5,6 +5,8 @@ use std::path::{Path, PathBuf};
 use serde::Deserialize;
 use serde_json::Value;
 
+use crate::dependencies::ManagedDependencies;
+
 use super::E2eContext;
 
 pub(crate) const REGISTRY_SNAPSHOT_ENV: &str = "E2E_MASON_REGISTRY_SNAPSHOT";
@@ -23,11 +25,11 @@ struct RegistryMetadata {
 }
 
 impl E2eContext {
-    pub(crate) fn new_for_real_server() -> Result<Self, String> {
+    pub(crate) fn new_for_real_server(dependencies: &ManagedDependencies) -> Result<Self, String> {
         let mut context = Self::new()
             .map_err(|error| format!("failed to create an isolated E2E context: {error}"))?;
         let host_home = std::env::var_os("HOME").map(PathBuf::from);
-        context.install_path = std::env::var_os("PATH");
+        context.install_path = Some(dependencies.install_path().to_os_string());
         context.cargo_home = tool_home(
             std::env::var_os(CARGO_HOME_ENV),
             host_home.as_deref(),

@@ -6,6 +6,7 @@ use crate::lsp_exchange;
 use crate::manifest::{Manifest, RealServerLifecycleCase};
 use crate::real_server_support::{CaseDeadline, run_isolated_case, run_reported_case};
 use crate::repository_root;
+use crate::results::{AtStage, CaseKind, E2eResult, FailureStage};
 
 struct LifecycleTest<'a> {
     case: RealServerLifecycleCase<'a>,
@@ -19,19 +20,26 @@ impl<'a> LifecycleTest<'a> {
 
     fn run(self) -> Result<(), String> {
         let label = self.case.label();
-        run_reported_case("lifecycle", &label, || self.run_inner())
+        run_reported_case(CaseKind::Lifecycle, &label, || self.run_inner())
     }
 
-    fn run_inner(&self) -> Result<(), String> {
+    fn run_inner(&self) -> E2eResult {
         let deadline = CaseDeadline::new(self.case.deadline_seconds(), "lifecycle case");
         let source = self.repository.join(self.case.project());
         run_isolated_case(&source, self.case.host_programs(), &deadline, |context| {
-            let server = self.case.server_name(self.repository)?;
+            let server = self
+                .case
+                .server_name(self.repository)
+                .at_stage(FailureStage::Setup)?;
             if self.case.direct_run_enabled() {
-                self.direct_run(context, &server, deadline.remaining()?)?;
+                let remaining = deadline.remaining().at_stage(FailureStage::Lifecycle)?;
+                self.direct_run(context, &server, remaining)
+                    .at_stage(FailureStage::Lifecycle)?;
             }
-            self.detached(context, &source, &server, &deadline)
-                .map_err(|error| format!("{error}\n{}", context.lifecycle_state()))
+            let detached = self
+                .detached(context, &source, &server, &deadline)
+                .map_err(|error| format!("{error}\n{}", context.lifecycle_state()));
+            detached.at_stage(FailureStage::Lifecycle)
         })
     }
 

@@ -5,6 +5,7 @@ use serde::Deserialize;
 use crate::manifest::{Manifest, ServerProvisioningCase};
 use crate::real_server_support::{CaseDeadline, run_isolated_case, run_reported_case};
 use crate::repository_root;
+use crate::results::{AtStage, CaseKind, E2eResult, FailureStage};
 
 struct ProvisioningTest<'a> {
     case: ServerProvisioningCase<'a>,
@@ -30,37 +31,49 @@ impl<'a> ProvisioningTest<'a> {
 
     fn run(self) -> Result<(), String> {
         let id = self.case.server_id();
-        run_reported_case("provisioning", id, || self.run_inner())
+        run_reported_case(CaseKind::Provisioning, id, || self.run_inner())
     }
 
-    fn run_inner(&self) -> Result<(), String> {
+    fn run_inner(&self) -> E2eResult {
         let deadline = CaseDeadline::new(self.case.deadline_seconds(), "server provisioning");
         run_isolated_case(
             &self.repository.join(self.case.project()),
             self.case.host_programs(),
             &deadline,
             |context| {
-                let server_name = self.case.server_name(self.repository)?;
-                let output = context.try_run_with_deadline(
-                    &[
-                        "detect",
-                        ".",
-                        "--lang",
-                        self.case.language(),
-                        "--lsp",
-                        &server_name,
-                        "--download",
-                        "--json",
-                        "--debug",
-                    ],
-                    deadline.remaining()?,
-                )?;
-                output.ensure_success()?;
-                let response: DetectOutput = output.try_json()?;
+                let server_name = self
+                    .case
+                    .server_name(self.repository)
+                    .at_stage(FailureStage::Setup)?;
+                let remaining = deadline.remaining().at_stage(FailureStage::Provisioning)?;
+                let output = context
+                    .try_run_with_deadline(
+                        &[
+                            "detect",
+                            ".",
+                            "--lang",
+                            self.case.language(),
+                            "--lsp",
+                            &server_name,
+                            "--download",
+                            "--json",
+                            "--debug",
+                        ],
+                        remaining,
+                    )
+                    .at_stage(FailureStage::Provisioning)?;
+                output
+                    .ensure_success()
+                    .at_stage(FailureStage::Provisioning)?;
+                let response: DetectOutput =
+                    output.try_json().at_stage(FailureStage::Provisioning)?;
                 let [server] = response.servers.as_slice() else {
-                    return Err(format!(
-                        "detect returned {} servers instead of exactly one",
-                        response.servers.len()
+                    return Err(crate::results::E2eFailure::new(
+                        FailureStage::Provisioning,
+                        format!(
+                            "detect returned {} servers instead of exactly one",
+                            response.servers.len()
+                        ),
                     ));
                 };
                 if server.server != server_name
@@ -69,18 +82,24 @@ impl<'a> ProvisioningTest<'a> {
                         .iter()
                         .any(|item| item == self.case.language())
                 {
-                    return Err(format!(
-                        "detect returned server {:?} for languages {:?}, expected {:?} for {:?}",
-                        server.server,
-                        server.languages,
-                        server_name,
-                        self.case.language()
+                    return Err(crate::results::E2eFailure::new(
+                        FailureStage::Provisioning,
+                        format!(
+                            "detect returned server {:?} for languages {:?}, expected {:?} for {:?}",
+                            server.server,
+                            server.languages,
+                            server_name,
+                            self.case.language()
+                        ),
                     ));
                 }
                 let Some(program) = server.command.first() else {
-                    return Err("downloaded server reported an empty command".to_string());
+                    return Err(crate::results::E2eFailure::new(
+                        FailureStage::Provisioning,
+                        "downloaded server reported an empty command",
+                    ));
                 };
-                validate_program(program, context.home())
+                validate_program(program, context.home()).at_stage(FailureStage::Provisioning)
             },
         )
     }

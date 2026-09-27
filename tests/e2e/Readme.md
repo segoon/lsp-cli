@@ -359,6 +359,16 @@ filename stem under `data/lsp/`, not necessarily the executable or display name.
    emitted its labelled diagnostic — start with the planner, build, or test-runner error
    immediately above the footer.
 
+Each matrix job also uploads `e2e-results-<language>-<installation-family>`. Its JSON document has
+`schema_version: 1`, one result per executed case, and aggregate pass/failure counts. A failed case
+records its human-readable diagnostic and one of these stable execution stages: `setup`,
+`provisioning`, `capabilities`, `query`, `lifecycle`, or `cleanup`. The stage identifies where the
+E2E harness observed the failure; it is not a substitute for diagnosing the underlying cause.
+
+The job summary contains the same aggregate stage counts. If no result file was produced, the test
+binary failed before it could finish a labelled case; the summary says to inspect the job log rather
+than inventing a case classification.
+
 ### Identify the upstream version
 
 A failed case retains this block before deleting its isolated home:

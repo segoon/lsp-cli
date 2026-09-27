@@ -11,6 +11,7 @@ use crate::manifest::{
 };
 use crate::real_server_support::{CaseDeadline, run_isolated_case, run_reported_case};
 use crate::repository_root;
+use crate::results::{AtStage, CaseKind, E2eResult, FailureStage};
 
 const QUERY_COMMANDS: [QueryKind; 12] = [
     QueryKind::ServerCapabilities,
@@ -55,26 +56,34 @@ impl<'a> RealServerTest<'a> {
 
     fn run(self) -> Result<(), String> {
         let label = self.case.label();
-        run_reported_case("case", &label, || self.run_inner())
+        run_reported_case(CaseKind::Smoke, &label, || self.run_inner())
     }
 
-    fn run_inner(&self) -> Result<(), String> {
+    fn run_inner(&self) -> E2eResult {
         let deadline = CaseDeadline::new(self.case.deadline_seconds(), "case");
         run_isolated_case(
             &self.repository.join(self.case.project()),
             self.case.host_programs(),
             &deadline,
             |context| {
-                let server = self.case.server_name(self.repository)?;
-                let capabilities = self.capabilities(context, &server, deadline.remaining()?)?;
+                let server = self
+                    .case
+                    .server_name(self.repository)
+                    .at_stage(FailureStage::Setup)?;
+                let remaining = deadline.remaining().at_stage(FailureStage::Capabilities)?;
+                let capabilities = self
+                    .capabilities(context, &server, remaining)
+                    .at_stage(FailureStage::Capabilities)?;
                 for command in QUERY_COMMANDS.into_iter().skip(1) {
+                    let remaining = deadline.remaining().at_stage(FailureStage::Query)?;
                     self.run_query(
                         context,
                         &server,
                         &capabilities.capabilities,
                         command,
-                        deadline.remaining()?,
-                    )?;
+                        remaining,
+                    )
+                    .at_stage(FailureStage::Query)?;
                 }
                 Ok(())
             },
@@ -224,17 +233,20 @@ impl<'a> RealServerTest<'a> {
 impl CapabilitiesTest<'_> {
     fn run(self) -> Result<(), String> {
         let label = self.case.label();
-        run_reported_case("capabilities case", &label, || self.run_inner())
+        run_reported_case(CaseKind::Capabilities, &label, || self.run_inner())
     }
 
-    fn run_inner(&self) -> Result<(), String> {
+    fn run_inner(&self) -> E2eResult {
         let deadline = CaseDeadline::new(self.case.deadline_seconds(), "capabilities case");
         run_isolated_case(
             &self.repository.join(self.case.project()),
             self.case.host_programs(),
             &deadline,
             |context| {
-                let server = self.case.server_name(self.repository)?;
+                let server = self
+                    .case
+                    .server_name(self.repository)
+                    .at_stage(FailureStage::Setup)?;
                 let args = [
                     "server-capabilities".to_string(),
                     ".".to_string(),
@@ -248,14 +260,23 @@ impl CapabilitiesTest<'_> {
                     self.case.lsp_timeout_seconds().to_string(),
                     "--json".to_string(),
                 ];
-                let output = run(context, &args, deadline.remaining()?)?;
-                output.ensure_success()?;
-                let response: CapabilitiesOutput = output.try_json()?;
-                context.record_server_capabilities(&response.capabilities)?;
+                let remaining = deadline.remaining().at_stage(FailureStage::Capabilities)?;
+                let output = run(context, &args, remaining).at_stage(FailureStage::Capabilities)?;
+                output
+                    .ensure_success()
+                    .at_stage(FailureStage::Capabilities)?;
+                let response: CapabilitiesOutput =
+                    output.try_json().at_stage(FailureStage::Capabilities)?;
+                context
+                    .record_server_capabilities(&response.capabilities)
+                    .at_stage(FailureStage::Capabilities)?;
                 if response.capabilities.is_object() && !response.server.command.is_empty() {
                     Ok(())
                 } else {
-                    Err("server-capabilities returned an invalid semantic payload".to_string())
+                    Err(crate::results::E2eFailure::new(
+                        FailureStage::Capabilities,
+                        "server-capabilities returned an invalid semantic payload",
+                    ))
                 }
             },
         )

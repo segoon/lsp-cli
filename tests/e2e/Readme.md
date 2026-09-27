@@ -42,10 +42,15 @@ entries) is a product-policy call, not an implementation fact.
 ## Local dev environment
 
 The real-server E2E targets (`test-real-server-e2e`, `test-real-server-smoke-e2e`,
-`test-server-provisioning-e2e`) need `go`, `java`, `node`/`npm`, and `dotnet` on `PATH`, matching
-what CI installs in `.github/workflows/ci.yml` and `e2e.yml`. Run `make download-dev-env` to fetch
-project-local copies into `.env/` (not a system-wide install), then `source activate.sh` from the
-repo root to put them on `PATH` for the current shell.
+`test-server-provisioning-e2e`) automatically install pinned Go, Java, Node.js, .NET, Zig, and Ruby
+runtimes under `.env/`. Downloads are checksum-verified and reused after their version and
+executable have been validated. The complete managed environment supports Ubuntu 22.04 and 24.04
+on x86-64; Ruby's upstream binary distribution is the limiting dependency.
+
+Rust/Cargo, Bash, curl, `tar`, `xz`, checksum utilities, Git, Python with pip/venv, Perl, and basic
+system utilities remain host prerequisites. Set `E2E_AUTO_DOWNLOAD=0` to disable automatic setup
+for an offline run which already supplies every required runtime on `PATH`. Remove `.env/` to clear
+the project-local runtime cache; the next real-server target recreates it.
 
 Real-server contexts keep `HOME` isolated but preserve the host `CARGO_HOME`, `RUSTUP_HOME`, and an
 explicit `RUSTUP_TOOLCHAIN` for Cargo package installation. When either home variable is unset, an

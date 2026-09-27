@@ -53,7 +53,7 @@ jobs:
 
   real-server-e2e:
     name: Real-server E2E
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Check out repository
@@ -69,11 +69,11 @@ jobs:
       - name: Cache cargo artifacts
         uses: Swatinem/rust-cache@v2
 
-      - name: Install Java
-        uses: actions/setup-java@v6
+      - name: Cache E2E runtimes
+        uses: actions/cache@v4
         with:
-          distribution: temurin
-          java-version: '21'
+          path: .env
+          key: e2e-runtimes-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/ensure_e2e_dependencies.sh', 'scripts/e2e_dependencies/**') }}
 
       - name: Run real-server E2E tests
         run: make test-real-server-e2e

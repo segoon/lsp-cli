@@ -184,6 +184,13 @@
   config containing a literal installation placeholder cannot work with generic `--download`;
   launch the Mason-exposed command and let the NuGet backend manage its concrete installation path.
 
+## OmniSharp
+
+- OmniSharp 1.39.15 can initialize and answer requests against the C# playground, but it closes
+  the transport while lsp-cli is waiting for the `shutdown` response. Automatic .NET provisioning
+  fixes the earlier missing-runtime setup failure, but does not make this direct-process lifecycle
+  behavior clean; keep it classified separately from installation failures.
+
 ## svls
 
 - Current-Mason SVLS 0.2.14 installs and reaches the end of a direct capability query, but the

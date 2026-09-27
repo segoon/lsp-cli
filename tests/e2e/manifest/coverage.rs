@@ -71,10 +71,6 @@ struct WorkflowShard {
     installation_family: InstallationFamily,
     cases: String,
     runtime_programs: String,
-    needs_go: bool,
-    needs_java: bool,
-    needs_node: bool,
-    needs_dotnet: bool,
 }
 
 impl Manifest {
@@ -118,23 +114,12 @@ impl Manifest {
                     .map(|pair| format!("{}/{}", pair.language, pair.server))
                     .collect::<Vec<_>>()
                     .join(",");
-                let programs = pairs
-                    .iter()
-                    .filter_map(|pair| self.servers.iter().find(|item| item.id == pair.server))
-                    .flat_map(ServerCase::host_programs)
-                    .map(|(name, _)| name)
-                    .collect::<BTreeSet<_>>();
-                let requirements = WorkflowRequirements::new(family, &programs);
                 WorkflowShard {
                     name: format!("{language}/{}", family.label()),
                     language,
                     installation_family: family,
                     cases,
-                    runtime_programs: requirements.runtime_programs,
-                    needs_go: requirements.needs_go,
-                    needs_java: requirements.needs_java,
-                    needs_node: requirements.needs_node,
-                    needs_dotnet: requirements.needs_dotnet,
+                    runtime_programs: family.runtime_programs().join(","),
                 }
             })
             .collect::<Vec<_>>();
@@ -402,30 +387,6 @@ impl Manifest {
 }
 
 #[cfg(feature = "e2e-workflow-planner")]
-struct WorkflowRequirements {
-    runtime_programs: String,
-    needs_go: bool,
-    needs_java: bool,
-    needs_node: bool,
-    needs_dotnet: bool,
-}
-
-#[cfg(feature = "e2e-workflow-planner")]
-impl WorkflowRequirements {
-    fn new(family: InstallationFamily, programs: &BTreeSet<&str>) -> Self {
-        let runtime_programs = family.runtime_programs();
-        Self {
-            runtime_programs: runtime_programs.join(","),
-            needs_go: family == InstallationFamily::Golang || programs.contains("go"),
-            needs_java: programs.contains("java"),
-            needs_node: runtime_programs.contains(&"node")
-                || programs.contains("node")
-                || programs.contains("npm"),
-            needs_dotnet: runtime_programs.contains(&"dotnet") || programs.contains("dotnet"),
-        }
-    }
-}
-
 #[cfg(feature = "e2e-workflow-planner")]
 impl InstallationFamily {
     pub(crate) fn label(self) -> &'static str {
@@ -520,16 +481,9 @@ mod workflow_tests {
     }
 
     #[test]
-    fn derives_runtime_staging_and_toolchain_setup_from_installation_family() {
-        let no_explicit_programs = BTreeSet::new();
-        let npm = WorkflowRequirements::new(InstallationFamily::Npm, &no_explicit_programs);
-        let nuget = WorkflowRequirements::new(InstallationFamily::Nuget, &no_explicit_programs);
-        let pypi = WorkflowRequirements::new(InstallationFamily::Pypi, &no_explicit_programs);
-
-        assert_eq!(npm.runtime_programs, "node");
-        assert!(npm.needs_node);
-        assert_eq!(nuget.runtime_programs, "dotnet");
-        assert!(nuget.needs_dotnet);
-        assert!(pypi.runtime_programs.is_empty());
+    fn derives_runtime_staging_from_installation_family() {
+        assert_eq!(InstallationFamily::Npm.runtime_programs(), ["node"]);
+        assert_eq!(InstallationFamily::Nuget.runtime_programs(), ["dotnet"]);
+        assert!(InstallationFamily::Pypi.runtime_programs().is_empty());
     }
 }

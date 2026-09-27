@@ -1,4 +1,4 @@
-.PHONY: test check-format check-tests check-clippy check-readme check-dependencies test-real-server-e2e test-real-server-smoke-e2e test-server-provisioning-e2e gen-readme download-dev-env
+.PHONY: test check-format check-tests check-clippy check-readme check-dependencies test-real-server-e2e test-real-server-smoke-e2e test-server-provisioning-e2e gen-readme
 
 test: check-format check-tests check-clippy check-readme check-dependencies
 
@@ -7,6 +7,7 @@ check-format:
 	cargo fmt --manifest-path tests/e2e/fixtures/fake-lsp/Cargo.toml --check
 
 check-tests:
+	bash scripts/test_ensure_e2e_dependencies.sh
 	RUST_BACKTRACE=full cargo test --locked -q
 
 check-clippy:
@@ -30,6 +31,3 @@ test-server-provisioning-e2e:
 
 gen-readme:
 	python3 scripts/update_readme_commands.py
-
-download-dev-env:
-	scripts/download_dev_env.sh

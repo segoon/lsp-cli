@@ -1,6 +1,6 @@
 use std::ffi::OsString;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 use serde_json::Value;
@@ -9,6 +9,9 @@ use super::E2eContext;
 
 pub(crate) const REGISTRY_SNAPSHOT_ENV: &str = "E2E_MASON_REGISTRY_SNAPSHOT";
 pub(super) const INSTALL_PATH_ENV: &str = "LSP_CLI_INSTALL_PATH";
+pub(super) const CARGO_HOME_ENV: &str = "LSP_CLI_INSTALL_CARGO_HOME";
+pub(super) const RUSTUP_HOME_ENV: &str = "LSP_CLI_INSTALL_RUSTUP_HOME";
+pub(super) const RUSTUP_TOOLCHAIN_ENV: &str = "LSP_CLI_INSTALL_RUSTUP_TOOLCHAIN";
 const RUNTIME_STATE_DIR: &str = ".local/share/lsp-cli";
 const REGISTRY_FILES: [&str; 2] = ["registry.json", "metadata.json"];
 
@@ -23,7 +26,19 @@ impl E2eContext {
     pub(crate) fn new_for_real_server() -> Result<Self, String> {
         let mut context = Self::new()
             .map_err(|error| format!("failed to create an isolated E2E context: {error}"))?;
+        let host_home = std::env::var_os("HOME").map(PathBuf::from);
         context.install_path = std::env::var_os("PATH");
+        context.cargo_home = tool_home(
+            std::env::var_os(CARGO_HOME_ENV),
+            host_home.as_deref(),
+            ".cargo",
+        );
+        context.rustup_home = tool_home(
+            std::env::var_os(RUSTUP_HOME_ENV),
+            host_home.as_deref(),
+            ".rustup",
+        );
+        context.rustup_toolchain = std::env::var_os(RUSTUP_TOOLCHAIN_ENV);
         if let Some(snapshot) = std::env::var_os(REGISTRY_SNAPSHOT_ENV) {
             context.seed_registry_snapshot(Path::new(&snapshot))?;
         }
@@ -67,6 +82,18 @@ impl E2eContext {
     }
 
     #[cfg(test)]
+    pub(super) fn use_rust_toolchain_environment(
+        &mut self,
+        cargo_home: OsString,
+        rustup_home: OsString,
+        rustup_toolchain: OsString,
+    ) {
+        self.cargo_home = Some(cargo_home);
+        self.rustup_home = Some(rustup_home);
+        self.rustup_toolchain = Some(rustup_toolchain);
+    }
+
+    #[cfg(test)]
     pub(super) fn seed_test_registry_snapshot(&self, source: &Path) -> Result<(), String> {
         self.seed_registry_snapshot(source)
     }
@@ -75,6 +102,17 @@ impl E2eContext {
     pub(super) fn test_registry_dir(&self) -> std::path::PathBuf {
         self.registry_dir()
     }
+}
+
+fn tool_home(
+    explicit: Option<OsString>,
+    host_home: Option<&Path>,
+    default_directory: &str,
+) -> Option<OsString> {
+    explicit.or_else(|| {
+        let path = host_home?.join(default_directory);
+        path.is_dir().then(|| path.into_os_string())
+    })
 }
 
 fn validate_registry_snapshot(source: &Path) -> Result<(), String> {
@@ -171,7 +209,27 @@ mod tests {
     }
 
     #[test]
-    fn real_server_isolates_server_lookup_and_preserves_installer_tools() {
+    fn tool_home_prefers_explicit_value_and_requires_an_existing_default() {
+        let context = context();
+        let explicit = OsString::from("explicit-home");
+        let host_home = context.workspace.join("host-home");
+        let default = host_home.join(".cargo");
+        fs::create_dir_all(&default).expect("default tool home should be created");
+
+        assert_eq!(
+            tool_home(Some(explicit.clone()), Some(&host_home), ".cargo"),
+            Some(explicit)
+        );
+        assert_eq!(
+            tool_home(None, Some(&host_home), ".cargo"),
+            Some(default.into_os_string())
+        );
+        assert_eq!(tool_home(None, Some(&context.workspace), ".rustup"), None);
+        assert_eq!(tool_home(None, None, ".cargo"), None);
+    }
+
+    #[test]
+    fn real_server_isolates_server_lookup_and_preserves_installer_state() {
         let mut context = context();
         let host_paths = [
             context.workspace.join("host-one"),
@@ -179,15 +237,39 @@ mod tests {
         ];
         let install_path = std::env::join_paths(&host_paths).expect("host PATH should join");
         context.use_install_path(install_path.clone());
+        let cargo_home = context.workspace.join("cargo-home").into_os_string();
+        let rustup_home = context.workspace.join("rustup-home").into_os_string();
+        let toolchain = OsString::from("stable");
+        context.use_rust_toolchain_environment(
+            cargo_home.clone(),
+            rustup_home.clone(),
+            toolchain.clone(),
+        );
 
         let actual = std::env::split_paths(&context.process_path()).collect::<Vec<_>>();
         let command = context.command();
-        let actual_install_path = command
+        let environment = command
             .get_envs()
-            .find_map(|(name, value)| (name == INSTALL_PATH_ENV).then_some(value).flatten());
+            .map(|(name, value)| (name.to_os_string(), value.map(OsString::from)))
+            .collect::<std::collections::BTreeMap<_, _>>();
 
         assert_eq!(actual, [context.bin_dir.clone()]);
-        assert_eq!(actual_install_path, Some(install_path.as_os_str()));
+        assert_eq!(
+            environment[std::ffi::OsStr::new(INSTALL_PATH_ENV)],
+            Some(install_path)
+        );
+        assert_eq!(
+            environment[std::ffi::OsStr::new(CARGO_HOME_ENV)],
+            Some(cargo_home)
+        );
+        assert_eq!(
+            environment[std::ffi::OsStr::new(RUSTUP_HOME_ENV)],
+            Some(rustup_home)
+        );
+        assert_eq!(
+            environment[std::ffi::OsStr::new(RUSTUP_TOOLCHAIN_ENV)],
+            Some(toolchain)
+        );
     }
 
     #[test]

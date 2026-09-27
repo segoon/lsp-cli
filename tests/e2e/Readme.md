@@ -47,6 +47,12 @@ what CI installs in `.github/workflows/ci.yml` and `e2e.yml`. Run `make download
 project-local copies into `.env/` (not a system-wide install), then `source activate.sh` from the
 repo root to put them on `PATH` for the current shell.
 
+Real-server contexts keep `HOME` isolated but preserve the host `CARGO_HOME`, `RUSTUP_HOME`, and an
+explicit `RUSTUP_TOOLCHAIN` for Cargo package installation. When either home variable is unset, an
+existing `.cargo` or `.rustup` directory under the original host home is used. The harness carries
+this state through installer-specific variables which `lsp-cli` translates only for the Cargo
+subprocess; Cargo and ambient server executables are not added to the server runtime `PATH`.
+
 CI's workflow planner passes each installation family's intrinsic server runtime through
 `E2E_RUNTIME_PROGRAMS`: npm packages stage `node`, and NuGet packages stage `dotnet`. To reproduce
 one of those shards locally, set the same comma-separated list, for example:

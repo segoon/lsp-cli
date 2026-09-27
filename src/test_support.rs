@@ -178,6 +178,25 @@ pub(crate) fn pyright_package() -> MasonPackage {
     }
 }
 
+pub(crate) fn asm_lsp_package() -> MasonPackage {
+    MasonPackage {
+        name: "asm-lsp".to_string(),
+        categories: vec!["LSP".to_string()],
+        source: MasonSource {
+            id: "pkg:cargo/asm-lsp@0.10.1".to_string(),
+            extra_packages: Vec::new(),
+            asset: None,
+            download: None,
+            version_overrides: Vec::new(),
+        },
+        bin: BTreeMap::from([("asm-lsp".to_string(), "cargo:asm-lsp".to_string())]),
+        share: BTreeMap::new(),
+        neovim: MasonNeovim {
+            lspconfig: Some("asm_lsp".to_string()),
+        },
+    }
+}
+
 pub(crate) fn roslyn_package() -> MasonPackage {
     MasonPackage {
         name: "roslyn-language-server".to_string(),

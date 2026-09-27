@@ -28,7 +28,7 @@ mod failure_diagnostics;
 #[path = "harness/process_state.rs"]
 mod process_state;
 
-use self::environment::INSTALL_PATH_ENV;
+use self::environment::{CARGO_HOME_ENV, INSTALL_PATH_ENV, RUSTUP_HOME_ENV, RUSTUP_TOOLCHAIN_ENV};
 use self::process_state::runtime_state;
 
 const DEFAULT_COMMAND_DEADLINE: Duration = Duration::from_secs(30);
@@ -45,6 +45,9 @@ pub(crate) struct E2eContext {
     build_dir: PathBuf,
     data_dir: PathBuf,
     install_path: Option<std::ffi::OsString>,
+    cargo_home: Option<std::ffi::OsString>,
+    rustup_home: Option<std::ffi::OsString>,
+    rustup_toolchain: Option<std::ffi::OsString>,
     // The staged `dotnet` apphost resolves its runtime via DOTNET_ROOT rather than PATH, so its
     // install root must be threaded through explicitly once `stage_host_program` resolves it.
     dotnet_root: RefCell<Option<PathBuf>>,
@@ -108,6 +111,9 @@ impl E2eContext {
             build_dir,
             data_dir: PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data"),
             install_path: None,
+            cargo_home: None,
+            rustup_home: None,
+            rustup_toolchain: None,
             dotnet_root: RefCell::new(None),
             ruby_env: RefCell::new(None),
         })
@@ -341,6 +347,15 @@ impl E2eContext {
         }
         if let Some(path) = self.install_path.as_deref() {
             command.env(INSTALL_PATH_ENV, path);
+        }
+        if let Some(path) = self.cargo_home.as_deref() {
+            command.env(CARGO_HOME_ENV, path);
+        }
+        if let Some(path) = self.rustup_home.as_deref() {
+            command.env(RUSTUP_HOME_ENV, path);
+        }
+        if let Some(toolchain) = self.rustup_toolchain.as_deref() {
+            command.env(RUSTUP_TOOLCHAIN_ENV, toolchain);
         }
         if let Some(ruby_env) = self.ruby_env.borrow().as_ref() {
             command

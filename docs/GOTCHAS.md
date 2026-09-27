@@ -184,6 +184,12 @@
   config containing a literal installation placeholder cannot work with generic `--download`;
   launch the Mason-exposed command and let the NuGet backend manage its concrete installation path.
 
+## svls
+
+- Current-Mason SVLS 0.2.14 installs and reaches the end of a direct capability query, but the
+  server does not exit before the post-`shutdown` deadline. Treat this as a lifecycle failure; a
+  successful Cargo installation does not make the direct-process case cleanly terminable.
+
 ## emmylua_ls
 
 - Current-Mason EmmyLua answers semantic requests for the Lua playground, but its formatting

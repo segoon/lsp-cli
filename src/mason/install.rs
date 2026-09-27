@@ -538,6 +538,17 @@ fn installer_command(program: &str) -> Command {
     if let Some(path) = env_vars::install_path() {
         command.env(env_vars::PATH, path);
     }
+    if program == "cargo" {
+        for (name, value) in [
+            ("CARGO_HOME", env_vars::install_cargo_home()),
+            ("RUSTUP_HOME", env_vars::install_rustup_home()),
+            ("RUSTUP_TOOLCHAIN", env_vars::install_rustup_toolchain()),
+        ] {
+            if let Some(value) = value {
+                command.env(name, value);
+            }
+        }
+    }
     command
 }
 

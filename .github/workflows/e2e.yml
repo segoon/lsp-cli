@@ -110,6 +110,7 @@ jobs:
       - name: Run real-server smoke cases
         env:
           E2E_CASES: ${{ matrix.cases }}
+          E2E_RUNTIME_PROGRAMS: ${{ matrix.runtime_programs }}
           E2E_MASON_REGISTRY_SNAPSHOT: ${{ runner.temp }}/mason-registry
           E2E_RESULTS_OUTPUT: ${{ runner.temp }}/e2e-results.json
           E2E_RESULTS_SUMMARY_OUTPUT: ${{ runner.temp }}/e2e-results.md

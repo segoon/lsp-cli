@@ -70,6 +70,7 @@ struct WorkflowShard {
     language: String,
     installation_family: InstallationFamily,
     cases: String,
+    runtime_programs: String,
     needs_go: bool,
     needs_java: bool,
     needs_node: bool,
@@ -123,18 +124,17 @@ impl Manifest {
                     .flat_map(ServerCase::host_programs)
                     .map(|(name, _)| name)
                     .collect::<BTreeSet<_>>();
+                let requirements = WorkflowRequirements::new(family, &programs);
                 WorkflowShard {
                     name: format!("{language}/{}", family.label()),
                     language,
                     installation_family: family,
                     cases,
-                    needs_go: family == InstallationFamily::Golang || programs.contains("go"),
-                    needs_java: programs.contains("java"),
-                    needs_node: family == InstallationFamily::Npm
-                        || programs.contains("node")
-                        || programs.contains("npm"),
-                    needs_dotnet: family == InstallationFamily::Nuget
-                        || programs.contains("dotnet"),
+                    runtime_programs: requirements.runtime_programs,
+                    needs_go: requirements.needs_go,
+                    needs_java: requirements.needs_java,
+                    needs_node: requirements.needs_node,
+                    needs_dotnet: requirements.needs_dotnet,
                 }
             })
             .collect::<Vec<_>>();
@@ -402,6 +402,31 @@ impl Manifest {
 }
 
 #[cfg(feature = "e2e-workflow-planner")]
+struct WorkflowRequirements {
+    runtime_programs: String,
+    needs_go: bool,
+    needs_java: bool,
+    needs_node: bool,
+    needs_dotnet: bool,
+}
+
+#[cfg(feature = "e2e-workflow-planner")]
+impl WorkflowRequirements {
+    fn new(family: InstallationFamily, programs: &BTreeSet<&str>) -> Self {
+        let runtime_programs = family.runtime_programs();
+        Self {
+            runtime_programs: runtime_programs.join(","),
+            needs_go: family == InstallationFamily::Golang || programs.contains("go"),
+            needs_java: programs.contains("java"),
+            needs_node: runtime_programs.contains(&"node")
+                || programs.contains("node")
+                || programs.contains("npm"),
+            needs_dotnet: runtime_programs.contains(&"dotnet") || programs.contains("dotnet"),
+        }
+    }
+}
+
+#[cfg(feature = "e2e-workflow-planner")]
 impl InstallationFamily {
     pub(crate) fn label(self) -> &'static str {
         match self {
@@ -412,6 +437,14 @@ impl InstallationFamily {
             Self::Npm => "npm",
             Self::Nuget => "nuget",
             Self::Pypi => "pypi",
+        }
+    }
+
+    fn runtime_programs(self) -> &'static [&'static str] {
+        match self {
+            Self::Npm => &["node"],
+            Self::Nuget => &["dotnet"],
+            Self::Cargo | Self::Generic | Self::Github | Self::Golang | Self::Pypi => &[],
         }
     }
 
@@ -484,5 +517,19 @@ mod workflow_tests {
             WorkflowSelector::Server,
             WorkflowSelector::InstallationFamily,
         ];
+    }
+
+    #[test]
+    fn derives_runtime_staging_and_toolchain_setup_from_installation_family() {
+        let no_explicit_programs = BTreeSet::new();
+        let npm = WorkflowRequirements::new(InstallationFamily::Npm, &no_explicit_programs);
+        let nuget = WorkflowRequirements::new(InstallationFamily::Nuget, &no_explicit_programs);
+        let pypi = WorkflowRequirements::new(InstallationFamily::Pypi, &no_explicit_programs);
+
+        assert_eq!(npm.runtime_programs, "node");
+        assert!(npm.needs_node);
+        assert_eq!(nuget.runtime_programs, "dotnet");
+        assert!(nuget.needs_dotnet);
+        assert!(pypi.runtime_programs.is_empty());
     }
 }

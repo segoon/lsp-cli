@@ -239,6 +239,30 @@ impl E2eContext {
 
     #[cfg(unix)]
     fn link_host_program(&self, source: &Path, destination: &Path) -> io::Result<()> {
+        match destination.canonicalize() {
+            Ok(existing) if existing == source => return Ok(()),
+            Ok(existing) => {
+                return Err(io::Error::new(
+                    io::ErrorKind::AlreadyExists,
+                    format!(
+                        "{} already resolves to a different executable, {}",
+                        destination.display(),
+                        existing.display()
+                    ),
+                ));
+            }
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error),
+        }
+        if fs::symlink_metadata(destination).is_ok() {
+            return Err(io::Error::new(
+                io::ErrorKind::AlreadyExists,
+                format!(
+                    "{} already exists and cannot be resolved",
+                    destination.display()
+                ),
+            ));
+        }
         std::os::unix::fs::symlink(source, destination)
     }
 

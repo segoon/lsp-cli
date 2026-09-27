@@ -125,6 +125,10 @@ fn read_json<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T, String> {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(unix)]
+    use std::os::unix::fs::PermissionsExt;
+    #[cfg(unix)]
+    use std::time::Duration;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::*;
@@ -153,6 +157,17 @@ mod tests {
         )
         .expect("metadata should be written");
         registry
+    }
+
+    #[cfg(unix)]
+    fn write_executable(path: &Path, contents: &str) {
+        fs::write(path, contents).expect("executable fixture should be written");
+        let mut permissions = fs::metadata(path)
+            .expect("executable fixture should have metadata")
+            .permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(path, permissions)
+            .expect("executable fixture permissions should be updated");
     }
 
     #[test]
@@ -228,5 +243,52 @@ mod tests {
 
         assert!(error.contains("failed to parse Mason registry snapshot"));
         assert!(!context.test_registry_dir().exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn staged_runtime_runs_env_shebang_without_exposing_ambient_programs() {
+        let mut context = context();
+        let host_tools = context.workspace.join("host-tools");
+        fs::create_dir(&host_tools).expect("host tool directory should be created");
+        let node = host_tools.join("node");
+        let ambient = host_tools.join("ambient-lsp");
+        let server = context.workspace.join("server");
+        write_executable(&node, "#!/bin/sh\nprintf 'runtime-ok\\n'\n");
+        write_executable(&ambient, "#!/bin/sh\nexit 0\n");
+        write_executable(&server, "#!/usr/bin/env node\n");
+        context.use_install_path(host_tools.as_os_str().to_owned());
+        let resolver = vec![
+            "/bin/sh".to_string(),
+            "-c".to_string(),
+            format!("printf '%s\\n' {}", node.display()),
+        ];
+
+        context
+            .stage_host_program("node", &resolver, Duration::from_secs(1))
+            .expect("runtime should be staged");
+        context
+            .stage_host_program("node", &resolver, Duration::from_secs(1))
+            .expect("staging the same runtime should be idempotent");
+        context
+            .stage_program("server", &server)
+            .expect("server should be staged");
+
+        let output = context
+            .run_test_program(context.bin_dir.join("server"), &[], Duration::from_secs(1))
+            .expect("staged server should run");
+        output
+            .ensure_success()
+            .expect("staged runtime should execute");
+        assert_eq!(output.stdout_text(), "runtime-ok\n");
+
+        let ambient_lookup = context
+            .run_test_program(
+                "/bin/sh",
+                &["-c", "command -v ambient-lsp"],
+                Duration::from_secs(1),
+            )
+            .expect("ambient lookup should finish");
+        assert!(ambient_lookup.ensure_success().is_err());
     }
 }

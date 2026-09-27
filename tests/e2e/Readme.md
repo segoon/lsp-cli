@@ -47,6 +47,19 @@ what CI installs in `.github/workflows/ci.yml` and `e2e.yml`. Run `make download
 project-local copies into `.env/` (not a system-wide install), then `source activate.sh` from the
 repo root to put them on `PATH` for the current shell.
 
+CI's workflow planner passes each installation family's intrinsic server runtime through
+`E2E_RUNTIME_PROGRAMS`: npm packages stage `node`, and NuGet packages stage `dotnet`. To reproduce
+one of those shards locally, set the same comma-separated list, for example:
+
+```sh
+E2E_RUNTIME_PROGRAMS=node E2E_CASE=yaml/yamlls make test-real-server-smoke-e2e
+```
+
+The harness resolves only those named programs from the host and stages them in its isolated
+server directory. A server's explicit manifest `host-programs` entry overrides a family default
+with the same name. The process `PATH` remains isolated; unrelated host executables are not made
+visible to downloaded servers.
+
 ## Test projects (playgrounds)
 
 Real-server cases use small, committed multi-file projects under `playground/`; see

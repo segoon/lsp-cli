@@ -1514,6 +1514,11 @@ servers:
     owner-language: org
     provisioning:
       status: download
+      host-programs:
+        - name: git
+          resolve:
+            - which
+            - git
   - id: tflint
     owner-language: terraform
     provisioning:
@@ -1824,4 +1829,3 @@ commands:
     strategy: lifecycle
   - name: update
     strategy: update-fixture
-

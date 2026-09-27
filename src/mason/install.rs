@@ -18,6 +18,7 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 
 mod artifacts;
+mod pypi;
 
 #[cfg(test)]
 mod tests;
@@ -27,6 +28,7 @@ use artifacts::{
     parse_archive_file_spec, render_asset_data, render_download_data, select_asset,
     select_download,
 };
+use pypi::install_pypi_package;
 
 pub(crate) fn resolve_cached_program(
     state: &RuntimeState,
@@ -34,8 +36,8 @@ pub(crate) fn resolve_cached_program(
     program: &str,
 ) -> Result<Option<std::path::PathBuf>> {
     match parse_source_id(&package.source.id)? {
+        SourceId::Pypi { .. } => pypi::resolve_cached_program(state, package, program),
         SourceId::Npm { .. }
-        | SourceId::Pypi { .. }
         | SourceId::Cargo { .. }
         | SourceId::Golang { .. }
         | SourceId::Nuget { .. } => {
@@ -206,63 +208,6 @@ fn fake_npm_install(install_dir: &std::path::Path, program: &str) -> Result<bool
     }
 
     Ok(true)
-}
-
-fn install_pypi_package(
-    state: &RuntimeState,
-    package: &MasonPackage,
-    package_name: &str,
-    version: &str,
-    extras: &[String],
-    program: &str,
-) -> Result<PathBuf> {
-    use_cached_program_or(
-        package,
-        program,
-        state,
-        &TemplateContext::empty(),
-        |resolved_program| {
-            require_command("python3", package, program)?;
-            let install_dir = prepare_install_dir(state, package)?;
-
-            let mut cmd = pypi_install_command(package_name, version, extras, &install_dir);
-            run_install_command(&mut cmd, package, "python3 -m pip")?;
-
-            finalize_install(
-                state,
-                package,
-                program,
-                &resolved_program,
-                &TemplateContext::empty(),
-                "pip did not produce a runnable",
-            )
-        },
-    )
-}
-
-fn pypi_install_command(
-    package_name: &str,
-    version: &str,
-    extras: &[String],
-    install_dir: &std::path::Path,
-) -> Command {
-    let install_spec = if extras.is_empty() {
-        format!("{package_name}=={version}")
-    } else {
-        format!("{package_name}[{}]=={version}", extras.join(","))
-    };
-    let mut command = installer_command("python3");
-    command
-        .arg("-m")
-        .arg("pip")
-        .arg("install")
-        .arg("--disable-pip-version-check")
-        // An isolated prefix must not try to reuse or uninstall ambient distribution packages.
-        .arg("--ignore-installed")
-        .arg("--prefix")
-        .arg(install_dir)
-        .arg(install_spec);
-    command
 }
 
 fn install_cargo_package(

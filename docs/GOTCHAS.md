@@ -74,10 +74,73 @@
 
 ## Mason PyPI launchers
 
-- In isolated current-Mason runs, the generated launchers for basedpyright,
-  jedi-language-server, python-lsp-server, and Pyre resolved from the package directory but the system
-  Python interpreter could not import their installed modules. Provisioning tests that only prove
-  executable resolution do not establish that a PyPI-backed language server can initialize.
+- PyPI packages must be installed into a virtual environment, not with `pip --prefix`. Prefix
+  launchers resolve from the package directory but use the system interpreter, which cannot import
+  the isolated package modules. lsp-cli creates a versioned per-package environment under `local/`
+  and accepts it as cached only when its layout marker is present. This deliberately ignores old
+  prefix launchers without deleting unrelated package installations.
+
+## Jedi Language Server
+
+- Jedi Language Server 0.47.0 answers semantic queries but can fail to exit after the standard
+  shutdown exchange. Its pygls worker may continue trying to write responses after stdout closes.
+  The current compatibility matrix excludes it rather than accepting successful output while
+  hiding failed process cleanup.
+
+## pylsp
+
+- python-lsp-server 1.15.0 does not advertise `workspace/symbol`. It is covered by capability and
+  provisioning checks, but is excluded from the source-language smoke suite because that suite uses
+  workspace symbols to locate fixture declarations.
+
+## Pyre
+
+- Pyre requires a project configuration that declares `source_directories` or build targets before
+  its persistent LSP command will initialize, and it requires a Watchman root marker. The Python
+  playground carries minimal deterministic configuration for both. Pyre 0.9.25 then initializes
+  but advertises only document synchronization, so it remains excluded from the semantic smoke
+  suite rather than being mistaken for an installation failure.
+
+## cmake-language-server
+
+- cmake-language-server 0.1.11 permits a current pygls release whose API no longer exports the
+  `LanguageServer` class where the server imports it. The isolated installation consequently fails
+  during startup and remains excluded pending an upstream dependency constraint or release.
+
+## RobotCode
+
+- RobotCode 2.7.0 initializes but does not exit within the bounded deadline after the standard
+  shutdown/exit exchange. Capability smoke coverage remains excluded so successful initialization
+  does not hide failed process cleanup.
+
+## rpm-spec-language-server
+
+- The PyPI package imports the system RPM Python module. Installing it in an isolated virtual
+  environment is not sufficient on hosts without compatible RPM bindings, so the current CI pair
+  is explicitly excluded.
+
+## salt-lsp
+
+- salt-lsp 0.0.1 cannot currently complete a pip installation on the CI Python runtime. The pair is
+  classified as an upstream package-install incompatibility rather than a launcher/import failure.
+
+## textLSP
+
+- textLSP imports GitPython during startup, and GitPython rejects an isolated `PATH` without the
+  `git` executable. The E2E manifest declares Git as a host runtime rather than exposing the full
+  ambient path.
+
+## hdl-checker
+
+- hdl-checker 0.7.5 enters its language-server mode without a `--lsp` argument; that old argument
+  is rejected by its current command-line parser. The bundled server configuration deliberately
+  invokes the executable without it.
+
+## Esbonio
+
+- Esbonio 2.x moved its stdio language server behind the `esbonio server` subcommand. Invoking the
+  top-level command writes CLI help to stdout, which is not an LSP frame; the bundled configuration
+  includes the required subcommand.
 
 ## pylyzer
 

@@ -289,6 +289,13 @@ production Mason integration select the current registry package, install it ins
 isolated home, and return the resolved executable. This applies uniformly to direct archives and
 npm, PyPI, Cargo, Go, NuGet, GitHub, or generic package sources supported by the downloader.
 
+PyPI packages use a per-package virtual environment under the Mason package's `local/` directory.
+Generated console scripts therefore use the same Python environment that contains their modules,
+without an ambient `PYTHONPATH`. A versioned marker distinguishes this layout from old
+`pip --prefix` installations; a missing marker rebuilds only that package's `local/` environment.
+The tradeoff is additional disk use, and Python installations without `venv` or `ensurepip` cannot
+install PyPI-backed servers.
+
 Language SDKs and package-manager runtimes remain explicit host prerequisites, with their resolver
 commands kept in the manifest so a missing prerequisite produces a case-specific error rather than
 a silent skip. A CI lane either provisions the server or reports the pair as an explicit, reviewed

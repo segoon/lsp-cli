@@ -5,8 +5,7 @@ use std::fs;
 
 use super::{
     artifacts::{command_failure_detail, parse_archive_file_spec},
-    golang_install_target, installer_command, nuget_install_command, pypi_install_command,
-    resolve_or_install_program,
+    golang_install_target, installer_command, nuget_install_command, resolve_or_install_program,
 };
 #[cfg(unix)]
 use crate::runtime_state::RuntimeState;
@@ -49,31 +48,6 @@ fn builds_exact_nuget_tool_install_command() {
             "managed/bin",
             "--version",
             "5.11.0-1.26380.4",
-        ]
-    );
-}
-
-#[test]
-fn isolates_pypi_install_from_ambient_packages() {
-    let command = pypi_install_command(
-        "python-lsp-server",
-        "1.15.0",
-        &["all".to_string()],
-        Path::new("managed/python"),
-    );
-
-    assert_eq!(command.get_program(), "python3");
-    assert_eq!(
-        command.get_args().collect::<Vec<_>>(),
-        [
-            "-m",
-            "pip",
-            "install",
-            "--disable-pip-version-check",
-            "--ignore-installed",
-            "--prefix",
-            "managed/python",
-            "python-lsp-server[all]==1.15.0",
         ]
     );
 }

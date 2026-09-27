@@ -5,13 +5,14 @@ use std::fs;
 
 use super::{
     artifacts::{command_failure_detail, parse_archive_file_spec},
-    installer_command, nuget_install_command, pypi_install_command, resolve_or_install_program,
+    golang_install_target, installer_command, nuget_install_command, pypi_install_command,
+    resolve_or_install_program,
 };
 #[cfg(unix)]
 use crate::runtime_state::RuntimeState;
 #[cfg(unix)]
 use crate::test_support::{
-    TestDir, asm_lsp_package, env_var, make_executable, roslyn_package, with_env_vars,
+    TestDir, asm_lsp_package, cue_package, env_var, make_executable, roslyn_package, with_env_vars,
 };
 
 #[test]
@@ -84,6 +85,18 @@ fn installer_failure_detail_skips_leading_banner() {
     assert_eq!(
         command_failure_detail(stderr),
         "Could not execute required helper"
+    );
+}
+
+#[test]
+fn builds_go_install_targets_with_and_without_subpaths() {
+    assert_eq!(
+        golang_install_target("cuelang.org/go", "v0.17.1", Some("cmd/cue")),
+        "cuelang.org/go/cmd/cue@v0.17.1"
+    );
+    assert_eq!(
+        golang_install_target("golang.org/x/tools/gopls", "v0.23.0", None),
+        "golang.org/x/tools/gopls@v0.23.0"
     );
 }
 
@@ -173,6 +186,51 @@ fn cargo_installer_inherits_toolchain_state_with_an_isolated_home() {
     );
 
     assert_eq!(installed, state.package_dir("asm-lsp").join("bin/asm-lsp"));
+}
+
+#[cfg(unix)]
+#[test]
+fn go_installer_uses_subpath_and_rejects_traversal_before_invocation() {
+    let dir = TestDir::new("mason-go-subpath");
+    let bin_dir = dir.path().join("bin");
+    fs::create_dir_all(&bin_dir).expect("fake Go directory should exist");
+    let invocation = dir.path().join("go-invocation");
+    let go = dir.write_file(
+        "bin/go",
+        "#!/bin/sh\n\
+         printf '%s' \"$2\" > \"$GO_INVOCATION\"\n\
+         /bin/mkdir -p \"$GOBIN\"\n\
+         : > \"$GOBIN/cue\"\n\
+         /bin/chmod 755 \"$GOBIN/cue\"\n",
+    );
+    make_executable(&go);
+    let valid_state = RuntimeState::new(dir.path().join("valid-state"));
+    let invalid_state = RuntimeState::new(dir.path().join("invalid-state"));
+    let valid_source = "pkg:golang/cuelang.org/go@v0.17.1#cmd/cue";
+    let invalid_source = "pkg:golang/cuelang.org/go@v0.17.1#../cmd/cue";
+
+    with_env_vars(
+        &[
+            env_var("PATH", &bin_dir),
+            env_var("GO_INVOCATION", &invocation),
+        ],
+        || {
+            resolve_or_install_program(&valid_state, &cue_package(valid_source), "cue")
+                .expect("Go subpath package should install");
+            assert_eq!(
+                fs::read_to_string(&invocation).expect("Go invocation should be recorded"),
+                "cuelang.org/go/cmd/cue@v0.17.1"
+            );
+            fs::remove_file(&invocation).expect("invocation marker should be reset");
+
+            let error =
+                resolve_or_install_program(&invalid_state, &cue_package(invalid_source), "cue")
+                    .expect_err("traversing Go subpath should fail")
+                    .to_string();
+            assert!(error.contains(invalid_source));
+            assert!(!invocation.exists(), "invalid source invoked Go");
+        },
+    );
 }
 
 #[cfg(unix)]

@@ -197,6 +197,25 @@ pub(crate) fn asm_lsp_package() -> MasonPackage {
     }
 }
 
+pub(crate) fn cue_package(source_id: &str) -> MasonPackage {
+    MasonPackage {
+        name: "cue".to_string(),
+        categories: vec!["LSP".to_string()],
+        source: MasonSource {
+            id: source_id.to_string(),
+            extra_packages: Vec::new(),
+            asset: None,
+            download: None,
+            version_overrides: Vec::new(),
+        },
+        bin: BTreeMap::from([("cue".to_string(), "golang:cue".to_string())]),
+        share: BTreeMap::new(),
+        neovim: MasonNeovim {
+            lspconfig: Some("cue".to_string()),
+        },
+    }
+}
+
 pub(crate) fn roslyn_package() -> MasonPackage {
     MasonPackage {
         name: "roslyn-language-server".to_string(),

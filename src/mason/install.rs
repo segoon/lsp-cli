@@ -79,7 +79,15 @@ pub(crate) fn resolve_or_install_program(
         SourceId::Golang {
             module_path,
             version,
-        } => install_golang_package(state, package, &module_path, &version, program),
+            subpath,
+        } => install_golang_package(
+            state,
+            package,
+            &module_path,
+            &version,
+            subpath.as_deref(),
+            program,
+        ),
         SourceId::Nuget {
             package_name,
             version,
@@ -299,6 +307,7 @@ fn install_golang_package(
     package: &MasonPackage,
     module_path: &str,
     version: &str,
+    subpath: Option<&str>,
     program: &str,
 ) -> Result<PathBuf> {
     use_cached_program_or(
@@ -319,7 +328,7 @@ fn install_golang_package(
 
             let mut cmd = installer_command("go");
             cmd.arg("install")
-                .arg(format!("{module_path}@{version}"))
+                .arg(golang_install_target(module_path, version, subpath))
                 .env("GOBIN", bin_dir);
             run_install_command(&mut cmd, package, "go")?;
 
@@ -333,6 +342,14 @@ fn install_golang_package(
             )
         },
     )
+}
+
+fn golang_install_target(module_path: &str, version: &str, subpath: Option<&str>) -> String {
+    let package = match subpath {
+        Some(subpath) => format!("{module_path}/{subpath}"),
+        None => module_path.to_string(),
+    };
+    format!("{package}@{version}")
 }
 
 fn install_nuget_package(

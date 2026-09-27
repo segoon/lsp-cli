@@ -190,6 +190,24 @@
   server does not exit before the post-`shutdown` deadline. Treat this as a lifecycle failure; a
   successful Cargo installation does not make the direct-process case cleanly terminable.
 
+## jq-lsp
+
+- Current-Mason jq-lsp 0.1.18 installs and completes a direct capability query, but does not exit
+  before the post-`shutdown` deadline. Keep this lifecycle behavior distinct from Go package
+  installation success.
+
+## jsonnet-language-server
+
+- Current-Mason jsonnet-language-server 0.17.0 initializes for both Jsonnet and Libsonnet, but does
+  not exit before the post-`shutdown` deadline in direct capability runs. Its stderr reaches normal
+  initialization and reports no shutdown-specific explanation.
+
+## regols
+
+- Current-Mason regols 0.2.4 installs and starts, but rejects initialization for the committed Rego
+  playground with `lstat : no such file or directory`. The empty path originates in the server;
+  the required workspace-layout or initialization expectation has not yet been established.
+
 ## emmylua_ls
 
 - Current-Mason EmmyLua answers semantic requests for the Lua playground, but its formatting

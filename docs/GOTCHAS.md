@@ -251,6 +251,11 @@
   attribute line) instead of the identifier itself. When a later LSP request needs a precise
   symbol position, prefer recovering the identifier offset from source text inside that range
   instead of assuming `range.start` is directly queryable.
+- `rust-analyzer` package source `pkg:github/rust-lang/rust-analyzer@2026-09-21` returned non-empty
+  outgoing call-hierarchy results for the Rust playground's `sample_order` in four consecutive
+  isolated runs. Although the function primarily constructs data, it invokes methods such as
+  `to_string`; do not classify constructor-heavy fixture functions as having no callees without
+  checking the server's current call-hierarchy interpretation.
 
 ## clangd
 

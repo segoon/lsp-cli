@@ -338,9 +338,9 @@ silently running no tests.
 
 These commands download external tools and require the host programs declared by the manifest, and
 local runs use the current Mason registry — compare the resulting source ID with an earlier run
-before concluding that local behavior has changed. CI sets `E2E_MASON_REGISTRY_SNAPSHOT` to the
-registry snapshot created by its planner; the harness rejects incomplete snapshots instead of
-silently downloading different metadata.
+before concluding that local behavior has changed. CI authenticates one registry request and sets
+`E2E_MASON_REGISTRY_SNAPSHOT` to the snapshot created by its planner; the harness rejects incomplete
+snapshots instead of silently downloading different metadata.
 
 The manual **End-to-end compatibility** GitHub Actions workflow can select `language`, `server`, or
 `installation-family` (the value is respectively a case language ID, an LSP config ID, or one of
@@ -466,9 +466,10 @@ Classify failures as:
 6. unsupported LSP capability with the expected user-facing response.
 
 Only category 6 is an immediate passing outcome. Known limitations must be explicit manifest
-entries and, when they concern protocol or server behavior, documented in `docs/GOTCHAS.md`. Do not add
-unbounded retries — a retry may cover an identified transient installation/network step, but must
-not conceal query or protocol failures.
+entries and, when they concern protocol or server behavior, documented in `docs/GOTCHAS.md`. Mason
+registry metadata requests retry rate-limit responses three times with bounded exponential backoff.
+Do not add unbounded retries — a retry may cover an identified transient installation/network step,
+but must not conceal query or protocol failures.
 
 If a hard-to-debug defect is fixed, add a focused regression test in addition to the broad matrix,
 and consider whether a type invariant, runtime check, clearer trace, or state-dump helper can make

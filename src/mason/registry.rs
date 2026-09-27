@@ -20,10 +20,17 @@ pub struct MasonRegistry {
 
 impl MasonRegistry {
     pub fn load(state: &RuntimeState) -> Result<Self> {
+        Self::load_with_github_token(state, None)
+    }
+
+    pub(crate) fn load_with_github_token(
+        state: &RuntimeState,
+        github_token: Option<&str>,
+    ) -> Result<Self> {
         state.ensure_dirs()?;
 
         let registry_json_path = state.registry_json_path();
-        match cache::ensure_registry_cache(state) {
+        match cache::ensure_registry_cache(state, github_token) {
             Ok(()) => Self::from_registry_json_path(&registry_json_path),
             Err(error) if registry_json_path.is_file() => {
                 eprintln!("warning: failed to refresh Mason registry, using cached data: {error}");

@@ -43,6 +43,7 @@ use mason::registry::MasonRegistry;
 use runtime_state::RuntimeState;
 
 const REGISTRY_SNAPSHOT_OUTPUT_ENV: &str = "E2E_REGISTRY_SNAPSHOT_OUTPUT";
+const GITHUB_TOKEN_ENV: &str = "E2E_GITHUB_TOKEN";
 const REGISTRY_SNAPSHOT_FILES: [&str; 2] = ["registry.json", "metadata.json"];
 
 fn main() -> Result<(), String> {
@@ -52,7 +53,8 @@ fn main() -> Result<(), String> {
     let cache = tempfile::tempdir()
         .map_err(|error| format!("failed to create temporary Mason registry cache: {error}"))?;
     let registry_state = RuntimeState::new(cache.path().join("mason"));
-    let registry = MasonRegistry::load(&registry_state)
+    let github_token = std::env::var(GITHUB_TOKEN_ENV).ok();
+    let registry = MasonRegistry::load_with_github_token(&registry_state, github_token.as_deref())
         .map_err(|error| format!("failed to load current Mason registry: {error}"))?;
     let mut packages = BTreeMap::new();
     for server in manifest.downloadable_servers()? {

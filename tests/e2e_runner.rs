@@ -36,13 +36,15 @@ mod results;
 #[path = "e2e/runner_selection.rs"]
 mod runner_selection;
 
+use std::collections::BTreeSet;
 use std::path::Path;
 use std::process::ExitCode;
 
 use dependencies::ManagedDependencies;
 use manifest::Manifest;
 use real_server_support::RunReport;
-use runner_selection::{Phase, Selection};
+use results::CaseKind;
+use runner_selection::{Action, Phase, Selection};
 
 pub(crate) fn repository_root() -> &'static Path {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -50,54 +52,16 @@ pub(crate) fn repository_root() -> &'static Path {
 
 fn run(selection: &Selection) -> Result<(), String> {
     let repository = repository_root();
-    let manifest = Manifest::load_validated(repository)?;
-    selection.validate(&manifest)?;
-    if !manifest.supports_current_platform() {
-        return Err(format!(
-            "E2E tests require {}; current platform is {}/{}",
-            manifest.platform_label(),
-            std::env::consts::OS,
-            std::env::consts::ARCH
-        ));
-    }
+    let manifest = load_manifest(selection)?;
+    validate_scope(&manifest, selection)?;
     if let Some(label) = selection.case.as_deref()
         && let Some(reason) = manifest.exclusion_reason(label)
     {
         eprintln!("E2E case {label}: reviewed exclusion: {reason}");
     }
 
-    let selected_behavior = match selection.phase {
-        Phase::Provision => 0,
-        Phase::Smoke => selected_smoke_count(&manifest, selection),
-        Phase::Lifecycle => selected_lifecycle_count(&manifest, selection),
-        Phase::All => {
-            selected_smoke_count(&manifest, selection)
-                + selected_lifecycle_count(&manifest, selection)
-        }
-    };
-    if selection.phase != Phase::Provision
-        && (selection.case.is_some() || selection.server.is_some())
-        && selected_behavior == 0
-    {
-        return Err("the selected E2E scope has no executable behavior tests".to_string());
-    }
-    if selection.phase == Phase::Provision
-        && (selection.case.is_some() || selection.server.is_some())
-        && manifest
-            .server_provisioning_cases()
-            .all(|case| !selection.includes_server(&manifest, case.server_id()))
-    {
-        return Err("the selected E2E scope has no executable provisioning test".to_string());
-    }
-
     let dependencies = ManagedDependencies::prepare()?;
-    let excluded = if selection.phase == Phase::Provision {
-        0
-    } else {
-        manifest.excluded_behavior_count(|label, server, smoke| {
-            selection.includes_pair(label, server, smoke)
-        })
-    };
+    let excluded = excluded_count(&manifest, selection);
     let mut report = RunReport::default();
     if matches!(selection.phase, Phase::All | Phase::Provision) {
         report.merge(provisioning::run_cases(
@@ -126,6 +90,170 @@ fn run(selection: &Selection) -> Result<(), String> {
     }
     report.merge(behavior);
     let passed = report.planned - report.failures.len();
+    if !selection.quiet_summary {
+        print_summary(&report, excluded, passed);
+    }
+    if report.failures.is_empty() {
+        Ok(())
+    } else {
+        Err(format!("E2E failures:\n{}", report.failures.join("\n\n")))
+    }
+}
+
+fn load_manifest(selection: &Selection) -> Result<Manifest, String> {
+    let manifest = Manifest::load_validated(repository_root())?;
+    selection.validate(&manifest)?;
+    if !manifest.supports_current_platform() {
+        return Err(format!(
+            "E2E tests require {}; current platform is {}/{}",
+            manifest.platform_label(),
+            std::env::consts::OS,
+            std::env::consts::ARCH
+        ));
+    }
+    Ok(manifest)
+}
+
+fn validate_scope(manifest: &Manifest, selection: &Selection) -> Result<(), String> {
+    let selected_behavior = match selection.phase {
+        Phase::Provision => 0,
+        Phase::Smoke => selected_smoke_count(manifest, selection),
+        Phase::Lifecycle => selected_lifecycle_count(manifest, selection),
+        Phase::All => {
+            selected_smoke_count(manifest, selection)
+                + selected_lifecycle_count(manifest, selection)
+        }
+    };
+    if selection.phase != Phase::Provision
+        && (selection.case.is_some() || selection.server.is_some())
+        && selected_behavior == 0
+    {
+        return Err("the selected E2E scope has no executable behavior tests".to_string());
+    }
+    if selection.phase == Phase::Provision
+        && (selection.case.is_some() || selection.server.is_some())
+        && manifest
+            .server_provisioning_cases()
+            .all(|case| !selection.includes_server(manifest, case.server_id()))
+    {
+        return Err("the selected E2E scope has no executable provisioning test".to_string());
+    }
+    Ok(())
+}
+
+fn list_work(selection: &Selection) -> Result<(), String> {
+    if selection.phase == Phase::All {
+        return Err("--list-work requires an explicit E2E phase".to_string());
+    }
+    let manifest = load_manifest(selection)?;
+    let work: BTreeSet<String> = match selection.phase {
+        Phase::Provision => manifest
+            .server_provisioning_cases()
+            .filter(|case| selection.includes_server(&manifest, case.server_id()))
+            .map(|case| case.server_id().to_string())
+            .collect(),
+        Phase::Smoke => manifest
+            .real_server_smoke_cases()
+            .filter(|case| {
+                selection.includes_pair(&case.label(), case.server_id(), case.is_smoke())
+            })
+            .map(|case| case.label())
+            .chain(
+                manifest
+                    .real_server_capabilities_cases()
+                    .filter(|case| {
+                        selection.includes_pair(&case.label(), case.server_id(), case.is_smoke())
+                    })
+                    .map(|case| case.label()),
+            )
+            .collect(),
+        Phase::Lifecycle => manifest
+            .real_server_lifecycle_cases()
+            .filter(|case| {
+                selection.includes_pair(&case.label(), case.server_id(), case.is_smoke())
+            })
+            .map(|case| case.label())
+            .collect(),
+        Phase::All => return Err("--list-work requires an explicit E2E phase".to_string()),
+    };
+    for item in work {
+        println!("{item}");
+    }
+    Ok(())
+}
+
+fn merge_results(selection: &Selection, directory: &Path) -> Result<(), String> {
+    let manifest = load_manifest(selection)?;
+    validate_scope(&manifest, selection)?;
+    let expected = expected_results(&manifest, selection);
+    let merged = results::merge_shards(directory, &expected)?;
+    let excluded = excluded_count(&manifest, selection);
+    let report = RunReport {
+        planned: merged.planned,
+        failures: merged.failures,
+    };
+    let passed = report.planned - report.failures.len();
+    print_summary(&report, excluded, passed);
+    if report.failures.is_empty() {
+        Ok(())
+    } else {
+        Err(format!("E2E failures:\n{}", report.failures.join("\n\n")))
+    }
+}
+
+fn expected_results(manifest: &Manifest, selection: &Selection) -> Vec<(CaseKind, String)> {
+    let mut expected = Vec::new();
+    if matches!(selection.phase, Phase::All | Phase::Provision) {
+        expected.extend(
+            manifest
+                .server_provisioning_cases()
+                .filter(|case| selection.includes_server(manifest, case.server_id()))
+                .map(|case| (CaseKind::Provisioning, case.server_id().to_string())),
+        );
+    }
+    if matches!(selection.phase, Phase::All | Phase::Smoke) {
+        expected.extend(
+            manifest
+                .real_server_smoke_cases()
+                .filter(|case| {
+                    selection.includes_pair(&case.label(), case.server_id(), case.is_smoke())
+                })
+                .map(|case| (CaseKind::Smoke, case.label())),
+        );
+        expected.extend(
+            manifest
+                .real_server_capabilities_cases()
+                .filter(|case| {
+                    selection.includes_pair(&case.label(), case.server_id(), case.is_smoke())
+                })
+                .map(|case| (CaseKind::Capabilities, case.label())),
+        );
+    }
+    if matches!(selection.phase, Phase::All | Phase::Lifecycle) {
+        expected.extend(
+            manifest
+                .real_server_lifecycle_cases()
+                .filter(|case| {
+                    selection.includes_pair(&case.label(), case.server_id(), case.is_smoke())
+                })
+                .map(|case| (CaseKind::Lifecycle, case.label())),
+        );
+    }
+    expected.sort();
+    expected
+}
+
+fn excluded_count(manifest: &Manifest, selection: &Selection) -> usize {
+    if selection.phase == Phase::Provision {
+        0
+    } else {
+        manifest.excluded_behavior_count(|label, server, smoke| {
+            selection.includes_pair(label, server, smoke)
+        })
+    }
+}
+
+fn print_summary(report: &RunReport, excluded: usize, passed: usize) {
     eprintln!(
         "E2E summary: planned {}, executed {}, passed {}, failed {}, excluded {}",
         report.planned + excluded,
@@ -134,11 +262,6 @@ fn run(selection: &Selection) -> Result<(), String> {
         report.failures.len(),
         excluded
     );
-    if report.failures.is_empty() {
-        Ok(())
-    } else {
-        Err(format!("E2E failures:\n{}", report.failures.join("\n\n")))
-    }
 }
 
 fn selected_smoke_count(manifest: &Manifest, selection: &Selection) -> usize {
@@ -167,7 +290,11 @@ fn main() -> ExitCode {
     if args.len() == 0 {
         return ExitCode::SUCCESS;
     }
-    let result = Selection::parse(args).and_then(|selection| run(&selection));
+    let result = Selection::parse(args).and_then(|selection| match &selection.action {
+        Action::Run => run(&selection),
+        Action::ListWork => list_work(&selection),
+        Action::MergeResults(directory) => merge_results(&selection, directory),
+    });
     match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {

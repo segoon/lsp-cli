@@ -22,10 +22,25 @@ check-dependencies:
 	cargo deny check
 
 test-e2e:
-	RUST_BACKTRACE=full cargo test --locked --test e2e-runner -- --suite all $(if $(CASE),--case $(CASE)) $(if $(SERVER),--server $(SERVER)) $(if $(PHASE),--phase $(PHASE))
+	+@$(call run-e2e,all)
 
 test-e2e-smoke:
-	RUST_BACKTRACE=full cargo test --locked --test e2e-runner -- --suite smoke $(if $(PHASE),--phase $(PHASE))
+	+@$(call run-e2e,smoke)
+
+define run-e2e
+mkdir -p "$(CURDIR)/target"; \
+shard_dir="$$(mktemp -d "$(CURDIR)/target/e2e-results.XXXXXX")" || exit; \
+cleanup() { case "$$shard_dir" in "$(CURDIR)"/target/e2e-results.*) rm -rf -- "$$shard_dir" ;; esac; }; \
+trap cleanup EXIT HUP INT TERM; \
+status=0; \
+RUST_BACKTRACE=full $(MAKE) --no-print-directory -f tests/e2e/Makefile run \
+	SUITE="$(1)" PHASE="$(or $(PHASE),all)" CASE="$(CASE)" SERVER="$(SERVER)" \
+	E2E_SHARD_DIR="$$shard_dir" || status=1; \
+RUST_BACKTRACE=full cargo test --locked --test e2e-runner -- --suite "$(1)" \
+	$(if $(CASE),--case "$(CASE)") $(if $(SERVER),--server "$(SERVER)") \
+	$(if $(PHASE),--phase "$(PHASE)") --merge-results "$$shard_dir" || status=1; \
+exit "$$status"
+endef
 
 clean-e2e-dependencies:
 	rm -rf -- "$(CURDIR)/.env"

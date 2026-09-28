@@ -340,6 +340,10 @@ make test-e2e-smoke
 # complete executable compatibility suite
 make test-e2e
 
+# run either suite with at most four real-server cases at once
+make -j4 test-e2e-smoke
+make -j4 test-e2e
+
 # one language/server pair, or every pair for one server
 make test-e2e CASE=python/pyright
 make test-e2e SERVER=pyright
@@ -354,11 +358,20 @@ make test-e2e SERVER=pyright PHASE=provision
 silently running no tests. Smoke membership is an explicit `tier: smoke` property in the case
 manifest; it is not inferred from preferred-server metadata.
 
+GNU Make's `-jN` option runs up to `N` independently isolated cases concurrently. Omitting `-j`
+keeps the suite sequential, which is useful when reproducing a failure. Provisioning, smoke, and
+lifecycle remain ordered phases: all work in one phase finishes before the next phase begins.
+Parallel runs group each case's output and merge their result shards into the same deterministic
+suite report produced by a sequential run.
+
 These commands download external tools and require the host programs declared by the manifest, and
 local runs use the current Mason registry — compare the resulting source ID with an earlier run
 before concluding that local behavior has changed. CI authenticates one registry request and sets
 `E2E_MASON_REGISTRY_SNAPSHOT` to the snapshot created by its planner; the harness rejects incomplete
-snapshots instead of silently downloading different metadata.
+snapshots instead of silently downloading different metadata. Prefer a prepared registry snapshot
+for parallel runs: uncached workers otherwise make concurrent registry and server-package requests,
+which can reach upstream rate limits sooner. Larger `-jN` values also increase CPU, memory, and
+package-cache contention.
 
 The manual **End-to-end compatibility** GitHub Actions workflow can select `language`, `server`, or
 `installation-family` (the value is respectively a case language ID, an LSP config ID, or one of

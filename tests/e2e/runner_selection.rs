@@ -1,4 +1,12 @@
 use crate::manifest::Manifest;
+use std::path::PathBuf;
+
+#[derive(Debug, Eq, PartialEq)]
+pub(crate) enum Action {
+    Run,
+    ListWork,
+    MergeResults(PathBuf),
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum Suite {
@@ -16,10 +24,12 @@ pub(crate) enum Phase {
 
 #[derive(Debug)]
 pub(crate) struct Selection {
+    pub(crate) action: Action,
     pub(crate) suite: Suite,
     pub(crate) phase: Phase,
     pub(crate) case: Option<String>,
     pub(crate) server: Option<String>,
+    pub(crate) quiet_summary: bool,
 }
 
 impl Selection {
@@ -28,8 +38,18 @@ impl Selection {
         let mut phase = Phase::All;
         let mut case = None;
         let mut server = None;
+        let mut action = Action::Run;
+        let mut quiet_summary = false;
         let mut args = args;
         while let Some(flag) = args.next() {
+            if flag == "--list-work" {
+                set_action(&mut action, Action::ListWork)?;
+                continue;
+            }
+            if flag == "--quiet-summary" {
+                quiet_summary = true;
+                continue;
+            }
             let value = args
                 .next()
                 .ok_or_else(|| format!("{flag} requires a value"))?;
@@ -38,6 +58,9 @@ impl Selection {
                 "--phase" => phase = parse_phase(&value)?,
                 "--case" => case = Some(value),
                 "--server" => server = Some(value),
+                "--merge-results" => {
+                    set_action(&mut action, Action::MergeResults(PathBuf::from(value)))?;
+                }
                 _ => return Err(format!("unknown E2E runner option {flag:?}")),
             }
         }
@@ -45,10 +68,12 @@ impl Selection {
             return Err("CASE and SERVER cannot be used together".to_string());
         }
         Ok(Self {
+            action,
             suite: suite.ok_or_else(|| "--suite is required".to_string())?,
             phase,
             case,
             server,
+            quiet_summary,
         })
     }
 
@@ -81,6 +106,14 @@ impl Selection {
         selected_server.is_none_or(|value| value == server)
             && (self.suite == Suite::All || manifest.smoke_servers().contains(server))
     }
+}
+
+fn set_action(current: &mut Action, requested: Action) -> Result<(), String> {
+    if *current != Action::Run {
+        return Err("only one E2E runner action may be selected".to_string());
+    }
+    *current = requested;
+    Ok(())
 }
 
 fn parse_suite(value: &str) -> Result<Suite, String> {
@@ -126,6 +159,7 @@ mod tests {
         assert_eq!(selection.suite, Suite::All);
         assert_eq!(selection.phase, Phase::Lifecycle);
         assert_eq!(selection.case.as_deref(), Some("rust/rust_analyzer"));
+        assert_eq!(selection.action, Action::Run);
     }
 
     #[test]
@@ -149,5 +183,35 @@ mod tests {
             parse(&["--suite", "all", "--phase", "fast"]).expect_err("unknown phases should fail");
 
         assert!(error.contains("expected all, provision, smoke, or lifecycle"));
+    }
+
+    #[test]
+    fn parses_internal_actions_and_quiet_output() {
+        let selection = parse(&[
+            "--suite",
+            "smoke",
+            "--phase",
+            "smoke",
+            "--list-work",
+            "--quiet-summary",
+        ])
+        .expect("internal options should parse");
+
+        assert_eq!(selection.action, Action::ListWork);
+        assert!(selection.quiet_summary);
+    }
+
+    #[test]
+    fn rejects_multiple_internal_actions() {
+        let error = parse(&[
+            "--suite",
+            "all",
+            "--list-work",
+            "--merge-results",
+            "results",
+        ])
+        .expect_err("actions should be exclusive");
+
+        assert_eq!(error, "only one E2E runner action may be selected");
     }
 }

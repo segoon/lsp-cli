@@ -69,6 +69,8 @@ pub(crate) enum QueryKind {
     Callees,
     Definition,
     Declaration,
+    Implementation,
+    TypeDefinition,
     BuildIndex,
 }
 

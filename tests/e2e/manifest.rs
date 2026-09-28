@@ -39,7 +39,7 @@ pub(crate) mod coverage_cases;
 mod suite;
 use suite::{Architecture, OperatingSystem, Platform, TestDefaults};
 
-const MANIFEST_SCHEMA_VERSION: u32 = 9;
+const MANIFEST_SCHEMA_VERSION: u32 = 10;
 
 #[derive(Clone, Debug)]
 pub(crate) struct Manifest {
@@ -126,8 +126,15 @@ impl ProjectKind {
 struct PairCase {
     language: String,
     server: String,
+    tier: Option<PairTier>,
     smoke: Option<SmokeDisposition>,
     lifecycle: Option<LifecycleDisposition>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "kebab-case")]
+enum PairTier {
+    Smoke,
 }
 
 impl Manifest {
@@ -458,6 +465,12 @@ impl Manifest {
             }
             if let Some(lifecycle) = &pair.lifecycle {
                 lifecycle.validate(pair, self.defaults.lifecycle)?;
+            }
+            if pair.is_smoke() && !pair.has_executable_behavior() {
+                return Err(format!(
+                    "smoke-tier pair {}/{} has no executable behavior",
+                    pair.language, pair.server
+                ));
             }
             if matches!(
                 pair.smoke,

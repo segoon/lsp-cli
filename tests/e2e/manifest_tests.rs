@@ -421,6 +421,22 @@ fn manifest_rejects_an_empty_exclusion_reason() {
 }
 
 #[test]
+fn manifest_rejects_a_smoke_tier_without_executable_behavior() {
+    let error = validation_error("smoke tiers should execute behavior", |manifest| {
+        let pair = manifest
+            .pairs
+            .iter_mut()
+            .find(|pair| matches!(pair.smoke, Some(SmokeDisposition::Excluded { .. })))
+            .expect("manifest should contain an excluded pair");
+        pair.tier = Some(PairTier::Smoke);
+        pair.lifecycle = None;
+    });
+
+    assert!(error.contains("smoke-tier pair"));
+    assert!(error.contains("has no executable behavior"));
+}
+
+#[test]
 fn every_preferred_server_requires_one_lifecycle_owner() {
     let error = validation_error(
         "preferred server should require a lifecycle owner",

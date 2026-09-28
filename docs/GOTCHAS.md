@@ -72,6 +72,19 @@
 
 # LSP server implementations
 
+## Arduino Language Server
+
+- Arduino Language Server is not self-contained after installation. It requires Arduino CLI
+  configuration, an installed board core, `clangd`, and a project-specific fully qualified board
+  name (FQBN) before initialization. The generic E2E fixture therefore records a reviewed
+  exclusion instead of treating missing machine/project configuration as a server regression.
+
+## Astro Language Server
+
+- Astro Language Server requires the TypeScript SDK location in `initializationOptions`.
+  lsp-cli does not currently expose per-server initialization options, so the pair is explicitly
+  excluded from executable capability coverage until that configuration is supported.
+
 ## Mason PyPI launchers
 
 - PyPI packages must be installed into a virtual environment, not with `pip --prefix`. Prefix

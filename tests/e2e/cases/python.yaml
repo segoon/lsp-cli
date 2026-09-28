@@ -51,6 +51,7 @@ pairs:
       reason: Current Pyrefly initializes but returns no workspace or document symbols for the Python fixture.
   - language: python
     server: pyright
+    tier: smoke
     smoke:
       status: queries
       exceptions:

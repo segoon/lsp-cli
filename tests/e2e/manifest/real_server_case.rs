@@ -13,6 +13,14 @@ impl RealServerCase<'_> {
         &self.language.id
     }
 
+    pub(crate) fn server_id(&self) -> &str {
+        &self.pair.server
+    }
+
+    pub(crate) fn is_smoke(&self) -> bool {
+        self.pair.is_smoke()
+    }
+
     pub(crate) fn server_name(&self, repository: &Path) -> Result<String, String> {
         server_name(&self.pair.server, repository)
     }
@@ -67,6 +75,14 @@ impl RealServerCapabilitiesCase<'_> {
 
     pub(crate) fn language(&self) -> &str {
         &self.language.id
+    }
+
+    pub(crate) fn server_id(&self) -> &str {
+        &self.pair.server
+    }
+
+    pub(crate) fn is_smoke(&self) -> bool {
+        self.pair.is_smoke()
     }
 
     pub(crate) fn server_name(&self, repository: &Path) -> Result<String, String> {

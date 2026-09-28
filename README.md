@@ -55,8 +55,8 @@ cargo run -- definition format_order playground/c --lsp clangd
 
 ### Test and compatibility policy
 
-Pull requests run the repository tests plus a required smoke matrix containing one preferred,
-current-Mason server per source language. Nightly and manually dispatched **End-to-end
+Pull requests run `make check` plus a required, explicitly tagged smoke suite. Nightly and
+manually dispatched **End-to-end
 compatibility** workflows run every supported pair. A red required job therefore indicates a
 regression or newly incompatible upstream release; known unsupported pairs are explicit reviewed
 exclusions rather than silently skipped tests.

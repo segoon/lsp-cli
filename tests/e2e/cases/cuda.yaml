@@ -13,6 +13,7 @@ language:
 pairs:
   - language: cuda
     server: clangd
+    tier: smoke
     smoke:
       status: queries
       exceptions:

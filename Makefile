@@ -1,13 +1,15 @@
-.PHONY: test check-format check-tests check-clippy check-readme check-dependencies test-real-server-e2e test-real-server-smoke-e2e test-server-provisioning-e2e clean-e2e-dependencies gen-readme
+.PHONY: test check check-format check-tests check-clippy check-readme check-dependencies test-e2e test-e2e-smoke clean-e2e-dependencies gen-readme
 
-test: check-format check-tests check-clippy check-readme check-dependencies
+test: check-tests
+
+check: check-format check-tests check-clippy check-readme check-dependencies
 
 check-format:
 	cargo fmt --check
 	cargo fmt --manifest-path tests/e2e/fixtures/fake-lsp/Cargo.toml --check
 
 check-tests:
-	RUST_BACKTRACE=full cargo test --locked -q
+	RUST_BACKTRACE=full cargo test --locked --all-features -q
 
 check-clippy:
 	cargo clippy --locked --all-targets --all-features -- -D warnings
@@ -19,14 +21,11 @@ check-readme:
 check-dependencies:
 	cargo deny check
 
-test-real-server-e2e:
-	RUST_BACKTRACE=full scripts/run_e2e_test.sh manifest_real_server
+test-e2e:
+	RUST_BACKTRACE=full cargo test --locked --test e2e-runner -- --suite all $(if $(CASE),--case $(CASE)) $(if $(SERVER),--server $(SERVER)) $(if $(PHASE),--phase $(PHASE))
 
-test-real-server-smoke-e2e:
-	RUST_BACKTRACE=full scripts/run_e2e_test.sh manifest_real_server_smoke_cases
-
-test-server-provisioning-e2e:
-	RUST_BACKTRACE=full scripts/run_e2e_test.sh manifest_server_provisioning_cases
+test-e2e-smoke:
+	RUST_BACKTRACE=full cargo test --locked --test e2e-runner -- --suite smoke $(if $(PHASE),--phase $(PHASE))
 
 clean-e2e-dependencies:
 	rm -rf -- "$(CURDIR)/.env"

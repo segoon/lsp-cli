@@ -41,8 +41,8 @@ entries) is a product-policy call, not an implementation fact.
 
 ## Local dev environment
 
-The real-server E2E targets (`test-real-server-e2e`, `test-real-server-smoke-e2e`,
-`test-server-provisioning-e2e`) automatically install pinned Go, Java, Node.js, .NET, Zig, and Ruby
+The real-server E2E targets (`test-e2e` and `test-e2e-smoke`) automatically install pinned Go,
+Java, Node.js, .NET, Zig, and Ruby
 runtimes. Verified archives are cached under `.env/downloads/`, and immutable versioned
 installations are cached under `.env/installations/`. Each test run builds its installer `PATH`
 directly from those installations; it does not create an aggregate bin directory. The complete
@@ -64,16 +64,15 @@ existing `.cargo` or `.rustup` directory under the original host home is used. T
 this state through installer-specific variables which `lsp-cli` translates only for the Cargo
 subprocess; Cargo and ambient server executables are not added to the server runtime `PATH`.
 
-CI's workflow planner passes each installation family's intrinsic server runtime through
-`E2E_RUNTIME_PROGRAMS`: npm packages stage `node`, and NuGet packages stage `dotnet`. To reproduce
-one of those shards locally, set the same comma-separated list, for example:
+The harness always stages the intrinsic npm and NuGet runtimes (`node` and `dotnet`) in each
+isolated server environment. To reproduce one pair locally, use the same public selector as CI:
 
 ```sh
-E2E_RUNTIME_PROGRAMS=node E2E_CASE=yaml/yamlls make test-real-server-smoke-e2e
+make test-e2e CASE=yaml/yamlls
 ```
 
-The harness resolves only those named programs from the host and stages them in its isolated
-server directory. A server's explicit manifest `host-programs` entry overrides a family default
+The harness resolves those programs from the managed runtimes and stages them in its isolated
+server directory. A server's explicit manifest `host-programs` entry overrides a runtime default
 with the same name. The process `PATH` remains isolated; unrelated host executables are not made
 visible to downloaded servers.
 
@@ -210,15 +209,16 @@ A validation test fails when:
 - two cases select the same user-visible server ambiguously;
 - a new top-level subcommand has no assigned coverage class.
 
-Every relevant server has exactly one preferred pair per source language, tagged with a `smoke`
-disposition (a generic query suite, or an exclusion with a mandatory reviewed reason) and exactly
-one lifecycle-owner pair, tagged with a `lifecycle` disposition (grouped daemon scenarios, or a
-reviewed exclusion). Direct `run` may be excluded independently when only detached operation is
-reliable. This keeps the chosen project stable when a shared server gains another filetype, without
-repeating process tests for every compatible pair. Source-language query profiles declare shared
-semantic terms, expected symbols, and format paths; pair entries keep only deadlines and narrowly
-scoped known-result exceptions (see "Real-server exceptions" below). Language-specific
-prerequisites and expectations belong in YAML, not in the Rust runner.
+Each relevant server has exactly one lifecycle-owner pair, tagged with a `lifecycle` disposition
+(grouped daemon scenarios, or a reviewed exclusion). The smaller pull-request suite is selected by
+an independent `tier: smoke` marker on vetted executable pairs; it currently follows preferred
+source/query and lifecycle-owner coverage but does not infer membership from data preferences.
+Direct `run` may be excluded independently when only detached operation is reliable. This keeps
+the chosen project stable when a shared server gains another filetype, without repeating process
+tests for every compatible pair. Source-language query profiles declare shared semantic terms,
+expected symbols, and format paths; pair entries keep only deadlines and narrowly scoped known-
+result exceptions (see "Real-server exceptions" below). Language-specific prerequisites and
+expectations belong in YAML, not in the Rust runner.
 
 ### Extending the manifest
 
@@ -315,13 +315,13 @@ a second installation path. The tradeoff is a nondeterministic merge gate: a reg
 release can break an unchanged commit, and reproducing the failure depends on the recorded source
 ID remaining available upstream.
 
-Run the complete downloadable-server inventory manually with:
+Run only the complete downloadable-server inventory manually with:
 
 ```sh
-make test-server-provisioning-e2e
+make test-e2e PHASE=provision
 ```
 
-Set `E2E_SERVER=<config-id>` to diagnose one downloadable server. The test copies the server's
+Set `SERVER=<config-id>` to diagnose one downloadable server. The test copies the server's
 owner project into an isolated context, stages its declared host programs, invokes `detect` with
 `--download`, and verifies that exactly one selected command resolves inside the isolated home. It
 does not initialize the server or substitute for the later language/server behavior matrix.
@@ -331,20 +331,28 @@ does not initialize the server or substitute for the later language/server behav
 From the repository root:
 
 ```sh
-# smoke: one preferred server per source language, all relevant subcommands
-E2E_CASE=python/pyright make test-real-server-smoke-e2e
+# deterministic Rust tests; does not download or start real LSP servers
+make test
 
-# combined query + lifecycle target for one pair
-E2E_CASE=java/jdtls make test-real-server-e2e
+# curated, explicitly tagged smoke suite
+make test-e2e-smoke
 
-# provisioning only, for one downloadable server
-E2E_SERVER=pyright make test-server-provisioning-e2e
+# complete executable compatibility suite
+make test-e2e
+
+# one language/server pair, or every pair for one server
+make test-e2e CASE=python/pyright
+make test-e2e SERVER=pyright
+
+# restrict either selection to one phase
+make test-e2e CASE=java/jdtls PHASE=lifecycle
+make test-e2e SERVER=pyright PHASE=provision
 ```
 
-`E2E_CASE=<language>/<server-id>` (or `E2E_CASES=` with a comma-separated list, used by sharded CI)
-selects one configured executable or explicitly excluded case without changing the all-cases
-default. Selecting a compatible pair with no E2E behavior fails with a clear error instead of
-silently running no tests.
+`CASE` and `SERVER` are mutually exclusive. `PHASE` accepts `all` (the default), `provision`,
+`smoke`, or `lifecycle`. Selecting a scope with no executable behavior fails clearly instead of
+silently running no tests. Smoke membership is an explicit `tier: smoke` property in the case
+manifest; it is not inferred from preferred-server metadata.
 
 These commands download external tools and require the host programs declared by the manifest, and
 local runs use the current Mason registry — compare the resulting source ID with an earlier run
@@ -365,11 +373,10 @@ shows all selected pairs, including reviewed exclusions, before runnable pairs a
 
 ## CI plan
 
-**Pull requests** run: all existing unit tests and checks via `make test`; global and detection E2E
-tests; one preferred current-Mason server per source language; every relevant subcommand across
-that smoke matrix; manifest/data consistency checks.
+**Pull requests** run all deterministic tests and checks via `make check`, then every executable
+pair marked `tier: smoke` through `make test-e2e-smoke`.
 
-**Nightly** runs all compatible pairs, sharded by language and server installation family, with
+**Nightly** runs all executable manifest pairs, sharded by language and server installation family, with
 fail-fast disabled so one broken server doesn't hide the rest of the compatibility report. The
 planner resolves installation families from the current Mason registry rather than copying that
 registry metadata into `cases/`. Suite-level smoke, lifecycle, and provisioning deadlines provide
@@ -452,7 +459,7 @@ Check evidence in this order:
    happened before a server case ran.
 2. **Provisioning or network:** no completed receipt, package-manager output, HTTP failure, or an
    absent host program points to installation rather than LSP behavior — use
-   `make test-server-provisioning-e2e`.
+   `make test-e2e PHASE=provision`.
 3. **Startup or shutdown:** use the retained command line and server stderr. SDK incompatibility,
    launcher failure, crash, and failure to exit are distinct from query-result drift.
 4. **Protocol or capability:** compare the retained capabilities with the command exercised by the

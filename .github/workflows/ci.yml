@@ -41,20 +41,17 @@ jobs:
       - name: Cache cargo artifacts
         uses: Swatinem/rust-cache@v2
 
-      - name: Check formatting
+      - name: Install cargo-deny
         if: matrix.rust == 'stable'
-        run: make check-format
+        run: cargo install cargo-deny --locked
 
-      - name: Check generated command reference
+      - name: Run repository checks
         if: matrix.rust == 'stable'
-        run: make check-readme
+        run: make check
 
       - name: Run tests
-        run: make check-tests
-
-      - name: Run clippy
-        if: matrix.rust == 'stable'
-        run: make check-clippy
+        if: matrix.rust != 'stable'
+        run: make test
 
   real-server-e2e:
     name: Real-server E2E
@@ -95,4 +92,4 @@ jobs:
       - name: Run real-server E2E tests
         env:
           E2E_MASON_REGISTRY_SNAPSHOT: ${{ runner.temp }}/mason-registry
-        run: make test-real-server-e2e
+        run: make test-e2e-smoke

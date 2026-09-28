@@ -5,8 +5,7 @@ use crate::dependencies::ManagedDependencies;
 use crate::harness::{E2eContext, SocketSnapshot};
 use crate::lsp_exchange;
 use crate::manifest::{Manifest, RealServerLifecycleCase};
-use crate::real_server_support::{CaseDeadline, run_isolated_case, run_reported_case};
-use crate::repository_root;
+use crate::real_server_support::{CaseDeadline, RunReport, run_isolated_case, run_reported_case};
 use crate::results::{AtStage, CaseKind, E2eResult, FailureStage};
 
 struct LifecycleTest<'a> {
@@ -211,40 +210,17 @@ fn expect_socket_count(context: &E2eContext, expected: usize) -> Result<(), Stri
     }
 }
 
-#[test]
-#[ignore = "downloads and runs real LSP servers; executed explicitly in CI"]
-fn manifest_real_server_lifecycle_cases() {
-    let repository = repository_root();
-    let dependencies = ManagedDependencies::prepare()
-        .expect("real-server lifecycle E2E dependencies should be available");
-    let manifest = Manifest::load_validated(repository).expect("E2E manifest should be valid");
-    let selected = std::env::var("E2E_CASE").ok();
-    assert!(
-        selected
-            .as_deref()
-            .is_none_or(|label| manifest.declares_pair(label)),
-        "E2E_CASE {:?} does not select a declared manifest pair",
-        selected.as_deref().unwrap_or_default()
-    );
-    let cases = manifest
-        .real_server_lifecycle_cases()
-        .filter(|case| {
-            selected
-                .as_ref()
-                .is_none_or(|expected| case.label() == *expected)
-        })
-        .collect::<Vec<_>>();
-    let failures = cases
-        .into_iter()
-        .filter_map(|case| {
-            LifecycleTest::new(case, repository, &dependencies)
-                .run()
-                .err()
-        })
-        .collect::<Vec<_>>();
-    assert!(
-        failures.is_empty(),
-        "real-server lifecycle failures:\n{}",
-        failures.join("\n\n")
-    );
+pub(crate) fn run_cases(
+    manifest: &Manifest,
+    repository: &Path,
+    dependencies: &ManagedDependencies,
+    include: impl Fn(&str, &str, bool) -> bool,
+) -> RunReport {
+    let mut report = RunReport::default();
+    for case in manifest.real_server_lifecycle_cases() {
+        if include(&case.label(), case.server_id(), case.is_smoke()) {
+            report.record(LifecycleTest::new(case, repository, dependencies).run());
+        }
+    }
+    report
 }

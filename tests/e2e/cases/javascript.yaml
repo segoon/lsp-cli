@@ -19,6 +19,7 @@ pairs:
       reason: Deno LSP rejects the standard shutdown request because it requires non-null parameters.
   - language: javascript
     server: ts_ls
+    tier: smoke
     smoke:
       status: queries
       exceptions:

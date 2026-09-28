@@ -14,6 +14,7 @@ language:
 pairs:
   - language: rust
     server: rust_analyzer
+    tier: smoke
     smoke:
       status: queries
       deadline-seconds: 180

@@ -4,8 +4,7 @@ use serde::Deserialize;
 
 use crate::dependencies::ManagedDependencies;
 use crate::manifest::{Manifest, ServerProvisioningCase};
-use crate::real_server_support::{CaseDeadline, run_isolated_case, run_reported_case};
-use crate::repository_root;
+use crate::real_server_support::{CaseDeadline, RunReport, run_isolated_case, run_reported_case};
 use crate::results::{AtStage, CaseKind, E2eResult, FailureStage};
 
 struct ProvisioningTest<'a> {
@@ -134,44 +133,17 @@ fn validate_program(program: &str, home: &Path) -> Result<(), String> {
     Ok(())
 }
 
-#[test]
-#[ignore = "downloads real LSP servers; executed explicitly by the provisioning target"]
-fn manifest_server_provisioning_cases() {
-    let repository = repository_root();
-    let dependencies = ManagedDependencies::prepare()
-        .expect("server-provisioning E2E dependencies should be available");
-    let manifest = Manifest::load_validated(repository).expect("E2E manifest should be valid");
-    let selected = std::env::var("E2E_SERVER").ok();
-    assert!(
-        selected
-            .as_deref()
-            .is_none_or(|id| manifest.declares_server(id)),
-        "E2E_SERVER {:?} does not select a server in the provisioning inventory",
-        selected.as_deref().unwrap_or_default()
-    );
-    assert!(
-        selected
-            .as_deref()
-            .is_none_or(|id| manifest.server_is_downloadable(id)),
-        "E2E_SERVER {:?} selects an explicitly excluded provisioning server",
-        selected.as_deref().unwrap_or_default()
-    );
-    let failures = manifest
-        .server_provisioning_cases()
-        .filter(|case| {
-            selected
-                .as_ref()
-                .is_none_or(|expected| case.server_id() == expected)
-        })
-        .filter_map(|case| {
-            ProvisioningTest::new(case, repository, &dependencies)
-                .run()
-                .err()
-        })
-        .collect::<Vec<_>>();
-    assert!(
-        failures.is_empty(),
-        "server provisioning failures:\n{}",
-        failures.join("\n\n")
-    );
+pub(crate) fn run_cases(
+    manifest: &Manifest,
+    repository: &Path,
+    dependencies: &ManagedDependencies,
+    include: impl Fn(&str) -> bool,
+) -> RunReport {
+    let mut report = RunReport::default();
+    for case in manifest.server_provisioning_cases() {
+        if include(case.server_id()) {
+            report.record(ProvisioningTest::new(case, repository, dependencies).run());
+        }
+    }
+    report
 }

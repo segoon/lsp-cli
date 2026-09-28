@@ -30,6 +30,7 @@ pairs:
       lsp-timeout-seconds: 15
   - language: cs
     server: roslyn_ls
+    tier: smoke
     smoke:
       status: excluded
       reason: roslyn-language-server returns namespace-qualified, parenthesized textDocument/documentSymbol names (e.g. "Playground.Models.Order", "BuildSampleOrder()") instead of bare identifiers, so list-symbols cannot match the shared expected-names.

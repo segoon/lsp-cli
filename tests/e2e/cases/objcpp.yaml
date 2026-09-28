@@ -12,6 +12,7 @@ language:
 pairs:
   - language: objcpp
     server: clangd
+    tier: smoke
     smoke:
       status: queries
       exceptions:

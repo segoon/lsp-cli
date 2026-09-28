@@ -70,7 +70,6 @@ struct WorkflowShard {
     language: String,
     installation_family: InstallationFamily,
     cases: String,
-    runtime_programs: String,
 }
 
 impl Manifest {
@@ -86,7 +85,7 @@ impl Manifest {
         let mut grouped = BTreeMap::<(String, InstallationFamily), Vec<&PairCase>>::new();
         for pair in &self.pairs {
             let key = pair.key();
-            if !selected.contains(&key) {
+            if !selected.contains(&key) || !pair.has_executable_behavior() {
                 continue;
             }
             let server = self
@@ -119,7 +118,6 @@ impl Manifest {
                     language,
                     installation_family: family,
                     cases,
-                    runtime_programs: family.runtime_programs().join(","),
                 }
             })
             .collect::<Vec<_>>();
@@ -276,6 +274,32 @@ impl Manifest {
         })
     }
 
+    pub(crate) fn pair_server(&self, label: &str) -> Option<&str> {
+        self.pairs
+            .iter()
+            .find(|pair| pair.label() == label)
+            .map(|pair| pair.server.as_str())
+    }
+
+    pub(crate) fn smoke_servers(&self) -> BTreeSet<&str> {
+        self.pairs
+            .iter()
+            .filter(|pair| pair.is_smoke())
+            .map(|pair| pair.server.as_str())
+            .collect()
+    }
+
+    pub(crate) fn excluded_behavior_count(
+        &self,
+        include: impl Fn(&str, &str, bool) -> bool,
+    ) -> usize {
+        self.pairs
+            .iter()
+            .filter(|pair| !pair.has_executable_behavior())
+            .filter(|pair| include(&pair.label(), &pair.server, pair.is_smoke()))
+            .count()
+    }
+
     pub(crate) fn declares_pair(&self, label: &str) -> bool {
         if self
             .pairs
@@ -401,14 +425,6 @@ impl InstallationFamily {
         }
     }
 
-    fn runtime_programs(self) -> &'static [&'static str] {
-        match self {
-            Self::Npm => &["node"],
-            Self::Nuget => &["dotnet"],
-            Self::Cargo | Self::Generic | Self::Github | Self::Golang | Self::Pypi => &[],
-        }
-    }
-
     fn parse(value: &str) -> Result<Self, String> {
         match value {
             "cargo" => Ok(Self::Cargo),
@@ -478,12 +494,5 @@ mod workflow_tests {
             WorkflowSelector::Server,
             WorkflowSelector::InstallationFamily,
         ];
-    }
-
-    #[test]
-    fn derives_runtime_staging_from_installation_family() {
-        assert_eq!(InstallationFamily::Npm.runtime_programs(), ["node"]);
-        assert_eq!(InstallationFamily::Nuget.runtime_programs(), ["dotnet"]);
-        assert!(InstallationFamily::Pypi.runtime_programs().is_empty());
     }
 }

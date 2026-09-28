@@ -319,6 +319,11 @@
   isolated runs. Although the function primarily constructs data, it invokes methods such as
   `to_string`; do not classify constructor-heavy fixture functions as having no callees without
   checking the server's current call-hierarchy interpretation.
+- Those outgoing call-hierarchy results depend on the Rust standard-library sources being
+  available. The same rust-analyzer release initialized in CI without the `rust-src` toolchain
+  component, reported that it could not load the standard library, and returned no callees for
+  `sample_order`. Install `rust-src` when a test expects calls into the standard library, or use a
+  fixture whose expected call edges stay within the workspace.
 
 ## clangd
 

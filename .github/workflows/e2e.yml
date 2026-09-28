@@ -45,6 +45,7 @@ jobs:
       - name: Build matrix from current Mason registry
         id: matrix
         env:
+          E2E_GITHUB_TOKEN: ${{ github.token }}
           E2E_SELECTOR: ${{ github.event.inputs.selector || 'all' }}
           E2E_SELECTOR_VALUE: ${{ github.event.inputs.value }}
           E2E_PLAN_OUTPUT: ${{ runner.temp }}/e2e-plan.json
@@ -66,7 +67,7 @@ jobs:
     name: ${{ matrix.name }}
     needs: plan
     if: ${{ fromJSON(needs.plan.outputs.plan).has_runnable }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     strategy:
       fail-fast: false
@@ -84,31 +85,41 @@ jobs:
           path: ${{ runner.temp }}/mason-registry
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rust-src
       - name: Cache Rust build artifacts
         uses: Swatinem/rust-cache@v2
-      - name: Install Go
-        if: ${{ matrix.needs_go }}
-        uses: actions/setup-go@v7
+      - name: Cache E2E runtimes
+        uses: actions/cache@v6
         with:
-          go-version: 1.27.1
-      - name: Install Java
-        if: ${{ matrix.needs_java }}
-        uses: actions/setup-java@v6
-        with:
-          distribution: temurin
-          java-version: '21'
-      - name: Install Node.js
-        if: ${{ matrix.needs_node }}
-        uses: actions/setup-node@v7
-        with:
-          node-version: '24'
-      - name: Install .NET
-        if: ${{ matrix.needs_dotnet }}
-        uses: actions/setup-dotnet@v6
-        with:
-          dotnet-version: 10.0.x
+          path: .env
+          key: e2e-runtimes-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('tests/e2e/dependencies/catalog.rs') }}
+          restore-keys: e2e-runtimes-${{ runner.os }}-${{ runner.arch }}-
       - name: Run real-server smoke cases
         env:
           E2E_CASES: ${{ matrix.cases }}
+          E2E_RUNTIME_PROGRAMS: ${{ matrix.runtime_programs }}
           E2E_MASON_REGISTRY_SNAPSHOT: ${{ runner.temp }}/mason-registry
+          E2E_RESULTS_OUTPUT: ${{ runner.temp }}/e2e-results.json
+          E2E_RESULTS_SUMMARY_OUTPUT: ${{ runner.temp }}/e2e-results.md
         run: make test-real-server-smoke-e2e
+      - name: Publish E2E result summary
+        if: ${{ always() }}
+        env:
+          E2E_RESULTS_SUMMARY_OUTPUT: ${{ runner.temp }}/e2e-results.md
+        run: |
+          if [[ -f "$E2E_RESULTS_SUMMARY_OUTPUT" ]]; then
+            cat "$E2E_RESULTS_SUMMARY_OUTPUT" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo '## E2E shard results' >> "$GITHUB_STEP_SUMMARY"
+            echo >> "$GITHUB_STEP_SUMMARY"
+            echo 'No case results were produced; inspect the job log for a harness or build failure.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload E2E results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-results-${{ matrix.language }}-${{ matrix.installation_family }}
+          path: ${{ runner.temp }}/e2e-results.json
+          if-no-files-found: warn
+          retention-days: 14

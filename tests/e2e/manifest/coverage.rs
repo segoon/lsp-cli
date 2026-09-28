@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 #[cfg(feature = "e2e-workflow-planner")]
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use super::*;
 
@@ -26,6 +26,21 @@ pub(crate) enum InstallationFamily {
     Npm,
     Nuget,
     Pypi,
+}
+
+#[cfg(feature = "e2e-workflow-planner")]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct WorkflowPackage {
+    pub(crate) installation_family: InstallationFamily,
+    pub(crate) source_id: String,
+}
+
+#[cfg(feature = "e2e-workflow-planner")]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+pub(crate) struct RegistrySnapshot {
+    pub(crate) release_tag: String,
+    pub(crate) refreshed_at_epoch_seconds: u64,
+    pub(crate) digest: Option<String>,
 }
 
 #[cfg(feature = "e2e-workflow-planner")]
@@ -55,10 +70,7 @@ struct WorkflowShard {
     language: String,
     installation_family: InstallationFamily,
     cases: String,
-    needs_go: bool,
-    needs_java: bool,
-    needs_node: bool,
-    needs_dotnet: bool,
+    runtime_programs: String,
 }
 
 impl Manifest {
@@ -67,9 +79,10 @@ impl Manifest {
         &self,
         selector: WorkflowSelector,
         value: Option<&str>,
-        families: &BTreeMap<String, InstallationFamily>,
+        packages: &BTreeMap<String, WorkflowPackage>,
+        snapshot: &RegistrySnapshot,
     ) -> Result<(WorkflowPlan, String), String> {
-        let selected = self.selected_workflow_pairs(selector, value, families)?;
+        let selected = self.selected_workflow_pairs(selector, value, packages)?;
         let mut grouped = BTreeMap::<(String, InstallationFamily), Vec<&PairCase>>::new();
         for pair in &self.pairs {
             let key = pair.key();
@@ -81,12 +94,13 @@ impl Manifest {
                 .iter()
                 .find(|server| server.id == pair.server)
                 .expect("validated pair server should exist");
-            let family = *families.get(&server.id).ok_or_else(|| {
+            let package = packages.get(&server.id).ok_or_else(|| {
                 format!(
                     "Mason registry did not resolve installation family for {:?}",
                     server.id
                 )
             })?;
+            let family = package.installation_family;
             grouped
                 .entry((pair.language.clone(), family))
                 .or_default()
@@ -100,28 +114,16 @@ impl Manifest {
                     .map(|pair| format!("{}/{}", pair.language, pair.server))
                     .collect::<Vec<_>>()
                     .join(",");
-                let programs = pairs
-                    .iter()
-                    .filter_map(|pair| self.servers.iter().find(|item| item.id == pair.server))
-                    .flat_map(ServerCase::host_programs)
-                    .map(|(name, _)| name)
-                    .collect::<BTreeSet<_>>();
                 WorkflowShard {
                     name: format!("{language}/{}", family.label()),
                     language,
                     installation_family: family,
                     cases,
-                    needs_go: family == InstallationFamily::Golang || programs.contains("go"),
-                    needs_java: programs.contains("java"),
-                    needs_node: family == InstallationFamily::Npm
-                        || programs.contains("node")
-                        || programs.contains("npm"),
-                    needs_dotnet: family == InstallationFamily::Nuget
-                        || programs.contains("dotnet"),
+                    runtime_programs: family.runtime_programs().join(","),
                 }
             })
             .collect::<Vec<_>>();
-        let report = self.workflow_report(&selected)?;
+        let report = self.workflow_report(&selected, packages, snapshot)?;
         Ok((
             WorkflowPlan {
                 has_runnable: !include.is_empty(),
@@ -136,7 +138,7 @@ impl Manifest {
         &self,
         selector: WorkflowSelector,
         value: Option<&str>,
-        families: &BTreeMap<String, InstallationFamily>,
+        packages: &BTreeMap<String, WorkflowPackage>,
     ) -> Result<BTreeSet<PairKey>, String> {
         let compatible = self.compatible_pair_inventory(&repository_root().join("data"))?;
         let value = value.filter(|item| !item.trim().is_empty());
@@ -174,7 +176,11 @@ impl Manifest {
                 let family = InstallationFamily::parse(value)?;
                 compatible
                     .into_iter()
-                    .filter(|pair| families.get(&pair.server).copied() == Some(family))
+                    .filter(|pair| {
+                        packages
+                            .get(&pair.server)
+                            .is_some_and(|package| package.installation_family == family)
+                    })
                     .collect()
             }
         };
@@ -204,9 +210,18 @@ impl Manifest {
     }
 
     #[cfg(feature = "e2e-workflow-planner")]
-    fn workflow_report(&self, selected: &BTreeSet<PairKey>) -> Result<String, String> {
-        let mut report = String::from(
-            "## E2E compatibility report\n\n| Pair | Classification | Reason |\n| --- | --- | --- |\n",
+    fn workflow_report(
+        &self,
+        selected: &BTreeSet<PairKey>,
+        packages: &BTreeMap<String, WorkflowPackage>,
+        snapshot: &RegistrySnapshot,
+    ) -> Result<String, String> {
+        let digest = snapshot.digest.as_deref().unwrap_or("unavailable");
+        let mut report = format!(
+            "## E2E compatibility report\n\nMason registry: `{}`; digest: `{digest}`; refreshed at Unix epoch `{}`.\n\n\
+             | Pair | Classification | Installation family | Source ID | Reason |\n\
+             | --- | --- | --- | --- | --- |\n",
+            snapshot.release_tag, snapshot.refreshed_at_epoch_seconds
         );
         for pair in selected {
             let label = format!("{}/{}", pair.language, pair.server);
@@ -216,8 +231,17 @@ impl Manifest {
             } else {
                 "executable"
             };
+            let family = packages
+                .get(&pair.server)
+                .map(|package| package.installation_family.label())
+                .unwrap_or("unavailable");
+            let source_id = packages
+                .get(&pair.server)
+                .map(|package| package.source_id.as_str())
+                .unwrap_or("unavailable")
+                .replace('|', "\\|");
             report.push_str(&format!(
-                "| `{label}` | {classification} | {} |\n",
+                "| `{label}` | {classification} | `{family}` | `{source_id}` | {} |\n",
                 reason.as_deref().unwrap_or("").replace('|', "\\|")
             ));
         }
@@ -363,6 +387,7 @@ impl Manifest {
 }
 
 #[cfg(feature = "e2e-workflow-planner")]
+#[cfg(feature = "e2e-workflow-planner")]
 impl InstallationFamily {
     pub(crate) fn label(self) -> &'static str {
         match self {
@@ -373,6 +398,14 @@ impl InstallationFamily {
             Self::Npm => "npm",
             Self::Nuget => "nuget",
             Self::Pypi => "pypi",
+        }
+    }
+
+    fn runtime_programs(self) -> &'static [&'static str] {
+        match self {
+            Self::Npm => &["node"],
+            Self::Nuget => &["dotnet"],
+            Self::Cargo | Self::Generic | Self::Github | Self::Golang | Self::Pypi => &[],
         }
     }
 
@@ -411,16 +444,30 @@ mod workflow_tests {
             .into_iter()
             .map(|server| {
                 assert!(!server.name.is_empty() && !server.program.is_empty());
-                (server.id, InstallationFamily::Github)
+                (
+                    server.id,
+                    WorkflowPackage {
+                        installation_family: InstallationFamily::Github,
+                        source_id: "pkg:github/example/server@v1.0.0".to_string(),
+                    },
+                )
             })
             .collect();
+        let snapshot = RegistrySnapshot {
+            release_tag: "2026-09-25".to_string(),
+            refreshed_at_epoch_seconds: 1_797_000_000,
+            digest: Some("sha256:0123".to_string()),
+        };
 
         let (plan, report) = manifest
-            .workflow_plan(WorkflowSelector::All, None, &families)
+            .workflow_plan(WorkflowSelector::All, None, &families, &snapshot)
             .expect("workflow plan should build");
 
         assert!(serde_json::to_value(plan).expect("plan should serialize")["has_runnable"] == true);
         assert!(report.lines().any(|line| line.contains("executable")));
+        assert!(report.contains("pkg:github/example/server@v1.0.0"));
+        assert!(report.contains("2026-09-25"));
+        assert!(report.contains("sha256:0123"));
         assert_eq!(
             InstallationFamily::from_source_id("pkg:golang/example/tool")
                 .expect("known family should parse"),
@@ -431,5 +478,12 @@ mod workflow_tests {
             WorkflowSelector::Server,
             WorkflowSelector::InstallationFamily,
         ];
+    }
+
+    #[test]
+    fn derives_runtime_staging_from_installation_family() {
+        assert_eq!(InstallationFamily::Npm.runtime_programs(), ["node"]);
+        assert_eq!(InstallationFamily::Nuget.runtime_programs(), ["dotnet"]);
+        assert!(InstallationFamily::Pypi.runtime_programs().is_empty());
     }
 }

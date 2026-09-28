@@ -53,6 +53,18 @@ cargo run -- grep Order playground/rust
 cargo run -- definition format_order playground/c --lsp clangd
 ```
 
+### Test and compatibility policy
+
+Pull requests run the repository tests plus a required smoke matrix containing one preferred,
+current-Mason server per source language. Nightly and manually dispatched **End-to-end
+compatibility** workflows run every supported pair. A red required job therefore indicates a
+regression or newly incompatible upstream release; known unsupported pairs are explicit reviewed
+exclusions rather than silently skipped tests.
+
+The split keeps pull-request feedback reasonably fast, but a regression in a non-preferred server
+may first appear in the nightly run. See [the E2E guide](tests/e2e/Readme.md) for local commands,
+manual workflow selectors, prerequisites, caching, and exclusion details.
+
 
 ## Use cases
 

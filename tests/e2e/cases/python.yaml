@@ -15,18 +15,22 @@ pairs:
   - language: python
     server: basedpyright
     smoke:
-      status: excluded
-      reason: The isolated Mason launcher cannot import the installed basedpyright Python module.
+      status: queries
+      exceptions:
+        - command: build-index
+          outcome: failure
+          message: background-work progress
+          reason: BasedPyright exposes no background-work progress signal
   - language: python
     server: jedi_language_server
     smoke:
       status: excluded
-      reason: The isolated Mason launcher cannot import the installed jedi-language-server Python module.
+      reason: Jedi Language Server answers queries but does not exit reliably after the standard shutdown exchange.
   - language: python
     server: pylsp
     smoke:
       status: excluded
-      reason: The isolated Mason launcher cannot import the installed python-lsp-server module.
+      reason: python-lsp-server does not advertise workspace/symbol, which the shared source-language query suite requires to locate declarations.
   - language: python
     server: pylyzer
     smoke:
@@ -39,7 +43,7 @@ pairs:
     server: pyre
     smoke:
       status: excluded
-      reason: The isolated Mason launcher cannot import the installed pyre-check Python module.
+      reason: Pyre persistent initializes with the fixture configuration but advertises only document synchronization, not the semantic capabilities required by the shared query suite.
   - language: python
     server: pyrefly
     smoke:

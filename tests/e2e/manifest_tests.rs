@@ -91,7 +91,7 @@ fn complete_manifest_rejects_a_missing_downloadable_pair() {
 #[test]
 fn pair_selection_reports_explicit_and_inherited_exclusions() {
     let manifest = Manifest::load_validated(repository_root()).expect("manifest should validate");
-    for pair in ["python/basedpyright", "c/ast_grep"] {
+    for pair in ["python/pyrefly", "c/ast_grep"] {
         assert!(manifest.declares_pair(pair));
         assert!(manifest.exclusion_reason(pair).is_some());
     }

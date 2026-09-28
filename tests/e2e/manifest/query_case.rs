@@ -86,6 +86,7 @@ pub(super) struct QueryException {
 pub(crate) enum ExceptionOutcome {
     EmptyMatches,
     Failure,
+    VariableMatches,
 }
 
 #[derive(Clone, Debug, Deserialize)]

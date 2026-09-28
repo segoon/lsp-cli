@@ -5,12 +5,18 @@ use std::time::Duration;
 use serde::Deserialize;
 use serde_json::Value;
 
+use crate::dependencies::ManagedDependencies;
 use crate::harness::{E2eContext, E2eOutput};
 use crate::manifest::{
     ExceptionOutcome, Manifest, QueryKind, RealServerCapabilitiesCase, RealServerCase,
 };
 use crate::real_server_support::{CaseDeadline, run_isolated_case, run_reported_case};
 use crate::repository_root;
+use crate::results::{AtStage, CaseKind, E2eResult, FailureStage};
+
+#[cfg(test)]
+#[path = "real_servers_tests.rs"]
+mod tests;
 
 const QUERY_COMMANDS: [QueryKind; 12] = [
     QueryKind::ServerCapabilities,
@@ -30,11 +36,13 @@ const QUERY_COMMANDS: [QueryKind; 12] = [
 struct RealServerTest<'a> {
     case: RealServerCase<'a>,
     repository: &'a Path,
+    dependencies: &'a ManagedDependencies,
 }
 
 struct CapabilitiesTest<'a> {
     case: RealServerCapabilitiesCase<'a>,
     repository: &'a Path,
+    dependencies: &'a ManagedDependencies,
 }
 
 #[derive(Deserialize)]
@@ -49,32 +57,49 @@ struct ServerOutput {
 }
 
 impl<'a> RealServerTest<'a> {
-    fn new(case: RealServerCase<'a>, repository: &'a Path) -> Self {
-        Self { case, repository }
+    fn new(
+        case: RealServerCase<'a>,
+        repository: &'a Path,
+        dependencies: &'a ManagedDependencies,
+    ) -> Self {
+        Self {
+            case,
+            repository,
+            dependencies,
+        }
     }
 
     fn run(self) -> Result<(), String> {
         let label = self.case.label();
-        run_reported_case("case", &label, || self.run_inner())
+        run_reported_case(CaseKind::Smoke, &label, || self.run_inner())
     }
 
-    fn run_inner(&self) -> Result<(), String> {
+    fn run_inner(&self) -> E2eResult {
         let deadline = CaseDeadline::new(self.case.deadline_seconds(), "case");
         run_isolated_case(
+            self.dependencies,
             &self.repository.join(self.case.project()),
             self.case.host_programs(),
             &deadline,
             |context| {
-                let server = self.case.server_name(self.repository)?;
-                let capabilities = self.capabilities(context, &server, deadline.remaining()?)?;
+                let server = self
+                    .case
+                    .server_name(self.repository)
+                    .at_stage(FailureStage::Setup)?;
+                let remaining = deadline.remaining().at_stage(FailureStage::Capabilities)?;
+                let capabilities = self
+                    .capabilities(context, &server, remaining)
+                    .at_stage(FailureStage::Capabilities)?;
                 for command in QUERY_COMMANDS.into_iter().skip(1) {
+                    let remaining = deadline.remaining().at_stage(FailureStage::Query)?;
                     self.run_query(
                         context,
                         &server,
                         &capabilities.capabilities,
                         command,
-                        deadline.remaining()?,
-                    )?;
+                        remaining,
+                    )
+                    .at_stage(FailureStage::Query)?;
                 }
                 Ok(())
             },
@@ -224,17 +249,21 @@ impl<'a> RealServerTest<'a> {
 impl CapabilitiesTest<'_> {
     fn run(self) -> Result<(), String> {
         let label = self.case.label();
-        run_reported_case("capabilities case", &label, || self.run_inner())
+        run_reported_case(CaseKind::Capabilities, &label, || self.run_inner())
     }
 
-    fn run_inner(&self) -> Result<(), String> {
+    fn run_inner(&self) -> E2eResult {
         let deadline = CaseDeadline::new(self.case.deadline_seconds(), "capabilities case");
         run_isolated_case(
+            self.dependencies,
             &self.repository.join(self.case.project()),
             self.case.host_programs(),
             &deadline,
             |context| {
-                let server = self.case.server_name(self.repository)?;
+                let server = self
+                    .case
+                    .server_name(self.repository)
+                    .at_stage(FailureStage::Setup)?;
                 let args = [
                     "server-capabilities".to_string(),
                     ".".to_string(),
@@ -248,14 +277,23 @@ impl CapabilitiesTest<'_> {
                     self.case.lsp_timeout_seconds().to_string(),
                     "--json".to_string(),
                 ];
-                let output = run(context, &args, deadline.remaining()?)?;
-                output.ensure_success()?;
-                let response: CapabilitiesOutput = output.try_json()?;
-                context.record_server_capabilities(&response.capabilities)?;
+                let remaining = deadline.remaining().at_stage(FailureStage::Capabilities)?;
+                let output = run(context, &args, remaining).at_stage(FailureStage::Capabilities)?;
+                output
+                    .ensure_success()
+                    .at_stage(FailureStage::Capabilities)?;
+                let response: CapabilitiesOutput =
+                    output.try_json().at_stage(FailureStage::Capabilities)?;
+                context
+                    .record_server_capabilities(&response.capabilities)
+                    .at_stage(FailureStage::Capabilities)?;
                 if response.capabilities.is_object() && !response.server.command.is_empty() {
                     Ok(())
                 } else {
-                    Err("server-capabilities returned an invalid semantic payload".to_string())
+                    Err(crate::results::E2eFailure::new(
+                        FailureStage::Capabilities,
+                        "server-capabilities returned an invalid semantic payload",
+                    ))
                 }
             },
         )
@@ -373,7 +411,25 @@ fn validate_exception(
                 Err(format!("{command:?} expected no matches ({reason})"))
             }
         }
+        ExceptionOutcome::VariableMatches => {
+            output.ensure_success()?;
+            validate_variable_matches(command, reason, &output.try_json()?)
+        }
         ExceptionOutcome::Failure => Err(format!("{command:?} unexpectedly succeeded ({reason})")),
+    }
+}
+
+fn validate_variable_matches(
+    command: QueryKind,
+    reason: &str,
+    value: &Value,
+) -> Result<(), String> {
+    if value.get("matches").is_some_and(Value::is_array) {
+        Ok(())
+    } else {
+        Err(format!(
+            "{command:?} omitted matches for variable-match exception ({reason})"
+        ))
     }
 }
 
@@ -444,6 +500,8 @@ fn run(context: &E2eContext, args: &[String], deadline: Duration) -> Result<E2eO
 #[ignore = "downloads and runs real LSP servers; executed explicitly in CI"]
 fn manifest_real_server_smoke_cases() {
     let repository = repository_root();
+    let dependencies =
+        ManagedDependencies::prepare().expect("real-server E2E dependencies should be available");
     let manifest = Manifest::load_validated(repository).expect("E2E manifest should be valid");
     let selected = selected_cases(&manifest);
     assert!(
@@ -477,7 +535,11 @@ fn manifest_real_server_smoke_cases() {
         .collect::<Vec<_>>();
     let mut failures = cases
         .into_iter()
-        .filter_map(|case| RealServerTest::new(case, repository).run().err())
+        .filter_map(|case| {
+            RealServerTest::new(case, repository, &dependencies)
+                .run()
+                .err()
+        })
         .collect::<Vec<_>>();
     failures.extend(
         manifest
@@ -487,7 +549,15 @@ fn manifest_real_server_smoke_cases() {
                     .as_ref()
                     .is_some_and(|expected| expected.contains(&case.label()))
             })
-            .filter_map(|case| CapabilitiesTest { case, repository }.run().err()),
+            .filter_map(|case| {
+                CapabilitiesTest {
+                    case,
+                    repository,
+                    dependencies: &dependencies,
+                }
+                .run()
+                .err()
+            }),
     );
     assert!(
         failures.is_empty(),

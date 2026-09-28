@@ -11,6 +11,8 @@
 mod case_files;
 #[path = "e2e/catalog.rs"]
 mod catalog;
+#[path = "e2e/dependencies.rs"]
+mod dependencies;
 #[path = "e2e/filesystem.rs"]
 mod filesystem;
 #[path = "e2e/fixture.rs"]
@@ -39,6 +41,8 @@ mod real_server_lifecycle;
 mod real_server_support;
 #[path = "e2e/real_servers.rs"]
 mod real_servers;
+#[path = "e2e/results.rs"]
+mod results;
 #[path = "e2e/run_e2e_test.rs"]
 mod run_e2e_test;
 #[path = "e2e/update.rs"]

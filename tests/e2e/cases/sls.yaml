@@ -6,4 +6,5 @@ pairs:
   - language: sls
     server: salt_ls
     smoke:
-      status: capabilities
+      status: excluded
+      reason: The current salt-lsp package cannot be installed by pip on the CI Python runtime.

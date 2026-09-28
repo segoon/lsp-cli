@@ -42,10 +42,40 @@ entries) is a product-policy call, not an implementation fact.
 ## Local dev environment
 
 The real-server E2E targets (`test-real-server-e2e`, `test-real-server-smoke-e2e`,
-`test-server-provisioning-e2e`) need `go`, `java`, `node`/`npm`, and `dotnet` on `PATH`, matching
-what CI installs in `.github/workflows/ci.yml` and `e2e.yml`. Run `make download-dev-env` to fetch
-project-local copies into `.env/` (not a system-wide install), then `source activate.sh` from the
-repo root to put them on `PATH` for the current shell.
+`test-server-provisioning-e2e`) automatically install pinned Go, Java, Node.js, .NET, Zig, and Ruby
+runtimes. Verified archives are cached under `.env/downloads/`, and immutable versioned
+installations are cached under `.env/installations/`. Each test run builds its installer `PATH`
+directly from those installations; it does not create an aggregate bin directory. The complete
+managed environment supports Ubuntu 22.04 and 24.04 on x86-64; Ruby's upstream binary distribution
+is the limiting dependency.
+
+Rust/Cargo, Bash, curl, `tar`, `xz`, checksum utilities, Git, Python with pip/venv, Perl, and basic
+system utilities remain host prerequisites. Set `E2E_AUTO_DOWNLOAD=0` to disable automatic setup
+for an offline run which already supplies every required runtime on `PATH`. Normal tests never
+remove completed downloads or installations, including versions no longer selected. Run
+`make clean-e2e-dependencies` to remove the entire project-local `.env/` cache; it cannot be
+recovered without downloading and extracting the runtimes again. Installations created by the old
+shell bootstrap directly under `.env/` are ignored and remain there until the same cleanup target
+is run.
+
+Real-server contexts keep `HOME` isolated but preserve the host `CARGO_HOME`, `RUSTUP_HOME`, and an
+explicit `RUSTUP_TOOLCHAIN` for Cargo package installation. When either home variable is unset, an
+existing `.cargo` or `.rustup` directory under the original host home is used. The harness carries
+this state through installer-specific variables which `lsp-cli` translates only for the Cargo
+subprocess; Cargo and ambient server executables are not added to the server runtime `PATH`.
+
+CI's workflow planner passes each installation family's intrinsic server runtime through
+`E2E_RUNTIME_PROGRAMS`: npm packages stage `node`, and NuGet packages stage `dotnet`. To reproduce
+one of those shards locally, set the same comma-separated list, for example:
+
+```sh
+E2E_RUNTIME_PROGRAMS=node E2E_CASE=yaml/yamlls make test-real-server-smoke-e2e
+```
+
+The harness resolves only those named programs from the host and stages them in its isolated
+server directory. A server's explicit manifest `host-programs` entry overrides a family default
+with the same name. The process `PATH` remains isolated; unrelated host executables are not made
+visible to downloaded servers.
 
 ## Test projects (playgrounds)
 
@@ -208,7 +238,8 @@ missing capabilities require the command's user-facing unsupported error.
 In `tests/e2e/manifest/query_case.rs`, a `smoke` pair can be `status: queries`, and each query case
 carries an optional `exceptions` list. Each entry names a `command` (one of the real-server query
 kinds — `grep`, `references`, `callers`, `callees`, `build-index`, `format`, etc.), an `outcome`
-(`failure` or `empty-matches`), an optional expected stderr `message`, and a mandatory `reason`.
+(`failure`, `empty-matches`, or `variable-matches`), an optional expected stderr `message`, and a
+mandatory `reason`.
 
 At runtime (`tests/e2e/real_servers.rs`), if a query has a matching exception, the harness skips
 the normal "must succeed with real matches" assertion and instead asserts the *documented* deviant
@@ -216,6 +247,8 @@ behavior:
 
 - `failure`: the command must exit non-zero and stderr must contain `message`.
 - `empty-matches`: the command must succeed but return an empty `matches` array.
+- `variable-matches`: the command must succeed and return a `matches` array, but its cardinality is
+  not stable across supported environments.
 
 `exceptions` is not error-tolerance or flakiness suppression — it's a positive assertion of each
 server's known, reproducible protocol quirk, with the `reason` pinned in the YAML so the deviation
@@ -258,6 +291,13 @@ Do not install LSP servers separately. Every real-server case passes `--download
 production Mason integration select the current registry package, install it inside the case's
 isolated home, and return the resolved executable. This applies uniformly to direct archives and
 npm, PyPI, Cargo, Go, NuGet, GitHub, or generic package sources supported by the downloader.
+
+PyPI packages use a per-package virtual environment under the Mason package's `local/` directory.
+Generated console scripts therefore use the same Python environment that contains their modules,
+without an ambient `PYTHONPATH`. A versioned marker distinguishes this layout from old
+`pip --prefix` installations; a missing marker rebuilds only that package's `local/` environment.
+The tradeoff is additional disk use, and Python installations without `venv` or `ensurepip` cannot
+install PyPI-backed servers.
 
 Language SDKs and package-manager runtimes remain explicit host prerequisites, with their resolver
 commands kept in the manifest so a missing prerequisite produces a case-specific error rather than
@@ -308,9 +348,9 @@ silently running no tests.
 
 These commands download external tools and require the host programs declared by the manifest, and
 local runs use the current Mason registry — compare the resulting source ID with an earlier run
-before concluding that local behavior has changed. CI sets `E2E_MASON_REGISTRY_SNAPSHOT` to the
-registry snapshot created by its planner; the harness rejects incomplete snapshots instead of
-silently downloading different metadata.
+before concluding that local behavior has changed. CI authenticates one registry request and sets
+`E2E_MASON_REGISTRY_SNAPSHOT` to the snapshot created by its planner; the harness rejects incomplete
+snapshots instead of silently downloading different metadata.
 
 The manual **End-to-end compatibility** GitHub Actions workflow can select `language`, `server`, or
 `installation-family` (the value is respectively a case language ID, an LSP config ID, or one of
@@ -358,6 +398,16 @@ filename stem under `data/lsp/`, not necessarily the executable or display name.
    diagnostics above it. If the footer says the IDs are unavailable, failure occurred before a case
    emitted its labelled diagnostic — start with the planner, build, or test-runner error
    immediately above the footer.
+
+Each matrix job also uploads `e2e-results-<language>-<installation-family>`. Its JSON document has
+`schema_version: 1`, one result per executed case, and aggregate pass/failure counts. A failed case
+records its human-readable diagnostic and one of these stable execution stages: `setup`,
+`provisioning`, `capabilities`, `query`, `lifecycle`, or `cleanup`. The stage identifies where the
+E2E harness observed the failure; it is not a substitute for diagnosing the underlying cause.
+
+The job summary contains the same aggregate stage counts. If no result file was produced, the test
+binary failed before it could finish a labelled case; the summary says to inspect the job log rather
+than inventing a case classification.
 
 ### Identify the upstream version
 
@@ -426,9 +476,10 @@ Classify failures as:
 6. unsupported LSP capability with the expected user-facing response.
 
 Only category 6 is an immediate passing outcome. Known limitations must be explicit manifest
-entries and, when they concern protocol or server behavior, documented in `docs/GOTCHAS.md`. Do not add
-unbounded retries — a retry may cover an identified transient installation/network step, but must
-not conceal query or protocol failures.
+entries and, when they concern protocol or server behavior, documented in `docs/GOTCHAS.md`. Mason
+registry metadata requests retry rate-limit responses three times with bounded exponential backoff.
+Do not add unbounded retries — a retry may cover an identified transient installation/network step,
+but must not conceal query or protocol failures.
 
 If a hard-to-debug defect is fixed, add a focused regression test in addition to the broad matrix,
 and consider whether a type invariant, runtime check, clearer trace, or state-dump helper can make

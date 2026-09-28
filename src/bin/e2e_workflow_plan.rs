@@ -36,11 +36,14 @@ mod runtime_state;
 mod test_support;
 
 use manifest::Manifest;
-use manifest::coverage_cases::{InstallationFamily, WorkflowSelector};
+use manifest::coverage_cases::{
+    InstallationFamily, RegistrySnapshot, WorkflowPackage, WorkflowSelector,
+};
 use mason::registry::MasonRegistry;
 use runtime_state::RuntimeState;
 
 const REGISTRY_SNAPSHOT_OUTPUT_ENV: &str = "E2E_REGISTRY_SNAPSHOT_OUTPUT";
+const GITHUB_TOKEN_ENV: &str = "E2E_GITHUB_TOKEN";
 const REGISTRY_SNAPSHOT_FILES: [&str; 2] = ["registry.json", "metadata.json"];
 
 fn main() -> Result<(), String> {
@@ -50,18 +53,27 @@ fn main() -> Result<(), String> {
     let cache = tempfile::tempdir()
         .map_err(|error| format!("failed to create temporary Mason registry cache: {error}"))?;
     let registry_state = RuntimeState::new(cache.path().join("mason"));
-    let registry = MasonRegistry::load(&registry_state)
+    let github_token = std::env::var(GITHUB_TOKEN_ENV).ok();
+    let registry = MasonRegistry::load_with_github_token(&registry_state, github_token.as_deref())
         .map_err(|error| format!("failed to load current Mason registry: {error}"))?;
-    let mut families = BTreeMap::new();
+    let mut packages = BTreeMap::new();
     for server in manifest.downloadable_servers()? {
         let package = registry
             .package_for_detected(&server.id, &server.name, &server.program)
             .ok_or_else(|| format!("Mason registry has no package for {:?}", server.id))?;
         let family = InstallationFamily::from_source_id(&package.source.id)
             .map_err(|error| format!("server {:?}: {error}", server.id))?;
-        families.insert(server.id, family);
+        packages.insert(
+            server.id,
+            WorkflowPackage {
+                installation_family: family,
+                source_id: package.source.id.clone(),
+            },
+        );
     }
-    let (plan, report) = manifest.workflow_plan(selector, value.as_deref(), &families)?;
+    let snapshot = read_registry_snapshot(&registry_state)?;
+    let (plan, report) =
+        manifest.workflow_plan(selector, value.as_deref(), &packages, &snapshot)?;
     std::fs::write(
         required_environment("E2E_PLAN_OUTPUT")?,
         serde_json::to_vec(&plan).map_err(|error| format!("failed to serialize plan: {error}"))?,
@@ -76,6 +88,22 @@ fn main() -> Result<(), String> {
     cache
         .close()
         .map_err(|error| format!("failed to remove Mason registry cache: {error}"))
+}
+
+fn read_registry_snapshot(state: &RuntimeState) -> Result<RegistrySnapshot, String> {
+    let path = state.registry_metadata_path();
+    let contents = std::fs::read(&path).map_err(|error| {
+        format!(
+            "failed to read Mason registry metadata {}: {error}",
+            path.display()
+        )
+    })?;
+    serde_json::from_slice(&contents).map_err(|error| {
+        format!(
+            "failed to parse Mason registry metadata {}: {error}",
+            path.display()
+        )
+    })
 }
 
 fn persist_registry_snapshot(state: &RuntimeState, output: &Path) -> Result<(), String> {

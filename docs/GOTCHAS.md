@@ -74,10 +74,81 @@
 
 ## Mason PyPI launchers
 
-- In isolated current-Mason runs, the generated launchers for basedpyright,
-  jedi-language-server, python-lsp-server, and Pyre resolved from the package directory but the system
-  Python interpreter could not import their installed modules. Provisioning tests that only prove
-  executable resolution do not establish that a PyPI-backed language server can initialize.
+- PyPI packages must be installed into a virtual environment, not with `pip --prefix`. Prefix
+  launchers resolve from the package directory but use the system interpreter, which cannot import
+  the isolated package modules. lsp-cli creates a versioned per-package environment under `local/`
+  and accepts it as cached only when its layout marker is present. This deliberately ignores old
+  prefix launchers without deleting unrelated package installations.
+
+## Jedi Language Server
+
+- Jedi Language Server 0.47.0 answers semantic queries but can fail to exit after the standard
+  shutdown exchange. Its pygls worker may continue trying to write responses after stdout closes.
+  The current compatibility matrix excludes it rather than accepting successful output while
+  hiding failed process cleanup.
+
+## pylsp
+
+- python-lsp-server 1.15.0 does not advertise `workspace/symbol`. It is covered by capability and
+  provisioning checks, but is excluded from the source-language smoke suite because that suite uses
+  workspace symbols to locate fixture declarations.
+
+## PerlNavigator
+
+- PerlNavigator 0.8.20 can return either an empty result or the sub itself when
+  `textDocument/definition` is requested at a same-file sub declaration. The result differed
+  between otherwise equivalent isolated local and CI runs and stayed empty across bounded local
+  retries. Its E2E exception therefore requires a successful, well-formed response without
+  asserting match cardinality.
+
+## Pyre
+
+- Pyre requires a project configuration that declares `source_directories` or build targets before
+  its persistent LSP command will initialize, and it requires a Watchman root marker. The Python
+  playground carries minimal deterministic configuration for both. Pyre 0.9.25 then initializes
+  but advertises only document synchronization, so it remains excluded from the semantic smoke
+  suite rather than being mistaken for an installation failure.
+
+## cmake-language-server
+
+- cmake-language-server 0.1.11 permits a current pygls release whose API no longer exports the
+  `LanguageServer` class where the server imports it. The isolated installation consequently fails
+  during startup and remains excluded pending an upstream dependency constraint or release.
+
+## RobotCode
+
+- RobotCode 2.7.0 initializes but does not exit within the bounded deadline after the standard
+  shutdown/exit exchange. Capability smoke coverage remains excluded so successful initialization
+  does not hide failed process cleanup.
+
+## rpm-spec-language-server
+
+- The PyPI package imports the system RPM Python module. Installing it in an isolated virtual
+  environment is not sufficient on hosts without compatible RPM bindings, so the current CI pair
+  is explicitly excluded.
+
+## salt-lsp
+
+- salt-lsp 0.0.1 cannot currently complete a pip installation on the CI Python runtime. The pair is
+  classified as an upstream package-install incompatibility rather than a launcher/import failure.
+
+## textLSP
+
+- textLSP imports GitPython during startup, and GitPython rejects an isolated `PATH` without the
+  `git` executable. The E2E manifest declares Git as a host runtime rather than exposing the full
+  ambient path.
+
+## hdl-checker
+
+- hdl-checker 0.7.5 enters its language-server mode without a `--lsp` argument; that old argument
+  is rejected by its current command-line parser. The bundled server configuration deliberately
+  invokes the executable without it.
+
+## Esbonio
+
+- Esbonio 2.x moved its stdio language server behind the `esbonio server` subcommand. Invoking the
+  top-level command writes CLI help to stdout, which is not an LSP frame; the bundled configuration
+  includes the required subcommand.
 
 ## pylyzer
 
@@ -184,6 +255,37 @@
   config containing a literal installation placeholder cannot work with generic `--download`;
   launch the Mason-exposed command and let the NuGet backend manage its concrete installation path.
 
+## OmniSharp
+
+- OmniSharp 1.39.15 can initialize and answer requests against the C# playground, but it closes
+  the transport while lsp-cli is waiting for the `shutdown` response. Automatic .NET provisioning
+  fixes the earlier missing-runtime setup failure, but does not make this direct-process lifecycle
+  behavior clean; keep it classified separately from installation failures.
+
+## svls
+
+- Current-Mason SVLS 0.2.14 installs and reaches the end of a direct capability query, but the
+  server does not exit before the post-`shutdown` deadline. Treat this as a lifecycle failure; a
+  successful Cargo installation does not make the direct-process case cleanly terminable.
+
+## jq-lsp
+
+- Current-Mason jq-lsp 0.1.18 installs and completes a direct capability query, but does not exit
+  before the post-`shutdown` deadline. Keep this lifecycle behavior distinct from Go package
+  installation success.
+
+## jsonnet-language-server
+
+- Current-Mason jsonnet-language-server 0.17.0 initializes for both Jsonnet and Libsonnet, but does
+  not exit before the post-`shutdown` deadline in direct capability runs. Its stderr reaches normal
+  initialization and reports no shutdown-specific explanation.
+
+## regols
+
+- Current-Mason regols 0.2.4 installs and starts, but rejects initialization for the committed Rego
+  playground with `lstat : no such file or directory`. The empty path originates in the server;
+  the required workspace-layout or initialization expectation has not yet been established.
+
 ## emmylua_ls
 
 - Current-Mason EmmyLua answers semantic requests for the Lua playground, but its formatting
@@ -220,6 +322,16 @@
   attribute line) instead of the identifier itself. When a later LSP request needs a precise
   symbol position, prefer recovering the identifier offset from source text inside that range
   instead of assuming `range.start` is directly queryable.
+- `rust-analyzer` package source `pkg:github/rust-lang/rust-analyzer@2026-09-21` returned non-empty
+  outgoing call-hierarchy results for the Rust playground's `sample_order` in four consecutive
+  isolated runs. Although the function primarily constructs data, it invokes methods such as
+  `to_string`; do not classify constructor-heavy fixture functions as having no callees without
+  checking the server's current call-hierarchy interpretation.
+- Those outgoing call-hierarchy results depend on the Rust standard-library sources being
+  available. The same rust-analyzer release initialized in CI without the `rust-src` toolchain
+  component, reported that it could not load the standard library, and returned no callees for
+  `sample_order`. Install `rust-src` when a test expects calls into the standard library, or use a
+  fixture whose expected call edges stay within the workspace.
 
 ## clangd
 

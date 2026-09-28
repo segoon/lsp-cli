@@ -2,7 +2,12 @@ name: CI
 
 on:
   push:
+    branches:
+      - master
   pull_request:
+
+permissions:
+  contents: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -53,7 +58,7 @@ jobs:
 
   real-server-e2e:
     name: Real-server E2E
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Check out repository
@@ -65,15 +70,29 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
+          components: rust-src
 
       - name: Cache cargo artifacts
         uses: Swatinem/rust-cache@v2
 
-      - name: Install Java
-        uses: actions/setup-java@v6
+      - name: Cache E2E runtimes
+        uses: actions/cache@v6
         with:
-          distribution: temurin
-          java-version: '21'
+          path: .env
+          key: e2e-runtimes-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('tests/e2e/dependencies/catalog.rs') }}
+          restore-keys: e2e-runtimes-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Prepare Mason registry snapshot
+        env:
+          E2E_GITHUB_TOKEN: ${{ github.token }}
+          E2E_SELECTOR: all
+          E2E_SELECTOR_VALUE: ''
+          E2E_PLAN_OUTPUT: ${{ runner.temp }}/e2e-plan.json
+          E2E_REPORT_OUTPUT: ${{ runner.temp }}/e2e-report.md
+          E2E_REGISTRY_SNAPSHOT_OUTPUT: ${{ runner.temp }}/mason-registry
+        run: cargo run --locked --features e2e-workflow-planner --bin e2e-workflow-plan
 
       - name: Run real-server E2E tests
+        env:
+          E2E_MASON_REGISTRY_SNAPSHOT: ${{ runner.temp }}/mason-registry
         run: make test-real-server-e2e

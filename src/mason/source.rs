@@ -18,6 +18,7 @@ pub(crate) enum SourceId {
     Golang {
         module_path: String,
         version: String,
+        subpath: Option<String>,
     },
     Nuget {
         package_name: String,
@@ -42,7 +43,15 @@ pub(crate) fn parse_source_id(source_id: &str) -> Result<SourceId> {
             "unsupported Mason package source {source_id}: missing `pkg:` prefix"
         )));
     };
-    let Some((package_ref, version_with_qualifiers)) = without_prefix.rsplit_once('@') else {
+    let (without_subpath, subpath) = match without_prefix.split_once('#') {
+        Some((source, subpath)) => (source, Some(parse_subpath(source_id, subpath)?)),
+        None => (without_prefix, None),
+    };
+    let (package_and_version, qualifiers) = match without_subpath.split_once('?') {
+        Some((source, qualifiers)) => (source, Some(qualifiers)),
+        None => (without_subpath, None),
+    };
+    let Some((package_ref, encoded_version)) = package_and_version.rsplit_once('@') else {
         return Err(Error::unexpected(format!(
             "unsupported Mason package source {source_id}: missing `@version`"
         )));
@@ -57,12 +66,17 @@ pub(crate) fn parse_source_id(source_id: &str) -> Result<SourceId> {
             "unsupported Mason package source {source_id}: invalid percent-encoding in package name"
         )));
     };
-
-    let (version, qualifiers) = match version_with_qualifiers.split_once('?') {
-        Some((version, qualifiers)) => (version.to_string(), Some(qualifiers)),
-        None => (version_with_qualifiers.to_string(), None),
+    let Some(version) = percent_decode_component(encoded_version) else {
+        return Err(Error::unexpected(format!(
+            "unsupported Mason package source {source_id}: invalid percent-encoding in version"
+        )));
     };
 
+    if subpath.is_some() && kind != "golang" {
+        return Err(Error::unexpected(format!(
+            "unsupported Mason package source {source_id}: backend {kind:?} does not support a source subpath"
+        )));
+    }
     Ok(match kind {
         "npm" => SourceId::Npm {
             package_name: decoded_name,
@@ -80,6 +94,7 @@ pub(crate) fn parse_source_id(source_id: &str) -> Result<SourceId> {
         "golang" => SourceId::Golang {
             module_path: decoded_name,
             version,
+            subpath,
         },
         "nuget" => SourceId::Nuget {
             package_name: decoded_name,
@@ -99,6 +114,37 @@ pub(crate) fn parse_source_id(source_id: &str) -> Result<SourceId> {
     })
 }
 
+fn parse_subpath(source_id: &str, raw: &str) -> Result<String> {
+    if raw.is_empty() || raw.starts_with(['/', '\\']) {
+        return Err(invalid_subpath(source_id));
+    }
+    raw.split('/')
+        .map(|segment| {
+            let Some(segment) = percent_decode_component(segment) else {
+                return Err(Error::unexpected(format!(
+                    "unsupported Mason package source {source_id}: invalid percent-encoding in subpath"
+                )));
+            };
+            if segment.is_empty()
+                || segment == "."
+                || segment == ".."
+                || segment.contains(['/', '\\'])
+            {
+                Err(invalid_subpath(source_id))
+            } else {
+                Ok(segment)
+            }
+        })
+        .collect::<Result<Vec<_>>>()
+        .map(|segments| segments.join("/"))
+}
+
+fn invalid_subpath(source_id: &str) -> Error {
+    Error::unexpected(format!(
+        "unsupported Mason package source {source_id}: subpath must be relative and contain no empty, `.`, `..`, or encoded separator segments"
+    ))
+}
+
 fn parse_pypi_extras(qualifiers: Option<&str>) -> Vec<String> {
     qualifiers
         .into_iter()
@@ -109,7 +155,7 @@ fn parse_pypi_extras(qualifiers: Option<&str>) -> Vec<String> {
 
 fn percent_decode_component(value: &str) -> Option<String> {
     let bytes = value.as_bytes();
-    let mut decoded = String::with_capacity(value.len());
+    let mut decoded = Vec::with_capacity(value.len());
     let mut index = 0;
 
     while index < bytes.len() {
@@ -119,16 +165,16 @@ fn percent_decode_component(value: &str) -> Option<String> {
             }
             let high = decode_hex_digit(bytes[index + 1])?;
             let low = decode_hex_digit(bytes[index + 2])?;
-            decoded.push((high << 4 | low) as char);
+            decoded.push(high << 4 | low);
             index += 3;
             continue;
         }
 
-        decoded.push(bytes[index] as char);
+        decoded.push(bytes[index]);
         index += 1;
     }
 
-    Some(decoded)
+    String::from_utf8(decoded).ok()
 }
 
 fn decode_hex_digit(byte: u8) -> Option<u8> {
@@ -192,6 +238,7 @@ mod tests {
             SourceId::Golang {
                 module_path: "golang.org/x/tools/gopls".to_string(),
                 version: "v0.21.1".to_string(),
+                subpath: None,
             }
         );
         assert_eq!(
@@ -212,5 +259,81 @@ mod tests {
                 kind: "gem".to_string(),
             }
         );
+    }
+
+    #[test]
+    fn parses_and_decodes_golang_subpath_after_qualifiers() {
+        assert_eq!(
+            parse_source_id(
+                "pkg:golang/cuelang.org/%67o@v0.17.1%2Bmeta?repository_url=ignored#cmd/%63ue"
+            )
+            .expect("Go source with subpath should parse"),
+            SourceId::Golang {
+                module_path: "cuelang.org/go".to_string(),
+                version: "v0.17.1+meta".to_string(),
+                subpath: Some("cmd/cue".to_string()),
+            }
+        );
+        assert_eq!(
+            parse_source_id("pkg:golang/github.com/dagger/cuelsp@v0.3.4#cmd/cuelsp")
+                .expect("nested Go command source should parse"),
+            SourceId::Golang {
+                module_path: "github.com/dagger/cuelsp".to_string(),
+                version: "v0.3.4".to_string(),
+                subpath: Some("cmd/cuelsp".to_string()),
+            }
+        );
+    }
+
+    #[test]
+    fn percent_decoder_preserves_utf8_components() {
+        assert_eq!(
+            parse_source_id("pkg:golang/example.com/%E2%98%83@v1.0.0#cmd/%E2%98%83")
+                .expect("UTF-8 source should parse"),
+            SourceId::Golang {
+                module_path: "example.com/☃".to_string(),
+                version: "v1.0.0".to_string(),
+                subpath: Some("cmd/☃".to_string()),
+            }
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_or_unsupported_source_subpaths() {
+        for source_id in [
+            "pkg:golang/example.com/tool@v1.0.0#",
+            "pkg:golang/example.com/tool@v1.0.0#/cmd/tool",
+            "pkg:golang/example.com/tool@v1.0.0#cmd//tool",
+            "pkg:golang/example.com/tool@v1.0.0#cmd/./tool",
+            "pkg:golang/example.com/tool@v1.0.0#cmd/../tool",
+            "pkg:golang/example.com/tool@v1.0.0#cmd/%2e%2e/tool",
+            "pkg:golang/example.com/tool@v1.0.0#cmd%2ftool",
+            r"pkg:golang/example.com/tool@v1.0.0#cmd\tool",
+        ] {
+            let error = parse_source_id(source_id)
+                .expect_err("unsafe or ambiguous Go subpath should be rejected")
+                .to_string();
+            assert!(error.contains(source_id));
+            assert!(error.contains("subpath"));
+        }
+
+        let error = parse_source_id("pkg:github/example/tool@v1.0.0#bin/tool")
+            .expect_err("non-Go source subpath should be rejected")
+            .to_string();
+        assert!(error.contains("backend \"github\" does not support a source subpath"));
+    }
+
+    #[test]
+    fn rejects_invalid_percent_encoding_in_version_or_subpath() {
+        for source_id in [
+            "pkg:golang/example.com/tool@v1.0.%ZZ",
+            "pkg:golang/example.com/tool@v1.0.0#cmd/%ZZ",
+        ] {
+            let error = parse_source_id(source_id)
+                .expect_err("invalid percent encoding should be rejected")
+                .to_string();
+            assert!(error.contains(source_id));
+            assert!(error.contains("invalid percent-encoding"));
+        }
     }
 }

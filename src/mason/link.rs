@@ -92,16 +92,13 @@ pub(crate) fn resolve_program(
     }
 
     if let Some(relative) = rendered.strip_prefix("pypi:") {
-        let root = state.package_dir(&package.name);
-        let primary = root.join("bin").join(relative);
-        if primary.exists() {
-            return Ok(ResolvedProgram::Direct(primary));
-        }
-        let alternate = root.join("local").join("bin").join(relative);
-        if alternate.exists() {
-            return Ok(ResolvedProgram::Direct(alternate));
-        }
-        return Ok(ResolvedProgram::Direct(alternate));
+        return Ok(ResolvedProgram::Direct(
+            state
+                .package_dir(&package.name)
+                .join("local")
+                .join("bin")
+                .join(relative),
+        ));
     }
 
     if let Some(relative) = rendered.strip_prefix("cargo:") {

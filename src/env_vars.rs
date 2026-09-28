@@ -19,6 +19,15 @@ pub(crate) const PATH: &str = "PATH";
 /// Executable search path reserved for package installers and their build tools.
 pub(crate) const INSTALL_PATH: &str = "LSP_CLI_INSTALL_PATH";
 
+/// Cargo home reserved for package installer subprocesses.
+pub(crate) const INSTALL_CARGO_HOME: &str = "LSP_CLI_INSTALL_CARGO_HOME";
+
+/// Rustup home reserved for package installer subprocesses.
+pub(crate) const INSTALL_RUSTUP_HOME: &str = "LSP_CLI_INSTALL_RUSTUP_HOME";
+
+/// Rustup toolchain override reserved for package installer subprocesses.
+pub(crate) const INSTALL_RUSTUP_TOOLCHAIN: &str = "LSP_CLI_INSTALL_RUSTUP_TOOLCHAIN";
+
 /// Current interactive shell used for shell auto-detection in completion output.
 pub(crate) const SHELL: &str = "SHELL";
 
@@ -55,6 +64,18 @@ pub(crate) fn path() -> Option<OsString> {
 
 pub(crate) fn install_path() -> Option<OsString> {
     std::env::var_os(INSTALL_PATH)
+}
+
+pub(crate) fn install_cargo_home() -> Option<OsString> {
+    std::env::var_os(INSTALL_CARGO_HOME)
+}
+
+pub(crate) fn install_rustup_home() -> Option<OsString> {
+    std::env::var_os(INSTALL_RUSTUP_HOME)
+}
+
+pub(crate) fn install_rustup_toolchain() -> Option<OsString> {
+    std::env::var_os(INSTALL_RUSTUP_TOOLCHAIN)
 }
 
 pub(crate) fn shell() -> Option<OsString> {

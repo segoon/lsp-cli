@@ -204,6 +204,13 @@
   symbols, document symbols, or document functions. The pair is excluded because later named
   queries cannot be given a meaningful semantic assertion without a discoverable symbol.
 
+## gopls
+
+- gopls advertises `implementationProvider`, but `textDocument/implementation` on a free function
+  fails with a server error explaining that the symbol is a function rather than a method. E2E
+  coverage records that bounded failure for fixtures whose shared callable query is a free
+  function; a non-empty implementation assertion needs an interface type or method fixture.
+
 ## deno lsp
 
 - The current Mason Deno server initializes for JavaScript and TypeScript, but rejects the LSP

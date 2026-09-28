@@ -17,6 +17,11 @@ pairs:
     tier: smoke
     smoke:
       status: queries
+      exceptions:
+        - command: implementation
+          outcome: failure
+          message: is a function, not a method
+          reason: gopls only resolves implementations for methods or interface types
     lifecycle:
       status: scenarios
       direct-run:

@@ -17,6 +17,9 @@ pairs:
     smoke:
       status: queries
       exceptions:
+        - command: implementation
+          outcome: empty-matches
+          reason: the C++ fixture callable has no implementation relationship
         - command: build-index
           outcome: failure
           message: background-work progress

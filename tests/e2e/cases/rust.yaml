@@ -17,6 +17,13 @@ pairs:
     tier: smoke
     smoke:
       status: queries
+      exceptions:
+        - command: implementation
+          outcome: empty-matches
+          reason: the Rust fixture callable has no implementation relationship
+        - command: type-definition
+          outcome: empty-matches
+          reason: the Rust fixture callable is not a value with a distinct type definition
       deadline-seconds: 180
     lifecycle:
       status: scenarios

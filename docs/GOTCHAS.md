@@ -93,6 +93,14 @@
   provisioning checks, but is excluded from the source-language smoke suite because that suite uses
   workspace symbols to locate fixture declarations.
 
+## PerlNavigator
+
+- PerlNavigator 0.8.20 can return either an empty result or the sub itself when
+  `textDocument/definition` is requested at a same-file sub declaration. The result differed
+  between otherwise equivalent isolated local and CI runs and stayed empty across bounded local
+  retries. Its E2E exception therefore requires a successful, well-formed response without
+  asserting match cardinality.
+
 ## Pyre
 
 - Pyre requires a project configuration that declares `source_directories` or build targets before

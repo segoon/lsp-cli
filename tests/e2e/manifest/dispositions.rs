@@ -50,12 +50,12 @@ fn validate_queries(
                     "E2E failure exception for {label} must declare a message"
                 ));
             }
-            (ExceptionOutcome::EmptyMatches, Some(_)) => {
+            (ExceptionOutcome::EmptyMatches | ExceptionOutcome::VariableMatches, Some(_)) => {
                 return Err(format!(
-                    "E2E empty-match exception for {label} must not declare a message"
+                    "E2E match-result exception for {label} must not declare a message"
                 ));
             }
-            (ExceptionOutcome::EmptyMatches, None) => {}
+            (ExceptionOutcome::EmptyMatches | ExceptionOutcome::VariableMatches, None) => {}
         }
     }
     Ok(())

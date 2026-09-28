@@ -14,6 +14,10 @@ use crate::real_server_support::{CaseDeadline, run_isolated_case, run_reported_c
 use crate::repository_root;
 use crate::results::{AtStage, CaseKind, E2eResult, FailureStage};
 
+#[cfg(test)]
+#[path = "real_servers_tests.rs"]
+mod tests;
+
 const QUERY_COMMANDS: [QueryKind; 12] = [
     QueryKind::ServerCapabilities,
     QueryKind::Diagnostics,
@@ -407,7 +411,25 @@ fn validate_exception(
                 Err(format!("{command:?} expected no matches ({reason})"))
             }
         }
+        ExceptionOutcome::VariableMatches => {
+            output.ensure_success()?;
+            validate_variable_matches(command, reason, &output.try_json()?)
+        }
         ExceptionOutcome::Failure => Err(format!("{command:?} unexpectedly succeeded ({reason})")),
+    }
+}
+
+fn validate_variable_matches(
+    command: QueryKind,
+    reason: &str,
+    value: &Value,
+) -> Result<(), String> {
+    if value.get("matches").is_some_and(Value::is_array) {
+        Ok(())
+    } else {
+        Err(format!(
+            "{command:?} omitted matches for variable-match exception ({reason})"
+        ))
     }
 }
 

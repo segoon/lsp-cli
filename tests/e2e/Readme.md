@@ -238,7 +238,8 @@ missing capabilities require the command's user-facing unsupported error.
 In `tests/e2e/manifest/query_case.rs`, a `smoke` pair can be `status: queries`, and each query case
 carries an optional `exceptions` list. Each entry names a `command` (one of the real-server query
 kinds — `grep`, `references`, `callers`, `callees`, `build-index`, `format`, etc.), an `outcome`
-(`failure` or `empty-matches`), an optional expected stderr `message`, and a mandatory `reason`.
+(`failure`, `empty-matches`, or `variable-matches`), an optional expected stderr `message`, and a
+mandatory `reason`.
 
 At runtime (`tests/e2e/real_servers.rs`), if a query has a matching exception, the harness skips
 the normal "must succeed with real matches" assertion and instead asserts the *documented* deviant
@@ -246,6 +247,8 @@ behavior:
 
 - `failure`: the command must exit non-zero and stderr must contain `message`.
 - `empty-matches`: the command must succeed but return an empty `matches` array.
+- `variable-matches`: the command must succeed and return a `matches` array, but its cardinality is
+  not stable across supported environments.
 
 `exceptions` is not error-tolerance or flakiness suppression — it's a positive assertion of each
 server's known, reproducible protocol quirk, with the `reason` pinned in the YAML so the deviation

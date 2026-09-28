@@ -18,8 +18,8 @@ pairs:
       status: queries
       exceptions:
         - command: definition
-          outcome: empty-matches
-          reason: perlnavigator does not resolve goto-definition for a sub called from the same file it is defined in
+          outcome: variable-matches
+          reason: perlnavigator returns either no result or the sub itself when goto-definition is requested at its declaration
         - command: build-index
           outcome: failure
           message: background-work progress

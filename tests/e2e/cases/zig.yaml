@@ -14,6 +14,7 @@ language:
 pairs:
   - language: zig
     server: zls
+    tier: smoke
     smoke:
       status: queries
       exceptions:

@@ -8,7 +8,27 @@ use crate::harness::E2eContext;
 use crate::results::E2eFailure;
 use crate::results::{AtStage, CaseKind, E2eResult, FailureStage, record_case};
 
-const RUNTIME_PROGRAMS_ENV: &str = "E2E_RUNTIME_PROGRAMS";
+const RUNTIME_PROGRAMS: [&str; 2] = ["node", "dotnet"];
+
+#[derive(Default)]
+pub(crate) struct RunReport {
+    pub(crate) planned: usize,
+    pub(crate) failures: Vec<String>,
+}
+
+impl RunReport {
+    pub(crate) fn record(&mut self, result: Result<(), String>) {
+        self.planned += 1;
+        if let Err(error) = result {
+            self.failures.push(error);
+        }
+    }
+
+    pub(crate) fn merge(&mut self, other: Self) {
+        self.planned += other.planned;
+        self.failures.extend(other.failures);
+    }
+}
 
 pub(crate) struct CaseDeadline {
     started: Instant,
@@ -49,7 +69,7 @@ pub(crate) fn run_isolated_case<'a>(
         context
             .copy_project(project)
             .at_stage(FailureStage::Setup)?;
-        let runtime_programs = runtime_programs().at_stage(FailureStage::Setup)?;
+        let runtime_programs = RUNTIME_PROGRAMS.map(str::to_string);
         let host_programs = merged_host_programs(&runtime_programs, host_programs);
         for (name, resolver) in host_programs {
             let remaining = deadline.remaining().at_stage(FailureStage::Setup)?;
@@ -59,40 +79,6 @@ pub(crate) fn run_isolated_case<'a>(
         }
         operation(context)
     })
-}
-
-fn runtime_programs() -> Result<Vec<String>, String> {
-    let value = match std::env::var(RUNTIME_PROGRAMS_ENV) {
-        Ok(value) => value,
-        Err(std::env::VarError::NotPresent) => return Ok(Vec::new()),
-        Err(std::env::VarError::NotUnicode(_)) => {
-            return Err(format!("{RUNTIME_PROGRAMS_ENV} must contain valid UTF-8"));
-        }
-    };
-    value
-        .split(',')
-        .map(str::trim)
-        .filter(|name| !name.is_empty())
-        .map(|name| {
-            validate_runtime_program_name(name)?;
-            Ok(name.to_string())
-        })
-        .collect()
-}
-
-fn validate_runtime_program_name(name: &str) -> Result<(), String> {
-    let path = Path::new(name);
-    let is_bare_name = path.file_name().is_some_and(|file_name| file_name == name)
-        && !name.contains(['/', '\\'])
-        && name != "."
-        && name != "..";
-    if is_bare_name {
-        Ok(())
-    } else {
-        Err(format!(
-            "{RUNTIME_PROGRAMS_ENV} entry {name:?} must be a bare executable name"
-        ))
-    }
 }
 
 fn merged_host_programs<'a>(
@@ -175,15 +161,5 @@ mod tests {
 
         assert_eq!(programs.len(), 1);
         assert_eq!(programs["node"], explicit_resolver);
-    }
-
-    #[test]
-    fn runtime_program_names_reject_paths_and_traversal() {
-        for name in ["../node", "tools/node", r"tools\node", ".", ".."] {
-            let error = validate_runtime_program_name(name)
-                .expect_err("runtime program paths should be rejected");
-            assert!(error.contains("must be a bare executable name"));
-        }
-        validate_runtime_program_name("node").expect("a bare program name should be accepted");
     }
 }

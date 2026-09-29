@@ -4,12 +4,12 @@ use std::fs;
 use std::path::Path;
 use std::sync::{Mutex, OnceLock};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 const RESULTS_OUTPUT_ENV: &str = "E2E_RESULTS_OUTPUT";
 const SUMMARY_OUTPUT_ENV: &str = "E2E_RESULTS_SUMMARY_OUTPUT";
 
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum FailureStage {
     Setup,
@@ -20,7 +20,7 @@ pub(crate) enum FailureStage {
     Cleanup,
 }
 
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum CaseKind {
     Smoke,
@@ -115,21 +115,21 @@ impl<T> AtStage<T> for Result<T, String> {
     }
 }
 
-#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "kebab-case")]
 enum Outcome {
     Passed,
     Failed,
 }
 
-#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 struct CaseResult {
     id: String,
     kind: CaseKind,
     outcome: Outcome,
     #[serde(skip_serializing_if = "Option::is_none")]
     failure_stage: Option<FailureStage>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     additional_failure_stages: Vec<FailureStage>,
     #[serde(skip_serializing_if = "Option::is_none")]
     message: Option<String>,
@@ -158,14 +158,14 @@ impl CaseResult {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 struct Report {
     schema_version: u32,
     cases: Vec<CaseResult>,
     summary: Summary,
 }
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 struct Summary {
     passed: usize,
     failed: usize,
@@ -196,16 +196,150 @@ pub(crate) fn record_case(kind: CaseKind, id: &str, result: &E2eResult) -> Resul
     }
     results.sort();
     let report = build_report(&results);
+    publish_report(&report)
+}
 
-    if let Some(path) = results_path {
+#[derive(Debug)]
+pub(crate) struct MergedResults {
+    pub(crate) planned: usize,
+    pub(crate) failures: Vec<String>,
+}
+
+pub(crate) fn merge_shards(
+    directory: &Path,
+    expected: &[(CaseKind, String)],
+) -> Result<MergedResults, String> {
+    let mut cases = read_shards(directory)?;
+    cases.sort();
+    for duplicate in cases.windows(2) {
+        let [first, second] = duplicate else {
+            continue;
+        };
+        if first.kind == second.kind && first.id == second.id {
+            return Err(format!(
+                "duplicate E2E result for {} {}",
+                first.kind.diagnostic_label(),
+                first.id
+            ));
+        }
+    }
+    let missing = expected
+        .iter()
+        .filter(|(kind, id)| {
+            !cases
+                .iter()
+                .any(|case| case.kind == *kind && case.id == *id)
+        })
+        .map(|(kind, id)| format!("{} {id}", kind.diagnostic_label()))
+        .collect::<Vec<_>>();
+    if !missing.is_empty() {
+        return Err(format!(
+            "missing E2E result shards for: {}",
+            missing.join(", ")
+        ));
+    }
+    let unexpected = cases
+        .iter()
+        .filter(|case| {
+            !expected
+                .iter()
+                .any(|(kind, id)| case.kind == *kind && case.id == *id)
+        })
+        .map(|case| format!("{} {}", case.kind.diagnostic_label(), case.id))
+        .collect::<Vec<_>>();
+    if !unexpected.is_empty() {
+        return Err(format!(
+            "unexpected E2E result shards for: {}",
+            unexpected.join(", ")
+        ));
+    }
+    let report = build_report(&cases);
+    publish_report(&report)?;
+    let failures = cases
+        .iter()
+        .filter(|case| case.outcome == Outcome::Failed)
+        .map(CaseResult::render_failure)
+        .collect();
+    Ok(MergedResults {
+        planned: cases.len(),
+        failures,
+    })
+}
+
+fn read_shards(directory: &Path) -> Result<Vec<CaseResult>, String> {
+    let entries = fs::read_dir(directory).map_err(|error| {
+        format!(
+            "failed to read E2E result shard directory {}: {error}",
+            directory.display()
+        )
+    })?;
+    let mut paths = entries
+        .map(|entry| entry.map(|entry| entry.path()))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| format!("failed to inspect E2E result shards: {error}"))?;
+    paths.retain(|path| {
+        path.extension()
+            .is_some_and(|extension| extension == "json")
+    });
+    paths.sort();
+    let mut cases = Vec::new();
+    for path in paths {
+        let contents = fs::read(&path).map_err(|error| {
+            format!(
+                "failed to read E2E result shard {}: {error}",
+                path.display()
+            )
+        })?;
+        let report: Report = serde_json::from_slice(&contents).map_err(|error| {
+            format!(
+                "failed to parse E2E result shard {}: {error}",
+                path.display()
+            )
+        })?;
+        if report.schema_version != 1 {
+            return Err(format!(
+                "E2E result shard {} uses unsupported schema version {}",
+                path.display(),
+                report.schema_version
+            ));
+        }
+        cases.extend(report.cases);
+    }
+    Ok(cases)
+}
+
+impl CaseResult {
+    fn render_failure(&self) -> String {
+        let mut output = format!("E2E {} {} failed:", self.kind.diagnostic_label(), self.id);
+        if let Some(stage) = self.failure_stage {
+            output.push_str(&format!("\nE2E failure stage: {stage}"));
+        }
+        if !self.additional_failure_stages.is_empty() {
+            let stages = self
+                .additional_failure_stages
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join(", ");
+            output.push_str(&format!("\nE2E additional failure stages: {stages}"));
+        }
+        if let Some(message) = &self.message {
+            output.push_str(&format!("\n{message}"));
+        }
+        output
+    }
+}
+
+fn publish_report(report: &Report) -> Result<(), String> {
+    if let Some(path) = std::env::var_os(RESULTS_OUTPUT_ENV) {
         write_file(
             Path::new(&path),
-            &serde_json::to_vec_pretty(&report)
+            &serde_json::to_vec_pretty(report)
                 .map_err(|error| format!("failed to serialize E2E results: {error}"))?,
         )?;
     }
-    if let Some(path) = summary_path {
-        write_file(Path::new(&path), render_summary(&report).as_bytes())?;
+    if let Some(path) = std::env::var_os(SUMMARY_OUTPUT_ENV) {
+        write_file(Path::new(&path), render_summary(report).as_bytes())?;
     }
     Ok(())
 }
@@ -332,5 +466,55 @@ mod tests {
 
         assert!(error.contains("failed to write E2E result file"));
         assert!(error.contains("results.tmp"));
+    }
+
+    #[test]
+    fn merges_sorted_shards_and_rejects_missing_results() {
+        let directory = tempfile::tempdir().expect("temporary directory should initialize");
+        let first = build_report(&[passed("yaml/yamlls")]);
+        let second = build_report(&[passed("go/gopls")]);
+        fs::write(
+            directory.path().join("second.json"),
+            serde_json::to_vec(&first).expect("report should serialize"),
+        )
+        .expect("shard should be written");
+        fs::write(
+            directory.path().join("first.json"),
+            serde_json::to_vec(&second).expect("report should serialize"),
+        )
+        .expect("shard should be written");
+        let expected = [
+            (CaseKind::Capabilities, "go/gopls".to_string()),
+            (CaseKind::Capabilities, "yaml/yamlls".to_string()),
+        ];
+
+        let merged = merge_shards(directory.path(), &expected).expect("shards should merge");
+        assert_eq!(merged.planned, 2);
+        assert!(merged.failures.is_empty());
+
+        let error = merge_shards(
+            directory.path(),
+            &[(CaseKind::Smoke, "rust/rust_analyzer".to_string())],
+        )
+        .expect_err("missing results should fail");
+        assert!(error.contains("missing E2E result shards for: case rust/rust_analyzer"));
+    }
+
+    #[test]
+    fn rejects_duplicate_shard_results() {
+        let directory = tempfile::tempdir().expect("temporary directory should initialize");
+        let report = serde_json::to_vec(&build_report(&[passed("go/gopls")]))
+            .expect("report should serialize");
+        for name in ["first.json", "second.json"] {
+            fs::write(directory.path().join(name), &report).expect("shard should be written");
+        }
+
+        let error = merge_shards(
+            directory.path(),
+            &[(CaseKind::Capabilities, "go/gopls".to_string())],
+        )
+        .expect_err("duplicate results should fail");
+
+        assert_eq!(error, "duplicate E2E result for capabilities case go/gopls");
     }
 }

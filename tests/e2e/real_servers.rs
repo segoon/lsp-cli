@@ -10,15 +10,14 @@ use crate::harness::{E2eContext, E2eOutput};
 use crate::manifest::{
     ExceptionOutcome, Manifest, QueryKind, RealServerCapabilitiesCase, RealServerCase,
 };
-use crate::real_server_support::{CaseDeadline, run_isolated_case, run_reported_case};
-use crate::repository_root;
+use crate::real_server_support::{CaseDeadline, RunReport, run_isolated_case, run_reported_case};
 use crate::results::{AtStage, CaseKind, E2eResult, FailureStage};
 
 #[cfg(test)]
 #[path = "real_servers_tests.rs"]
 mod tests;
 
-const QUERY_COMMANDS: [QueryKind; 12] = [
+const QUERY_COMMANDS: [QueryKind; 14] = [
     QueryKind::ServerCapabilities,
     QueryKind::Diagnostics,
     QueryKind::Format,
@@ -30,6 +29,8 @@ const QUERY_COMMANDS: [QueryKind; 12] = [
     QueryKind::Callees,
     QueryKind::Definition,
     QueryKind::Declaration,
+    QueryKind::Implementation,
+    QueryKind::TypeDefinition,
     QueryKind::BuildIndex,
 ];
 
@@ -159,6 +160,8 @@ impl<'a> RealServerTest<'a> {
                 | QueryKind::Callees
                 | QueryKind::Definition
                 | QueryKind::Declaration
+                | QueryKind::Implementation
+                | QueryKind::TypeDefinition
         ) {
             return self.retry_symbol_query_if_empty(context, server, command, deadline, output);
         }
@@ -235,7 +238,9 @@ impl<'a> RealServerTest<'a> {
             | QueryKind::Callers
             | QueryKind::Callees
             | QueryKind::Definition
-            | QueryKind::Declaration => {
+            | QueryKind::Declaration
+            | QueryKind::Implementation
+            | QueryKind::TypeDefinition => {
                 validate_matches(command, self.case.expected_names(), output)
             }
             QueryKind::BuildIndex => Ok(()),
@@ -322,6 +327,8 @@ fn query_prefix(
         QueryKind::Callees => vec!["callees", callable, "."],
         QueryKind::Definition => vec!["definition", callable, "."],
         QueryKind::Declaration => vec!["declaration", callable, "."],
+        QueryKind::Implementation => vec!["implementation", callable, "."],
+        QueryKind::TypeDefinition => vec!["type-definition", callable, "."],
         QueryKind::BuildIndex => vec!["build-index", "."],
     };
     values.into_iter().map(str::to_string).collect()
@@ -335,6 +342,8 @@ fn capability_path(command: QueryKind) -> Option<&'static [&'static str]> {
         QueryKind::Callers | QueryKind::Callees => Some(&["callHierarchyProvider"]),
         QueryKind::Definition => Some(&["definitionProvider"]),
         QueryKind::Declaration => Some(&["declarationProvider"]),
+        QueryKind::Implementation => Some(&["implementationProvider"]),
+        QueryKind::TypeDefinition => Some(&["typeDefinitionProvider"]),
         QueryKind::Format => Some(&["documentFormattingProvider"]),
         QueryKind::ServerCapabilities | QueryKind::Diagnostics | QueryKind::BuildIndex => None,
     }
@@ -361,6 +370,8 @@ fn validate_unsupported(command: QueryKind, output: &E2eOutput) -> Result<(), St
         QueryKind::Callers | QueryKind::Callees => "does not support call hierarchy",
         QueryKind::Definition => "does not support textDocument/definition",
         QueryKind::Declaration => "does not support textDocument/declaration",
+        QueryKind::Implementation => "does not support textDocument/implementation",
+        QueryKind::TypeDefinition => "does not support textDocument/typeDefinition",
         QueryKind::Format => "does not support format",
         _ => {
             return Err(format!(
@@ -496,103 +507,29 @@ fn run(context: &E2eContext, args: &[String], deadline: Duration) -> Result<E2eO
     context.try_run_with_deadline(&refs, deadline)
 }
 
-#[test]
-#[ignore = "downloads and runs real LSP servers; executed explicitly in CI"]
-fn manifest_real_server_smoke_cases() {
-    let repository = repository_root();
-    let dependencies =
-        ManagedDependencies::prepare().expect("real-server E2E dependencies should be available");
-    let manifest = Manifest::load_validated(repository).expect("E2E manifest should be valid");
-    let selected = selected_cases(&manifest);
-    assert!(
-        manifest.supports_current_platform(),
-        "real-server E2E requires {}; current platform is {}/{}",
-        manifest.platform_label(),
-        std::env::consts::OS,
-        std::env::consts::ARCH
-    );
-    assert!(
-        selected
-            .as_ref()
-            .is_none_or(|labels| labels.iter().all(|label| manifest.declares_pair(label))),
-        "E2E selection contains an undeclared manifest pair"
-    );
-    if let Some(labels) = &selected {
-        for label in labels {
-            if let Some(reason) = manifest.exclusion_reason(label) {
-                eprintln!("E2E case {label}: reviewed exclusion: {reason}");
-            }
+pub(crate) fn run_cases(
+    manifest: &Manifest,
+    repository: &Path,
+    dependencies: &ManagedDependencies,
+    include: impl Fn(&str, &str, bool) -> bool,
+) -> RunReport {
+    let mut report = RunReport::default();
+    for case in manifest.real_server_smoke_cases() {
+        if include(&case.label(), case.server_id(), case.is_smoke()) {
+            report.record(RealServerTest::new(case, repository, dependencies).run());
         }
     }
-    let cases = manifest
-        .real_server_smoke_cases()
-        .filter(|case| {
-            selected.as_ref().map_or_else(
-                || manifest.is_preferred_pair(&case.label()),
-                |expected| expected.contains(&case.label()),
-            )
-        })
-        .collect::<Vec<_>>();
-    let mut failures = cases
-        .into_iter()
-        .filter_map(|case| {
-            RealServerTest::new(case, repository, &dependencies)
-                .run()
-                .err()
-        })
-        .collect::<Vec<_>>();
-    failures.extend(
-        manifest
-            .real_server_capabilities_cases()
-            .filter(|case| {
-                selected
-                    .as_ref()
-                    .is_some_and(|expected| expected.contains(&case.label()))
-            })
-            .filter_map(|case| {
+    for case in manifest.real_server_capabilities_cases() {
+        if include(&case.label(), case.server_id(), case.is_smoke()) {
+            report.record(
                 CapabilitiesTest {
                     case,
                     repository,
-                    dependencies: &dependencies,
+                    dependencies,
                 }
-                .run()
-                .err()
-            }),
-    );
-    assert!(
-        failures.is_empty(),
-        "real-server E2E failures:\n{}",
-        failures.join("\n\n")
-    );
-}
-
-fn selected_cases(manifest: &Manifest) -> Option<BTreeSet<String>> {
-    let single = std::env::var("E2E_CASE").ok();
-    let batch = std::env::var("E2E_CASES").ok();
-    assert!(
-        single.is_none() || batch.is_none(),
-        "E2E_CASE and E2E_CASES cannot be used together"
-    );
-    if let Some(label) = single {
-        return Some(BTreeSet::from([label]));
+                .run(),
+            );
+        }
     }
-    batch.map(|value| {
-        let labels = value
-            .split(',')
-            .map(str::trim)
-            .filter(|label| !label.is_empty())
-            .map(str::to_string)
-            .collect::<BTreeSet<_>>();
-        assert!(
-            !labels.is_empty(),
-            "E2E_CASES must select at least one pair"
-        );
-        assert!(
-            labels
-                .iter()
-                .all(|label| manifest.declares_explicit_pair(label)),
-            "E2E_CASES may contain only explicit manifest pairs"
-        );
-        labels
-    })
+    report
 }

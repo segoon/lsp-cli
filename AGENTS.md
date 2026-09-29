@@ -65,6 +65,11 @@ Compare tests of the same type/class/module/function for duplicated blocks/expre
 Move duplicated test initialization code to helper functions.
 Similar initialization may use parametrized helpers with distinct arguments.
 
+After changing E2E infrastructure (including its runner, manifest schema, suite selection,
+phases, Make targets, or CI workflows), run the complete real-server suite with `make test-e2e`.
+Targeted cases and `make test-e2e-smoke` are useful while developing, but do not replace that
+final full-suite validation.
+
 
 # Code
 
@@ -89,4 +94,10 @@ Test the code with the following commands:
 
 ```sh
 make test
+```
+
+Additionally, after E2E infrastructure changes:
+
+```sh
+make test-e2e
 ```

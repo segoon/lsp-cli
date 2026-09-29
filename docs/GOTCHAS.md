@@ -72,6 +72,19 @@
 
 # LSP server implementations
 
+## Arduino Language Server
+
+- Arduino Language Server is not self-contained after installation. It requires Arduino CLI
+  configuration, an installed board core, `clangd`, and a project-specific fully qualified board
+  name (FQBN) before initialization. The generic E2E fixture therefore records a reviewed
+  exclusion instead of treating missing machine/project configuration as a server regression.
+
+## Astro Language Server
+
+- Astro Language Server requires the TypeScript SDK location in `initializationOptions`.
+  lsp-cli does not currently expose per-server initialization options, so the pair is explicitly
+  excluded from executable capability coverage until that configuration is supported.
+
 ## Mason PyPI launchers
 
 - PyPI packages must be installed into a virtual environment, not with `pip --prefix`. Prefix
@@ -190,6 +203,13 @@
 - Current-Mason Pyrefly initializes against the Python playground but returns no workspace
   symbols, document symbols, or document functions. The pair is excluded because later named
   queries cannot be given a meaningful semantic assertion without a discoverable symbol.
+
+## gopls
+
+- gopls advertises `implementationProvider`, but `textDocument/implementation` on a free function
+  fails with a server error explaining that the symbol is a function rather than a method. E2E
+  coverage records that bounded failure for fixtures whose shared callable query is a free
+  function; a non-empty implementation assertion needs an interface type or method fixture.
 
 ## deno lsp
 

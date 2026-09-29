@@ -14,6 +14,7 @@ language:
 pairs:
   - language: perl
     server: perlnavigator
+    tier: smoke
     smoke:
       status: queries
       exceptions:

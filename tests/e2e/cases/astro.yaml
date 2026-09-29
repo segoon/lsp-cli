@@ -6,4 +6,5 @@ pairs:
   - language: astro
     server: astro
     smoke:
-      status: capabilities
+      status: excluded
+      reason: Astro Language Server requires a TypeScript SDK path in initializationOptions, which lsp-cli cannot configure yet.

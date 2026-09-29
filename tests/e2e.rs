@@ -2,6 +2,10 @@
     clippy::panic,
     reason = "E2E assertion helpers panic with captured process diagnostics."
 )]
+#![allow(
+    dead_code,
+    reason = "Real-server helpers are compiled here for focused unit tests and used by e2e-runner."
+)]
 #![expect(
     clippy::expect_used,
     reason = "E2E fixtures and assertions fail immediately with contextual expectation messages."
@@ -43,8 +47,8 @@ mod real_server_support;
 mod real_servers;
 #[path = "e2e/results.rs"]
 mod results;
-#[path = "e2e/run_e2e_test.rs"]
-mod run_e2e_test;
+#[path = "e2e/runner_selection.rs"]
+mod runner_selection;
 #[path = "e2e/update.rs"]
 mod update;
 

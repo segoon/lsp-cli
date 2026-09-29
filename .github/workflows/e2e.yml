@@ -95,31 +95,16 @@ jobs:
           path: .env
           key: e2e-runtimes-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('tests/e2e/dependencies/catalog.rs') }}
           restore-keys: e2e-runtimes-${{ runner.os }}-${{ runner.arch }}-
-      - name: Run real-server smoke cases
+      - name: Run compatibility cases
         env:
-          E2E_CASES: ${{ matrix.cases }}
-          E2E_RUNTIME_PROGRAMS: ${{ matrix.runtime_programs }}
+          MATRIX_CASES: ${{ matrix.cases }}
           E2E_MASON_REGISTRY_SNAPSHOT: ${{ runner.temp }}/mason-registry
-          E2E_RESULTS_OUTPUT: ${{ runner.temp }}/e2e-results.json
-          E2E_RESULTS_SUMMARY_OUTPUT: ${{ runner.temp }}/e2e-results.md
-        run: make test-real-server-smoke-e2e
-      - name: Publish E2E result summary
-        if: ${{ always() }}
-        env:
-          E2E_RESULTS_SUMMARY_OUTPUT: ${{ runner.temp }}/e2e-results.md
         run: |
-          if [[ -f "$E2E_RESULTS_SUMMARY_OUTPUT" ]]; then
-            cat "$E2E_RESULTS_SUMMARY_OUTPUT" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo '## E2E shard results' >> "$GITHUB_STEP_SUMMARY"
-            echo >> "$GITHUB_STEP_SUMMARY"
-            echo 'No case results were produced; inspect the job log for a harness or build failure.' >> "$GITHUB_STEP_SUMMARY"
-          fi
-      - name: Upload E2E results
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: e2e-results-${{ matrix.language }}-${{ matrix.installation_family }}
-          path: ${{ runner.temp }}/e2e-results.json
-          if-no-files-found: warn
-          retention-days: 14
+          IFS=',' read -ra cases <<< "$MATRIX_CASES"
+          failed=0
+          for case in "${cases[@]}"; do
+            if ! make test-e2e CASE="$case"; then
+              failed=1
+            fi
+          done
+          exit "$failed"

@@ -14,6 +14,7 @@ language:
 pairs:
   - language: luau
     server: luau_lsp
+    tier: smoke
     smoke:
       status: queries
       exceptions:

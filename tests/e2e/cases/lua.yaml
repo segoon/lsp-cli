@@ -27,6 +27,7 @@ pairs:
           reason: EmmyLua returns no outgoing call-hierarchy edges for the fixture function
   - language: lua
     server: lua_ls
+    tier: smoke
     smoke:
       status: excluded
       reason: LuaLS answers queries but does not exit after direct shutdown; detached lifecycle coverage is required instead.

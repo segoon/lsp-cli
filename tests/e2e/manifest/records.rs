@@ -32,6 +32,21 @@ impl LanguageFile {
 }
 
 impl PairCase {
+    pub(super) fn label(&self) -> String {
+        format!("{}/{}", self.language, self.server)
+    }
+
+    pub(super) fn is_smoke(&self) -> bool {
+        self.tier == Some(super::PairTier::Smoke)
+    }
+
+    pub(super) fn has_executable_behavior(&self) -> bool {
+        matches!(
+            self.smoke,
+            Some(SmokeDisposition::Queries { .. } | SmokeDisposition::Capabilities { .. })
+        ) || matches!(self.lifecycle, Some(LifecycleDisposition::Scenarios { .. }))
+    }
+
     pub(super) fn key(&self) -> PairKey {
         PairKey {
             language: self.language.clone(),

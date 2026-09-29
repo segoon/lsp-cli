@@ -6,4 +6,5 @@ pairs:
   - language: arduino
     server: arduino_language_server
     smoke:
-      status: capabilities
+      status: excluded
+      reason: arduino-language-server requires an Arduino CLI configuration, an installed board core, clangd, and a project-specific FQBN before it can initialize.

@@ -261,7 +261,7 @@ pub(super) fn install_downloaded_artifact(
         extract_tar_gz(root, bytes)
     } else if relative_name_lower.ends_with(".tar.xz") {
         extract_tar_xz(root, bytes)
-    } else if extension.is_some_and(|value| value.eq_ignore_ascii_case("zip")) {
+    } else if extension.is_some_and(is_zip_archive_extension) {
         extract_zip(root, bytes)
     } else if extension.is_some_and(|value| value.eq_ignore_ascii_case("gz")) {
         let target = join_relative_path(root, &relative_name[..relative_name.len() - 3])?;
@@ -270,6 +270,11 @@ pub(super) fn install_downloaded_artifact(
         let path = join_relative_path(root, relative_name)?;
         write_file(&path, bytes)
     }
+}
+
+fn is_zip_archive_extension(extension: &str) -> bool {
+    // VS Code extensions use the ZIP container format with a distinct extension.
+    extension.eq_ignore_ascii_case("zip") || extension.eq_ignore_ascii_case("vsix")
 }
 
 fn extract_tar_gz(root: &Path, bytes: &[u8]) -> Result<()> {

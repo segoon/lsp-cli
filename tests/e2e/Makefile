@@ -1,5 +1,5 @@
 ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/../..)
-RUNNER := cargo test --locked --test e2e-runner --
+RUNNER := $(E2E_RUNNER)
 SELECTOR_ARGS := $(if $(CASE),--case $(CASE),$(if $(SERVER),--server $(SERVER),))
 PHASES := $(if $(filter-out all,$(PHASE)),$(PHASE),provision smoke lifecycle)
 
@@ -18,12 +18,13 @@ run:
 	exit "$$status"
 
 phase:
-	+@units="$$(cd "$(ROOT)" && $(RUNNER) --suite "$(SUITE)" --phase "$(E2E_PHASE)" \
+	+@units="$$(cd "$(ROOT)" && "$(RUNNER)" --suite "$(SUITE)" --phase "$(E2E_PHASE)" \
 		$(SELECTOR_ARGS) --list-work)" || exit; \
 	$(MAKE) --no-print-directory --keep-going --output-sync=target \
 		-f tests/e2e/Makefile phase-tasks \
 		SUITE="$(SUITE)" E2E_PHASE="$(E2E_PHASE)" CASE="$(CASE)" SERVER="$(SERVER)" \
-		E2E_SHARD_DIR="$(E2E_SHARD_DIR)" E2E_UNITS="$$units"
+		E2E_SHARD_DIR="$(E2E_SHARD_DIR)" E2E_RUNNER="$(E2E_RUNNER)" \
+		E2E_UNITS="$$units"
 
 phase-tasks: $(addprefix e2e-task/,$(E2E_UNITS))
 
@@ -34,7 +35,7 @@ define E2E_TASK
 e2e-task/$(1):
 	@cd "$(ROOT)" && env -u E2E_RESULTS_SUMMARY_OUTPUT -u MAKEFLAGS -u MFLAGS \
 		E2E_RESULTS_OUTPUT="$(E2E_SHARD_DIR)/$(E2E_PHASE)-$(subst /,__,$(1)).json" \
-		$(RUNNER) --suite "$(SUITE)" --phase "$(E2E_PHASE)" \
+		"$(RUNNER)" --suite "$(SUITE)" --phase "$(E2E_PHASE)" --defer-failures \
 		$(if $(filter provision,$(E2E_PHASE)),--server "$(1)",--case "$(1)") \
 		--quiet-summary
 endef

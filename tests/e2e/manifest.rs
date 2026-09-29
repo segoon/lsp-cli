@@ -30,6 +30,9 @@ pub(crate) use query_case::{
 use query_case::{HostProgram, QueryProfile, SmokeDisposition};
 #[path = "manifest/dispositions.rs"]
 mod dispositions;
+#[path = "manifest/expected_failure.rs"]
+mod expected_failure;
+use expected_failure::ExpectedFailure;
 #[path = "manifest/records.rs"]
 mod records;
 use dispositions::require_text;
@@ -39,7 +42,7 @@ pub(crate) mod coverage_cases;
 mod suite;
 use suite::{Architecture, OperatingSystem, Platform, TestDefaults};
 
-const MANIFEST_SCHEMA_VERSION: u32 = 10;
+const MANIFEST_SCHEMA_VERSION: u32 = 11;
 
 #[derive(Clone, Debug)]
 pub(crate) struct Manifest {
@@ -49,6 +52,7 @@ pub(crate) struct Manifest {
     defaults: TestDefaults,
     commands: Vec<CommandCase>,
     servers: Vec<ServerCase>,
+    expected_failures: Vec<ExpectedFailure>,
     languages: Vec<LanguageCase>,
     pairs: Vec<PairCase>,
 }
@@ -62,6 +66,8 @@ struct SuiteFile {
     defaults: TestDefaults,
     commands: Vec<CommandCase>,
     servers: Vec<ServerCase>,
+    #[serde(default)]
+    expected_failures: Vec<ExpectedFailure>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -167,6 +173,7 @@ impl Manifest {
             defaults: suite.defaults,
             commands: suite.commands,
             servers: suite.servers,
+            expected_failures: suite.expected_failures,
             languages,
             pairs,
         })
@@ -198,6 +205,7 @@ impl Manifest {
             Self::validate_complete_coverage(&data, &declared_languages)?;
             self.validate_complete_pairs(&data, &servers, &declared_pairs)?;
         }
+        self.validate_expected_failures()?;
         Ok(())
     }
 

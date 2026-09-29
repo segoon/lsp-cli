@@ -1,4 +1,4 @@
-schema-version: 10
+schema-version: 11
 coverage: complete
 platform:
   os: linux
@@ -12,6 +12,330 @@ defaults:
     deadline-seconds: 240
   provisioning:
     deadline-seconds: 600
+expected-failures:
+  - case: capabilities/OpenFOAM/foam_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/bazelrc/bazelrc_lsp
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/bicep-params/bicep
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/bicep/bicep
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/buf-config/buf_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/bzl/bzl
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/c3/c3_lsp
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/c3i/c3_lsp
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/cabal/hls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/cairo/cairo_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/circom/circom-lsp
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/clar/clarinet
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/clarity/clarinet
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/cmake/neocmake
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/cobol/cobol_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/comp/glslls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/crystal/crystalline
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/css/csskit
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/dhall/dhall_lsp_server
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/dts/ginko_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/earthfile/earthlyls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/eelixir/elixirls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/eelixir/lexical
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/eelixir/nextls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/elixir/elixirls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/elixir/lexical
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/elixir/nextls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/erg/erg_language_server
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/fennel/fennel_language_server
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/fish/fish_lsp
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/flux/flux_lsp
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/foam/foam_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/frag/glslls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/fsd/facility_language_server
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/genie/vala_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/geom/glslls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/glsl/glslls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/gn/gn_language_server
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/groovy/groovyls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/haskell/hls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/heex/elixirls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/heex/lexical
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/heex/nextls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/helm/helm_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/hoon/hoon_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/hylo/hylo_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/hyprlang/hyprls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/jinja/jinja_lsp
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/jq/jqls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/jsonnet/jsonnet_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/julia/julials
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/just/just
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/lhaskell/hls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/libsonnet/jsonnet_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/llw/lelwel_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/markdown/markdown_oxide
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/markdown/prosemd_lsp
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/markdown/rumdl
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/matlab/matlab_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/mdx/mdx_analyzer
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/meson/mesonlsp
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/metamath-zero/mm0_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/move/move_analyzer
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/nim/nimls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/nix/nil_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/opentofu-vars/tofu_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/opentofu/tofu_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/p8/pico8_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/pest/pest_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/php/phpactor
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/profile/vespa_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/proto/buf_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/proto/pbls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/ps1/powershell_es
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/puppet/puppet
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/quarto/r_language_server
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/query/ts_query_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/r/r_language_server
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/raku/raku_navigator
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/reason/reason_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/rego/regal
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/rego/regols
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/rmd/r_language_server
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/roc/roc_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/sd/vespa_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/smithy/smithy_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/solidity/solang
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/solidity/solc
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/sql/bqls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/sql/postgres_lsp
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/sql/sqlls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/sql/sqls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/surface/elixirls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/surface/lexical
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/surface/nextls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/systemverilog/svls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/templ/templ
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/terraform-vars/terraformls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/terraform/terraformls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/terraform/tofu_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/tesc/glslls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/tese/glslls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/thrift/thriftls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/ttcn/ntt
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/v/v_analyzer
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/v/vls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/vala/vala_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/verilog/svls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/vert/glslls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/vhd/vhdl_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/vhdl/vhdl_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/visualforce/visualforce_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/vlang/vls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/vsh/v_analyzer
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/vv/v_analyzer
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/yaml.gitlab/gitlab_ci_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/yaml.helm-values/helm_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: capabilities/yql/vespa_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/bicep
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/bzl
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/cairo_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/clarinet
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/dhall_lsp_server
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/elixirls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/erg_language_server
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/fennel_language_server
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/flux_lsp
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/glslls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/groovyls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/hls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/hylo_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/julials
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/lelwel_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/marko-js
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/matlab_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/mesonlsp
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/millet
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/mm0_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/move_analyzer
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/nil_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/nimls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/pbls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/phpactor
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/pico8_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/powershell_es
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/puppet
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/r_language_server
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/raku_navigator
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/salt_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/smithy_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/sqls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/terraformls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/vala_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/vespa_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/vhdl_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/visualforce_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: provisioning/vls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: smoke/cs/omnisharp
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: smoke/lua/emmylua_ls
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: smoke/python/basedpyright
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+  - case: smoke/python/pylyzer
+    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+
 servers:
   - id: ada_ls
     owner-language: ada

@@ -358,11 +358,18 @@ make test-e2e SERVER=pyright PHASE=provision
 silently running no tests. Smoke membership is an explicit `tier: smoke` property in the case
 manifest; it is not inferred from preferred-server metadata.
 
+Known failures are listed explicitly in `cases/suite.yaml` under `expected-failures`. They continue
+to run, but their failure does not fail the target. A new failure remains an error. Passing marked
+cases are reported separately so flaky or repaired cases can be reviewed and their stale markers
+removed without making the compatibility target nondeterministic.
+
 GNU Make's `-jN` option runs up to `N` independently isolated cases concurrently. Omitting `-j`
 keeps the suite sequential, which is useful when reproducing a failure. Provisioning, smoke, and
 lifecycle remain ordered phases: all work in one phase finishes before the next phase begins.
 Parallel runs group each case's output and merge their result shards into the same deterministic
-suite report produced by a sequential run.
+suite report produced by a sequential run. Make compiles the E2E runner once before scheduling and
+then executes that binary directly, avoiding Cargo package-cache and build-directory lock waits in
+parallel workers.
 
 These commands download external tools and require the host programs declared by the manifest, and
 local runs use the current Mason registry — compare the resulting source ID with an earlier run

@@ -38,6 +38,15 @@ impl CaseKind {
             Self::Provisioning => "provisioning",
         }
     }
+
+    fn key_label(self) -> &'static str {
+        match self {
+            Self::Smoke => "smoke",
+            Self::Capabilities => "capabilities",
+            Self::Lifecycle => "lifecycle",
+            Self::Provisioning => "provisioning",
+        }
+    }
 }
 
 impl fmt::Display for FailureStage {
@@ -136,6 +145,12 @@ struct CaseResult {
 }
 
 impl CaseResult {
+    fn key(&self) -> String {
+        format!("{}/{}", self.kind.key_label(), self.id)
+    }
+}
+
+impl CaseResult {
     fn from_result(kind: CaseKind, id: &str, result: &E2eResult) -> Self {
         match result {
             Ok(()) => Self {
@@ -202,7 +217,8 @@ pub(crate) fn record_case(kind: CaseKind, id: &str, result: &E2eResult) -> Resul
 #[derive(Debug)]
 pub(crate) struct MergedResults {
     pub(crate) planned: usize,
-    pub(crate) failures: Vec<String>,
+    pub(crate) failures: Vec<(String, String)>,
+    pub(crate) passed: Vec<String>,
 }
 
 pub(crate) fn merge_shards(
@@ -258,11 +274,17 @@ pub(crate) fn merge_shards(
     let failures = cases
         .iter()
         .filter(|case| case.outcome == Outcome::Failed)
-        .map(CaseResult::render_failure)
+        .map(|case| (case.key(), case.render_failure()))
+        .collect();
+    let passed = cases
+        .iter()
+        .filter(|case| case.outcome == Outcome::Passed)
+        .map(CaseResult::key)
         .collect();
     Ok(MergedResults {
         planned: cases.len(),
         failures,
+        passed,
     })
 }
 

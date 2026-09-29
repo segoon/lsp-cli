@@ -29,14 +29,16 @@ test-e2e-smoke:
 
 define run-e2e
 mkdir -p "$(CURDIR)/target"; \
+runner="$$(cargo test --locked --test e2e-runner --no-run --message-format=json | \
+	python3 scripts/cargo_test_executable.py e2e-runner)" || exit; \
 shard_dir="$$(mktemp -d "$(CURDIR)/target/e2e-results.XXXXXX")" || exit; \
 cleanup() { case "$$shard_dir" in "$(CURDIR)"/target/e2e-results.*) rm -rf -- "$$shard_dir" ;; esac; }; \
 trap cleanup EXIT HUP INT TERM; \
 status=0; \
 RUST_BACKTRACE=full $(MAKE) --no-print-directory -f tests/e2e/Makefile run \
 	SUITE="$(1)" PHASE="$(or $(PHASE),all)" CASE="$(CASE)" SERVER="$(SERVER)" \
-	E2E_SHARD_DIR="$$shard_dir" || status=1; \
-RUST_BACKTRACE=full cargo test --locked --test e2e-runner -- --suite "$(1)" \
+	E2E_SHARD_DIR="$$shard_dir" E2E_RUNNER="$$runner" || status=1; \
+RUST_BACKTRACE=full "$$runner" --suite "$(1)" \
 	$(if $(CASE),--case "$(CASE)") $(if $(SERVER),--server "$(SERVER)") \
 	$(if $(PHASE),--phase "$(PHASE)") --merge-results "$$shard_dir" || status=1; \
 exit "$$status"

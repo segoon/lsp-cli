@@ -30,6 +30,7 @@ pub(crate) struct Selection {
     pub(crate) case: Option<String>,
     pub(crate) server: Option<String>,
     pub(crate) quiet_summary: bool,
+    pub(crate) defer_failures: bool,
 }
 
 impl Selection {
@@ -40,6 +41,7 @@ impl Selection {
         let mut server = None;
         let mut action = Action::Run;
         let mut quiet_summary = false;
+        let mut defer_failures = false;
         let mut args = args;
         while let Some(flag) = args.next() {
             if flag == "--list-work" {
@@ -48,6 +50,10 @@ impl Selection {
             }
             if flag == "--quiet-summary" {
                 quiet_summary = true;
+                continue;
+            }
+            if flag == "--defer-failures" {
+                defer_failures = true;
                 continue;
             }
             let value = args
@@ -74,6 +80,7 @@ impl Selection {
             case,
             server,
             quiet_summary,
+            defer_failures,
         })
     }
 
@@ -160,6 +167,14 @@ mod tests {
         assert_eq!(selection.phase, Phase::Lifecycle);
         assert_eq!(selection.case.as_deref(), Some("rust/rust_analyzer"));
         assert_eq!(selection.action, Action::Run);
+    }
+
+    #[test]
+    fn parses_internal_deferred_failure_mode() {
+        let selection = parse(&["--suite", "all", "--defer-failures"])
+            .expect("deferred failure mode should parse");
+
+        assert!(selection.defer_failures);
     }
 
     #[test]

@@ -93,7 +93,7 @@ fn run(selection: &Selection) -> Result<(), String> {
     if !selection.quiet_summary {
         print_summary(&report, excluded, passed);
     }
-    if report.failures.is_empty() {
+    if report.failures.is_empty() || selection.defer_failures {
         Ok(())
     } else {
         Err(format!("E2E failures:\n{}", report.failures.join("\n\n")))
@@ -188,16 +188,59 @@ fn merge_results(selection: &Selection, directory: &Path) -> Result<(), String> 
     let expected = expected_results(&manifest, selection);
     let merged = results::merge_shards(directory, &expected)?;
     let excluded = excluded_count(&manifest, selection);
+    let selected_keys = expected
+        .iter()
+        .map(|(kind, id)| format!("{}/{id}", case_kind_key(*kind)))
+        .collect::<BTreeSet<_>>();
+    let expected_failures = manifest
+        .expected_failure_keys()
+        .filter(|key| selected_keys.contains(*key))
+        .collect::<BTreeSet<_>>();
+    let actual_failures = merged
+        .failures
+        .iter()
+        .map(|(key, _)| key.as_str())
+        .collect::<BTreeSet<_>>();
+    let failures = merged
+        .failures
+        .iter()
+        .filter(|(key, _)| !expected_failures.contains(key.as_str()))
+        .map(|(_, diagnostic)| diagnostic.clone())
+        .collect::<Vec<_>>();
+    let expected_passes = expected_failures
+        .difference(&actual_failures)
+        .copied()
+        .collect::<Vec<_>>();
+    let expected_failure_count = actual_failures.intersection(&expected_failures).count();
     let report = RunReport {
         planned: merged.planned,
-        failures: merged.failures,
+        failures,
     };
-    let passed = report.planned - report.failures.len();
+    let passed = merged.passed.len();
     print_summary(&report, excluded, passed);
+    eprintln!(
+        "E2E expected failures: {expected_failure_count}; expected-failure cases passed: {}",
+        expected_passes.len()
+    );
+    if !expected_passes.is_empty() {
+        eprintln!(
+            "E2E expected-failure cases that passed and may be ready for review:\n{}",
+            expected_passes.join("\n")
+        );
+    }
     if report.failures.is_empty() {
         Ok(())
     } else {
         Err(format!("E2E failures:\n{}", report.failures.join("\n\n")))
+    }
+}
+
+fn case_kind_key(kind: CaseKind) -> &'static str {
+    match kind {
+        CaseKind::Smoke => "smoke",
+        CaseKind::Capabilities => "capabilities",
+        CaseKind::Lifecycle => "lifecycle",
+        CaseKind::Provisioning => "provisioning",
     }
 }
 

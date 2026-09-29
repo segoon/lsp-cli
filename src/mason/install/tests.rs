@@ -1,10 +1,11 @@
+use std::io::{Cursor, Write};
 use std::path::Path;
 
 #[cfg(unix)]
 use std::fs;
 
 use super::{
-    artifacts::{command_failure_detail, parse_archive_file_spec},
+    artifacts::{command_failure_detail, install_downloaded_artifact, parse_archive_file_spec},
     golang_install_target, installer_command, nuget_install_command, resolve_or_install_program,
 };
 #[cfg(unix)]
@@ -27,6 +28,32 @@ fn parses_archive_file_spec() {
         parse_archive_file_spec("clangd-linux-22.1.0.zip"),
         ("clangd-linux-22.1.0.zip", None)
     );
+}
+
+#[test]
+fn extracts_vsix_as_a_zip_archive() {
+    let directory = tempfile::tempdir().expect("temporary directory should initialize");
+    let mut archive = zip::ZipWriter::new(Cursor::new(Vec::new()));
+    archive
+        .start_file(
+            "extension/server/dist/server.js",
+            zip::write::SimpleFileOptions::default(),
+        )
+        .expect("VSIX entry should initialize");
+    archive
+        .write_all(b"server")
+        .expect("VSIX entry should be written");
+    let bytes = archive.finish().expect("VSIX should finish").into_inner();
+
+    install_downloaded_artifact(directory.path(), "server.vsix", &bytes)
+        .expect("VSIX should extract");
+
+    assert_eq!(
+        fs::read(directory.path().join("extension/server/dist/server.js"))
+            .expect("VSIX launcher should be extracted"),
+        b"server"
+    );
+    assert!(!directory.path().join("server.vsix").exists());
 }
 
 #[test]

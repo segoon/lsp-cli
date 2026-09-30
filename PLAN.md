@@ -2,7 +2,7 @@
 
 Status: Phase 0, expected-failure triage, and Phase 2 implementation/type-definition plus
 caller/callee fixture repair complete; PerlNavigator definition targeting remains a TODO pending
-a product decision about use-site selection.
+a product decision about use-site selection. Cross-server changed-fixture verification is complete.
 
 This document records the current E2E compatibility findings and prepares the work needed to
 reduce exceptions, expected failures, and exclusions. Counts are derived from
@@ -300,7 +300,9 @@ complexity.
    `textDocument/references`, and it returns no definition for every tested declaration. Completing
    this requires a product decision between generic textual use-site discovery, a position-based
    public CLI option, or retaining the documented exception.
-4. Verify each changed fixture against every server sharing that language fixture.
+4. ~~Verify each changed fixture against every server sharing that language fixture.~~ Complete:
+   all 13 executable smoke pairs were rerun against the final fixtures with no unexpected failures;
+   six other shared-fixture pairs remain intentionally excluded from semantic smoke execution.
 5. Deduplicate setup when adding or changing Rust E2E tests.
 
 Phase 2 item 1 validation against Mason snapshot `2026-09-30-aboard-mob`:
@@ -330,6 +332,17 @@ Phase 2 item 2 validation against the same snapshot:
   broken pipe, OmniSharp returning different build-index failure text, and Terraform LS's upstream
   package URL returning HTTP 404. The run reported 334 ordinary passes, 154 expected failures, and
   16 exclusions.
+
+Phase 2 item 4 validation against the same snapshot:
+
+- the final fixture state passed targeted smoke validation for C/clangd, Clojure/clojure-lsp,
+  C++/clangd, CUDA/clangd, Lua/EmmyLua, Luau/luau-lsp, Objective-C/clangd,
+  Objective-C++/clangd, Python/BasedPyright, Python/pyright, Python/Zuban, and
+  Rust/rust-analyzer;
+- Python/pylyzer reproduced its declared expected failure with no unexpected runner failure;
+- Lua/LuaLS and Python/Jedi Language Server, pylsp, Pyre, Pyrefly, and ty remain intentionally
+  excluded from semantic smoke execution for their documented lifecycle or semantic-capability
+  limitations. The audit does not misrepresent those exclusions as successful fixture validation.
 
 Pros:
 

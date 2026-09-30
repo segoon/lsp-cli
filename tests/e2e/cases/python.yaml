@@ -27,8 +27,12 @@ pairs:
   - language: python
     server: jedi_language_server
     smoke:
-      status: excluded
-      reason: Jedi Language Server answers queries but does not exit reliably after the standard shutdown exchange.
+      status: queries
+      exceptions:
+        - command: build-index
+          outcome: failure
+          message: background-work progress
+          reason: Jedi Language Server exposes no background-work completion notification
   - language: python
     server: pylsp
     smoke:

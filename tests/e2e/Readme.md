@@ -293,11 +293,14 @@ is self-documenting and any regression still fails loudly.
 ### Servers excluded entirely (`status: excluded`)
 
 - `denols` (Deno LSP) rejects the standard shutdown request because it requires non-null params.
-- `roslyn_ls` (cs) and `lua_ls` (lua) have lifecycle-level incompatibilities: no smoke queries at
-  all, or no clean exit after direct shutdown.
-- Several Python servers fail to launch/initialize correctly in the isolated harness: `pylsp`
-  (Mason launcher can't import the module), `pyre` (same), `pyrefly` (initializes but returns no
-  workspace/document symbols).
+- `roslyn_ls` and `jdtls` remain outside shared semantic smoke because their symbol names are
+  decorated; jdtls also has asynchronous index-readiness instability.
+- Several Python servers lack the semantics required by the shared smoke profile: `pylsp` does not
+  advertise workspace symbols, `pyre` advertises only document synchronization, `pyrefly` returns
+  no workspace/document symbols, and `ty` has unstable call-hierarchy results.
+
+LuaLS, Jedi Language Server, and both RobotCode language aliases are covered now that lsp-cli
+performs bounded cleanup of an owned direct child after a successful shutdown/exit exchange.
 
 Real LSP servers deviate from the LSP spec's strict guarantees in ways that are reproducible but
 server-specific. Rather than weakening assertions globally, the suite encodes each deviation

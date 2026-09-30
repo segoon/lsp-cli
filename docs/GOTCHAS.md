@@ -86,11 +86,14 @@
 - Against Mason snapshot `2026-09-30-aboard-mob`, all 118 capability cases carrying an
   expected-failure marker failed again. Thirty-nine cases on 26 servers fail during provisioning,
   before an LSP session exists; those results must not be classified as protocol incompatibility.
-- Twenty-nine cases on 23 servers complete initialization but do not exit within the bounded
-  deadline after the standard `shutdown` response and `exit` notification: `bazelrc_lsp`,
-  `buf_ls`, `circom-lsp`, `earthlyls`, `ginko_ls`, `gn_language_server`, `hyprls`, `jinja_lsp`,
-  `jqls`, `jsonnet_ls`, `just`, `pest_ls`, `postgres_lsp`, `prosemd_lsp`, `regal`, `roc_ls`,
-  `rumdl`, `solang`, `svls`, `terraformls`, `thriftls`, `tofu_ls`, and `ts_query_ls`.
+- Twenty-nine cases on 23 servers historically completed initialization but did not exit within
+  the command deadline after the standard `shutdown` response and `exit` notification:
+  `bazelrc_lsp`, `buf_ls`, `circom-lsp`, `earthlyls`, `ginko_ls`, `gn_language_server`, `hyprls`,
+  `jinja_lsp`, `jqls`, `jsonnet_ls`, `just`, `pest_ls`, `postgres_lsp`, `prosemd_lsp`, `regal`,
+  `roc_ls`, `rumdl`, `solang`, `svls`, `terraformls`, `thriftls`, `tofu_ls`, and `ts_query_ls`.
+  lsp-cli now gives an owned direct child up to one second to exit after that completed exchange,
+  then terminates and reaps it without failing the completed operation. Their markers were removed
+  and every affected case passed the final full-suite validation.
 - Six more servers have distinct shutdown incompatibilities. `neocmake`, `helm_ls`,
   `markdown_oxide`, `v_analyzer`, and `gitlab_ci_ls` close the transport before the shutdown
   response is read; `csskit` rejects `shutdown` as an unknown method. These must remain separate
@@ -140,8 +143,9 @@
 
 - Jedi Language Server 0.47.0 answers semantic queries but can fail to exit after the standard
   shutdown exchange. Its pygls worker may continue trying to write responses after stdout closes.
-  The current compatibility matrix excludes it rather than accepting successful output while
-  hiding failed process cleanup.
+  Bounded direct-child cleanup now permits semantic smoke coverage without hiding a rejected or
+  interrupted shutdown. Because the server exposes no terminal background-progress signal, its
+  `build-index` case retains a narrow exception rather than claiming confirmed index completion.
 
 ## pylsp
 
@@ -179,9 +183,9 @@
 
 ## RobotCode
 
-- RobotCode 2.7.0 initializes but does not exit within the bounded deadline after the standard
-  shutdown/exit exchange. Capability smoke coverage remains excluded so successful initialization
-  does not hide failed process cleanup.
+- RobotCode 2.7.0 initializes but may remain alive after the standard shutdown/exit exchange.
+  Bounded direct-child cleanup now permits capability coverage for both the Robot Framework and
+  Resource language aliases while still requiring a successful shutdown response first.
 
 ## rpm-spec-language-server
 
@@ -301,10 +305,12 @@
 - The current Mason jdtls launcher requires Java 21 or newer. Merely resolving a `java` executable
   is insufficient: GitHub's default Java may be older and makes the launcher exit before the LSP
   `initialize` response. CI must provision Java 21 explicitly before enabling the lifecycle case.
-- The current Mason jdtls package needs both Java to run and Python to install its launcher. It can
-  initialize and answer LSP requests, but a direct-process capability query timed out waiting for
-  the server to exit after shutdown. Keep the preferred-pair test excluded until direct shutdown
-  is reliable; exercise it through the separately planned detached lifecycle scenario.
+- The current Mason jdtls package needs both Java to run and Python to install its launcher.
+  Bounded cleanup handles its direct-process lifetime after a successful exchange, but shared
+  semantic smoke remains excluded: method symbols are decorated rather than matching the fixture
+  names, and asynchronous indexing makes references and callers intermittently empty. The raw
+  direct lifecycle scenario also exits with status 1 after acknowledging shutdown, so it remains
+  excluded independently of the post-`exit` cleanup policy.
 - `stop` removes a jdtls daemon socket before the upstream Java process has necessarily completed
   shutdown. Immediately starting another jdtls for the same workspace can overlap the old process
   and stall initialization. Lifecycle tests wait, with a deadline, for the recorded upstream PID
@@ -401,9 +407,9 @@
   replace document-symbol discovery for this query.
 - Two direct-process runs in that investigation completed their queries but failed while waiting
   for LuaLS to exit, adding the configured 30-second timeout. The debug trace showed a successful
-  `shutdown` response followed by an `exit` notification. The cause of the process staying alive
-  was not established; detached runs completed successfully. Do not assume switching off detach
-  is a reliable performance workaround for this setup.
+  `shutdown` response followed by an `exit` notification. Bounded direct-child cleanup now makes
+  direct queries and lifecycle coverage reliable for this condition. `build-index` still retains
+  a narrow exception because LuaLS exposes no terminal signal proving workspace indexing is done.
 
 ## rust-analyzer
 

@@ -1,9 +1,9 @@
 # E2E LSP compatibility investigation and remediation plan
 
-Status: Phase 0, expected-failure triage, Phase 2, and Phase 3 workspace-symbol readiness priming
-are complete. PerlNavigator definition targeting remains a TODO pending a product decision about
-use-site selection. Cross-server changed-fixture verification and Rust test-setup deduplication
-are complete.
+Status: Phase 0, expected-failure triage, Phase 2, and Phase 3 workspace-symbol readiness plus
+bounded post-shutdown cleanup are complete. PerlNavigator definition targeting remains a TODO
+pending a product decision about use-site selection. Cross-server changed-fixture verification
+and Rust test-setup deduplication are complete.
 
 This document records the current E2E compatibility findings and prepares the work needed to
 reduce exceptions, expected failures, and exclusions. Counts are derived from
@@ -12,12 +12,12 @@ currently pinned `lsp-cli-data` revision and will drift when that revision chang
 
 ## Executive summary
 
-The E2E inventory contains 358 distinct LSP server IDs. Of these, 274 appear in at least one of
+The E2E inventory contains 358 distinct LSP server IDs. Of these, 250 appear in at least one of
 the following categories:
 
-- 16 servers have one or more explicit query exceptions;
-- 83 servers have one or more expected-failure cases;
-- 177 servers are excluded from at least one provisioning or executable-test scope.
+- 18 servers have one or more explicit query exceptions;
+- 60 servers have one or more expected-failure cases;
+- 174 servers are excluded from at least one provisioning or executable-test scope.
 
 These sets overlap:
 
@@ -25,9 +25,9 @@ These sets overlap:
 - `salt_ls` has both an expected failure and an exclusion;
 - no server appears in all three categories.
 
-Consequently, 84 of the 358 servers have none of these classifications.
+Consequently, 108 of the 358 servers have none of these classifications.
 
-The 274 servers must not be treated as 274 confirmed server defects. Most are coverage or product
+The 250 servers must not be treated as 250 confirmed server defects. Most are coverage or product
 policy exclusions. All remaining expected failures are now diagnosed against a pinned registry
 snapshot.
 
@@ -67,13 +67,13 @@ These classifications are mutually exclusive:
 
 These entries are primarily provisioning or scope gaps, not evidence of LSP protocol failure.
 
-### Pair-level exclusions: 17 servers
+### Pair-level exclusions: 14 servers
 
-These 17 servers do not overlap the 160 provisioning exclusions.
+These 14 servers do not overlap the 160 provisioning exclusions.
 
 | Cause | Servers | Examples |
 | --- | ---: | --- |
-| Shutdown or process-lifecycle incompatibility | 6 | `denols`, `jdtls`, `jedi_language_server`, `kotlin_language_server`, `lua_ls`, `robotcode` |
+| Shutdown or process-lifecycle incompatibility | 3 | `denols`, `jdtls`, `kotlin_language_server` |
 | Installation/startup prerequisite or upstream packaging failure | 5 | `arduino_language_server`, `cmake`, `kotlin_lsp`, `rpmspec`, `salt_ls` |
 | Missing generic initialization configuration | 1 | `astro` requires a TypeScript SDK path in `initializationOptions` |
 | Shared semantic-profile mismatch or unstable results | 5 | `pylsp`, `pyre`, `pyrefly`, `roslyn_ls`, `ty` |
@@ -81,7 +81,8 @@ These 17 servers do not overlap the 160 provisioning exclusions.
 Important details:
 
 - Deno rejects the standard parameterless `shutdown` request by demanding non-null parameters.
-- Several servers answer requests but do not exit after the standard shutdown/exit exchange.
+- Deno rejects shutdown, while jdtls and Kotlin Language Server retain distinct direct-lifecycle
+  failures that occur after the exchange.
 - `cmake-language-server` installs an incompatible current pygls dependency and fails at startup.
 - Kotlin LSP's pinned Mason build reports that it has expired.
 - Arduino Language Server needs board-specific external configuration and tools.
@@ -90,11 +91,11 @@ Important details:
 - Roslyn returns decorated or qualified symbol names that the shared exact-name assertion does not
   accept.
 
-### Query exceptions: 29 entries on 16 servers
+### Query exceptions: 31 entries on 18 servers
 
 | Cause | Exception entries | Assessment |
 | --- | ---: | --- |
-| No usable background-index completion signal | 18 | Protocol/product-semantics problem affecting 12 servers |
+| No usable background-index completion signal | 20 | Protocol/product-semantics problem affecting 14 servers |
 | Fixture/profile requests an inapplicable relationship | 2 | Test-fixture/profile problem, not a server failure |
 | Workspace-symbol readiness race | 3 | Generic readiness problem |
 | Missing semantic result despite an applicable query | 4 | Server, fixture, or capability-advertisement limitation |
@@ -105,22 +106,22 @@ The two remaining fixture/profile exceptions are the clearest low-risk cleanup c
 cannot provide an implementation relationship without changing language semantics; Perl's
 definition query should move from its declaration to a stable use site.
 
-The 18 `build-index` entries require a product decision. LSP has no universal notification meaning
+The 20 `build-index` entries require a product decision. LSP has no universal notification meaning
 "the whole workspace is indexed." A generic implementation cannot promise confirmed completion
 for a server that exposes no terminal progress signal.
 
-### Expected failures: 154 cases on 83 servers
+### Expected failures: 125 cases on 60 servers
 
 | Phase | Cases | Distinct servers |
 | --- | ---: | ---: |
-| Capabilities | 118 | 81 |
+| Capabilities | 89 | 58 |
 | Provisioning | 35 | 35 |
 | Smoke queries | 1 | 1 |
 
 There are 34 servers shared by the capability and provisioning groups. The remaining smoke server
-is not shared with those groups, producing 83 distinct server IDs overall.
+is not shared with those groups, producing 60 distinct server IDs overall.
 
-All 35 provisioning, 118 capability, and one smoke-query entry identify their pinned package
+All 35 provisioning, 89 capability, and one smoke-query entry identify their pinned package
 source and concrete observed cause. Four stale provisioning markers (`marko-js`, `mesonlsp`,
 `millet`, and `terraformls`) and the stale OmniSharp, EmmyLua, and BasedPyright smoke markers were
 removed after two fresh pinned-snapshot passes apiece. The generic markers were originally added by
@@ -164,11 +165,12 @@ The raw per-case reports and logs are retained in
 `target/e2e-capability-results.Cgsq10`. The snapshot digest is
 `sha256:69a52e9d625c790d4811b8a1295df09e681d3faff1c09a80909b661773d127f9`.
 
-The largest product-level opportunity is generic bounded cleanup after a successful shutdown
-exchange, but it can address only the 29 post-`exit` hangs. It must not hide the nine cases that
-reject shutdown or close before replying. Placeholder configurations and required initialization
-options belong in the data/configuration layer; server-specific production branches would violate
-the language-neutral architecture.
+Generic bounded cleanup after a successful shutdown exchange was implemented in Phase 3 and the
+29 post-`exit`-hang markers were removed. The final full-suite run passed every affected case. The
+policy deliberately does not hide the nine historical cases that reject shutdown or close before
+replying. Placeholder configurations and required initialization options belong in the
+data/configuration layer; server-specific production branches would violate the language-neutral
+architecture.
 
 ### Pinned smoke-query result
 
@@ -385,8 +387,10 @@ Investigate language-neutral changes only:
   waits for a target-document diagnostic, completed work-done progress item, or healthy quiescent
   server status and can retry early once. Later retries remain spaced, and only a non-empty
   `workspace/symbol` response establishes success.
-- after a successful shutdown response and `exit` notification, apply a bounded grace period and
-  consider controlled process termination;
+- ~~After a successful shutdown response and `exit` notification, apply a bounded grace period and
+  controlled process termination.~~ Complete: owned child processes receive up to one second (or
+  the shorter user timeout) to exit, after which lsp-cli terminates and reaps them while preserving
+  command success. Shutdown rejection and pre-response transport failure remain errors.
 - keep Deno's invalid shutdown-parameter requirement separate from ordinary exit hangs;
 - add generic, data-driven initialization options if the product should support Astro-like
   servers.
@@ -416,6 +420,25 @@ Phase 3 notification-hint validation against the same snapshot:
   for Clojure/clojure-lsp, Lua/EmmyLua, and Odin/OLS (eight executed cases total). Their documented
   empty workspace-symbol exceptions remain because a readiness hint deliberately does not assert
   index completion.
+
+Phase 3 bounded-shutdown validation against the same snapshot:
+
+- a process-level regression verifies that a server which acknowledges `shutdown`, receives
+  `exit`, and remains alive is terminated and reaped without turning the completed LSP operation
+  into a failure;
+- all 29 capability markers caused only by post-`exit` hangs were removed across 23 servers; Deno
+  and six shutdown-response/transport incompatibilities remain separate and unchanged;
+- LuaLS and Jedi Language Server now run semantic smoke coverage with narrow `build-index`
+  exceptions, while both RobotCode language aliases run capability coverage. jdtls remains
+  excluded from shared semantic smoke because project-index readiness and decorated method names
+  are independently unstable, and its raw direct exchange exits with status 1;
+- `make test` passed 346 tests with one ignored test plus all 82 E2E-runner tests, and Clippy passed
+  for all targets and features with warnings denied;
+- the final `make -j10 test-e2e` planned 512 cases and executed 499, reporting 368 ordinary passes,
+  125 expected failures, and 13 exclusions. Every changed case passed. Six unrelated cases failed:
+  three Terraform LS requests hit the upstream 0.39.0 HTTP 404, one GLSL Analyzer and one Verible
+  case hit their intermittent shutdown broken pipe, and CUDA/clangd exhausted its case deadline
+  under the higher-concurrency run after passing the preceding full run.
 
 Pros:
 
@@ -472,8 +495,9 @@ The following are product-owner decisions and must be resolved before broad impl
    covered?
 4. Should `build-index` promise confirmed completion, return best-effort readiness when the server
    exposes no completion signal, or report a user-facing unsupported-completion error?
-5. Should direct commands tolerate and terminate a server that completed the LSP shutdown exchange
-   but did not exit by itself?
+5. ~~Should direct commands tolerate and terminate a server that completed the LSP shutdown
+   exchange but did not exit by itself?~~ Resolved in Phase 3: yes, after a successful shutdown
+   response and `exit` notification, with a one-second grace period bounded by the user timeout.
 
 Strategic alternatives:
 
@@ -532,5 +556,7 @@ No validation command is required for this documentation-only addition. For subs
 - Capability triage established new malformed-response, configuration, runtime, and lifecycle
   gotchas; they are recorded in `docs/GOTCHAS.md`.
 
-No product or E2E-runner implementation has been changed by the triage. Manifest reasons and
-compatibility documentation now preserve the reproduced evidence.
+The original triage was documentation-only. Phases 2 and 3 subsequently changed product behavior
+and manifests: readiness now consumes generic LSP notifications, and owned direct processes now
+receive bounded cleanup after a successful shutdown exchange. Manifest reasons and compatibility
+documentation preserve both the historical evidence and the implemented resolutions.

@@ -17,10 +17,10 @@ pairs:
     tier: smoke
     smoke:
       status: excluded
-      reason: jdtls initializes but does not exit after direct shutdown; detached lifecycle coverage is required instead.
+      reason: jdtls project indexing has no bounded readiness signal, making references and call hierarchy intermittently empty; it also decorates method document-symbol names with parentheses.
     lifecycle:
       status: scenarios
       direct-run:
         status: excluded
-        reason: jdtls does not exit reliably after a direct shutdown exchange.
+        reason: jdtls acknowledges shutdown but exits with status 1 after the standard direct protocol exchange
       deadline-seconds: 300

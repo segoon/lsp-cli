@@ -6,8 +6,7 @@ pairs:
   - language: robot
     server: robotcode
     smoke:
-      status: excluded
-      reason: RobotCode 2.7.0 initializes but does not exit reliably after the standard shutdown exchange.
+      status: capabilities
   - language: robot
     server: robotframework_ls
     smoke:

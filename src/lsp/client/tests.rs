@@ -150,6 +150,43 @@ fn shutdown_tolerates_truncated_final_message_before_exit() {
 
 #[cfg(unix)]
 #[test]
+fn shutdown_terminates_server_that_acknowledges_shutdown_but_does_not_exit() {
+    use crate::lsp::jsonrpc;
+    use crate::lsp::transport::frame_message;
+
+    let dir = TestDir::new("client-stuck-after-exit");
+    let workspace_root = dir.path().join("workspace");
+    fs::create_dir_all(&workspace_root).expect("workspace should be created");
+
+    let shutdown_request = jsonrpc(Some(1u64), "shutdown", &())
+        .and_then(|message| frame_message(&message))
+        .expect("shutdown request should frame");
+    let exit_notification = jsonrpc::<u64, _>(None, "exit", &())
+        .and_then(|message| frame_message(&message))
+        .expect("exit notification should frame");
+    let shutdown_body = r#"{"jsonrpc":"2.0","id":1,"result":null}"#;
+    let script = format!(
+        "head -c {} >/dev/null; \
+         printf 'Content-Length: {}\r\n\r\n{}'; \
+         head -c {} >/dev/null; \
+         exec sleep 30",
+        shutdown_request.len(),
+        shutdown_body.len(),
+        shutdown_body,
+        exit_notification.len(),
+    );
+    let command = vec!["sh".to_string(), "-c".to_string(), script];
+    let mut client = LspClient::new(&command, &workspace_root, false, Duration::from_millis(100))
+        .expect("helper process should start");
+
+    client
+        .shutdown()
+        .expect("completed shutdown exchange should permit bounded termination");
+    assert!(client.process_exit_logged);
+}
+
+#[cfg(unix)]
+#[test]
 fn hides_server_stderr_without_debug() {
     assert_eq!(captured_server_stderr(false), "");
 }

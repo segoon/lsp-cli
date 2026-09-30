@@ -15,14 +15,10 @@ defaults:
 expected-failures:
   - case: capabilities/OpenFOAM/foam_ls
     reason: pkg:npm/foam-language-server@0.4.6 returns boolean false where LSP CompletionOptions are required in the initialize response.
-  - case: capabilities/bazelrc/bazelrc_lsp
-    reason: pkg:github/salesforce-misc/bazelrc-lsp@v0.2.6 does not exit within the bounded deadline after the standard shutdown/exit exchange.
   - case: capabilities/bicep-params/bicep
     reason: pkg:github/Azure/bicep@v0.47.16 writes output without an LSP Content-Length header during initialization.
   - case: capabilities/bicep/bicep
     reason: pkg:github/Azure/bicep@v0.47.16 writes output without an LSP Content-Length header during initialization.
-  - case: capabilities/buf-config/buf_ls
-    reason: pkg:github/bufbuild/buf@v1.73.0 does not exit within the bounded deadline after the standard shutdown/exit exchange.
   - case: capabilities/bzl/bzl
     reason: pkg:generic/bzl@v1.4.22 repeatedly fails to download from get.bzl.io without exposing the lower-level request cause.
   - case: capabilities/c3/c3_lsp
@@ -33,8 +29,6 @@ expected-failures:
     reason: pkg:generic/haskell/haskell-language-server@2.13.0.0 has no Mason download matching the Linux x86-64 E2E platform.
   - case: capabilities/cairo/cairo_ls
     reason: pkg:cargo/cairo-language-server@2.15.0 requires scarb, but the Mason recipe does not expose that executable.
-  - case: capabilities/circom/circom-lsp
-    reason: pkg:cargo/circom-lsp@0.1.3 does not exit within the bounded deadline after the standard shutdown/exit exchange.
   - case: capabilities/clar/clarinet
     reason: pkg:github/hirosystems/clarinet@v15.16.0 references a Linux release asset URL that returns HTTP 404.
   - case: capabilities/clarity/clarinet
@@ -51,10 +45,6 @@ expected-failures:
     reason: pkg:github/csskit/csskit@v0.0.33 rejects the standard shutdown request with JSON-RPC method-not-found (-32601).
   - case: capabilities/dhall/dhall_lsp_server
     reason: pkg:github/dhall-lang/dhall-haskell@1.42.2 does not produce a runnable dhall-lsp-server at the Mason-configured path.
-  - case: capabilities/dts/ginko_ls
-    reason: pkg:github/Schottkyc137/ginko@v0.0.8 does not exit within the bounded deadline after the standard shutdown/exit exchange.
-  - case: capabilities/earthfile/earthlyls
-    reason: pkg:github/glehmann/earthlyls@0.5.5 does not exit within the bounded deadline after the standard shutdown/exit exchange.
   - case: capabilities/eelixir/elixirls
     reason: pkg:github/elixir-lsp/elixir-ls@v0.31.1 is paired with the literal placeholder command /path/to/elixir-ls/language_server.sh in the bundled LSP config.
   - case: capabilities/eelixir/lexical
@@ -87,8 +77,6 @@ expected-failures:
     reason: pkg:github/svenstaro/glsl-language-server@0.5.0 has no Mason asset matching the Linux x86-64 E2E platform.
   - case: capabilities/glsl/glslls
     reason: pkg:github/svenstaro/glsl-language-server@0.5.0 has no Mason asset matching the Linux x86-64 E2E platform.
-  - case: capabilities/gn/gn_language_server
-    reason: pkg:github/google/gn-language-server@v1.16.0 does not exit within the bounded deadline after the standard shutdown/exit exchange.
   - case: capabilities/groovy/groovyls
     reason: pkg:github/GroovyLanguageServer/groovy-language-server@347d098a928707223ce44b52cc45174a6327a5f3 is paired with the literal placeholder JAR path path/to/groovyls/groovy-language-server-all.jar.
   - case: capabilities/haskell/hls
@@ -105,30 +93,14 @@ expected-failures:
     reason: pkg:npm/%40urbit/hoon-language-server@0.1.2 attempts to connect to 127.0.0.1:80 during initialization and exits when the service is absent.
   - case: capabilities/hylo/hylo_ls
     reason: pkg:github/hylo-lang/hylo-language-server@v0.0.18 does not produce a runnable hylo-language-server at the Mason-configured path.
-  - case: capabilities/hyprlang/hyprls
-    reason: pkg:github/hyprland-community/hyprls@v0.14.0 does not exit within the bounded deadline after the standard shutdown/exit exchange.
-  - case: capabilities/jinja/jinja_lsp
-    reason: pkg:github/uros-5/jinja-lsp@v0.2.3 does not exit within the bounded deadline after the standard shutdown/exit exchange.
-  - case: capabilities/jq/jqls
-    reason: pkg:golang/github.com/wader/jq-lsp@v0.1.18 does not exit within the bounded deadline after the standard shutdown/exit exchange.
-  - case: capabilities/jsonnet/jsonnet_ls
-    reason: pkg:golang/github.com/grafana/jsonnet-language-server@v0.17.0 does not exit within the bounded deadline after the standard shutdown/exit exchange.
   - case: capabilities/julia/julials
     reason: pkg:github/mason-org/julia-lsp@v1.219.2 requires julia, but the Mason recipe does not expose that executable.
-  - case: capabilities/just/just
-    reason: pkg:github/terror/just-lsp@0.10.0 does not exit within the bounded deadline after the standard shutdown/exit exchange.
   - case: capabilities/lhaskell/hls
     reason: pkg:generic/haskell/haskell-language-server@2.13.0.0 has no Mason download matching the Linux x86-64 E2E platform.
-  - case: capabilities/libsonnet/jsonnet_ls
-    reason: pkg:golang/github.com/grafana/jsonnet-language-server@v0.17.0 does not exit within the bounded deadline after the standard shutdown/exit exchange.
   - case: capabilities/llw/lelwel_ls
     reason: pkg:cargo/lelwel@0.10.4?features=lsp,cli requires the lsp and cli feature qualifiers that the current Cargo installer discards, so no lelwel-ls executable is built.
   - case: capabilities/markdown/markdown_oxide
     reason: pkg:github/feel-ix-343/markdown-oxide@v0.25.12 closes the transport while the client waits for the shutdown response.
-  - case: capabilities/markdown/prosemd_lsp
-    reason: pkg:github/kitten/prosemd-lsp@v0.1.0 does not exit within the bounded deadline after the standard shutdown/exit exchange.
-  - case: capabilities/markdown/rumdl
-    reason: pkg:github/rvben/rumdl@v0.2.77 does not exit within the bounded deadline after the standard shutdown/exit exchange.
   - case: capabilities/matlab/matlab_ls
     reason: pkg:github/mathworks/MATLAB-language-server@3997ef66d0ca3b9e4099e33e1014cfa03029898f has no Mason asset matching the Linux x86-64 E2E platform.
   - case: capabilities/mdx/mdx_analyzer
@@ -143,20 +115,12 @@ expected-failures:
     reason: pkg:github/PMunch/nimlsp@v0.4.7 has no Mason asset matching the Linux x86-64 E2E platform.
   - case: capabilities/nix/nil_ls
     reason: pkg:cargo/nil@2025-06-13?repository_url=https://github.com/oxalica/nil requires its repository_url qualifier that the current Cargo installer discards.
-  - case: capabilities/opentofu-vars/tofu_ls
-    reason: pkg:github/opentofu/tofu-ls@v0.5.3 does not exit within the bounded deadline after the standard shutdown/exit exchange.
-  - case: capabilities/opentofu/tofu_ls
-    reason: pkg:github/opentofu/tofu-ls@v0.5.3 does not exit within the bounded deadline after the standard shutdown/exit exchange.
   - case: capabilities/p8/pico8_ls
     reason: pkg:github/japhib/pico8-ls@40c53c2061a42b20b22f83467d241e668c2487a2 has no Mason asset matching the Linux x86-64 E2E platform.
-  - case: capabilities/pest/pest_ls
-    reason: pkg:cargo/pest-language-server@0.3.14 does not exit within the bounded deadline after the standard shutdown/exit exchange.
   - case: capabilities/php/phpactor
     reason: pkg:github/phpactor/phpactor@2026.07.22.0 does not produce a runnable phpactor at the Mason-configured path.
   - case: capabilities/profile/vespa_ls
     reason: pkg:github/vespa-engine/vespa@lsp-v2.6.0 is paired with the literal placeholder JAR path /path/to/vespa-language-server.jar.
-  - case: capabilities/proto/buf_ls
-    reason: pkg:github/bufbuild/buf@v1.73.0 does not exit within the bounded deadline after the standard shutdown/exit exchange.
   - case: capabilities/proto/pbls
     reason: pkg:cargo/pbls@1.0.1?repository_url=https://git.sr.ht/~rrc/pbls requires its repository_url qualifier; crates.io has no matching pbls release.
   - case: capabilities/ps1/powershell_es
@@ -165,34 +129,24 @@ expected-failures:
     reason: pkg:github/puppetlabs/puppet-editor-services@v2.0.4 does not produce a runnable puppet-languageserver at the Mason-configured path.
   - case: capabilities/quarto/r_language_server
     reason: pkg:github/mason-org/r-languageserver@v0.3.17 has no Mason asset matching the Linux x86-64 E2E platform.
-  - case: capabilities/query/ts_query_ls
-    reason: pkg:github/ribru17/ts_query_ls@v3.16.0 does not exit within the bounded deadline after the standard shutdown/exit exchange.
   - case: capabilities/r/r_language_server
     reason: pkg:github/mason-org/r-languageserver@v0.3.17 has no Mason asset matching the Linux x86-64 E2E platform.
   - case: capabilities/raku/raku_navigator
     reason: pkg:github/bscan/RakuNavigator@ccd511dbd156f396eed613f21adbcd8e38a8c784 is paired with the literal placeholder script path <path_to_repo>/server/out/server.js.
   - case: capabilities/reason/reason_ls
     reason: pkg:github/jaredly/reason-language-server@1.7.13 invokes uname through /bin/sh during initialization, but uname is absent from the isolated PATH.
-  - case: capabilities/rego/regal
-    reason: pkg:github/styrainc/regal@v0.42.0 does not exit within the bounded deadline after the standard shutdown/exit exchange.
   - case: capabilities/rego/regols
     reason: pkg:golang/github.com/kitagry/regols@v0.2.4 rejects initialization while resolving an empty required filesystem path.
   - case: capabilities/rmd/r_language_server
     reason: pkg:github/mason-org/r-languageserver@v0.3.17 has no Mason asset matching the Linux x86-64 E2E platform.
-  - case: capabilities/roc/roc_ls
-    reason: pkg:github/roc-lang/roc@alpha4-rolling does not exit within the bounded deadline after the standard shutdown/exit exchange.
   - case: capabilities/sd/vespa_ls
     reason: pkg:github/vespa-engine/vespa@lsp-v2.6.0 is paired with the literal placeholder JAR path /path/to/vespa-language-server.jar.
   - case: capabilities/smithy/smithy_ls
     reason: pkg:github/awslabs/smithy-language-server@0.9.0 requires coursier, but the Mason recipe does not expose that executable.
-  - case: capabilities/solidity/solang
-    reason: pkg:github/hyperledger-labs/solang@v0.3.4 does not exit within the bounded deadline after the standard shutdown/exit exchange.
   - case: capabilities/solidity/solc
     reason: pkg:github/ethereum/solidity@v0.8.37 reports that LSP support was removed and closes during initialization.
   - case: capabilities/sql/bqls
     reason: pkg:github/kitagry/bqls@v0.7.1 rejects initialization without a BigQuery project ID and cannot discover one because gcloud is absent.
-  - case: capabilities/sql/postgres_lsp
-    reason: pkg:github/supabase-community/postgres-language-server@0.25.7 does not exit within the bounded deadline after the standard shutdown/exit exchange.
   - case: capabilities/sql/sqlls
     reason: pkg:npm/sql-language-server@1.7.1 fails at startup because a vscode-languageserver-protocol package subpath is no longer exported.
   - case: capabilities/sql/sqls
@@ -203,22 +157,12 @@ expected-failures:
     reason: pkg:github/lexical-lsp/lexical@v0.7.3 launches through /usr/bin/env bash, but bash is absent from the isolated PATH.
   - case: capabilities/surface/nextls
     reason: pkg:github/elixir-tools/next-ls@v0.23.4 requires the elixir executable during initialization, but it is absent from the isolated PATH.
-  - case: capabilities/systemverilog/svls
-    reason: pkg:cargo/svls@0.2.14 does not exit within the bounded deadline after the standard shutdown/exit exchange.
   - case: capabilities/templ/templ
     reason: pkg:github/a-h/templ@v0.3.1020 closes during initialization without emitting a diagnostic.
-  - case: capabilities/terraform-vars/terraformls
-    reason: pkg:generic/hashicorp/terraform-ls@v0.39.0 does not exit within the bounded deadline after the standard shutdown/exit exchange.
-  - case: capabilities/terraform/terraformls
-    reason: pkg:generic/hashicorp/terraform-ls@v0.39.0 does not exit within the bounded deadline after the standard shutdown/exit exchange.
-  - case: capabilities/terraform/tofu_ls
-    reason: pkg:github/opentofu/tofu-ls@v0.5.3 does not exit within the bounded deadline after the standard shutdown/exit exchange.
   - case: capabilities/tesc/glslls
     reason: pkg:github/svenstaro/glsl-language-server@0.5.0 has no Mason asset matching the Linux x86-64 E2E platform.
   - case: capabilities/tese/glslls
     reason: pkg:github/svenstaro/glsl-language-server@0.5.0 has no Mason asset matching the Linux x86-64 E2E platform.
-  - case: capabilities/thrift/thriftls
-    reason: pkg:github/joyme123/thrift-ls@v0.2.12 does not exit within the bounded deadline after the standard shutdown/exit exchange.
   - case: capabilities/ttcn/ntt
     reason: pkg:github/nokia/ntt@v0.23.2 returns null where an LSP sequence is required in the initialize response.
   - case: capabilities/v/v_analyzer
@@ -227,8 +171,6 @@ expected-failures:
     reason: pkg:github/vlang/vls@latest requires v, but the Mason recipe does not expose that executable.
   - case: capabilities/vala/vala_ls
     reason: pkg:github/vala-lang/vala-language-server@8fab39f867a15dc3f1d24bc0ae455f6e019230bd has no Mason asset matching the Linux x86-64 E2E platform.
-  - case: capabilities/verilog/svls
-    reason: pkg:cargo/svls@0.2.14 does not exit within the bounded deadline after the standard shutdown/exit exchange.
   - case: capabilities/vert/glslls
     reason: pkg:github/svenstaro/glsl-language-server@0.5.0 has no Mason asset matching the Linux x86-64 E2E platform.
   - case: capabilities/vhd/vhdl_ls

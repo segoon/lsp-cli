@@ -72,6 +72,40 @@
 
 # LSP server implementations
 
+## Exhaustive capability matrix
+
+- Against Mason snapshot `2026-09-30-aboard-mob`, all 118 capability cases carrying an
+  expected-failure marker failed again. Thirty-nine cases on 26 servers fail during provisioning,
+  before an LSP session exists; those results must not be classified as protocol incompatibility.
+- Twenty-nine cases on 23 servers complete initialization but do not exit within the bounded
+  deadline after the standard `shutdown` response and `exit` notification: `bazelrc_lsp`,
+  `buf_ls`, `circom-lsp`, `earthlyls`, `ginko_ls`, `gn_language_server`, `hyprls`, `jinja_lsp`,
+  `jqls`, `jsonnet_ls`, `just`, `pest_ls`, `postgres_lsp`, `prosemd_lsp`, `regal`, `roc_ls`,
+  `rumdl`, `solang`, `svls`, `terraformls`, `thriftls`, `tofu_ls`, and `ts_query_ls`.
+- Six more servers have distinct shutdown incompatibilities. `neocmake`, `helm_ls`,
+  `markdown_oxide`, `v_analyzer`, and `gitlab_ci_ls` close the transport before the shutdown
+  response is read; `csskit` rejects `shutdown` as an unknown method. These must remain separate
+  from post-`exit` hangs because a tolerant cleanup policy cannot safely treat them identically.
+- Five initialize responses are not decodable as LSP: Bicep and Che4z COBOL emit output without a
+  `Content-Length` header, Crystalline emits an invalid header, Foam returns boolean `false` where
+  `CompletionOptions` are required, and NTT returns `null` where a sequence is required.
+- Seven server configurations retain literal or unresolved paths: ElixirLS, GroovyLS,
+  RakuNavigator, SQLS, Vespa LS, VHDL LS, and Visualforce LS. These are data/catalog defects, not
+  evidence that their server implementations reject the protocol.
+- Several otherwise installed servers depend on host tools hidden by the isolated E2E `PATH`.
+  C3 LSP needs `c3c` and crashes when it is missing; Lexical needs `bash`; NextLS needs `elixir`;
+  Reason Language Server invokes `uname`; Fish LSP needs `fish`; and Facility Language Server
+  requires the .NET 6 runtime rather than the staged .NET 10 runtime.
+- MDX requires `initializationOptions.typescript.tsdk`; BQLS requires a BigQuery project ID or
+  `gcloud`; and Regols tries to resolve an empty filesystem path during initialization. These need
+  explicit, data-driven configuration or dedicated fixtures rather than server-specific production
+  branches.
+- Three pinned releases are incompatible with the generic lane for upstream reasons: Hoon LS tries
+  to reach a service at `127.0.0.1:80`, Solidity 0.8.37 reports that LSP support was removed, and
+  SQL Language Server 1.7.1 imports a Node package subpath that is no longer exported.
+- MesonLSP 5.0.4 times out during initialization. Templ 0.3.1020 closes during initialization
+  without a diagnostic; its root cause remains unknown.
+
 ## Arduino Language Server
 
 - Arduino Language Server is not self-contained after installation. It requires Arduino CLI

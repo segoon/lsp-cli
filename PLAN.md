@@ -1,6 +1,6 @@
 # E2E LSP compatibility investigation and remediation plan
 
-Status: Phase 0, provisioning triage, and capability triage complete; smoke-query triage is next.
+Status: Phase 0 and expected-failure triage complete; fixture-caused query-exception repair is next.
 
 This document records the current E2E compatibility findings and prepares the work needed to
 reduce exceptions, expected failures, and exclusions. Counts are derived from
@@ -13,21 +13,20 @@ The E2E inventory contains 358 distinct LSP server IDs. Of these, 274 appear in 
 the following categories:
 
 - 16 servers have one or more explicit query exceptions;
-- 86 servers have one or more expected-failure cases;
+- 85 servers have one or more expected-failure cases;
 - 177 servers are excluded from at least one provisioning or executable-test scope.
 
 These sets overlap:
 
-- `basedpyright`, `emmylua_ls`, `omnisharp`, and `pylyzer` have both a query exception and an
-  expected failure;
+- `basedpyright`, `emmylua_ls`, and `pylyzer` have both a query exception and an expected failure;
 - `salt_ls` has both an expected failure and an exclusion;
 - no server appears in all three categories.
 
 Consequently, 84 of the 358 servers have none of these classifications.
 
 The 274 servers must not be treated as 274 confirmed server defects. Most are coverage or product
-policy exclusions. Provisioning and capability expected failures are now diagnosed against a
-pinned registry snapshot; the four smoke-query expected failures remain untriaged.
+policy exclusions. All remaining expected failures are now diagnosed against a pinned registry
+snapshot.
 
 ## Meaning of each classification
 
@@ -107,25 +106,22 @@ The 18 `build-index` entries require a product decision. LSP has no universal no
 "the whole workspace is indexed." A generic implementation cannot promise confirmed completion
 for a server that exposes no terminal progress signal.
 
-### Expected failures: 157 cases on 86 servers
+### Expected failures: 156 cases on 85 servers
 
 | Phase | Cases | Distinct servers |
 | --- | ---: | ---: |
 | Capabilities | 118 | 81 |
 | Provisioning | 35 | 35 |
-| Smoke queries | 4 | 4 |
+| Smoke queries | 3 | 3 |
 
-There are 34 servers shared by the capability and provisioning groups. The four smoke servers are
-not shared with those groups, producing 86 distinct server IDs overall.
+There are 34 servers shared by the capability and provisioning groups. The three smoke servers are
+not shared with those groups, producing 85 distinct server IDs overall.
 
-The four smoke-query entries still have the same generic reason:
-
-> Known compatibility failure captured on 2026-09-28; pending investigation.
-
-The 35 provisioning and 118 capability entries now identify their pinned package source and
-concrete observed cause. Four stale provisioning markers (`marko-js`, `mesonlsp`, `millet`, and
-`terraformls`) were removed after two fresh pinned-snapshot passes apiece. The generic markers were
-originally added by commit `9fcb724` together with expected-failure runner support.
+All 35 provisioning, 118 capability, and three smoke-query entries identify their pinned package
+source and concrete observed cause. Four stale provisioning markers (`marko-js`, `mesonlsp`,
+`millet`, and `terraformls`) and the stale OmniSharp smoke marker were removed after two fresh
+pinned-snapshot passes apiece. The generic markers were originally added by commit `9fcb724`
+together with expected-failure runner support.
 
 ### Pinned provisioning result
 
@@ -170,6 +166,23 @@ exchange, but it can address only the 29 post-`exit` hangs. It must not hide the
 reject shutdown or close before replying. Placeholder configurations and required initialization
 options belong in the data/configuration layer; server-specific production branches would violate
 the language-neutral architecture.
+
+### Pinned smoke-query result
+
+The same snapshot executed all four marked smoke cases in fresh isolated homes:
+
+- `cs/omnisharp` passed the complete query suite twice, so its stale marker was removed;
+- `lua/emmylua_ls` reproducibly reached `textDocument/implementation` and returned no match for
+  the plain `format_timestamp` function after three bounded attempts;
+- `python/basedpyright` reproducibly returned no implementation match for the plain
+  `build_sample_order` function after three bounded attempts;
+- `python/pylyzer` passed the implementation query, then returned no type-definition match for
+  `build_sample_order` after three attempts. It also logged a missing `ERG_PATH` and repeated
+  diagnostics-worker panics, but those were not the direct failed assertion.
+
+The three retained failures are shared-fixture/profile mismatches: the profile requests
+implementation or type-definition relationships that the plain function fixtures do not create.
+The raw reports are retained in `target/e2e-smoke-triage.b59ZRP`.
 
 ### Limitations of the available full-run log
 
@@ -228,7 +241,8 @@ Process cases in this order:
    removed;
 2. ~~the 118 capability cases, grouped by server so shared failures are diagnosed once~~ —
    complete; all 118 remain with concrete reasons;
-3. the four smoke cases — next;
+3. ~~the four smoke cases~~ — complete; three fixture/profile failures remain and OmniSharp's stale
+   marker was removed;
 4. ~~repeat the passing provisioning markers before removal~~ — complete.
 
 For each case, assign one concrete class:
@@ -410,8 +424,8 @@ No validation command is required for this documentation-only addition. For subs
 - The only available exhaustive-run log was contaminated by GitHub rate limiting.
 - Expected-failure diagnostics were not retained in the old exhaustive log; the dedicated pinned
   runs now retain structured provisioning and capability evidence.
-- The four smoke-query reasons remain generic, so their original diagnoses cannot be recovered
-  from the manifest and must be reproduced.
+- The original generic reasons could not be recovered; all remaining markers have now been
+  reproduced against the pinned snapshot and replaced with concrete evidence.
 - Upstream package/server behavior may have changed since the pinned snapshot and must be verified
   before removing an exclusion.
 - Capability triage established new malformed-response, configuration, runtime, and lifecycle

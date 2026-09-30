@@ -319,14 +319,12 @@ expected-failures:
     reason: pkg:github/forcedotcom/salesforcedx-vscode@v67.20.0 installs a launcher that resolves managed node outside the isolated E2E home.
   - case: provisioning/vls
     reason: pkg:github/vlang/vls@latest requires v, but the Mason recipe does not expose that executable.
-  - case: smoke/cs/omnisharp
-    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
   - case: smoke/lua/emmylua_ls
-    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+    reason: pkg:github/CppCXY/emmylua-analyzer-rust@0.25.1 returns no textDocument/implementation match for format_timestamp after three bounded attempts; the fixture callable has no implementation relationship.
   - case: smoke/python/basedpyright
-    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+    reason: pkg:pypi/basedpyright@1.40.1 returns no textDocument/implementation match for build_sample_order after three bounded attempts; the fixture callable has no implementation relationship.
   - case: smoke/python/pylyzer
-    reason: Known compatibility failure captured on 2026-09-28; pending investigation.
+    reason: pkg:github/mtshiba/pylyzer@v0.0.82 returns no textDocument/typeDefinition match for build_sample_order after three bounded attempts; the function has no distinct type definition, and server stderr also reports missing ERG_PATH with diagnostics-worker panics.
 
 servers:
   - id: ada_ls

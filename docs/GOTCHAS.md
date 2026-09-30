@@ -203,6 +203,19 @@
   `workspace/symbol` matches and no incoming call-hierarchy edges for `build_sample_order`, while
   its other applicable semantic queries completed. Exhaustive coverage records those two empty
   results explicitly instead of treating advertised capabilities as a guarantee of fixture matches.
+- Mason package `pkg:github/mtshiba/pylyzer@v0.0.82` also returns no
+  `textDocument/typeDefinition` match for the fixture function after three bounded attempts. The
+  function has no distinct type definition, so this is primarily a shared-fixture expectation
+  problem. Separately, the server repeatedly reports a missing `ERG_PATH` and diagnostics-worker
+  index-out-of-bounds panics; semantic replies can still succeed, so those stderr messages are not
+  currently treated as the query's direct failure.
+
+## basedpyright
+
+- Mason package `pkg:pypi/basedpyright@1.40.1` returns no `textDocument/implementation` match for
+  the Python fixture function `build_sample_order` after three bounded attempts. The fixture
+  declares a plain function with no implementation relationship, so the generic smoke expectation
+  is invalid; repair the shared fixture/profile rather than adding server-specific production code.
 
 ## pyright
 
@@ -311,10 +324,11 @@
 
 ## OmniSharp
 
-- OmniSharp 1.39.15 can initialize and answer requests against the C# playground, but it closes
-  the transport while lsp-cli is waiting for the `shutdown` response. Automatic .NET provisioning
-  fixes the earlier missing-runtime setup failure, but does not make this direct-process lifecycle
-  behavior clean; keep it classified separately from installation failures.
+- OmniSharp 1.39.15 previously closed the transport while lsp-cli waited for a `shutdown` response.
+  Against pinned Mason snapshot `2026-09-30-aboard-mob`, however, the complete C# smoke case passed
+  twice in fresh isolated homes, including repeated direct shutdown exchanges. Its stale broad
+  expected-failure marker was removed; the dedicated lifecycle scenario remains the narrower place
+  to detect a recurrence.
 
 ## svls
 
@@ -348,6 +362,10 @@
 - The same run returned no immediate workspace-symbol matches and no outgoing call-hierarchy edges
   for the fixture's `format_timestamp` function. Those empty results are explicit pair exceptions,
   not evidence that the corresponding capabilities are universally unsupported.
+- Mason package `pkg:github/CppCXY/emmylua-analyzer-rust@0.25.1` also returns no
+  `textDocument/implementation` match for `format_timestamp` after three bounded attempts. The
+  fixture declares a plain function with no implementation relationship, so this broad smoke
+  failure is a fixture/profile mismatch rather than evidence of a broken implementation provider.
 
 ## lua-language-server
 

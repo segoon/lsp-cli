@@ -147,6 +147,12 @@
   between otherwise equivalent isolated local and CI runs and stayed empty across bounded local
   retries. Its E2E exception therefore requires a successful, well-formed response without
   asserting match cardinality.
+- PerlNavigator's document-symbol responses for the playground expose declarations but not call
+  sites, and the server does not advertise `textDocument/references`. Because `lsp-cli definition`
+  currently accepts a name rather than a file position, it has no LSP-native way to retry this
+  server at a stable use site. Removing the exception would require generic textual use-site
+  discovery or a position-based public CLI interface; it cannot be solved by a fixture query
+  override alone.
 
 ## Pyre
 

@@ -1,7 +1,8 @@
 # E2E LSP compatibility investigation and remediation plan
 
 Status: Phase 0, expected-failure triage, and Phase 2 implementation/type-definition plus
-caller/callee fixture repair complete; PerlNavigator definition targeting is next.
+caller/callee fixture repair complete; PerlNavigator definition targeting remains a TODO pending
+a product decision about use-site selection.
 
 This document records the current E2E compatibility findings and prepares the work needed to
 reduce exceptions, expected failures, and exclusions. Counts are derived from
@@ -294,7 +295,11 @@ complexity.
    code.~~ Complete: Clojure and Luau now query functions with named incoming and outgoing edges,
    removing two fixture-caused exceptions. EmmyLua still returns no callees for direct named
    function and method calls, so its exception remains as a verified server limitation.
-3. Move PerlNavigator's definition query from a declaration to a stable use site.
+3. **TODO:** Move PerlNavigator's definition query from a declaration to a stable use site. The
+   current name-only command discovers declaration symbols, PerlNavigator does not support
+   `textDocument/references`, and it returns no definition for every tested declaration. Completing
+   this requires a product decision between generic textual use-site discovery, a position-based
+   public CLI option, or retaining the documented exception.
 4. Verify each changed fixture against every server sharing that language fixture.
 5. Deduplicate setup when adding or changing Rust E2E tests.
 

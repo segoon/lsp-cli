@@ -10,8 +10,11 @@
 (defn order-total [order]
   (reduce + (map (fn [item] (* (:quantity item) (:price item))) (:items order))))
 
+(defn sample-order-items []
+  [(->OrderItem "Mouse" 1 35.0) (->OrderItem "Pad" 1 12.5)])
+
 (defn build-sample-order []
-  (->Order "Carol" [(->OrderItem "Mouse" 1 35.0) (->OrderItem "Pad" 1 12.5)]))
+  (->Order "Carol" (sample-order-items)))
 
 (defrecord PlainOrderFormatter []
   OrderFormatting
@@ -23,4 +26,7 @@
 (defn format-order [order]
   (format-order-value formatter order))
 
-(println (format-order (build-sample-order)))
+(defn build-order-report []
+  (format-order (build-sample-order)))
+
+(println (build-order-report))

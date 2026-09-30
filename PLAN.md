@@ -1,7 +1,7 @@
 # E2E LSP compatibility investigation and remediation plan
 
-Status: Phase 0, expected-failure triage, and Phase 2 implementation/type-definition fixture repair
-complete; explicit caller/callee fixture edges are next.
+Status: Phase 0, expected-failure triage, and Phase 2 implementation/type-definition plus
+caller/callee fixture repair complete; PerlNavigator definition targeting is next.
 
 This document records the current E2E compatibility findings and prepares the work needed to
 reduce exceptions, expected failures, and exclusions. Counts are derived from
@@ -88,20 +88,20 @@ Important details:
 - Roslyn returns decorated or qualified symbol names that the shared exact-name assertion does not
   accept.
 
-### Query exceptions: 31 entries on 16 servers
+### Query exceptions: 29 entries on 16 servers
 
 | Cause | Exception entries | Assessment |
 | --- | ---: | --- |
 | No usable background-index completion signal | 18 | Protocol/product-semantics problem affecting 12 servers |
-| Fixture/profile requests an inapplicable relationship | 5 | Test-fixture/profile problem, not a server failure |
+| Fixture/profile requests an inapplicable relationship | 2 | Test-fixture/profile problem, not a server failure |
 | Workspace-symbol readiness race | 3 | Generic readiness problem |
-| Missing semantic result despite an applicable query | 3 | Server, fixture, or capability-advertisement limitation |
+| Missing semantic result despite an applicable query | 4 | Server, fixture, or capability-advertisement limitation |
 | Invalid formatting edit | 1 | EmmyLua returns an edit outside the requested file |
 | Nondeterministic definition cardinality | 1 | PerlNavigator varies between no result and the declaration itself |
 
-The five remaining fixture/profile exceptions are the clearest low-risk cleanup candidates. Fixtures should
-provide real implementation, type-definition, caller, or callee relationships when the test
-expects non-empty results.
+The two remaining fixture/profile exceptions are the clearest low-risk cleanup candidates. C
+cannot provide an implementation relationship without changing language semantics; Perl's
+definition query should move from its declaration to a stable use site.
 
 The 18 `build-index` entries require a product decision. LSP has no universal notification meaning
 "the whole workspace is indexed." A generic implementation cannot promise confirmed completion
@@ -290,7 +290,10 @@ complexity.
    selects relationship-specific symbols; nine misleading exceptions and two broad smoke markers
    were removed. C's implementation query is inherently inapplicable, while rust-analyzer and
    pylyzer retain evidence-backed server limitations against genuine type relationships.
-2. Add explicit named caller/callee edges rather than relying on constructors or top-level code.
+2. ~~Add explicit named caller/callee edges rather than relying on constructors or top-level
+   code.~~ Complete: Clojure and Luau now query functions with named incoming and outgoing edges,
+   removing two fixture-caused exceptions. EmmyLua still returns no callees for direct named
+   function and method calls, so its exception remains as a verified server limitation.
 3. Move PerlNavigator's definition query from a declaration to a stable use site.
 4. Verify each changed fixture against every server sharing that language fixture.
 5. Deduplicate setup when adding or changing Rust E2E tests.
@@ -309,6 +312,19 @@ Phase 2 item 1 validation against Mason snapshot `2026-09-30-aboard-mob`:
   infrastructure/lifecycle failures outside this item; the first complete run had passed the
   affected OmniSharp, download-backed, and Verible cases, so they are not attributed to the query
   profile or fixture changes.
+
+Phase 2 item 2 validation against the same snapshot:
+
+- Clojure and Luau passed twice with named incoming and outgoing fixture edges and without their
+  former caller/callee exceptions;
+- EmmyLua returned no callees for both a direct named local-function edge and a concrete annotated
+  method edge. Its smoke case passes with the retained exception narrowed to that server behavior;
+- the query-exception inventory fell from 31 entries to 29 while remaining on 16 servers;
+- `make -j6 test-e2e` planned 511 cases and executed 495. Every changed case passed, but the
+  aggregate run failed on seven unrelated cases: four GLSL Analyzer and one Verible shutdown
+  broken pipe, OmniSharp returning different build-index failure text, and Terraform LS's upstream
+  package URL returning HTTP 404. The run reported 334 ordinary passes, 154 expected failures, and
+  16 exclusions.
 
 Pros:
 

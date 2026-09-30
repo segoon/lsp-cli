@@ -24,9 +24,6 @@ pairs:
         - command: grep
           outcome: empty-matches
           reason: clojure-lsp returns no workspace/symbol matches for this fixture
-        - command: callers
-          outcome: empty-matches
-          reason: build-sample-order is only called from top-level code, not from another named function
         - command: declaration
           outcome: empty-matches
           reason: clojure-lsp returns no textDocument/declaration matches for this fixture

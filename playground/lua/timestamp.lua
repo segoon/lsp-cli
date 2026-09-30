@@ -23,8 +23,12 @@ end
 ---@type TimestampFormatting
 local formatter = setmetatable({}, { __index = DefaultTimestampFormatting })
 
-local function format_timestamp(timestamp)
+local function render_timestamp(timestamp)
   return formatter:format(timestamp)
+end
+
+local function format_timestamp(timestamp)
+  return render_timestamp(timestamp)
 end
 
 return { format_timestamp = format_timestamp }

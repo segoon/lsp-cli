@@ -359,9 +359,11 @@
 - Current-Mason EmmyLua answers semantic requests for the Lua playground, but its formatting
   response contains a line outside the requested file. lsp-cli correctly rejects that invalid edit;
   exhaustive coverage records the stable user-facing failure.
-- The same run returned no immediate workspace-symbol matches and no outgoing call-hierarchy edges
-  for the fixture's `format_timestamp` function. Those empty results are explicit pair exceptions,
-  not evidence that the corresponding capabilities are universally unsupported.
+- The same release returned no immediate workspace-symbol matches. It also returned no outgoing
+  call-hierarchy edges for both an explicit local-function call (`format_timestamp` to
+  `render_timestamp`) and an annotated concrete method call (`format` to `normalize_timestamp`).
+  The callee exception is therefore a server limitation rather than an absent fixture edge; it is
+  not evidence that call hierarchy is universally unsupported.
 - Mason package `pkg:github/CppCXY/emmylua-analyzer-rust@0.25.1` returned no
   `textDocument/implementation` match when the profile incorrectly queried the plain
   `format_timestamp` function. With an annotated base formatter method, a derived implementation,

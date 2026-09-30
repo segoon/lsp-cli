@@ -27,7 +27,7 @@ pairs:
           reason: EmmyLua returns no immediate workspace-symbol matches
         - command: callees
           outcome: empty-matches
-          reason: EmmyLua returns no outgoing call-hierarchy edges for the fixture function
+          reason: EmmyLua returns no outgoing edge for direct named function and method calls
   - language: lua
     server: lua_ls
     tier: smoke

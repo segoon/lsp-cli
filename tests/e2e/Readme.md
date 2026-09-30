@@ -220,6 +220,25 @@ expected symbols, and format paths; pair entries keep only deadlines and narrowl
 result exceptions (see "Real-server exceptions" below). Language-specific prerequisites and
 expectations belong in YAML, not in the Rust runner.
 
+`query-profile.callable-query` remains the default target for references, call hierarchy,
+definition, declaration, implementation, and type-definition requests. When those operations need
+different semantic relationships, `query-profile.command-queries` can override an individual
+query without changing production behavior. For example:
+
+```yaml
+query-profile:
+  symbol-query: Order
+  callable-query: build_sample_order
+  command-queries:
+    implementation: OrderFormatting
+    type-definition: order
+```
+
+Overrides are accepted only for named symbol queries and must be non-empty. Prefer a genuine
+fixture relationship—such as an abstract interface with a concrete implementation or a value with
+an explicit type—over an exception that merely asserts the absence caused by a mismatched shared
+query term.
+
 ### Extending the manifest
 
 To cover an existing detectable filetype, add its small project under `playground/` and one case

@@ -5,6 +5,9 @@ language:
   query-profile:
     symbol-query: Order
     callable-query: build-sample-order
+    command-queries:
+      implementation: OrderFormatting
+      type-definition: formatter
     format-file: main.clj
     expected-names:
       - Order
@@ -27,12 +30,6 @@ pairs:
         - command: declaration
           outcome: empty-matches
           reason: clojure-lsp returns no textDocument/declaration matches for this fixture
-        - command: implementation
-          outcome: empty-matches
-          reason: the Clojure fixture callable has no implementation relationship
-        - command: type-definition
-          outcome: empty-matches
-          reason: the Clojure fixture callable has no distinct type definition
         - command: build-index
           outcome: failure
           message: background-work progress

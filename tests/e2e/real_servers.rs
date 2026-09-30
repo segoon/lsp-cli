@@ -200,8 +200,7 @@ impl<'a> RealServerTest<'a> {
     fn command_args(&self, command: QueryKind, server: &str) -> Vec<String> {
         let mut args = query_prefix(
             command,
-            self.case.symbol_query(),
-            self.case.callable_query(),
+            self.case.query_for(command),
             self.case.format_file(),
         );
         args.extend([
@@ -305,12 +304,7 @@ impl CapabilitiesTest<'_> {
     }
 }
 
-fn query_prefix(
-    command: QueryKind,
-    symbol: &str,
-    callable: &str,
-    format_file: &Path,
-) -> Vec<String> {
+fn query_prefix(command: QueryKind, query: &str, format_file: &Path) -> Vec<String> {
     let values: Vec<&str> = match command {
         QueryKind::ServerCapabilities => vec!["server-capabilities", "."],
         QueryKind::Diagnostics => vec!["diagnostics", "."],
@@ -319,16 +313,16 @@ fn query_prefix(
             format_file.to_str().expect("validated UTF-8 fixture path"),
             "--stdout",
         ],
-        QueryKind::Grep => vec!["grep", symbol, "."],
+        QueryKind::Grep => vec!["grep", query, "."],
         QueryKind::ListSymbols => vec!["list-symbols", "."],
         QueryKind::ListFunctions => vec!["list-functions", "."],
-        QueryKind::References => vec!["references", callable, "."],
-        QueryKind::Callers => vec!["callers", callable, "."],
-        QueryKind::Callees => vec!["callees", callable, "."],
-        QueryKind::Definition => vec!["definition", callable, "."],
-        QueryKind::Declaration => vec!["declaration", callable, "."],
-        QueryKind::Implementation => vec!["implementation", callable, "."],
-        QueryKind::TypeDefinition => vec!["type-definition", callable, "."],
+        QueryKind::References => vec!["references", query, "."],
+        QueryKind::Callers => vec!["callers", query, "."],
+        QueryKind::Callees => vec!["callees", query, "."],
+        QueryKind::Definition => vec!["definition", query, "."],
+        QueryKind::Declaration => vec!["declaration", query, "."],
+        QueryKind::Implementation => vec!["implementation", query, "."],
+        QueryKind::TypeDefinition => vec!["type-definition", query, "."],
         QueryKind::BuildIndex => vec!["build-index", "."],
     };
     values.into_iter().map(str::to_string).collect()

@@ -1,6 +1,7 @@
 # E2E LSP compatibility investigation and remediation plan
 
-Status: Phase 0 and expected-failure triage complete; fixture-caused query-exception repair is next.
+Status: Phase 0, expected-failure triage, and Phase 2 implementation/type-definition fixture repair
+complete; explicit caller/callee fixture edges are next.
 
 This document records the current E2E compatibility findings and prepares the work needed to
 reduce exceptions, expected failures, and exclusions. Counts are derived from
@@ -13,12 +14,12 @@ The E2E inventory contains 358 distinct LSP server IDs. Of these, 274 appear in 
 the following categories:
 
 - 16 servers have one or more explicit query exceptions;
-- 85 servers have one or more expected-failure cases;
+- 83 servers have one or more expected-failure cases;
 - 177 servers are excluded from at least one provisioning or executable-test scope.
 
 These sets overlap:
 
-- `basedpyright`, `emmylua_ls`, and `pylyzer` have both a query exception and an expected failure;
+- `pylyzer` has both a query exception and an expected failure;
 - `salt_ls` has both an expected failure and an exclusion;
 - no server appears in all three categories.
 
@@ -87,18 +88,18 @@ Important details:
 - Roslyn returns decorated or qualified symbol names that the shared exact-name assertion does not
   accept.
 
-### Query exceptions: 40 entries on 16 servers
+### Query exceptions: 31 entries on 16 servers
 
 | Cause | Exception entries | Assessment |
 | --- | ---: | --- |
 | No usable background-index completion signal | 18 | Protocol/product-semantics problem affecting 12 servers |
-| Fixture requests a relationship that does not exist | 14 | Test-fixture problem, not a server failure |
+| Fixture/profile requests an inapplicable relationship | 5 | Test-fixture/profile problem, not a server failure |
 | Workspace-symbol readiness race | 3 | Generic readiness problem |
 | Missing semantic result despite an applicable query | 3 | Server, fixture, or capability-advertisement limitation |
 | Invalid formatting edit | 1 | EmmyLua returns an edit outside the requested file |
 | Nondeterministic definition cardinality | 1 | PerlNavigator varies between no result and the declaration itself |
 
-The 14 fixture-related exceptions are the clearest low-risk cleanup candidates. Fixtures should
+The five remaining fixture/profile exceptions are the clearest low-risk cleanup candidates. Fixtures should
 provide real implementation, type-definition, caller, or callee relationships when the test
 expects non-empty results.
 
@@ -106,22 +107,22 @@ The 18 `build-index` entries require a product decision. LSP has no universal no
 "the whole workspace is indexed." A generic implementation cannot promise confirmed completion
 for a server that exposes no terminal progress signal.
 
-### Expected failures: 156 cases on 85 servers
+### Expected failures: 154 cases on 83 servers
 
 | Phase | Cases | Distinct servers |
 | --- | ---: | ---: |
 | Capabilities | 118 | 81 |
 | Provisioning | 35 | 35 |
-| Smoke queries | 3 | 3 |
+| Smoke queries | 1 | 1 |
 
-There are 34 servers shared by the capability and provisioning groups. The three smoke servers are
-not shared with those groups, producing 85 distinct server IDs overall.
+There are 34 servers shared by the capability and provisioning groups. The remaining smoke server
+is not shared with those groups, producing 83 distinct server IDs overall.
 
-All 35 provisioning, 118 capability, and three smoke-query entries identify their pinned package
+All 35 provisioning, 118 capability, and one smoke-query entry identify their pinned package
 source and concrete observed cause. Four stale provisioning markers (`marko-js`, `mesonlsp`,
-`millet`, and `terraformls`) and the stale OmniSharp smoke marker were removed after two fresh
-pinned-snapshot passes apiece. The generic markers were originally added by commit `9fcb724`
-together with expected-failure runner support.
+`millet`, and `terraformls`) and the stale OmniSharp, EmmyLua, and BasedPyright smoke markers were
+removed after two fresh pinned-snapshot passes apiece. The generic markers were originally added by
+commit `9fcb724` together with expected-failure runner support.
 
 ### Pinned provisioning result
 
@@ -180,8 +181,11 @@ The same snapshot executed all four marked smoke cases in fresh isolated homes:
   `build_sample_order` after three attempts. It also logged a missing `ERG_PATH` and repeated
   diagnostics-worker panics, but those were not the direct failed assertion.
 
-The three retained failures are shared-fixture/profile mismatches: the profile requests
-implementation or type-definition relationships that the plain function fixtures do not create.
+The original three failures were shared-fixture/profile mismatches: the profile requested
+implementation or type-definition relationships that the plain function fixtures did not create.
+After command-specific query targets and genuine fixture relationships were added, EmmyLua and
+BasedPyright passed twice. Pylyzer still returns no type definition for the same explicitly typed
+parameter that passes with BasedPyright and pyright, so its retained marker is now server-specific.
 The raw reports are retained in `target/e2e-smoke-triage.b59ZRP`.
 
 ### Limitations of the available full-run log
@@ -281,12 +285,30 @@ complexity.
 
 ### Phase 2: remove fixture-caused query exceptions
 
-1. Change fixture callables so implementation/type-definition tests point at symbols for which
-   those relationships genuinely exist.
+1. ~~Change fixture callables so implementation/type-definition tests point at symbols for which
+   those relationships genuinely exist.~~ Complete: a backward-compatible `command-queries` map
+   selects relationship-specific symbols; nine misleading exceptions and two broad smoke markers
+   were removed. C's implementation query is inherently inapplicable, while rust-analyzer and
+   pylyzer retain evidence-backed server limitations against genuine type relationships.
 2. Add explicit named caller/callee edges rather than relying on constructors or top-level code.
 3. Move PerlNavigator's definition query from a declaration to a stable use site.
 4. Verify each changed fixture against every server sharing that language fixture.
 5. Deduplicate setup when adding or changing Rust E2E tests.
+
+Phase 2 item 1 validation against Mason snapshot `2026-09-30-aboard-mob`:
+
+- every affected executable pair passed targeted real-server validation; Objective-C++/clangd
+  additionally passed three consecutive smoke runs after its relationship anchor moved into a
+  scanned `.mm` source file;
+- the complete 511-case suite executed twice. The first run exposed the Objective-C++ background
+  index race plus two transient Solidity download/startup failures. After the fixture correction,
+  every changed semantic case passed in the second complete run, including C, Clojure, C++, CUDA,
+  Lua, Objective-C, Objective-C++, Python, and Rust;
+- the second aggregate run did not exit successfully because 12 unrelated cases failed: ten
+  package download/provisioning requests, OmniSharp daemon reuse, and Verible shutdown. Those are
+  infrastructure/lifecycle failures outside this item; the first complete run had passed the
+  affected OmniSharp, download-backed, and Verible cases, so they are not attributed to the query
+  profile or fixture changes.
 
 Pros:
 

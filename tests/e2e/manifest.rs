@@ -42,7 +42,7 @@ pub(crate) mod coverage_cases;
 mod suite;
 use suite::{Architecture, OperatingSystem, Platform, TestDefaults};
 
-const MANIFEST_SCHEMA_VERSION: u32 = 11;
+const MANIFEST_SCHEMA_VERSION: u32 = 12;
 
 #[derive(Clone, Debug)]
 pub(crate) struct Manifest {
@@ -245,6 +245,7 @@ impl Manifest {
                 setup,
                 symbol_query: &profile.symbol_query,
                 callable_query: &profile.callable_query,
+                command_queries: &profile.command_queries,
                 format_file: &profile.format_file,
                 expected_names: &profile.expected_names,
                 exceptions,

@@ -5,6 +5,9 @@ language:
   query-profile:
     symbol-query: Order
     callable-query: build_sample_order
+    command-queries:
+      implementation: OrderFormatting
+      type-definition: order
     format-file: main.py
     expected-names:
       - Order

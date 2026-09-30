@@ -11,4 +11,8 @@ std::string format_order(const Order &order) {
     return output.str();
 }
 
+std::string PlainOrderFormatter::format(const Order &order) const {
+    return format_order(order);
+}
+
 }  // namespace playground::report

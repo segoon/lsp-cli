@@ -204,18 +204,18 @@
   its other applicable semantic queries completed. Exhaustive coverage records those two empty
   results explicitly instead of treating advertised capabilities as a guarantee of fixture matches.
 - Mason package `pkg:github/mtshiba/pylyzer@v0.0.82` also returns no
-  `textDocument/typeDefinition` match for the fixture function after three bounded attempts. The
-  function has no distinct type definition, so this is primarily a shared-fixture expectation
-  problem. Separately, the server repeatedly reports a missing `ERG_PATH` and diagnostics-worker
-  index-out-of-bounds panics; semantic replies can still succeed, so those stderr messages are not
-  currently treated as the query's direct failure.
+  `textDocument/typeDefinition` match for an `order` parameter explicitly typed as `Order`, after
+  the same fixture passes that query with BasedPyright and pyright. This is a pylyzer compatibility
+  limitation rather than a missing fixture relationship. Separately, the server repeatedly reports
+  a missing `ERG_PATH` and diagnostics-worker index-out-of-bounds panics; semantic replies can still
+  succeed, so those stderr messages are not currently treated as the query's direct failure.
 
 ## basedpyright
 
-- Mason package `pkg:pypi/basedpyright@1.40.1` returns no `textDocument/implementation` match for
-  the Python fixture function `build_sample_order` after three bounded attempts. The fixture
-  declares a plain function with no implementation relationship, so the generic smoke expectation
-  is invalid; repair the shared fixture/profile rather than adding server-specific production code.
+- Mason package `pkg:pypi/basedpyright@1.40.1` returned no `textDocument/implementation` match when
+  the shared profile incorrectly queried the plain function `build_sample_order`. After the fixture
+  gained an abstract `OrderFormatting` interface and the E2E profile selected it specifically for
+  implementation queries, the complete smoke case passed twice and its marker was removed.
 
 ## pyright
 
@@ -362,10 +362,11 @@
 - The same run returned no immediate workspace-symbol matches and no outgoing call-hierarchy edges
   for the fixture's `format_timestamp` function. Those empty results are explicit pair exceptions,
   not evidence that the corresponding capabilities are universally unsupported.
-- Mason package `pkg:github/CppCXY/emmylua-analyzer-rust@0.25.1` also returns no
-  `textDocument/implementation` match for `format_timestamp` after three bounded attempts. The
-  fixture declares a plain function with no implementation relationship, so this broad smoke
-  failure is a fixture/profile mismatch rather than evidence of a broken implementation provider.
+- Mason package `pkg:github/CppCXY/emmylua-analyzer-rust@0.25.1` returned no
+  `textDocument/implementation` match when the profile incorrectly queried the plain
+  `format_timestamp` function. With an annotated base formatter method, a derived implementation,
+  and a command-specific query target, the complete smoke case passed twice and its broad marker
+  was removed.
 
 ## lua-language-server
 
@@ -404,6 +405,10 @@
   component, reported that it could not load the standard library, and returned no callees for
   `sample_order`. Install `rust-src` when a test expects calls into the standard library, or use a
   fixture whose expected call edges stay within the workspace.
+- rust-analyzer resolves the new `OrderTotaling` trait implementation, but still returns no
+  `textDocument/typeDefinition` result for the top-level `SAMPLE_ORDER_VALUE` static explicitly
+  declared as `Order`. That retained exception is a server/query compatibility limitation, not an
+  absent fixture type relationship.
 
 ## clangd
 
@@ -419,6 +424,11 @@
   CUDA, Objective-C, and Objective-C++ playgrounds, but an immediate `workspace/symbol` query
   returned no matches. It also exposed no progress signal usable by `build-index`; capability-aware
   tests need an explicit bounded policy rather than a fixed indexing sleep.
+- clangd 23.1.0 reproduced that race for Objective-C++ when an implementation-query interface was
+  declared only in a `.hpp` file outside the `objcpp` fixture's `.mm` document scan: targeted runs
+  could pass while the full parallel suite fell back to an empty immediate `workspace/symbol`
+  result. The fixture keeps relationship anchors in a scanned source file so the assertion does
+  not depend on background-index timing.
 - `clangd` may expose diagnostics only through delayed `textDocument/publishDiagnostics` even when
   it does send `$/progress`, and in some setups it does not advertise `diagnosticProvider` for
   pull diagnostics at all. For `lsp-cli diag`, prefer pull diagnostics when the capability is

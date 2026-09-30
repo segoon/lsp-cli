@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use super::query_case::select_query;
 use super::{
     ExceptionOutcome, LspConfig, QueryKind, RealServerCapabilitiesCase, RealServerCase, read_yaml,
 };
@@ -33,12 +34,13 @@ impl RealServerCase<'_> {
         self.setup.host_programs()
     }
 
-    pub(crate) fn symbol_query(&self) -> &str {
-        self.symbol_query
-    }
-
-    pub(crate) fn callable_query(&self) -> &str {
-        self.callable_query
+    pub(crate) fn query_for(&self, command: QueryKind) -> &str {
+        select_query(
+            command,
+            self.symbol_query,
+            self.callable_query,
+            self.command_queries,
+        )
     }
 
     pub(crate) fn format_file(&self) -> &Path {

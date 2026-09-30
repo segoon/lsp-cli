@@ -15,8 +15,17 @@ pub struct Order {
     pub items: Vec<OrderItem>,
 }
 
-impl Order {
-    pub fn total(&self) -> f64 {
+pub static SAMPLE_ORDER_VALUE: Order = Order {
+    customer: String::new(),
+    items: Vec::new(),
+};
+
+pub trait OrderTotaling {
+    fn total(&self) -> f64;
+}
+
+impl OrderTotaling for Order {
+    fn total(&self) -> f64 {
         self.items.iter().map(OrderItem::total).sum()
     }
 }

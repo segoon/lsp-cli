@@ -5,6 +5,9 @@ language:
   query-profile:
     symbol-query: normalize_timestamp
     callable-query: format_timestamp
+    command-queries:
+      implementation: format
+      type-definition: formatter
     format-file: timestamp.lua
     expected-names:
       - normalize_timestamp

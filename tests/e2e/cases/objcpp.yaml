@@ -5,6 +5,8 @@ language:
   query-profile:
     symbol-query: Order
     callable-query: format_order
+    command-queries:
+      implementation: OrderFormatting
     format-file: src/main.mm
     expected-names:
       - Order
@@ -16,9 +18,6 @@ pairs:
     smoke:
       status: queries
       exceptions:
-        - command: implementation
-          outcome: empty-matches
-          reason: the Objective-C++ fixture callable has no implementation relationship
         - command: build-index
           outcome: failure
           message: background-work progress

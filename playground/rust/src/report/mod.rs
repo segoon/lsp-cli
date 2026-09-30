@@ -1,4 +1,4 @@
-use crate::order::Order;
+use crate::order::{Order, OrderTotaling};
 
 pub fn format_order(order: &Order) -> String {
     format!(

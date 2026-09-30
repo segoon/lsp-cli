@@ -380,8 +380,11 @@ Investigate language-neutral changes only:
   the first detected source and, when advertised, uses `textDocument/documentSymbol` as a
   best-effort server-processing barrier before the existing bounded workspace-symbol polling.
   Named semantic queries already open or scan their target documents.
-- use progress or diagnostics notifications when available, without assuming they prove complete
-  workspace indexing;
+- ~~Use progress or diagnostics notifications when available, without assuming they prove complete
+  workspace indexing.~~ Complete for workspace-symbol retries: the existing 750 ms retry delay now
+  waits for a target-document diagnostic, completed work-done progress item, or healthy quiescent
+  server status and can retry early once. Later retries remain spaced, and only a non-empty
+  `workspace/symbol` response establishes success.
 - after a successful shutdown response and `exit` notification, apply a bounded grace period and
   consider controlled process termination;
 - keep Deno's invalid shutdown-parameter requirement separate from ordinary exit hangs;
@@ -401,6 +404,18 @@ Phase 3 workspace-symbol readiness validation against Mason snapshot `2026-09-30
   run reported 336 ordinary passes, 154 expected failures, and 16 exclusions, but failed on five
   unrelated cases: OmniSharp daemon reuse, Terraform LS's upstream package URL returning HTTP
   404, two GLSL Analyzer shutdown broken pipes, and one Verible shutdown broken pipe.
+
+Phase 3 notification-hint validation against the same snapshot:
+
+- unit coverage verifies the target-document diagnostic wait and preservation, completed-progress
+  recognition, and healthy quiescent server-status recognition; the public-CLI fake-server query
+  matrix also passed;
+- `make test` passed 345 tests with one ignored test plus all 82 E2E-runner tests, and Clippy
+  passed for all targets and features with warnings denied;
+- focused `make -j6 test-e2e` runs passed all planned provisioning, semantic, and lifecycle cases
+  for Clojure/clojure-lsp, Lua/EmmyLua, and Odin/OLS (eight executed cases total). Their documented
+  empty workspace-symbol exceptions remain because a readiness hint deliberately does not assert
+  index completion.
 
 Pros:
 

@@ -43,15 +43,33 @@ pub(in crate::commands) fn run_workspace_symbol_query(
                 return Ok(matches);
             }
 
-            prime_workspace_document(&args.query.directory, config, workspace, initialize, client)?;
+            let readiness_uri = prime_workspace_document(
+                &args.query.directory,
+                config,
+                workspace,
+                initialize,
+                client,
+            )?;
 
             // The document-symbol response proves that the server processed the opened document,
             // but not that its workspace index is complete. Keep polling within the existing
             // bound for servers that update workspace symbols asynchronously after that response.
             let mut matches = Vec::new();
+            let mut used_readiness_hint = false;
             for attempt in 0..PRIME_RETRY_ATTEMPTS {
                 if attempt > 0 {
-                    std::thread::sleep(PRIME_RETRY_DELAY);
+                    // Replace the fixed retry sleep with an equally bounded LSP event wait. A
+                    // diagnostic, completed progress item, or quiescent status can wake the retry
+                    // early, but the workspace-symbol response remains authoritative.
+                    if let Some(uri) = readiness_uri.as_deref()
+                        && !used_readiness_hint
+                    {
+                        used_readiness_hint = client
+                            .wait_for_readiness_hint(uri, PRIME_RETRY_DELAY)
+                            .unwrap_or(false);
+                    } else {
+                        std::thread::sleep(PRIME_RETRY_DELAY);
+                    }
                 }
                 let response = client.workspace_symbol(query).map_err(|error| {
                     error.with_prefix(format!("failed to query {}", workspace.server.server))
@@ -78,10 +96,10 @@ fn prime_workspace_document(
     workspace: &PreparedWorkspace,
     initialize: &crate::lsp::InitializeResponse,
     client: &mut LspClient,
-) -> Result<()> {
+) -> Result<Option<String>> {
     let files = scan_workspace_files(directory, config, workspace)?;
     let Some(file) = files.first() else {
-        return Ok(());
+        return Ok(None);
     };
     let uri = open_document_for(client, file, &workspace.server.server)?;
     if document_symbol_supported(initialize) {
@@ -90,5 +108,5 @@ fn prime_workspace_document(
         // operation and will report any subsequent transport failure to the user.
         let _ = client.document_symbol(&uri);
     }
-    Ok(())
+    Ok(Some(uri))
 }

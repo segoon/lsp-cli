@@ -13,6 +13,10 @@
   processed that document, but it does not prove that the workspace index is complete. OLS,
   Clojure LSP, and EmmyLua LS still returned no matching workspace symbols after this barrier in
   the pinned E2E fixtures, so workspace-symbol polling and their documented exceptions remain.
+- A target-document `textDocument/publishDiagnostics` notification, completed `$/progress` item,
+  or healthy quiescent `experimental/serverStatus` can shorten a workspace-symbol retry delay, but
+  each is only a readiness hint. Consume at most one hint per query and retain bounded spacing for
+  later retries; cached diagnostics must not collapse every remaining delay.
 
 
 ## Diagnostics

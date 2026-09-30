@@ -8,6 +8,11 @@
   later outgoing operations. Requests that race with the next client request are answered while
   that request is outstanding, instead of assuming request-response traffic is strictly
   one-directional or waiting for a fixed post-initialization quiet period.
+- After an initially empty `workspace/symbol` result, a `textDocument/didOpen` followed by a
+  successful `textDocument/documentSymbol` response is a useful bounded signal that the server
+  processed that document, but it does not prove that the workspace index is complete. OLS,
+  Clojure LSP, and EmmyLua LS still returned no matching workspace symbols after this barrier in
+  the pinned E2E fixtures, so workspace-symbol polling and their documented exceptions remain.
 
 
 ## Diagnostics

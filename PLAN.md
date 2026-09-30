@@ -1,9 +1,9 @@
 # E2E LSP compatibility investigation and remediation plan
 
-Status: Phase 0, expected-failure triage, and Phase 2 implementation/type-definition plus
-caller/callee fixture repair complete; PerlNavigator definition targeting remains a TODO pending
-a product decision about use-site selection. Cross-server changed-fixture verification and Rust
-test-setup deduplication are complete.
+Status: Phase 0, expected-failure triage, Phase 2, and Phase 3 workspace-symbol readiness priming
+are complete. PerlNavigator definition targeting remains a TODO pending a product decision about
+use-site selection. Cross-server changed-fixture verification and Rust test-setup deduplication
+are complete.
 
 This document records the current E2E compatibility findings and prepares the work needed to
 reduce exceptions, expected failures, and exclusions. Counts are derived from
@@ -375,7 +375,11 @@ fixture containing a real relationship.
 
 Investigate language-neutral changes only:
 
-- prime semantic queries with `textDocument/didOpen` and bounded LSP-visible readiness signals;
+- ~~Prime semantic queries with `textDocument/didOpen` and bounded LSP-visible readiness
+  signals.~~ Complete for workspace-symbol queries: after an initially empty result, lsp-cli opens
+  the first detected source and, when advertised, uses `textDocument/documentSymbol` as a
+  best-effort server-processing barrier before the existing bounded workspace-symbol polling.
+  Named semantic queries already open or scan their target documents.
 - use progress or diagnostics notifications when available, without assuming they prove complete
   workspace indexing;
 - after a successful shutdown response and `exit` notification, apply a bounded grace period and
@@ -383,6 +387,20 @@ Investigate language-neutral changes only:
 - keep Deno's invalid shutdown-parameter requirement separate from ordinary exit hangs;
 - add generic, data-driven initialization options if the product should support Astro-like
   servers.
+
+Phase 3 workspace-symbol readiness validation against Mason snapshot `2026-09-30-aboard-mob`:
+
+- a public-CLI fake-server regression now withholds workspace symbols until it receives the
+  document-symbol barrier, so the existing binary-level query test exercises the new behavior;
+- targeted real-server smoke cases passed for Clojure/clojure-lsp, Lua/EmmyLua, and Odin/OLS;
+  those servers still returned empty workspace-symbol results, so their evidence-backed
+  exceptions remain;
+- `make test` passed 341 tests with one ignored test plus all 82 E2E-runner tests, and Clippy
+  passed for all targets and features with warnings denied;
+- `make -j6 test-e2e` planned 511 cases and executed 495. All changed cases passed; the aggregate
+  run reported 336 ordinary passes, 154 expected failures, and 16 exclusions, but failed on five
+  unrelated cases: OmniSharp daemon reuse, Terraform LS's upstream package URL returning HTTP
+  404, two GLSL Analyzer shutdown broken pipes, and one Verible shutdown broken pipe.
 
 Pros:
 

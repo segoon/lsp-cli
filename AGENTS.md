@@ -66,7 +66,8 @@ Move duplicated test initialization code to helper functions.
 Similar initialization may use parametrized helpers with distinct arguments.
 
 After changing E2E infrastructure (including its runner, manifest schema, suite selection,
-phases, Make targets, or CI workflows), run the complete real-server suite with `make test-e2e`.
+phases, Make targets, or CI workflows), run the complete real-server suite with
+`make -j"$((($(nproc) + 1) / 2))" test-e2e`.
 Targeted cases and `make test-e2e-smoke` are useful while developing, but do not replace that
 final full-suite validation.
 
@@ -99,5 +100,5 @@ make test
 Additionally, after E2E infrastructure changes:
 
 ```sh
-make test-e2e
+make -j"$((($(nproc) + 1) / 2))" test-e2e
 ```

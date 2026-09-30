@@ -2,7 +2,8 @@
 
 Status: Phase 0, expected-failure triage, and Phase 2 implementation/type-definition plus
 caller/callee fixture repair complete; PerlNavigator definition targeting remains a TODO pending
-a product decision about use-site selection. Cross-server changed-fixture verification is complete.
+a product decision about use-site selection. Cross-server changed-fixture verification and Rust
+test-setup deduplication are complete.
 
 This document records the current E2E compatibility findings and prepares the work needed to
 reduce exceptions, expected failures, and exclusions. Counts are derived from
@@ -303,7 +304,9 @@ complexity.
 4. ~~Verify each changed fixture against every server sharing that language fixture.~~ Complete:
    all 13 executable smoke pairs were rerun against the final fixtures with no unexpected failures;
    six other shared-fixture pairs remain intentionally excluded from semantic smoke execution.
-5. Deduplicate setup when adding or changing Rust E2E tests.
+5. ~~Deduplicate setup when adding or changing Rust E2E tests.~~ Complete: expected-failure tests
+   reuse the manifest mutation/validation helper instead of repeating full-manifest setup. The
+   remaining helpers are domain-specific and combining them would reduce readability.
 
 Phase 2 item 1 validation against Mason snapshot `2026-09-30-aboard-mob`:
 
@@ -343,6 +346,15 @@ Phase 2 item 4 validation against the same snapshot:
 - Lua/LuaLS and Python/Jedi Language Server, pylsp, Pyre, Pyrefly, and ty remain intentionally
   excluded from semantic smoke execution for their documented lifecycle or semantic-capability
   limitations. The audit does not misrepresent those exclusions as successful fixture validation.
+
+Phase 2 item 5 validation:
+
+- the whole-file audit covered the manifest, command-query, expected-failure, and real-server test
+  modules;
+- `make test` passed 341 tests with one ignored test plus all 82 E2E-runner tests;
+- Clippy passed for all targets and features with warnings denied;
+- the change only deduplicates test setup and does not alter the E2E runner, manifest schema, suite
+  selection, phases, Make targets, or CI, so no additional real-server suite run was required.
 
 Pros:
 

@@ -13,7 +13,7 @@ fn first_queries_smoke(manifest: &mut Manifest) -> &mut SmokeDisposition {
         .expect("selected pair should have a smoke case")
 }
 
-fn validation_error(expectation: &str, mutate: impl FnOnce(&mut Manifest)) -> String {
+pub(super) fn validation_error(expectation: &str, mutate: impl FnOnce(&mut Manifest)) -> String {
     let mut manifest = Manifest::load().expect("E2E manifest should parse");
     mutate(&mut manifest);
     manifest.validate(repository_root()).expect_err(expectation)

@@ -63,20 +63,12 @@ impl Manifest {
 
 #[cfg(test)]
 mod tests {
+    use super::super::tests::validation_error;
     use super::*;
-    use crate::repository_root;
-
-    fn validation_error(mutate: impl FnOnce(&mut Manifest)) -> String {
-        let mut manifest = Manifest::load().expect("E2E manifest should parse");
-        mutate(&mut manifest);
-        manifest
-            .validate(repository_root())
-            .expect_err("mutated expected failures should fail")
-    }
 
     #[test]
     fn rejects_unknown_and_duplicate_cases() {
-        let unknown = validation_error(|manifest| {
+        let unknown = validation_error("unknown expected failures should fail", |manifest| {
             manifest.expected_failures.push(ExpectedFailure {
                 case: "provisioning/not-a-server".to_string(),
                 reason: "known failure".to_string(),
@@ -84,7 +76,7 @@ mod tests {
         });
         assert!(unknown.contains("is not an executable E2E case"));
 
-        let duplicate = validation_error(|manifest| {
+        let duplicate = validation_error("duplicate expected failures should fail", |manifest| {
             let failure = manifest
                 .expected_failures
                 .first()

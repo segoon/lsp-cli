@@ -246,7 +246,7 @@ expected-failures:
   - case: provisioning/raku_navigator
     reason: pkg:github/bscan/RakuNavigator@ccd511dbd156f396eed613f21adbcd8e38a8c784 installs a launcher that resolves managed node outside the isolated E2E home.
   - case: provisioning/salt_ls
-    reason: pkg:pypi/salt-lsp@0.0.1 fails during virtual-environment installation, and the current error reporting retains only pip's generic subprocess note.
+    reason: pkg:pypi/salt-lsp@0.0.1 requires PyYAML<6, whose 5.4.1 source build fails on the managed Python 3.12 runtime.
   - case: provisioning/smithy_ls
     reason: pkg:github/awslabs/smithy-language-server@0.9.0 requires coursier, but the Mason recipe does not expose that executable.
   - case: provisioning/sqls

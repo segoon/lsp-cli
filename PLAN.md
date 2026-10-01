@@ -1,8 +1,8 @@
 # E2E LSP compatibility investigation and remediation plan
 
 Status: Phase 0, expected-failure triage, Phase 2, Phase 3 workspace-symbol readiness plus bounded
-post-shutdown cleanup, and the Phase 4 CMake Language Server and Kotlin LSP build repairs are
-complete.
+post-shutdown cleanup, and the Phase 4 CMake Language Server, Kotlin LSP, and Salt LSP package
+investigations are complete.
 PerlNavigator definition targeting remains a TODO pending a product decision about use-site
 selection. Cross-server changed-fixture verification and Rust test-setup deduplication are
 complete.
@@ -471,7 +471,9 @@ Prioritize fixes that do not require new product architecture:
   `kotlin-lsp/v263.4702.0`; provisioning and direct lifecycle coverage are enabled. Semantic smoke
   remains excluded because the server returns neither workspace symbols nor references for the
   shared fixture after reporting background work complete;
-- verify `salt-lsp` against the managed Python runtime;
+- ~~Verify `salt-lsp` against the managed Python runtime.~~ Complete: version 0.0.1 requires
+  `PyYAML>=5.4,<6`; Python 3.12 has no compatible wheel, and the PyYAML 5.4.1 source build fails.
+  The reviewed provisioning expected failure and semantic exclusion remain;
 - determine whether compatible RPM Python bindings can be staged hermetically;
 - decide whether Arduino's board core, CLI configuration, clangd, and FQBN belong in a dedicated
   integration fixture;
@@ -487,15 +489,10 @@ Phase 4 CMake Language Server validation:
 - `make -j10 test-e2e CASE=cmake/cmake` passed both planned cases: provisioning and capability
   exchange. The former startup exclusion was removed.
 
-Phase 4 Kotlin LSP validation:
-
-- the Mason package resolved `kotlin-lsp/v263.4702.0`, replacing the expired
-  `kotlin-lsp/v262.9593.0` build;
-- `make -j10 test-e2e CASE=kotlin/kotlin_lsp` passed both executable scopes: provisioning and the
-  direct lifecycle exchange. Semantic smoke remains a reviewed exclusion;
-- exploratory semantic runs confirmed that waiting for terminal work-done progress, including a
-  120-second per-request allowance, does not produce workspace-symbol or reference matches. No
-  Kotlin-specific production behavior or broad timing relaxation was retained.
+Phase 4 Kotlin LSP validation: Mason resolved `kotlin-lsp/v263.4702.0`, replacing the expired
+build. `make -j10 test-e2e CASE=kotlin/kotlin_lsp` passed provisioning and direct lifecycle;
+semantic smoke remains excluded after longer work-done waits still produced no symbols or
+references. No Kotlin-specific production behavior or broad timing relaxation was retained.
 
 Pros:
 

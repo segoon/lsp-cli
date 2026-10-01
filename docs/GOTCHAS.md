@@ -200,8 +200,12 @@
 
 ## salt-lsp
 
-- salt-lsp 0.0.1 cannot currently complete a pip installation on the CI Python runtime. The pair is
-  classified as an upstream package-install incompatibility rather than a launcher/import failure.
+- salt-lsp 0.0.1 declares `PyYAML>=5.4,<6`. On the managed Python 3.12 runtime, pip finds no
+  compatible PyYAML 5.4.1 wheel and its source build fails while determining wheel requirements.
+  This is an upstream dependency/package-age incompatibility, not a launcher or LSP exchange
+  failure. Supporting it would require an older Python runtime or an upstream/forked package with
+  compatible dependencies; installing an extra PyYAML version cannot satisfy the declared `<6`
+  constraint.
 
 ## textLSP
 

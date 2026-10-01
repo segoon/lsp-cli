@@ -120,10 +120,15 @@
 
 ## Arduino Language Server
 
-- Arduino Language Server is not self-contained after installation. It requires Arduino CLI
-  configuration, an installed board core, `clangd`, and a project-specific fully qualified board
-  name (FQBN) before initialization. The generic E2E fixture therefore records a reviewed
-  exclusion instead of treating missing machine/project configuration as a server regression.
+- Arduino Language Server 0.7.7 is not self-contained after installation. Without an explicit
+  Arduino CLI configuration path it exits before initialization. A usable launch additionally
+  needs Arduino CLI, `clangd`, a project-specific fully qualified board name (FQBN), and the
+  matching board core installed through Arduino CLI.
+- These coupled requirements belong in a dedicated managed-toolchain fixture if that operational
+  dependency is approved, not in generic production LSP data. The current E2E setup can download
+  one server and expose existing host programs, but cannot provision Arduino CLI plus `clangd` or
+  run the mutable board-core installation. The pair remains excluded until a product decision
+  accepts the additional network, storage, licensing, security, and maintenance surface.
 
 ## Astro Language Server
 

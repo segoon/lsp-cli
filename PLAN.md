@@ -1,7 +1,7 @@
 # E2E LSP compatibility investigation and remediation plan
 
 Status: Phase 0, expected-failure triage, Phase 2, Phase 3 workspace-symbol readiness plus bounded
-post-shutdown cleanup, and the Phase 4 CMake, Kotlin, Salt, and RPM package investigations are
+post-shutdown cleanup, and the Phase 4 CMake, Kotlin, Salt, RPM, and Arduino investigations are
 complete.
 PerlNavigator definition targeting remains a TODO pending a product decision about use-site
 selection. Cross-server changed-fixture verification and Rust test-setup deduplication are
@@ -478,19 +478,15 @@ Prioritize fixes that do not require new product architecture:
   PyPI `rpm` package is only a shim for OS-provided native bindings. Staging distro binaries would
   couple Python and native-library ABIs; upstream container mode requires a new runtime and TCP
   backend. The reviewed exclusion remains pending an explicit architecture decision;
-- decide whether Arduino's board core, CLI configuration, clangd, and FQBN belong in a dedicated
-  integration fixture;
+- ~~Decide whether Arduino's board core, CLI configuration, clangd, and FQBN belong in a dedicated
+  integration fixture.~~ Complete: they form one coupled, project-specific toolchain and should
+  use a dedicated managed fixture, not production LSP data. Implementation awaits product approval
+  for its additional downloads and setup orchestration; the reviewed exclusion remains;
 - normalize only E2E expectations, not production LSP results, for decorated Roslyn symbol names.
 
-Phase 4 CMake Language Server validation:
-
-- PyPI installer regressions verify that extra package constraints are passed in the same pip
-  invocation and that changing the source or dependency set invalidates only that package's
-  cached virtual environment;
-- configuration and suggestion regressions verify that `mason-extra-packages` is loaded and
-  propagated to Mason resolution without a server-specific production branch;
-- `make -j10 test-e2e CASE=cmake/cmake` passed both planned cases: provisioning and capability
-  exchange. The former startup exclusion was removed.
+Phase 4 CMake validation covered same-transaction extra constraints, cache invalidation, and
+configuration propagation without a server-specific branch. `make -j10 test-e2e CASE=cmake/cmake`
+passed provisioning and capability exchange, removing the former startup exclusion.
 
 Phase 4 Kotlin LSP validation: Mason resolved `kotlin-lsp/v263.4702.0`, replacing the expired
 build. `make -j10 test-e2e CASE=kotlin/kotlin_lsp` passed provisioning and direct lifecycle;

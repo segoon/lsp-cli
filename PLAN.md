@@ -1,8 +1,7 @@
 # E2E LSP compatibility investigation and remediation plan
 
 Status: Phase 0, expected-failure triage, Phase 2, Phase 3 workspace-symbol readiness plus bounded
-post-shutdown cleanup, and the Phase 4 CMake, Kotlin, Salt, RPM, and Arduino investigations are
-complete.
+post-shutdown cleanup, and Phase 4 are complete.
 PerlNavigator definition targeting remains a TODO pending a product decision about use-site
 selection. Cross-server changed-fixture verification and Rust test-setup deduplication are
 complete.
@@ -17,9 +16,9 @@ currently pinned `lsp-cli-data` revision and will drift when that revision chang
 The E2E inventory contains 358 distinct LSP server IDs. Of these, 249 appear in at least one of
 the following categories:
 
-- 18 servers have one or more explicit query exceptions;
+- 19 servers have one or more explicit query exceptions;
 - 60 servers have one or more expected-failure cases;
-- 173 servers are excluded from at least one provisioning or executable-test scope.
+- 172 servers are excluded from at least one provisioning or executable-test scope.
 
 These sets overlap:
 
@@ -69,16 +68,16 @@ These classifications are mutually exclusive:
 
 These entries are primarily provisioning or scope gaps, not evidence of LSP protocol failure.
 
-### Pair-level exclusions: 13 servers
+### Pair-level exclusions: 12 servers
 
-These 13 servers do not overlap the 160 provisioning exclusions.
+These 12 servers do not overlap the 160 provisioning exclusions.
 
 | Cause | Servers | Examples |
 | --- | ---: | --- |
 | Shutdown or process-lifecycle incompatibility | 3 | `denols`, `jdtls`, `kotlin_language_server` |
 | Installation/startup prerequisite or upstream packaging failure | 3 | `arduino_language_server`, `rpmspec`, `salt_ls` |
 | Missing generic initialization configuration | 1 | `astro` requires a TypeScript SDK path in `initializationOptions` |
-| Shared semantic-profile mismatch or unstable results | 6 | `kotlin_lsp`, `pylsp`, `pyre`, `pyrefly`, `roslyn_ls`, `ty` |
+| Shared semantic-profile mismatch or unstable results | 5 | `kotlin_lsp`, `pylsp`, `pyre`, `pyrefly`, `ty` |
 
 Important details:
 
@@ -90,25 +89,25 @@ Important details:
 - Arduino Language Server needs board-specific external configuration and tools.
 - Some Python servers initialize but do not expose enough discoverable semantic information for
   the shared source-language query profile.
-- Roslyn returns decorated or qualified symbol names that the shared exact-name assertion does not
-  accept.
+- Roslyn's decorated names are now asserted through pair-local E2E expectations without changing
+  production results.
 
-### Query exceptions: 31 entries on 18 servers
+### Query exceptions: 37 entries on 19 servers
 
 | Cause | Exception entries | Assessment |
 | --- | ---: | --- |
-| No usable background-index completion signal | 20 | Protocol/product-semantics problem affecting 14 servers |
-| Fixture/profile requests an inapplicable relationship | 2 | Test-fixture/profile problem, not a server failure |
-| Workspace-symbol readiness race | 3 | Generic readiness problem |
-| Missing semantic result despite an applicable query | 4 | Server, fixture, or capability-advertisement limitation |
+| No usable background-index completion signal | 21 | Protocol/product-semantics problem affecting 15 servers |
+| Fixture/profile requests an inapplicable relationship | 3 | Test-fixture/profile problem, not a server failure |
+| Workspace-symbol readiness race | 4 | Generic readiness problem |
+| Missing semantic result despite an applicable query | 7 | Server, fixture, or capability-advertisement limitation |
 | Invalid formatting edit | 1 | EmmyLua returns an edit outside the requested file |
 | Nondeterministic definition cardinality | 1 | PerlNavigator varies between no result and the declaration itself |
 
-The two remaining fixture/profile exceptions are the clearest low-risk cleanup candidates. C
-cannot provide an implementation relationship without changing language semantics; Perl's
-definition query should move from its declaration to a stable use site.
+The three fixture/profile exceptions include inapplicable C implementation and Roslyn method
+type-definition relationships. Perl's definition query remains the low-risk cleanup candidate and
+should move from its declaration to a stable use site.
 
-The 20 `build-index` entries require a product decision. LSP has no universal notification meaning
+The 21 `build-index` entries require a product decision. LSP has no universal notification meaning
 "the whole workspace is indexed." A generic implementation cannot promise confirmed completion
 for a server that exposes no terminal progress signal.
 
@@ -482,7 +481,10 @@ Prioritize fixes that do not require new product architecture:
   integration fixture.~~ Complete: they form one coupled, project-specific toolchain and should
   use a dedicated managed fixture, not production LSP data. Implementation awaits product approval
   for its additional downloads and setup orchestration; the reviewed exclusion remains;
-- normalize only E2E expectations, not production LSP results, for decorated Roslyn symbol names.
+- ~~Normalize only E2E expectations, not production LSP results, for decorated Roslyn symbol
+  names.~~ Complete: schema v13 supports pair-local callable and expected-name overrides; Roslyn
+  uses exact decorated strings plus six asserted deviations. `make -j10 test-e2e
+  CASE=cs/roslyn_ls` passed provisioning, semantic queries, and lifecycle.
 
 Phase 4 CMake validation covered same-transaction extra constraints, cache invalidation, and
 configuration propagation without a server-specific branch. `make -j10 test-e2e CASE=cmake/cmake`

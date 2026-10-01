@@ -38,12 +38,10 @@ impl QueryProfile {
         if self.format_file.as_os_str().is_empty() || self.format_file.is_absolute() {
             return Err(format!("E2E format file for {language:?} must be relative"));
         }
-        if self.expected_names.is_empty() || self.expected_names.iter().any(String::is_empty) {
-            return Err(format!(
-                "E2E query profile for {language:?} requires expected names"
-            ));
-        }
-        Ok(())
+        validate_expected_names(
+            &self.expected_names,
+            &format!("E2E query profile for {language:?}"),
+        )
     }
 
     fn query_for(&self, command: QueryKind) -> &str {
@@ -53,6 +51,17 @@ impl QueryProfile {
             &self.callable_query,
             &self.command_queries,
         )
+    }
+
+    pub(super) fn resolved_callable_query<'a>(&'a self, override_: Option<&'a str>) -> &'a str {
+        select_callable_query(override_, &self.callable_query)
+    }
+
+    pub(super) fn resolved_expected_names<'a>(
+        &'a self,
+        override_: Option<&'a [String]>,
+    ) -> &'a [String] {
+        select_expected_names(override_, &self.expected_names)
     }
 }
 
@@ -71,6 +80,33 @@ pub(super) fn select_query<'a>(
     )
 }
 
+pub(super) fn select_expected_names<'a>(
+    override_: Option<&'a [String]>,
+    defaults: &'a [String],
+) -> &'a [String] {
+    override_.unwrap_or(defaults)
+}
+
+pub(super) fn select_callable_query<'a>(override_: Option<&'a str>, default: &'a str) -> &'a str {
+    override_.unwrap_or(default)
+}
+
+pub(super) fn validate_callable_query(query: Option<&str>, label: &str) -> Result<(), String> {
+    if query.is_some_and(|query| query.trim().is_empty()) {
+        Err(format!("{label} requires a non-empty callable query"))
+    } else {
+        Ok(())
+    }
+}
+
+pub(super) fn validate_expected_names(names: &[String], label: &str) -> Result<(), String> {
+    if names.is_empty() || names.iter().any(String::is_empty) {
+        Err(format!("{label} requires expected names"))
+    } else {
+        Ok(())
+    }
+}
+
 #[derive(Clone, Debug, Deserialize)]
 #[serde(
     tag = "status",
@@ -80,6 +116,8 @@ pub(super) fn select_query<'a>(
 )]
 pub(super) enum SmokeDisposition {
     Queries {
+        callable_query: Option<String>,
+        expected_names: Option<Vec<String>>,
         #[serde(default)]
         exceptions: Vec<QueryException>,
         lsp_timeout_seconds: Option<u64>,
@@ -212,5 +250,27 @@ mod tests {
                 .expect_err("invalid command query should fail");
             assert!(error.contains(expected), "unexpected error: {error}");
         }
+    }
+
+    #[test]
+    fn selects_and_validates_pair_expected_names() {
+        let defaults = vec!["default".to_string()];
+        let override_ = vec!["decorated()".to_string()];
+
+        assert_eq!(select_expected_names(None, &defaults), defaults);
+        assert_eq!(
+            select_expected_names(Some(&override_), &defaults),
+            override_
+        );
+        assert!(validate_expected_names(&override_, "pair").is_ok());
+        for invalid in [Vec::new(), vec![String::new()]] {
+            assert!(validate_expected_names(&invalid, "pair").is_err());
+        }
+        assert_eq!(select_callable_query(None, "default"), "default");
+        assert_eq!(
+            select_callable_query(Some("decorated()"), "default"),
+            "decorated()"
+        );
+        assert!(validate_callable_query(Some(" "), "pair").is_err());
     }
 }

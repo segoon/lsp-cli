@@ -217,8 +217,10 @@ Direct `run` may be excluded independently when only detached operation is relia
 the chosen project stable when a shared server gains another filetype, without repeating process
 tests for every compatible pair. Source-language query profiles declare shared semantic terms,
 expected symbols, and format paths; pair entries keep only deadlines and narrowly scoped known-
-result exceptions (see "Real-server exceptions" below). Language-specific prerequisites and
-expectations belong in YAML, not in the Rust runner.
+result exceptions (see "Real-server exceptions" below). When one server decorates document-symbol
+names, a query pair can override `callable-query` and `expected-names` with the exact returned
+strings without changing production output or weakening another server's assertions.
+Language-specific prerequisites and expectations belong in YAML, not in the Rust runner.
 
 `query-profile.callable-query` remains the default target for references, call hierarchy,
 definition, declaration, implementation, and type-definition requests. When those operations need
@@ -293,12 +295,13 @@ is self-documenting and any regression still fails loudly.
 ### Servers excluded entirely (`status: excluded`)
 
 - `denols` (Deno LSP) rejects the standard shutdown request because it requires non-null params.
-- `roslyn_ls` and `jdtls` remain outside shared semantic smoke because their symbol names are
-  decorated; jdtls also has asynchronous index-readiness instability.
+- `jdtls` remains outside shared semantic smoke because its symbol names are decorated and its
+  asynchronous index readiness is unstable.
 - Several Python servers lack the semantics required by the shared smoke profile: `pylsp` does not
   advertise workspace symbols, `pyre` advertises only document synchronization, `pyrefly` returns
   no workspace/document symbols, and `ty` has unstable call-hierarchy results.
 
+Roslyn is covered with exact pair-local decorated-name expectations and explicit exceptions;
 LuaLS, Jedi Language Server, and both RobotCode language aliases are covered now that lsp-cli
 performs bounded cleanup of an owned direct child after a successful shutdown/exit exchange.
 

@@ -367,6 +367,12 @@
 - The Mason package exposes Roslyn through the `roslyn-language-server` .NET tool launcher. A data
   config containing a literal installation placeholder cannot work with generic `--download`;
   launch the Mason-exposed command and let the NuGet backend manage its concrete installation path.
+- Roslyn 5.12 returns namespace-qualified type names and parenthesized method names from
+  `textDocument/documentSymbol`. E2E schema v13 permits pair-local exact callable and expected-name
+  overrides so tests retain Roslyn's output without changing production results or weakening
+  OmniSharp assertions. Roslyn still returns no workspace symbols, references, or call-hierarchy
+  edges for the shared fixture and exposes no terminal background-index signal; those results are
+  asserted as narrow query exceptions.
 
 ## OmniSharp
 

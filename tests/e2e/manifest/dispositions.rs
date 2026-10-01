@@ -1,6 +1,10 @@
 use std::collections::BTreeSet;
 
-use super::{ExceptionOutcome, PairCase, SmokeDisposition, suite::Timeouts};
+use super::{
+    ExceptionOutcome, PairCase, SmokeDisposition,
+    query_case::{validate_callable_query, validate_expected_names},
+    suite::Timeouts,
+};
 
 impl SmokeDisposition {
     pub(super) fn validate(&self, pair: &PairCase, defaults: Timeouts) -> Result<(), String> {
@@ -17,11 +21,20 @@ impl SmokeDisposition {
                 validate_deadlines(&label, lsp, deadline)
             }
             Self::Queries {
+                callable_query,
+                expected_names,
                 exceptions,
                 lsp_timeout_seconds,
                 deadline_seconds,
             } => {
                 let (lsp, deadline) = defaults.resolve(*lsp_timeout_seconds, *deadline_seconds);
+                if let Some(names) = expected_names {
+                    validate_expected_names(names, &format!("E2E smoke case {label}"))?;
+                }
+                validate_callable_query(
+                    callable_query.as_deref(),
+                    &format!("E2E smoke case {label}"),
+                )?;
                 validate_queries(&label, exceptions, lsp, deadline)
             }
         }

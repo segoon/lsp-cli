@@ -32,8 +32,35 @@ pairs:
     server: roslyn_ls
     tier: smoke
     smoke:
-      status: excluded
-      reason: roslyn-language-server returns namespace-qualified, parenthesized textDocument/documentSymbol names (e.g. "Playground.Models.Order", "BuildSampleOrder()") instead of bare identifiers, so list-symbols cannot match the shared expected-names.
+      status: queries
+      exceptions:
+        - command: grep
+          outcome: empty-matches
+          reason: Roslyn returns no workspace-symbol matches after document priming and retries
+        - command: references
+          outcome: empty-matches
+          reason: Roslyn returns no references for the decorated BuildSampleOrder() method target
+        - command: callers
+          outcome: empty-matches
+          reason: Roslyn returns no incoming call-hierarchy edges for BuildSampleOrder()
+        - command: callees
+          outcome: empty-matches
+          reason: Roslyn returns no outgoing call-hierarchy edges for BuildSampleOrder()
+        - command: type-definition
+          outcome: empty-matches
+          reason: BuildSampleOrder() is a method and has no applicable type-definition relationship
+        - command: build-index
+          outcome: failure
+          message: background-work progress
+          reason: Roslyn exposes no background-work completion notification
+      callable-query: BuildSampleOrder()
+      expected-names:
+        - Playground.Models.Order
+        - Playground.Models.OrderItem
+        - Playground.Services.OrderService
+        - BuildSampleOrder()
+      lsp-timeout-seconds: 60
+      deadline-seconds: 600
     lifecycle:
       status: scenarios
       direct-run:

@@ -42,7 +42,7 @@ pub(crate) mod coverage_cases;
 mod suite;
 use suite::{Architecture, OperatingSystem, Platform, TestDefaults};
 
-const MANIFEST_SCHEMA_VERSION: u32 = 12;
+const MANIFEST_SCHEMA_VERSION: u32 = 13;
 
 #[derive(Clone, Debug)]
 pub(crate) struct Manifest {
@@ -222,6 +222,8 @@ impl Manifest {
     pub(crate) fn real_server_smoke_cases(&self) -> impl Iterator<Item = RealServerCase<'_>> {
         self.pairs.iter().filter_map(|pair| {
             let SmokeDisposition::Queries {
+                callable_query,
+                expected_names,
                 exceptions,
                 lsp_timeout_seconds,
                 deadline_seconds,
@@ -244,10 +246,10 @@ impl Manifest {
                 pair,
                 setup,
                 symbol_query: &profile.symbol_query,
-                callable_query: &profile.callable_query,
+                callable_query: profile.resolved_callable_query(callable_query.as_deref()),
                 command_queries: &profile.command_queries,
                 format_file: &profile.format_file,
-                expected_names: &profile.expected_names,
+                expected_names: profile.resolved_expected_names(expected_names.as_deref()),
                 exceptions,
                 lsp_timeout_seconds,
                 deadline_seconds,

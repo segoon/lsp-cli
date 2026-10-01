@@ -12,7 +12,6 @@ fn first_queries_smoke(manifest: &mut Manifest) -> &mut SmokeDisposition {
         .as_mut()
         .expect("selected pair should have a smoke case")
 }
-
 pub(super) fn validation_error(expectation: &str, mutate: impl FnOnce(&mut Manifest)) -> String {
     let mut manifest = Manifest::load().expect("E2E manifest should parse");
     mutate(&mut manifest);
@@ -48,9 +47,9 @@ fn complete_manifest_matches_pinned_data() {
         manifest
             .servers
             .iter()
-            .filter(|server| server.is_downloadable())
+            .filter(|server| server.is_capabilities_only())
             .count(),
-        198
+        53
     );
     assert_eq!(
         manifest
@@ -91,10 +90,12 @@ fn complete_manifest_rejects_a_missing_downloadable_pair() {
 #[test]
 fn pair_selection_reports_explicit_and_inherited_exclusions() {
     let manifest = Manifest::load_validated(repository_root()).expect("manifest should validate");
-    for pair in ["python/pyrefly", "c/ast_grep"] {
+    for pair in ["python/pyrefly", "yaml/home_assistant"] {
         assert!(manifest.declares_pair(pair));
         assert!(manifest.exclusion_reason(pair).is_some());
     }
+    assert!(manifest.declares_explicit_pair("rust/ast_grep"));
+    assert_eq!(manifest.pair_server("rust/ast_grep"), Some("ast_grep"));
 }
 
 #[test]
@@ -134,6 +135,15 @@ fn provisioning_inventory_validates_dispositions_and_owners() {
             };
         },
         "deadline",
+    );
+    assert_invalid_provisioning(
+        |server| {
+            server.coverage = provisioning_case::ServerCoverage::Capabilities {
+                lsp_timeout_seconds: Some(0),
+                deadline_seconds: None,
+            };
+        },
+        "deadlines",
     );
     assert_invalid_provisioning(
         |server| server.owner_language = "gomod".to_string(),

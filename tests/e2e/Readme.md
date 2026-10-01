@@ -254,6 +254,23 @@ The query runner obtains raw initialized capabilities through `server-capabiliti
 executes every LSP query command. Advertised capabilities require a successful semantic response;
 missing capabilities require the command's user-facing unsupported error.
 
+Servers that are useful but do not fit the shared semantic-query profile declare server-level
+capability coverage:
+
+```yaml
+- id: ruff
+  owner-language: python
+  coverage:
+    status: capabilities
+  provisioning:
+    status: download
+```
+
+This produces one `capabilities/<owner-language>/<server>` case and one provisioning case without
+requiring every compatible language/server pair to declare semantic behavior. Capability-only
+servers must remain downloadable, use the normal smoke timeout defaults unless overridden under
+`coverage`, and are intentionally outside the smoke tier.
+
 ## Real-server exceptions
 
 In `tests/e2e/manifest/query_case.rs`, a `smoke` pair can be `status: queries`, and each query case
@@ -374,13 +391,15 @@ make -j4 test-e2e
 # one language/server pair, or every pair for one server
 make test-e2e CASE=python/pyright
 make test-e2e SERVER=pyright
+make -j10 test-e2e SERVER=pyright,ruff
 
 # restrict either selection to one phase
 make test-e2e CASE=java/jdtls PHASE=lifecycle
 make test-e2e SERVER=pyright PHASE=provision
 ```
 
-`CASE` and `SERVER` are mutually exclusive. `PHASE` accepts `all` (the default), `provision`,
+`CASE` and `SERVER` are mutually exclusive; `SERVER` accepts comma-separated IDs. `PHASE` accepts
+`all` (the default), `provision`,
 `smoke`, or `lifecycle`. Selecting a scope with no executable behavior fails clearly instead of
 silently running no tests. Smoke membership is an explicit `tier: smoke` property in the case
 manifest; it is not inferred from preferred-server metadata.

@@ -42,7 +42,7 @@ pub(crate) mod coverage_cases;
 mod suite;
 use suite::{Architecture, OperatingSystem, Platform, TestDefaults};
 
-const MANIFEST_SCHEMA_VERSION: u32 = 13;
+const MANIFEST_SCHEMA_VERSION: u32 = 14;
 
 #[derive(Clone, Debug)]
 pub(crate) struct Manifest {
@@ -394,6 +394,7 @@ impl Manifest {
                 &languages,
                 &compatible,
                 self.defaults.provisioning.deadline_seconds,
+                self.defaults.smoke,
             )?;
             if declared.insert(server.id.as_str(), server).is_some() {
                 return Err(format!(

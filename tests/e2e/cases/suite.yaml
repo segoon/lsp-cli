@@ -1,4 +1,4 @@
-schema-version: 13
+schema-version: 14
 coverage: complete
 platform:
   os: linux
@@ -191,6 +191,52 @@ expected-failures:
     reason: pkg:github/mrjosh/helm-ls@v0.5.4 closes the transport while the client waits for the shutdown response.
   - case: capabilities/yql/vespa_ls
     reason: pkg:github/vespa-engine/vespa@lsp-v2.6.0 is paired with the literal placeholder JAR path /path/to/vespa-language-server.jar.
+  - case: capabilities/astro/stylelint_lsp
+    reason: pkg:npm/stylelint-lsp@2.0.1 does not expose the configured stylelint-language-server executable through Mason.
+  - case: capabilities/blade/turbo_ls
+    reason: The pinned Mason snapshot has no install recipe for the configured turbo-language-server program.
+  - case: capabilities/debchangelog/debputy
+    reason: The pinned Mason snapshot has no install recipe for the configured debputy program.
+  - case: capabilities/fortran/fortitude
+    reason: The pinned Mason snapshot has no install recipe for the configured fortitude program.
+  - case: capabilities/javascript/gitlab_duo
+    reason: The bundled GitLab Duo config launches npx, for which the pinned Mason snapshot has no install recipe.
+  - case: capabilities/javascript/htmx
+    reason: pkg:cargo/htmx-lsp@0.1.0 does not handle the standard shutdown request and times out after logging it as unhandled.
+  - case: capabilities/javascript/lwc_ls
+    reason: The bundled LWC config contains the literal placeholder /path/to/node_modules/@salesforce/lwc-language-server/bin/lwc-language-server.js.
+  - case: capabilities/json.openapi/vacuum
+    reason: The pinned Mason snapshot has no install recipe for the configured vacuum program.
+  - case: capabilities/json/spectral
+    reason: The spectral-language-server Mason package has no source matching the Linux x86-64 E2E platform.
+  - case: capabilities/liquid/theme_check
+    reason: The pinned Mason snapshot has no install recipe for the configured theme-check-liquid-server program.
+  - case: capabilities/lua/efm
+    reason: pkg:github/mattn/efm-langserver@v0.0.57 closes its transport while the client waits for the shutdown response.
+  - case: capabilities/lua/selene3p_ls
+    reason: The pinned Mason snapshot has no install recipe for the configured selene-3p-language-server program.
+  - case: capabilities/lua/stylua3p_ls
+    reason: The pinned Mason snapshot has no install recipe for the configured stylua-3p-language-server program.
+  - case: capabilities/markdown/grammarly
+    reason: pkg:npm/grammarly-languageserver@0.0.4 rejects initialization without a clientId initialization option.
+  - case: capabilities/nextflow/nextflow_ls
+    reason: The downloaded Nextflow language-server package does not produce a runnable executable at the Mason-configured path.
+  - case: capabilities/nix/statix
+    reason: The pinned Mason snapshot has no install recipe for the configured statix program.
+  - case: capabilities/python/tvm_ffi_navigator
+    reason: The bundled TVM FFI Navigator config launches python, for which the pinned Mason snapshot has no install recipe.
+  - case: capabilities/rust/ast_grep
+    reason: pkg:github/ast-grep/ast-grep@0.45.3 refuses to initialize without an ast-grep project configuration.
+  - case: capabilities/rust/bacon_ls
+    reason: pkg:cargo/bacon-ls@0.31.0 rejects the standard initialize request with JSON-RPC invalid-request (-32600).
+  - case: capabilities/rust/ttags
+    reason: The pinned Mason snapshot has no install recipe for the configured ttags program.
+  - case: capabilities/sql/sqruff
+    reason: The pinned Mason snapshot has no install recipe for the configured sqruff program.
+  - case: capabilities/typescript/angularls
+    reason: pkg:npm/%40angular/language-server@22.2.0 receives incomplete probe-location arguments and cannot resolve TypeScript 5 or newer.
+  - case: capabilities/yaml/gh_actions_ls
+    reason: pkg:npm/%40actions/languageserver@0.3.61 rejects initialization without a sessionToken initialization option.
   - case: provisioning/bicep
     reason: pkg:github/Azure/bicep@v0.47.16 installs a launcher that resolves managed dotnet outside the isolated E2E home.
   - case: provisioning/bzl
@@ -261,6 +307,38 @@ expected-failures:
     reason: pkg:github/forcedotcom/salesforcedx-vscode@v67.20.0 installs a launcher that resolves managed node outside the isolated E2E home.
   - case: provisioning/vls
     reason: pkg:github/vlang/vls@latest requires v, but the Mason recipe does not expose that executable.
+  - case: provisioning/debputy
+    reason: The pinned Mason snapshot has no install recipe for the configured debputy program.
+  - case: provisioning/fortitude
+    reason: The pinned Mason snapshot has no install recipe for the configured fortitude program.
+  - case: provisioning/gitlab_duo
+    reason: The bundled GitLab Duo config launches npx, for which the pinned Mason snapshot has no install recipe.
+  - case: provisioning/lwc_ls
+    reason: The bundled LWC config resolves managed node outside the isolated home before launching a literal placeholder script path.
+  - case: provisioning/nextflow_ls
+    reason: The downloaded Nextflow language-server package does not produce a runnable executable at the Mason-configured path.
+  - case: provisioning/selene3p_ls
+    reason: The pinned Mason snapshot has no install recipe for the configured selene-3p-language-server program.
+  - case: provisioning/spectral
+    reason: The spectral-language-server Mason package has no source matching the Linux x86-64 E2E platform.
+  - case: provisioning/sqruff
+    reason: The pinned Mason snapshot has no install recipe for the configured sqruff program.
+  - case: provisioning/statix
+    reason: The pinned Mason snapshot has no install recipe for the configured statix program.
+  - case: provisioning/stylelint_lsp
+    reason: pkg:npm/stylelint-lsp@2.0.1 does not expose the configured stylelint-language-server executable through Mason.
+  - case: provisioning/stylua3p_ls
+    reason: The pinned Mason snapshot has no install recipe for the configured stylua-3p-language-server program.
+  - case: provisioning/theme_check
+    reason: The pinned Mason snapshot has no install recipe for the configured theme-check-liquid-server program.
+  - case: provisioning/ttags
+    reason: The pinned Mason snapshot has no install recipe for the configured ttags program.
+  - case: provisioning/turbo_ls
+    reason: The pinned Mason snapshot has no install recipe for the configured turbo-language-server program.
+  - case: provisioning/tvm_ffi_navigator
+    reason: The bundled TVM FFI Navigator config launches python, for which the pinned Mason snapshot has no install recipe.
+  - case: provisioning/vacuum
+    reason: The pinned Mason snapshot has no install recipe for the configured vacuum program.
   - case: smoke/python/pylyzer
     reason: pkg:github/mtshiba/pylyzer@v0.0.82 returns no textDocument/typeDefinition match for an order parameter explicitly typed as Order after three bounded attempts; server stderr also reports missing ERG_PATH with diagnostics-worker panics.
 
@@ -295,9 +373,10 @@ servers:
       reason: The current Mason registry has no package for anakin-language-server.
   - id: angularls
     owner-language: typescript
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: Angular Language Service is framework-specific and the E2E scope is general-purpose language servers.
+      status: download
   - id: antlersls
     owner-language: antlers
     provisioning:
@@ -312,9 +391,10 @@ servers:
       status: download
   - id: ast_grep
     owner-language: rust
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: ast-grep is a structural search and lint tool rather than a general-purpose language server.
+      status: download
   - id: astro
     owner-language: astro
     provisioning:
@@ -343,14 +423,16 @@ servers:
       status: download
   - id: azure_pipelines_ls
     owner-language: yaml
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: azure_pipelines_ls is a linter, formatter, or otherwise not a general-purpose language server.
+      status: download
   - id: bacon_ls
     owner-language: rust
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: bacon-ls is a diagnostics adapter rather than a general-purpose Rust language server.
+      status: download
   - id: ballerina
     owner-language: ballerina
     provisioning:
@@ -475,9 +557,10 @@ servers:
       status: download
   - id: codebook
     owner-language: rust
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: codebook is a spell checker rather than a general-purpose language server.
+      status: download
   - id: coffeesense
     owner-language: coffee
     provisioning:
@@ -501,9 +584,10 @@ servers:
       status: download
   - id: cssmodules_ls
     owner-language: javascript
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: cssmodules-language-server is framework-specific rather than a general-purpose JavaScript server.
+      status: download
   - id: cucumber_language_server
     owner-language: cucumber
     provisioning:
@@ -542,9 +626,10 @@ servers:
       reason: The current Mason registry has no package for this server.
   - id: debputy
     owner-language: debchangelog
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: debputy is a linter, formatter, or otherwise not a general-purpose language server.
+      status: download
   - id: denols
     owner-language: javascript
     provisioning:
@@ -560,14 +645,16 @@ servers:
       reason: lsp-cli cannot install this server because its Mason package uses the unsupported LuaRocks backend.
   - id: djls
     owner-language: python
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: django-language-server is framework-specific rather than a general-purpose Python server.
+      status: download
   - id: djlsp
     owner-language: html
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: djlsp is a linter, formatter, or otherwise not a general-purpose language server.
+      status: download
   - id: docker_compose_language_service
     owner-language: yaml.docker-compose
     provisioning:
@@ -591,9 +678,10 @@ servers:
       status: download
   - id: dprint
     owner-language: typescript
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: dprint is a formatter rather than a general-purpose language server.
+      status: download
   - id: dts_lsp
     owner-language: dts
     provisioning:
@@ -610,9 +698,10 @@ servers:
       reason: The current Mason registry has no package for this server.
   - id: efm
     owner-language: lua
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: efm is a wrapper for external lint and format tools rather than a language server implementation.
+      status: download
   - id: elixirls
     owner-language: eelixir
     provisioning:
@@ -627,19 +716,22 @@ servers:
       status: download
   - id: ember
     owner-language: javascript
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: ember-language-server is framework-specific and requires an Ember project.
+      status: download
   - id: emmet_language_server
     owner-language: astro
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: emmet_language_server is a linter, formatter, or otherwise not a general-purpose language server.
+      status: download
   - id: emmet_ls
     owner-language: astro
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: emmet_ls is a linter, formatter, or otherwise not a general-purpose language server.
+      status: download
   - id: emmylua_ls
     owner-language: lua
     provisioning:
@@ -654,9 +746,10 @@ servers:
       status: download
   - id: eslint
     owner-language: javascript
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: eslint-lsp provides lint diagnostics rather than general-purpose language intelligence.
+      status: download
   - id: expert
     owner-language: eelixir
     provisioning:
@@ -693,9 +786,10 @@ servers:
       status: download
   - id: fortitude
     owner-language: fortran
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: fortitude is a linter rather than a general-purpose language server.
+      status: download
   - id: fortls
     owner-language: fortran
     provisioning:
@@ -726,9 +820,10 @@ servers:
       reason: The current Mason registry has no package for this server.
   - id: gh_actions_ls
     owner-language: yaml
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: gh_actions_ls is a linter, formatter, or otherwise not a general-purpose language server.
+      status: download
   - id: ghcide
     owner-language: haskell
     provisioning:
@@ -749,9 +844,10 @@ servers:
       status: download
   - id: gitlab_duo
     owner-language: javascript
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: GitLab Duo requires an authenticated external service and is outside general-purpose server coverage.
+      status: download
   - id: glasgow
     owner-language: wgsl
     provisioning:
@@ -781,9 +877,10 @@ servers:
       reason: The current Mason registry has no package for this server.
   - id: golangci_lint_ls
     owner-language: go
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: golangci-lint-langserver is a lint adapter rather than a general-purpose Go language server.
+      status: download
   - id: gopls
     owner-language: go
     provisioning:
@@ -795,9 +892,10 @@ servers:
             - go
   - id: grammarly
     owner-language: markdown
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: grammarly is a linter, formatter, or otherwise not a general-purpose language server.
+      status: download
   - id: graphql
     owner-language: graphql
     provisioning:
@@ -818,9 +916,10 @@ servers:
       reason: The current Mason registry has no package for this server.
   - id: harper_ls
     owner-language: rust
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: harper-ls is a prose grammar checker rather than a general-purpose language server.
+      status: download
   - id: hdl_checker
     owner-language: systemverilog
     provisioning:
@@ -831,9 +930,10 @@ servers:
       status: download
   - id: herb_ls
     owner-language: eruby
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: herb_ls is a linter, formatter, or otherwise not a general-purpose language server.
+      status: download
   - id: hhvm
     owner-language: hack
     provisioning:
@@ -857,7 +957,7 @@ servers:
     owner-language: yaml
     provisioning:
       status: excluded
-      reason: home_assistant is a linter, formatter, or otherwise not a general-purpose language server.
+      reason: lsp-cli cannot install this server because its Mason package uses the unsupported Open VSX backend.
   - id: hoon_ls
     owner-language: hoon
     provisioning:
@@ -868,14 +968,16 @@ servers:
       status: download
   - id: htmx
     owner-language: javascript
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: htmx-lsp is framework-specific rather than a general-purpose JavaScript server.
+      status: download
   - id: hydra_lsp
     owner-language: yaml
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: hydra_lsp is a linter, formatter, or otherwise not a general-purpose language server.
+      status: download
   - id: hylo_ls
     owner-language: hylo
     provisioning:
@@ -951,9 +1053,10 @@ servers:
       status: download
   - id: kakehashi
     owner-language: python
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: kakehashi bridges other tools rather than providing general-purpose language intelligence.
+      status: download
   - id: kcl
     owner-language: kcl
     provisioning:
@@ -991,9 +1094,10 @@ servers:
       reason: The current Mason registry has no package for this server.
   - id: laravel_ls
     owner-language: blade
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: laravel_ls is a linter, formatter, or otherwise not a general-purpose language server.
+      status: download
   - id: lean3ls
     owner-language: lean3
     provisioning:
@@ -1013,14 +1117,54 @@ servers:
       status: download
   - id: ltex
     owner-language: bib
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: ltex is a linter, formatter, or otherwise not a general-purpose language server.
+      status: download
+      host-programs:
+        - name: java
+          resolve:
+            - which
+            - java
+        - name: sh
+          resolve:
+            - which
+            - sh
+        - name: dirname
+          resolve:
+            - which
+            - dirname
+        - name: uname
+          resolve:
+            - which
+            - uname
+        - name: which
+          resolve:
+            - which
+            - which
   - id: ltex_plus
     owner-language: asciidoc
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: ltex_plus is a linter, formatter, or otherwise not a general-purpose language server.
+      status: download
+      host-programs:
+        - name: sh
+          resolve:
+            - which
+            - sh
+        - name: dirname
+          resolve:
+            - which
+            - dirname
+        - name: uname
+          resolve:
+            - which
+            - uname
+        - name: which
+          resolve:
+            - which
+            - which
   - id: lua_ls
     owner-language: lua
     provisioning:
@@ -1031,9 +1175,10 @@ servers:
       status: download
   - id: lwc_ls
     owner-language: javascript
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: lwc-language-server is Salesforce-framework-specific rather than a general-purpose JavaScript server.
+      status: download
   - id: m68k
     owner-language: asm68k
     provisioning:
@@ -1134,9 +1279,10 @@ servers:
       status: download
   - id: nextflow_ls
     owner-language: nextflow
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: nextflow_ls is a linter, formatter, or otherwise not a general-purpose language server.
+      status: download
   - id: nextls
     owner-language: eelixir
     provisioning:
@@ -1396,9 +1542,10 @@ servers:
       status: download
   - id: quick_lint_js
     owner-language: javascript
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: quick-lint-js provides lint diagnostics rather than general-purpose language intelligence.
+      status: download
   - id: r_language_server
     owner-language: quarto
     provisioning:
@@ -1491,9 +1638,10 @@ servers:
       reason: lsp-cli cannot install this server because its Mason package uses the unsupported RubyGems backend.
   - id: ruff
     owner-language: python
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: Ruff provides lint and format features rather than general-purpose Python language intelligence.
+      status: download
   - id: ruff_lsp
     owner-language: python
     provisioning:
@@ -1544,18 +1692,20 @@ servers:
       reason: The current Mason registry has no package for this server.
   - id: selene3p_ls
     owner-language: lua
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: selene-3p-language-server is lint-specific rather than a general-purpose Lua server.
+      status: download
   - id: serve_d
     owner-language: d
     provisioning:
       status: download
   - id: shopify_theme_ls
     owner-language: liquid
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: shopify_theme_ls is a linter, formatter, or otherwise not a general-purpose language server.
+      status: download
   - id: sixtyfps
     owner-language: sixtyfps
     provisioning:
@@ -1567,9 +1717,10 @@ servers:
       status: download
   - id: slint_lsp
     owner-language: slint
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: slint_lsp is a linter, formatter, or otherwise not a general-purpose language server.
+      status: download
   - id: smarty_ls
     owner-language: smarty
     provisioning:
@@ -1585,9 +1736,10 @@ servers:
       status: download
   - id: snyk_ls
     owner-language: python
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: Snyk requires an authenticated security service and is outside general-purpose server coverage.
+      status: download
   - id: solang
     owner-language: solidity
     provisioning:
@@ -1629,9 +1781,10 @@ servers:
       reason: sourcekit-lsp requires an Apple or Swift toolchain and is not provisionable in the Linux E2E lane.
   - id: spectral
     owner-language: json
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: spectral is a linter, formatter, or otherwise not a general-purpose language server.
+      status: download
   - id: spyglassmc_language_server
     owner-language: mcfunction
     provisioning:
@@ -1646,9 +1799,10 @@ servers:
       status: download
   - id: sqruff
     owner-language: sql
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: The Mason registry classifies this package as a formatter or linter instead of an LSP server.
+      status: download
   - id: stan_ls
     owner-language: stan
     provisioning:
@@ -1657,7 +1811,7 @@ servers:
     owner-language: ruby
     provisioning:
       status: excluded
-      reason: The Mason registry classifies this package as a formatter or linter instead of an LSP server.
+      reason: lsp-cli cannot install this server because its Mason package uses the unsupported RubyGems backend.
   - id: starlark_rust
     owner-language: BUILD.bazel
     provisioning:
@@ -1668,9 +1822,10 @@ servers:
       status: download
   - id: statix
     owner-language: nix
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: statix is a linter rather than a general-purpose language server.
+      status: download
   - id: steep
     owner-language: eruby
     provisioning:
@@ -1678,24 +1833,28 @@ servers:
       reason: lsp-cli cannot install this server because its Mason package uses the unsupported RubyGems backend.
   - id: stimulus_ls
     owner-language: blade
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: stimulus_ls is a linter, formatter, or otherwise not a general-purpose language server.
+      status: download
   - id: stylelint_lsp
     owner-language: astro
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: stylelint_lsp is a linter, formatter, or otherwise not a general-purpose language server.
+      status: download
   - id: stylua
     owner-language: lua
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: StyLua is a formatter rather than a general-purpose Lua language server.
+      status: download
   - id: stylua3p_ls
     owner-language: lua
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: stylua-3p-language-server exposes formatting only rather than general-purpose Lua intelligence.
+      status: download
   - id: svelte
     owner-language: svelte
     provisioning:
@@ -1724,9 +1883,10 @@ servers:
       status: download
   - id: tailwindcss
     owner-language: javascript
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: tailwindcss-language-server is framework-specific rather than a general-purpose JavaScript server.
+      status: download
   - id: taplo
     owner-language: toml
     provisioning:
@@ -1773,14 +1933,16 @@ servers:
             - git
   - id: tflint
     owner-language: terraform
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: tflint is a linter, formatter, or otherwise not a general-purpose language server.
+      status: download
   - id: theme_check
     owner-language: liquid
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: theme_check is a linter, formatter, or otherwise not a general-purpose language server.
+      status: download
   - id: thriftls
     owner-language: thrift
     provisioning:
@@ -1825,14 +1987,16 @@ servers:
       status: download
   - id: ttags
     owner-language: rust
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: ttags is a tags adapter rather than a general-purpose language server.
+      status: download
   - id: turbo_ls
     owner-language: blade
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: turbo_ls is a linter, formatter, or otherwise not a general-purpose language server.
+      status: download
   - id: turtle_ls
     owner-language: ttl
     provisioning:
@@ -1840,9 +2004,10 @@ servers:
       reason: The current Mason registry has no package for this server.
   - id: tvm_ffi_navigator
     owner-language: python
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: FFI Navigator is specific to TVM foreign-function interfaces rather than general-purpose language intelligence.
+      status: download
   - id: twiggy_language_server
     owner-language: twig
     provisioning:
@@ -1883,9 +2048,10 @@ servers:
       reason: The current Mason registry has no package for this server.
   - id: unocss
     owner-language: typescript
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: unocss-language-server is framework-specific rather than a general-purpose TypeScript server.
+      status: download
   - id: uvls
     owner-language: uvl
     provisioning:
@@ -1897,18 +2063,20 @@ servers:
       status: download
   - id: vacuum
     owner-language: json.openapi
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: vacuum is a linter, formatter, or otherwise not a general-purpose language server.
+      status: download
   - id: vala_ls
     owner-language: genie
     provisioning:
       status: download
   - id: vale_ls
     owner-language: asciidoc
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: vale_ls is a linter, formatter, or otherwise not a general-purpose language server.
+      status: download
   - id: verible
     owner-language: systemverilog
     provisioning:
@@ -1980,9 +2148,10 @@ servers:
       status: download
   - id: wc_language_server
     owner-language: typescript
+    coverage:
+      status: capabilities
     provisioning:
-      status: excluded
-      reason: wc-language-server is Web-Components-specific rather than a general-purpose TypeScript server.
+      status: download
   - id: wgsl_analyzer
     owner-language: wgsl
     provisioning:

@@ -207,8 +207,8 @@ pub(crate) struct RealServerCase<'a> {
 
 pub(crate) struct RealServerCapabilitiesCase<'a> {
     pub(super) language: &'a LanguageCase,
-    pub(super) pair: &'a PairCase,
     pub(super) setup: &'a ServerCase,
+    pub(super) smoke: bool,
     pub(super) lsp_timeout_seconds: u64,
     pub(super) deadline_seconds: u64,
 }

@@ -226,6 +226,12 @@ impl Manifest {
             let reason = self.exclusion_reason(&label);
             let classification = if reason.is_some() {
                 "excluded"
+            } else if self
+                .servers
+                .iter()
+                .any(|server| server.id == pair.server && server.is_capabilities_only())
+            {
+                "capabilities-only"
             } else {
                 "executable"
             };
@@ -249,7 +255,7 @@ impl Manifest {
     pub(crate) fn real_server_capabilities_cases(
         &self,
     ) -> impl Iterator<Item = RealServerCapabilitiesCase<'_>> {
-        self.pairs.iter().filter_map(|pair| {
+        let pair_cases = self.pairs.iter().filter_map(|pair| {
             let SmokeDisposition::Capabilities {
                 lsp_timeout_seconds,
                 deadline_seconds,
@@ -266,12 +272,27 @@ impl Manifest {
                     .languages
                     .iter()
                     .find(|item| item.id == pair.language)?,
-                pair,
                 setup: setup_for_pair(pair, &self.servers)?,
+                smoke: pair.is_smoke(),
                 lsp_timeout_seconds,
                 deadline_seconds,
             })
-        })
+        });
+        let server_cases = self.servers.iter().filter_map(|server| {
+            let (lsp_timeout_seconds, deadline_seconds) =
+                server.capability_timeouts(self.defaults.smoke)?;
+            Some(RealServerCapabilitiesCase {
+                language: self
+                    .languages
+                    .iter()
+                    .find(|item| item.id == server.owner_language)?,
+                setup: server,
+                smoke: false,
+                lsp_timeout_seconds,
+                deadline_seconds,
+            })
+        });
+        pair_cases.chain(server_cases)
     }
 
     pub(crate) fn pair_server(&self, label: &str) -> Option<&str> {
@@ -279,6 +300,7 @@ impl Manifest {
             .iter()
             .find(|pair| pair.label() == label)
             .map(|pair| pair.server.as_str())
+            .or_else(|| self.capability_server_for_label(label))
     }
 
     pub(crate) fn smoke_servers(&self) -> BTreeSet<&str> {
@@ -330,6 +352,17 @@ impl Manifest {
         self.pairs
             .iter()
             .any(|pair| format!("{}/{}", pair.language, pair.server) == label)
+            || self.capability_server_for_label(label).is_some()
+    }
+
+    fn capability_server_for_label(&self, label: &str) -> Option<&str> {
+        self.servers
+            .iter()
+            .find(|server| {
+                server.is_capabilities_only()
+                    && format!("{}/{}", server.owner_language, server.id) == label
+            })
+            .map(|server| server.id.as_str())
     }
 
     pub(crate) fn platform_label(&self) -> &'static str {
@@ -392,9 +425,9 @@ impl Manifest {
         let missing = compatible
             .iter()
             .filter(|pair| {
-                servers
-                    .get(pair.server.as_str())
-                    .is_some_and(|server| server.is_downloadable())
+                servers.get(pair.server.as_str()).is_some_and(|server| {
+                    server.is_downloadable() && server.requires_pair_coverage()
+                })
             })
             .filter(|pair| !declared.contains(*pair))
             .map(|pair| format!("{}/{}", pair.language, pair.server))

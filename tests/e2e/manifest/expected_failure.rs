@@ -24,6 +24,12 @@ impl Manifest {
             if server.is_downloadable() {
                 available.insert(format!("provisioning/{}", server.id));
             }
+            if server.capability_timeouts(self.defaults.smoke).is_some() {
+                available.insert(format!(
+                    "capabilities/{}/{}",
+                    server.owner_language, server.id
+                ));
+            }
         }
         for pair in &self.pairs {
             let label = pair.label();

@@ -72,7 +72,7 @@ impl RealServerCase<'_> {
 
 impl RealServerCapabilitiesCase<'_> {
     pub(crate) fn label(&self) -> String {
-        format!("{}/{}", self.pair.language, self.pair.server)
+        format!("{}/{}", self.language.id, self.setup.id)
     }
 
     pub(crate) fn language(&self) -> &str {
@@ -80,15 +80,15 @@ impl RealServerCapabilitiesCase<'_> {
     }
 
     pub(crate) fn server_id(&self) -> &str {
-        &self.pair.server
+        &self.setup.id
     }
 
     pub(crate) fn is_smoke(&self) -> bool {
-        self.pair.is_smoke()
+        self.smoke
     }
 
     pub(crate) fn server_name(&self, repository: &Path) -> Result<String, String> {
-        server_name(&self.pair.server, repository)
+        server_name(&self.setup.id, repository)
     }
 
     pub(crate) fn project(&self) -> &Path {

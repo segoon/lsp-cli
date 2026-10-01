@@ -74,7 +74,7 @@ fn validate_queries(
     Ok(())
 }
 
-fn validate_deadlines(
+pub(super) fn validate_deadlines(
     label: &str,
     lsp_timeout_seconds: u64,
     deadline_seconds: u64,

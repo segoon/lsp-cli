@@ -1,7 +1,7 @@
 # E2E LSP compatibility investigation and remediation plan
 
 Status: Phase 0, expected-failure triage, Phase 2, Phase 3 workspace-symbol readiness plus bounded
-post-shutdown cleanup, Phase 4, Phase 5 decisions, and Phase 6 are complete.
+post-shutdown cleanup, Phase 4, Phase 5 decisions, Phase 6, and Phase 7 are complete.
 PerlNavigator definition targeting remains a TODO pending a product decision about use-site
 selection. Cross-server changed-fixture verification and Rust test-setup deduplication are
 complete.
@@ -13,12 +13,12 @@ currently pinned `lsp-cli-data` revision and will drift when that revision chang
 
 ## Executive summary
 
-The E2E inventory contains 358 distinct LSP server IDs. Of these, 239 appear in at least one of
+The E2E inventory contains 358 distinct LSP server IDs. Of these, 209 appear in at least one of
 the following categories:
 
 - 9 servers have one or more explicit query exceptions;
-- 60 servers have one or more expected-failure cases;
-- 172 servers are excluded from at least one provisioning or executable-test scope.
+- 83 servers have one or more expected-failure cases;
+- 119 servers are excluded from at least one provisioning or executable-test scope.
 
 These sets overlap:
 
@@ -26,9 +26,9 @@ These sets overlap:
 - `salt_ls` has both an expected failure and an exclusion;
 - no server appears in all three categories.
 
-Consequently, 119 of the 358 servers have none of these classifications.
+Consequently, 149 of the 358 servers have none of these classifications.
 
-The 239 servers must not be treated as 239 confirmed server defects. Most are coverage or product
+The 209 servers must not be treated as 209 confirmed server defects. Most are coverage or product
 policy exclusions. All remaining expected failures are now diagnosed against a pinned registry
 snapshot.
 
@@ -54,15 +54,14 @@ the server from every E2E activity.
 
 ## Findings
 
-### Provisioning exclusions: 160 servers
+### Provisioning exclusions: 107 servers
 
 These classifications are mutually exclusive:
 
 | Cause | Servers | Interpretation |
 | --- | ---: | --- |
 | No package in the current Mason registry | 90 | lsp-cli has no Mason recipe to execute |
-| Outside the current general-purpose-server E2E scope | 55 | Specialized linter, formatter, framework server, adapter, or authenticated service |
-| Unsupported installation mechanism | 11 | Four RubyGems, three LuaRocks, and one each of Open VSX, OPAM, Composer, and a source-build recipe |
+| Unsupported installation mechanism | 13 | Five RubyGems, three LuaRocks, two Open VSX, and one each of OPAM, Composer, and a source-build recipe |
 | Obsolete or replaced | 3 | The manifest deliberately avoids a deprecated/discontinued server |
 | Platform/toolchain unavailable | 1 | `sourcekit` is not provisionable in the Linux lane |
 
@@ -70,7 +69,7 @@ These entries are primarily provisioning or scope gaps, not evidence of LSP prot
 
 ### Pair-level exclusions: 12 servers
 
-These 12 servers do not overlap the 160 provisioning exclusions.
+These 12 servers do not overlap the 107 provisioning exclusions.
 
 | Cause | Servers | Examples |
 | --- | ---: | --- |
@@ -110,12 +109,12 @@ The former 21 `build-index` exceptions across 15 servers were removed in Phase 6
 use bounded best-effort completion selected by generic LSP data; this accepts only a missing
 terminal signal, not transport, protocol, server-reported, or shutdown failures.
 
-### Expected failures: 125 cases on 60 servers
+### Expected failures: 164 cases on 83 servers
 
 | Phase | Cases | Distinct servers |
 | --- | ---: | ---: |
-| Capabilities | 89 | 58 |
-| Provisioning | 35 | 35 |
+| Capabilities | 112 | 81 |
+| Provisioning | 51 | 51 |
 | Smoke queries | 1 | 1 |
 
 There are 34 servers shared by the capability and provisioning groups. The remaining smoke server
@@ -510,11 +509,10 @@ the harness maintainable but provides no executable compatibility guarantee.
 
 The product owner resolved the coverage boundary:
 
-1. The 55 specialized servers should receive capability-only coverage, not the shared semantic
-   query profile. Enabling each case still requires runnable provisioning and an appropriate
-   fixture; capability-only does not erase authentication or host-tool requirements.
+1. The 55 initially identified specialized servers should receive capability-only coverage, not
+   the shared semantic query profile, when their installer family is supported.
 2. RubyGems, LuaRocks, Open VSX, OPAM, Composer, and source-build Mason recipes remain excluded.
-   The 11 affected servers are listed in `docs/SERVERS.md`, and backend work is deferred in
+   The affected servers are listed in `docs/SERVERS.md`, and backend work is deferred in
    `docs/TODO.md`.
 3. The 90 servers absent from Mason remain not automatically installable. lsp-cli will not add a
    second registry or a system-installed E2E lane as part of this plan.
@@ -526,8 +524,8 @@ The product owner resolved the coverage boundary:
    exchange but did not exit by itself?~~ Resolved in Phase 3: yes, after a successful shutdown
    response and `exit` notification, with a one-second grace period bounded by the user timeout.
 
-This phase records product policy. Capability-only case enablement remains follow-up work and must
-carry focused affected-server E2E validation.
+Phase 7 found that `home_assistant` and `standardrb` belong to the unsupported-family decision,
+leaving 53 capability-only servers and increasing that excluded inventory from 11 to 13.
 
 ### Phase 6: implement data-driven best-effort indexing
 
@@ -545,6 +543,25 @@ is that successful `build-index` now has two documented strengths; future server
 the marker when a reliable terminal signal appears. Immediate success after initialization was
 rejected because it observes no work; global timeout acceptance would silently weaken other servers.
 `make test` passed, as did all 29 smoke cases selected across the 15 affected servers with `-j10`.
+
+### Phase 7: add specialized capability-only coverage
+
+- Schema v14 adds validated server-level capability coverage: one owner-language case per server
+  without pretending every compatible pair satisfies the shared semantic profile.
+- A comma-separated `SERVER` selector permits one affected-only `-j10` invocation; selection and
+  expected-failure validation recognize generated owner-language cases.
+- 53 servers now execute provisioning and capability coverage. Against pinned Mason release
+  `2026-09-30-aboard-mob`, 30 initialize successfully; LTeX launchers require explicit generic
+  host tools. The remaining 23 servers account for 39 concrete expected failures across
+  provisioning and capabilities, documented in the manifest and `docs/GOTCHAS.md`.
+- `home_assistant` (Open VSX) and `standardrb` (RubyGems) remain excluded according to the product
+  decision, and the complete inventories are updated in `docs/SERVERS.md`.
+
+This widens executable compatibility evidence while retaining precise boundaries: capability-only
+does not claim semantic-query support, and expected failure does not claim server support. The
+tradeoff is 39 broad markers that can still accept an unrelated failure; stage/message matching is
+the preferred future hardening. Alternatives were per-pair capability entries (more duplication)
+or retaining all 55 exclusions (no executable evidence).
 
 ## Architectural consequences and future risks
 
@@ -569,32 +586,15 @@ rejected because it observes no work; global timeout acceptance would silently w
 - Server and registry versions drift. Every retained exception or exclusion should identify the
   tested source ID or snapshot when practical.
 
-## Validation requirements for later implementation
-
-No validation command is required for this documentation-only addition. For subsequent changes:
-
-- run focused unit tests while developing;
-- add regression tests for any harness or product defect;
-- keep test setup compact and deduplicated;
-- validate changed behavior against the relevant committed playground projects;
-- after any E2E infrastructure, runner, manifest-schema, suite-selection, phase, Make target, or CI
-  workflow change, run the complete real-server suite with `make test-e2e` using a pinned,
-  authenticated registry snapshot;
-- also run the repository-wide `make test` before completion.
-
 ## Current constraints and investigation difficulties
 
-- The only available exhaustive-run log was contaminated by GitHub rate limiting.
-- Expected-failure diagnostics were not retained in the old exhaustive log; the dedicated pinned
-  runs now retain structured provisioning and capability evidence.
+- The old exhaustive log was contaminated by GitHub rate limiting and omitted expected-failure
+  diagnostics; dedicated pinned runs now retain structured provisioning and capability evidence.
 - The original generic reasons could not be recovered; all remaining markers have now been
   reproduced against the pinned snapshot and replaced with concrete evidence.
-- Upstream package/server behavior may have changed since the pinned snapshot and must be verified
-  before removing an exclusion.
+- Verify upstream package/server behavior before removing an exclusion from the pinned snapshot.
 - Capability triage established new malformed-response, configuration, runtime, and lifecycle
   gotchas; they are recorded in `docs/GOTCHAS.md`.
 
-The original triage was documentation-only. Phases 2 and 3 subsequently changed product behavior
-and manifests: readiness now consumes generic LSP notifications, and owned direct processes now
-receive bounded cleanup after a successful shutdown exchange. Manifest reasons and compatibility
-documentation preserve both the historical evidence and the implemented resolutions.
+Later phases changed behavior and manifests while preserving historical evidence in reasons and
+compatibility documentation.

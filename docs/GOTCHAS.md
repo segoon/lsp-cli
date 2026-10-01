@@ -469,6 +469,32 @@
   declared as `Order`. That retained exception is a server/query compatibility limitation, not an
   absent fixture type relationship.
 
+## Specialized capability-only servers
+
+- `htmx-lsp` 0.1.0 logs the standard `shutdown` request as unhandled and never answers it;
+  `efm-langserver` 0.0.57 closes the transport before its shutdown response reaches the client.
+  These are server lifecycle deviations, not evidence that generic shutdown should be weakened.
+- `bacon-ls` 0.31.0 rejects a standard initialize request as JSON-RPC invalid-request. `ast-grep`
+  0.45.3 refuses to initialize without an ast-grep project configuration.
+- Grammarly Language Server 0.0.4 requires a `clientId` initialization option, and GitHub Actions
+  Language Server 0.3.61 requires a `sessionToken`. Supplying invented credentials would turn a
+  protocol check into an inaccurate product configuration, so both remain expected failures.
+- Angular Language Server 22.2.0 needs valid TypeScript and Angular probe locations; the bundled
+  command currently passes option names where locations are expected. The LWC config similarly
+  contains a literal `/path/to/node_modules/...` placeholder. Both need data fixes, not generic
+  language-specific production branches.
+- The pinned Mason snapshot has packages whose configured executable cannot be installed or
+  resolved for `debputy`, `fortitude`, `gitlab_duo`, `nextflow_ls`, `selene3p_ls`, `spectral`,
+  `sqruff`, `statix`, `stylelint_lsp`, `stylua3p_ls`, `theme_check`, `ttags`, `turbo_ls`,
+  `tvm_ffi_navigator`, and `vacuum`. Keep these as explicit provisioning and capability expected
+  failures until either the catalog command or Mason recipe is corrected.
+- LTeX and LTeX Plus launch through `/usr/bin/env sh` and call standard shell utilities. Their
+  isolated cases must stage `sh`, `dirname`, `uname`, and `which`; LTeX also needs host `java`,
+  while LTeX Plus includes its own JDK.
+- Shopify Theme Language Server can briefly recreate Node's compile cache after the client exits,
+  racing immediate sandbox removal. One 53-server run retained only that cache; an isolated retry
+  cleaned up successfully, so no expected-failure marker was added.
+
 ## clangd
 
 - `clangd` may start successfully without sending background-work progress notifications. Its

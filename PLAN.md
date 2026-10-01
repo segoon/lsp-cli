@@ -1,7 +1,7 @@
 # E2E LSP compatibility investigation and remediation plan
 
 Status: Phase 0, expected-failure triage, Phase 2, Phase 3 workspace-symbol readiness plus bounded
-post-shutdown cleanup, and Phase 4 are complete.
+post-shutdown cleanup, Phase 4, and the Phase 5 product decisions are complete.
 PerlNavigator definition targeting remains a TODO pending a product decision about use-site
 selection. Cross-server changed-fixture verification and Rust test-setup deduplication are
 complete.
@@ -509,20 +509,27 @@ the harness maintainable but provides no executable compatibility guarantee.
 
 ### Phase 5: decide provisioning and coverage strategy
 
-The following are product-owner decisions and must be resolved before broad implementation:
+The product owner resolved the coverage boundary:
 
-1. Should the 55 specialized servers remain outside the real-server scope, or receive
-   capability-only coverage?
-2. Should lsp-cli implement RubyGems, LuaRocks, Open VSX, OPAM, Composer, and source-build Mason
-   recipes, rely on system-installed binaries for those servers, or retain exclusions?
-3. For the 90 servers absent from Mason, should the project contribute Mason packages, support an
-   additional registry, add a non-download E2E lane, or accept that automatic installation is not
-   covered?
-4. Should `build-index` promise confirmed completion, return best-effort readiness when the server
-   exposes no completion signal, or report a user-facing unsupported-completion error?
+1. The 55 specialized servers should receive capability-only coverage, not the shared semantic
+   query profile. Enabling each case still requires runnable provisioning and an appropriate
+   fixture; capability-only does not erase authentication or host-tool requirements.
+2. RubyGems, LuaRocks, Open VSX, OPAM, Composer, and source-build Mason recipes remain excluded.
+   The 11 affected servers are listed in `docs/SERVERS.md`, and backend work is deferred in
+   `docs/TODO.md`.
+3. The 90 servers absent from Mason remain not automatically installable. lsp-cli will not add a
+   second registry or a system-installed E2E lane as part of this plan.
+4. The 15 servers proven to lack a usable completion signal should use explicit, data-driven
+   best-effort `build-index` semantics. Their exhaustive list is in `docs/SERVERS.md`; all other
+   servers retain confirmed-completion semantics. Product implementation must not infer this mode
+   from a timeout or hardcode language-specific behavior.
 5. ~~Should direct commands tolerate and terminate a server that completed the LSP shutdown
    exchange but did not exit by itself?~~ Resolved in Phase 3: yes, after a successful shutdown
    response and `exit` notification, with a one-second grace period bounded by the user timeout.
+
+This phase records product policy. Capability-only case enablement, and the generic best-effort
+`build-index` data field and behavior, are follow-up implementation work and must carry focused
+unit and affected-server E2E validation.
 
 Strategic alternatives:
 

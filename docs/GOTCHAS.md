@@ -194,9 +194,16 @@
 
 ## rpm-spec-language-server
 
-- The PyPI package imports the system RPM Python module. Installing it in an isolated virtual
-  environment is not sufficient on hosts without compatible RPM bindings, so the current CI pair
-  is explicitly excluded.
+- rpm-spec-language-server 0.0.2 depends on the PyPI `rpm` package, but that package is only a
+  virtual-environment shim for an RPM Python extension already supplied by the operating system.
+  It contains no native bindings. On the Ubuntu E2E host, provisioning succeeds and startup then
+  fails while the shim searches for the absent system extension.
+- RPM distributes its Python bindings with RPM itself, coupled to native RPM libraries and a
+  compatible Python ABI. Copying files out of a Fedora/openSUSE package would also require staging
+  its transitive native libraries and is not a portable hermetic PyPI installation. Upstream's
+  container mode instead requires a container runtime and TCP transport, neither of which the
+  current Mason installer or direct-process E2E model provides. The pair therefore remains
+  excluded pending an explicit runtime/backend decision.
 
 ## salt-lsp
 

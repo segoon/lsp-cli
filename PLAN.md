@@ -1,8 +1,8 @@
 # E2E LSP compatibility investigation and remediation plan
 
 Status: Phase 0, expected-failure triage, Phase 2, Phase 3 workspace-symbol readiness plus bounded
-post-shutdown cleanup, and the Phase 4 CMake Language Server, Kotlin LSP, and Salt LSP package
-investigations are complete.
+post-shutdown cleanup, and the Phase 4 CMake, Kotlin, Salt, and RPM package investigations are
+complete.
 PerlNavigator definition targeting remains a TODO pending a product decision about use-site
 selection. Cross-server changed-fixture verification and Rust test-setup deduplication are
 complete.
@@ -474,7 +474,10 @@ Prioritize fixes that do not require new product architecture:
 - ~~Verify `salt-lsp` against the managed Python runtime.~~ Complete: version 0.0.1 requires
   `PyYAML>=5.4,<6`; Python 3.12 has no compatible wheel, and the PyYAML 5.4.1 source build fails.
   The reviewed provisioning expected failure and semantic exclusion remain;
-- determine whether compatible RPM Python bindings can be staged hermetically;
+- ~~Determine whether compatible RPM Python bindings can be staged hermetically.~~ Complete: the
+  PyPI `rpm` package is only a shim for OS-provided native bindings. Staging distro binaries would
+  couple Python and native-library ABIs; upstream container mode requires a new runtime and TCP
+  backend. The reviewed exclusion remains pending an explicit architecture decision;
 - decide whether Arduino's board core, CLI configuration, clangd, and FQBN belong in a dedicated
   integration fixture;
 - normalize only E2E expectations, not production LSP results, for decorated Roslyn symbol names.

@@ -7,4 +7,4 @@ pairs:
     server: rpmspec
     smoke:
       status: excluded
-      reason: rpm-spec-language-server requires system RPM Python bindings that are unavailable in the isolated virtual environment.
+      reason: rpm-spec-language-server 0.0.2 needs OS-provided RPM Python bindings and native libraries that the PyPI shim does not contain.

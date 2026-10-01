@@ -6,19 +6,10 @@ use std::sync::{Mutex, OnceLock};
 
 use serde::{Deserialize, Serialize};
 
+pub(crate) use crate::failure_stage::FailureStage;
+
 const RESULTS_OUTPUT_ENV: &str = "E2E_RESULTS_OUTPUT";
 const SUMMARY_OUTPUT_ENV: &str = "E2E_RESULTS_SUMMARY_OUTPUT";
-
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
-#[serde(rename_all = "kebab-case")]
-pub(crate) enum FailureStage {
-    Setup,
-    Provisioning,
-    Capabilities,
-    Query,
-    Lifecycle,
-    Cleanup,
-}
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -46,20 +37,6 @@ impl CaseKind {
             Self::Lifecycle => "lifecycle",
             Self::Provisioning => "provisioning",
         }
-    }
-}
-
-impl fmt::Display for FailureStage {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let value = match self {
-            Self::Setup => "setup",
-            Self::Provisioning => "provisioning",
-            Self::Capabilities => "capabilities",
-            Self::Query => "query",
-            Self::Lifecycle => "lifecycle",
-            Self::Cleanup => "cleanup",
-        };
-        formatter.write_str(value)
     }
 }
 
@@ -217,8 +194,16 @@ pub(crate) fn record_case(kind: CaseKind, id: &str, result: &E2eResult) -> Resul
 #[derive(Debug)]
 pub(crate) struct MergedResults {
     pub(crate) planned: usize,
-    pub(crate) failures: Vec<(String, String)>,
+    pub(crate) failures: Vec<MergedFailure>,
     pub(crate) passed: Vec<String>,
+}
+
+#[derive(Debug)]
+pub(crate) struct MergedFailure {
+    pub(crate) key: String,
+    pub(crate) stage: Option<FailureStage>,
+    pub(crate) additional_stages: Vec<FailureStage>,
+    pub(crate) diagnostic: String,
 }
 
 pub(crate) fn merge_shards(
@@ -274,7 +259,12 @@ pub(crate) fn merge_shards(
     let failures = cases
         .iter()
         .filter(|case| case.outcome == Outcome::Failed)
-        .map(|case| (case.key(), case.render_failure()))
+        .map(|case| MergedFailure {
+            key: case.key(),
+            stage: case.failure_stage,
+            additional_stages: case.additional_failure_stages.clone(),
+            diagnostic: case.render_failure(),
+        })
         .collect();
     let passed = cases
         .iter()

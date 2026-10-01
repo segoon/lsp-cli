@@ -1,4 +1,4 @@
-schema-version: 14
+schema-version: 15
 coverage: complete
 platform:
   os: linux
@@ -192,50 +192,96 @@ expected-failures:
   - case: capabilities/yql/vespa_ls
     reason: pkg:github/vespa-engine/vespa@lsp-v2.6.0 is paired with the literal placeholder JAR path /path/to/vespa-language-server.jar.
   - case: capabilities/astro/stylelint_lsp
+    stage: capabilities
+    diagnostic-contains: Mason does not expose executable stylelint-language-server
     reason: pkg:npm/stylelint-lsp@2.0.1 does not expose the configured stylelint-language-server executable through Mason.
   - case: capabilities/blade/turbo_ls
+    stage: capabilities
+    diagnostic-contains: no Mason install recipe is available for detected server turbo-language-server
     reason: The pinned Mason snapshot has no install recipe for the configured turbo-language-server program.
   - case: capabilities/debchangelog/debputy
+    stage: capabilities
+    diagnostic-contains: no Mason install recipe is available for detected server debputy
     reason: The pinned Mason snapshot has no install recipe for the configured debputy program.
   - case: capabilities/fortran/fortitude
+    stage: capabilities
+    diagnostic-contains: no Mason install recipe is available for detected server fortitude
     reason: The pinned Mason snapshot has no install recipe for the configured fortitude program.
   - case: capabilities/javascript/gitlab_duo
+    stage: capabilities
+    diagnostic-contains: no Mason install recipe is available for detected server npx
     reason: The bundled GitLab Duo config launches npx, for which the pinned Mason snapshot has no install recipe.
   - case: capabilities/javascript/htmx
+    stage: capabilities
+    diagnostic-contains: timed out waiting for shutdown
     reason: pkg:cargo/htmx-lsp@0.1.0 does not handle the standard shutdown request and times out after logging it as unhandled.
   - case: capabilities/javascript/lwc_ls
+    stage: capabilities
+    diagnostic-contains: Cannot find module '/path/to/node_modules/@salesforce/lwc-language-server
     reason: The bundled LWC config contains the literal placeholder /path/to/node_modules/@salesforce/lwc-language-server/bin/lwc-language-server.js.
   - case: capabilities/json.openapi/vacuum
+    stage: capabilities
+    diagnostic-contains: no Mason install recipe is available for detected server vacuum
     reason: The pinned Mason snapshot has no install recipe for the configured vacuum program.
   - case: capabilities/json/spectral
+    stage: capabilities
+    diagnostic-contains: cannot install spectral-language-server on this platform
     reason: The spectral-language-server Mason package has no source matching the Linux x86-64 E2E platform.
   - case: capabilities/liquid/theme_check
+    stage: capabilities
+    diagnostic-contains: no Mason install recipe is available for detected server theme-check-liquid-server
     reason: The pinned Mason snapshot has no install recipe for the configured theme-check-liquid-server program.
   - case: capabilities/lua/efm
+    stage: capabilities
+    diagnostic-contains: LSP server closed while waiting for shutdown
     reason: pkg:github/mattn/efm-langserver@v0.0.57 closes its transport while the client waits for the shutdown response.
   - case: capabilities/lua/selene3p_ls
+    stage: capabilities
+    diagnostic-contains: no Mason install recipe is available for detected server selene-3p-language-server
     reason: The pinned Mason snapshot has no install recipe for the configured selene-3p-language-server program.
   - case: capabilities/lua/stylua3p_ls
+    stage: capabilities
+    diagnostic-contains: no Mason install recipe is available for detected server stylua-3p-language-server
     reason: The pinned Mason snapshot has no install recipe for the configured stylua-3p-language-server program.
   - case: capabilities/markdown/grammarly
+    stage: capabilities
+    diagnostic-contains: 'clientId is required'
     reason: pkg:npm/grammarly-languageserver@0.0.4 rejects initialization without a clientId initialization option.
   - case: capabilities/nextflow/nextflow_ls
+    stage: capabilities
+    diagnostic-contains: downloaded asset did not produce a runnable nextflow-language-server executable
     reason: The downloaded Nextflow language-server package does not produce a runnable executable at the Mason-configured path.
   - case: capabilities/nix/statix
+    stage: capabilities
+    diagnostic-contains: no Mason install recipe is available for detected server statix
     reason: The pinned Mason snapshot has no install recipe for the configured statix program.
   - case: capabilities/python/tvm_ffi_navigator
+    stage: capabilities
+    diagnostic-contains: no Mason install recipe is available for detected server python
     reason: The bundled TVM FFI Navigator config launches python, for which the pinned Mason snapshot has no install recipe.
   - case: capabilities/rust/ast_grep
+    stage: capabilities
+    diagnostic-contains: No ast-grep project configuration is found
     reason: pkg:github/ast-grep/ast-grep@0.45.3 refuses to initialize without an ast-grep project configuration.
   - case: capabilities/rust/bacon_ls
+    stage: capabilities
+    diagnostic-contains: 'initialize failed with -32600: Invalid request'
     reason: pkg:cargo/bacon-ls@0.31.0 rejects the standard initialize request with JSON-RPC invalid-request (-32600).
   - case: capabilities/rust/ttags
+    stage: capabilities
+    diagnostic-contains: no Mason install recipe is available for detected server ttags
     reason: The pinned Mason snapshot has no install recipe for the configured ttags program.
   - case: capabilities/sql/sqruff
+    stage: capabilities
+    diagnostic-contains: no Mason install recipe is available for detected server sqruff
     reason: The pinned Mason snapshot has no install recipe for the configured sqruff program.
   - case: capabilities/typescript/angularls
+    stage: capabilities
+    diagnostic-contains: Failed to resolve 'typescript/lib/tsserverlibrary' with minimum version '5.0'
     reason: pkg:npm/%40angular/language-server@22.2.0 receives incomplete probe-location arguments and cannot resolve TypeScript 5 or newer.
   - case: capabilities/yaml/gh_actions_ls
+    stage: capabilities
+    diagnostic-contains: Cannot read properties of undefined (reading 'sessionToken')
     reason: pkg:npm/%40actions/languageserver@0.3.61 rejects initialization without a sessionToken initialization option.
   - case: provisioning/bicep
     reason: pkg:github/Azure/bicep@v0.47.16 installs a launcher that resolves managed dotnet outside the isolated E2E home.
@@ -308,36 +354,68 @@ expected-failures:
   - case: provisioning/vls
     reason: pkg:github/vlang/vls@latest requires v, but the Mason recipe does not expose that executable.
   - case: provisioning/debputy
+    stage: provisioning
+    diagnostic-contains: no Mason install recipe is available for detected server debputy
     reason: The pinned Mason snapshot has no install recipe for the configured debputy program.
   - case: provisioning/fortitude
+    stage: provisioning
+    diagnostic-contains: no Mason install recipe is available for detected server fortitude
     reason: The pinned Mason snapshot has no install recipe for the configured fortitude program.
   - case: provisioning/gitlab_duo
+    stage: provisioning
+    diagnostic-contains: no Mason install recipe is available for detected server npx
     reason: The bundled GitLab Duo config launches npx, for which the pinned Mason snapshot has no install recipe.
   - case: provisioning/lwc_ls
+    stage: provisioning
+    diagnostic-contains: downloaded server program node is outside isolated home
     reason: The bundled LWC config resolves managed node outside the isolated home before launching a literal placeholder script path.
   - case: provisioning/nextflow_ls
+    stage: provisioning
+    diagnostic-contains: downloaded asset did not produce a runnable nextflow-language-server executable
     reason: The downloaded Nextflow language-server package does not produce a runnable executable at the Mason-configured path.
   - case: provisioning/selene3p_ls
+    stage: provisioning
+    diagnostic-contains: no Mason install recipe is available for detected server selene-3p-language-server
     reason: The pinned Mason snapshot has no install recipe for the configured selene-3p-language-server program.
   - case: provisioning/spectral
+    stage: provisioning
+    diagnostic-contains: cannot install spectral-language-server on this platform
     reason: The spectral-language-server Mason package has no source matching the Linux x86-64 E2E platform.
   - case: provisioning/sqruff
+    stage: provisioning
+    diagnostic-contains: no Mason install recipe is available for detected server sqruff
     reason: The pinned Mason snapshot has no install recipe for the configured sqruff program.
   - case: provisioning/statix
+    stage: provisioning
+    diagnostic-contains: no Mason install recipe is available for detected server statix
     reason: The pinned Mason snapshot has no install recipe for the configured statix program.
   - case: provisioning/stylelint_lsp
+    stage: provisioning
+    diagnostic-contains: Mason does not expose executable stylelint-language-server
     reason: pkg:npm/stylelint-lsp@2.0.1 does not expose the configured stylelint-language-server executable through Mason.
   - case: provisioning/stylua3p_ls
+    stage: provisioning
+    diagnostic-contains: no Mason install recipe is available for detected server stylua-3p-language-server
     reason: The pinned Mason snapshot has no install recipe for the configured stylua-3p-language-server program.
   - case: provisioning/theme_check
+    stage: provisioning
+    diagnostic-contains: no Mason install recipe is available for detected server theme-check-liquid-server
     reason: The pinned Mason snapshot has no install recipe for the configured theme-check-liquid-server program.
   - case: provisioning/ttags
+    stage: provisioning
+    diagnostic-contains: no Mason install recipe is available for detected server ttags
     reason: The pinned Mason snapshot has no install recipe for the configured ttags program.
   - case: provisioning/turbo_ls
+    stage: provisioning
+    diagnostic-contains: no Mason install recipe is available for detected server turbo-language-server
     reason: The pinned Mason snapshot has no install recipe for the configured turbo-language-server program.
   - case: provisioning/tvm_ffi_navigator
+    stage: provisioning
+    diagnostic-contains: no Mason install recipe is available for detected server python
     reason: The bundled TVM FFI Navigator config launches python, for which the pinned Mason snapshot has no install recipe.
   - case: provisioning/vacuum
+    stage: provisioning
+    diagnostic-contains: no Mason install recipe is available for detected server vacuum
     reason: The pinned Mason snapshot has no install recipe for the configured vacuum program.
   - case: smoke/python/pylyzer
     reason: pkg:github/mtshiba/pylyzer@v0.0.82 returns no textDocument/typeDefinition match for an order parameter explicitly typed as Order after three bounded attempts; server stderr also reports missing ERG_PATH with diagnostics-worker panics.

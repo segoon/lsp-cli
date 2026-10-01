@@ -19,6 +19,8 @@ mod case_files;
 mod env_vars;
 #[path = "../error.rs"]
 mod error;
+#[path = "../../tests/e2e/failure_stage.rs"]
+mod failure_stage;
 #[path = "../fs.rs"]
 mod fs;
 #[path = "../hash.rs"]

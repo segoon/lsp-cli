@@ -3,19 +3,20 @@ use std::collections::BTreeSet;
 use serde::Deserialize;
 
 use super::{LifecycleDisposition, Manifest, SmokeDisposition, require_text};
+use crate::failure_stage::FailureStage;
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
-pub(super) struct ExpectedFailure {
+pub(crate) struct ExpectedFailure {
     pub(super) case: String,
+    stage: Option<FailureStage>,
+    diagnostic_contains: Option<String>,
     reason: String,
 }
 
 impl Manifest {
-    pub(crate) fn expected_failure_keys(&self) -> impl Iterator<Item = &str> {
-        self.expected_failures
-            .iter()
-            .map(|failure| failure.case.as_str())
+    pub(crate) fn expected_failures(&self) -> impl Iterator<Item = &ExpectedFailure> {
+        self.expected_failures.iter()
     }
 
     pub(super) fn validate_expected_failures(&self) -> Result<(), String> {
@@ -53,6 +54,12 @@ impl Manifest {
                 &failure.reason,
                 &format!("expected failure {}", failure.case),
             )?;
+            if let Some(diagnostic) = &failure.diagnostic_contains {
+                require_text(
+                    diagnostic,
+                    &format!("expected failure {} diagnostic", failure.case),
+                )?;
+            }
             if !available.contains(&failure.case) {
                 return Err(format!(
                     "expected failure {:?} is not an executable E2E case",
@@ -67,6 +74,43 @@ impl Manifest {
     }
 }
 
+impl ExpectedFailure {
+    pub(crate) fn case(&self) -> &str {
+        &self.case
+    }
+
+    pub(crate) fn matches(
+        &self,
+        stage: Option<FailureStage>,
+        has_additional_stages: bool,
+        diagnostic: &str,
+    ) -> bool {
+        !has_additional_stages
+            && self.stage.is_none_or(|expected| Some(expected) == stage)
+            && self
+                .diagnostic_contains
+                .as_deref()
+                .is_none_or(|expected| diagnostic.contains(expected))
+    }
+
+    pub(crate) fn expectation(&self) -> String {
+        let stage = self.stage.map(|value| format!("stage {value}"));
+        let diagnostic = self
+            .diagnostic_contains
+            .as_ref()
+            .map(|value| format!("diagnostic containing {value:?}"));
+        [
+            stage,
+            diagnostic,
+            Some("no additional failure stages".to_string()),
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>()
+        .join(" and ")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::tests::validation_error;
@@ -77,6 +121,8 @@ mod tests {
         let unknown = validation_error("unknown expected failures should fail", |manifest| {
             manifest.expected_failures.push(ExpectedFailure {
                 case: "provisioning/not-a-server".to_string(),
+                stage: None,
+                diagnostic_contains: None,
                 reason: "known failure".to_string(),
             });
         });
@@ -91,5 +137,45 @@ mod tests {
             manifest.expected_failures.push(failure);
         });
         assert!(duplicate.contains("duplicate expected failure"));
+
+        let empty = validation_error("empty diagnostics should fail", |manifest| {
+            manifest.expected_failures[0].diagnostic_contains = Some(" ".to_string());
+        });
+        assert!(empty.contains("diagnostic") && empty.contains("must be non-empty"));
+    }
+
+    #[test]
+    fn matches_only_the_declared_stage_and_diagnostic() {
+        let failure = ExpectedFailure {
+            case: "capabilities/rust/example".to_string(),
+            stage: Some(FailureStage::Capabilities),
+            diagnostic_contains: Some("initialize failed".to_string()),
+            reason: "known failure".to_string(),
+        };
+
+        assert!(failure.matches(
+            Some(FailureStage::Capabilities),
+            false,
+            "server initialize failed"
+        ));
+        assert!(!failure.matches(
+            Some(FailureStage::Cleanup),
+            false,
+            "server initialize failed"
+        ));
+        assert!(!failure.matches(
+            Some(FailureStage::Capabilities),
+            false,
+            "registry unavailable"
+        ));
+        assert!(!failure.matches(
+            Some(FailureStage::Capabilities),
+            true,
+            "server initialize failed"
+        ));
+        assert_eq!(
+            failure.expectation(),
+            "stage capabilities and diagnostic containing \"initialize failed\" and no additional failure stages"
+        );
     }
 }

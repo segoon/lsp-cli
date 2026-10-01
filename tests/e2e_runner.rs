@@ -13,6 +13,8 @@
 mod case_files;
 #[path = "e2e/dependencies.rs"]
 mod dependencies;
+#[path = "e2e/failure_stage.rs"]
+mod failure_stage;
 #[path = "e2e/harness.rs"]
 mod harness;
 #[path = "e2e/lsp_exchange.rs"]
@@ -36,7 +38,7 @@ mod results;
 #[path = "e2e/runner_selection.rs"]
 mod runner_selection;
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 use std::process::ExitCode;
 
@@ -193,25 +195,47 @@ fn merge_results(selection: &Selection, directory: &Path) -> Result<(), String> 
         .map(|(kind, id)| format!("{}/{id}", case_kind_key(*kind)))
         .collect::<BTreeSet<_>>();
     let expected_failures = manifest
-        .expected_failure_keys()
-        .filter(|key| selected_keys.contains(*key))
-        .collect::<BTreeSet<_>>();
+        .expected_failures()
+        .filter(|failure| selected_keys.contains(failure.case()))
+        .map(|failure| (failure.case(), failure))
+        .collect::<BTreeMap<_, _>>();
     let actual_failures = merged
         .failures
         .iter()
-        .map(|(key, _)| key.as_str())
+        .map(|failure| failure.key.as_str())
         .collect::<BTreeSet<_>>();
+    let mut matched_expected_failures = BTreeSet::new();
     let failures = merged
         .failures
         .iter()
-        .filter(|(key, _)| !expected_failures.contains(key.as_str()))
-        .map(|(_, diagnostic)| diagnostic.clone())
+        .filter_map(
+            |failure| match expected_failures.get(failure.key.as_str()) {
+                Some(expected)
+                    if expected.matches(
+                        failure.stage,
+                        !failure.additional_stages.is_empty(),
+                        &failure.diagnostic,
+                    ) =>
+                {
+                    matched_expected_failures.insert(failure.key.as_str());
+                    None
+                }
+                Some(expected) => Some(format!(
+                    "E2E failure {} did not match its expected {}:\n{}",
+                    failure.key,
+                    expected.expectation(),
+                    failure.diagnostic
+                )),
+                None => Some(failure.diagnostic.clone()),
+            },
+        )
         .collect::<Vec<_>>();
-    let expected_passes = expected_failures
+    let expected_keys = expected_failures.keys().copied().collect::<BTreeSet<_>>();
+    let expected_passes = expected_keys
         .difference(&actual_failures)
         .copied()
         .collect::<Vec<_>>();
-    let expected_failure_count = actual_failures.intersection(&expected_failures).count();
+    let expected_failure_count = matched_expected_failures.len();
     let report = RunReport {
         planned: merged.planned,
         failures,

@@ -1,7 +1,6 @@
 # E2E LSP compatibility investigation and remediation plan
 
-Status: Phase 0, expected-failure triage, Phase 2, Phase 3 workspace-symbol readiness plus bounded
-post-shutdown cleanup, Phase 4, Phase 5 decisions, Phase 6, and Phase 7 are complete.
+Status: Phase 0 through Phase 8 are complete.
 PerlNavigator definition targeting remains a TODO pending a product decision about use-site
 selection. Cross-server changed-fixture verification and Rust test-setup deduplication are
 complete.
@@ -268,8 +267,7 @@ For each case, assign one concrete class:
 Remove a marker after a repeatable pass. Otherwise, replace its generic reason with the observed
 source ID, failure stage, user-visible diagnostic, and root-cause category.
 
-Recommended future hardening: expected failures should optionally match a stage and diagnostic
-substring, as query exceptions already do.
+Phase 8 implements optional expected-failure stage and diagnostic-substring matching.
 
 Pros:
 
@@ -559,9 +557,22 @@ rejected because it observes no work; global timeout acceptance would silently w
 
 This widens executable compatibility evidence while retaining precise boundaries: capability-only
 does not claim semantic-query support, and expected failure does not claim server support. The
-tradeoff is 39 broad markers that can still accept an unrelated failure; stage/message matching is
-the preferred future hardening. Alternatives were per-pair capability entries (more duplication)
+initial tradeoff was 39 broad markers; Phase 8 constrains them by stage and diagnostic. Alternatives
+were per-pair capability entries (more duplication)
 or retaining all 55 exclusions (no executable evidence).
+
+### Phase 8: constrain expected failures
+
+- Schema v15 lets a marker match its primary failure `stage` and a stable
+  `diagnostic-contains` substring. Additional failure stages always remain fatal.
+- The coordinator reports a marker mismatch as an unexpected failure and still distinguishes a
+  marked case that passed from one that failed differently.
+- The 39 Phase 7 markers now constrain their reproduced provisioning or capability diagnostic;
+  the older 125 markers retain backward-compatible key-only matching until separately migrated.
+
+This prevents an unrelated registry, protocol, or cleanup failure from satisfying the migrated
+markers. The cost is maintenance when upstream wording changes. Removing tolerance would make the
+suite unusable with known incompatibilities; a quarantine lane would add CI/reporting complexity.
 
 ## Architectural consequences and future risks
 
@@ -582,19 +593,7 @@ or retaining all 55 exclusions (no executable evidence).
 - Expanding scope to linters, formatters, and framework servers changes what "supported LSP
   server" means and may require capability-specific test profiles rather than one general-purpose
   semantic profile.
-- Broad expected-failure markers can hide regressions unless they match an expected failure class.
+- The 125 legacy key-only expected-failure markers can still hide unrelated regressions and should
+  be migrated from their pinned evidence.
 - Server and registry versions drift. Every retained exception or exclusion should identify the
   tested source ID or snapshot when practical.
-
-## Current constraints and investigation difficulties
-
-- The old exhaustive log was contaminated by GitHub rate limiting and omitted expected-failure
-  diagnostics; dedicated pinned runs now retain structured provisioning and capability evidence.
-- The original generic reasons could not be recovered; all remaining markers have now been
-  reproduced against the pinned snapshot and replaced with concrete evidence.
-- Verify upstream package/server behavior before removing an exclusion from the pinned snapshot.
-- Capability triage established new malformed-response, configuration, runtime, and lifecycle
-  gotchas; they are recorded in `docs/GOTCHAS.md`.
-
-Later phases changed behavior and manifests while preserving historical evidence in reasons and
-compatibility documentation.

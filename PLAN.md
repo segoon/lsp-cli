@@ -1,6 +1,6 @@
 # E2E LSP compatibility investigation and remediation plan
 
-Status: Phase 0 through Phase 8 are complete.
+Status: Phase 0 through Phase 9 are complete.
 PerlNavigator definition targeting remains a TODO pending a product decision about use-site
 selection. Cross-server changed-fixture verification and Rust test-setup deduplication are
 complete.
@@ -268,21 +268,6 @@ Remove a marker after a repeatable pass. Otherwise, replace its generic reason w
 source ID, failure stage, user-visible diagnostic, and root-cause category.
 
 Phase 8 implements optional expected-failure stage and diagnostic-substring matching.
-
-Pros:
-
-- prevents an unrelated registry outage from satisfying a server-specific expected failure;
-- turns the manifest into actionable compatibility documentation.
-
-Cons:
-
-- upstream wording changes can require maintenance;
-- overly exact matching can create brittle tests.
-
-Alternative: remove expected-failure tolerance entirely. This maximizes strictness but would make
-the exhaustive target unusable while the backlog remains untriaged. Another alternative is a
-separate quarantine lane; it keeps the main target strict but increases CI and reporting
-complexity.
 
 ### Phase 2: remove fixture-caused query exceptions
 
@@ -567,12 +552,27 @@ or retaining all 55 exclusions (no executable evidence).
   `diagnostic-contains` substring. Additional failure stages always remain fatal.
 - The coordinator reports a marker mismatch as an unexpected failure and still distinguishes a
   marked case that passed from one that failed differently.
-- The 39 Phase 7 markers now constrain their reproduced provisioning or capability diagnostic;
-  the older 125 markers retain backward-compatible key-only matching until separately migrated.
+- The 39 Phase 7 markers constrain their reproduced provisioning or capability diagnostic; Phase
+  9 subsequently migrates the older 125 markers.
 
 This prevents an unrelated registry, protocol, or cleanup failure from satisfying the migrated
 markers. The cost is maintenance when upstream wording changes. Removing tolerance would make the
 suite unusable with known incompatibilities; a quarantine lane would add CI/reporting complexity.
+
+### Phase 9: migrate every expected-failure marker
+
+- Reproduce all 125 legacy markers across their 60 servers against pinned Mason release
+  `2026-09-30-aboard-mob`, retaining the complete per-case diagnostics.
+- Add stable stage and diagnostic constraints to every marker. Schema v16 now rejects key-only
+  markers, so future additions cannot silently restore broad tolerance.
+- Keep dynamic paths, timestamps, process IDs, and verbose stack traces out of match substrings;
+  use the shortest diagnostic fragment that still identifies the documented root cause.
+- Affected-only `-j10` validation matched all 125 migrated and all 39 previously constrained
+  failures, with no unexpected failures or stale markers.
+
+This closes the unrelated-failure loophole for all 164 markers. Wording drift can now break a case,
+which is intentional evidence that its compatibility diagnosis needs review. Removing tolerance
+or creating a quarantine lane retain the Phase 8 tradeoffs.
 
 ## Architectural consequences and future risks
 
@@ -593,7 +593,7 @@ suite unusable with known incompatibilities; a quarantine lane would add CI/repo
 - Expanding scope to linters, formatters, and framework servers changes what "supported LSP
   server" means and may require capability-specific test profiles rather than one general-purpose
   semantic profile.
-- The 125 legacy key-only expected-failure markers can still hide unrelated regressions and should
-  be migrated from their pinned evidence.
+- Expected-failure diagnostics are intentionally stable substrings rather than complete messages;
+  overly broad substrings can still require review as upstream behavior evolves.
 - Server and registry versions drift. Every retained exception or exclusion should identify the
   tested source ID or snapshot when practical.

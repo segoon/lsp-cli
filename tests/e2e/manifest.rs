@@ -42,7 +42,7 @@ pub(crate) mod coverage_cases;
 mod suite;
 use suite::{Architecture, OperatingSystem, Platform, TestDefaults};
 
-const MANIFEST_SCHEMA_VERSION: u32 = 15;
+const MANIFEST_SCHEMA_VERSION: u32 = 16;
 
 #[derive(Clone, Debug)]
 pub(crate) struct Manifest {

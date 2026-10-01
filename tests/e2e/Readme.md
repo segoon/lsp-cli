@@ -405,10 +405,10 @@ silently running no tests. Smoke membership is an explicit `tier: smoke` propert
 manifest; it is not inferred from preferred-server metadata.
 
 Known failures are listed explicitly in `cases/suite.yaml` under `expected-failures`. They continue
-to run, but a matching failure does not fail the target. An entry can declare a `stage` and a
+to run, but a matching failure does not fail the target. Every entry declares a `stage` and a
 `diagnostic-contains` substring; a different primary stage, diagnostic, or any additional failure
-stage remains fatal. Omitted match fields retain key-only matching for older markers. Passing
-marked cases are reported separately so repaired cases can be reviewed and stale markers removed.
+stage remains fatal. Passing marked cases are reported separately so repaired cases can be
+reviewed and stale markers removed.
 
 GNU Make's `-jN` option runs up to `N` independently isolated cases concurrently. Omitting `-j`
 keeps the suite sequential, which is useful when reproducing a failure. Provisioning, smoke, and

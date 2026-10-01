@@ -277,10 +277,10 @@ is self-documenting and any regression still fails loudly.
 
 ### Known root causes
 
-- **No background-indexing-completion signal** (`build-index` → `failure`, message
-  "background-work progress"). Several servers advertise `$/progress`/work-done tokens but never
-  send a terminal "index build finished" notification the CLI can wait on. This is the single most
-  common exception across the suite.
+- **No background-indexing-completion signal.** Servers proven not to expose a terminal signal use
+  the data-driven `build-index-completion: best-effort` policy. Their cases must succeed after the
+  bounded observation window without claiming confirmed completion; transport, protocol, server,
+  and shutdown failures remain failures. The exhaustive server list is in `docs/SERVERS.md`.
 - **Workspace-symbol search (`grep`) racing indexing.** A server with no synchronous "ready" signal
   can return empty `matches` for `workspace/symbol` issued immediately after startup.
   `run_workspace_symbol_query` (`src/commands/symbol_query.rs`) primes the server by opening a

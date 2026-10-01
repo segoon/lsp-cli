@@ -1,7 +1,7 @@
 # E2E LSP compatibility investigation and remediation plan
 
 Status: Phase 0, expected-failure triage, Phase 2, Phase 3 workspace-symbol readiness plus bounded
-post-shutdown cleanup, Phase 4, and the Phase 5 product decisions are complete.
+post-shutdown cleanup, Phase 4, Phase 5 decisions, and Phase 6 are complete.
 PerlNavigator definition targeting remains a TODO pending a product decision about use-site
 selection. Cross-server changed-fixture verification and Rust test-setup deduplication are
 complete.
@@ -13,10 +13,10 @@ currently pinned `lsp-cli-data` revision and will drift when that revision chang
 
 ## Executive summary
 
-The E2E inventory contains 358 distinct LSP server IDs. Of these, 249 appear in at least one of
+The E2E inventory contains 358 distinct LSP server IDs. Of these, 239 appear in at least one of
 the following categories:
 
-- 19 servers have one or more explicit query exceptions;
+- 9 servers have one or more explicit query exceptions;
 - 60 servers have one or more expected-failure cases;
 - 172 servers are excluded from at least one provisioning or executable-test scope.
 
@@ -26,9 +26,9 @@ These sets overlap:
 - `salt_ls` has both an expected failure and an exclusion;
 - no server appears in all three categories.
 
-Consequently, 109 of the 358 servers have none of these classifications.
+Consequently, 119 of the 358 servers have none of these classifications.
 
-The 249 servers must not be treated as 249 confirmed server defects. Most are coverage or product
+The 239 servers must not be treated as 239 confirmed server defects. Most are coverage or product
 policy exclusions. All remaining expected failures are now diagnosed against a pinned registry
 snapshot.
 
@@ -92,11 +92,10 @@ Important details:
 - Roslyn's decorated names are now asserted through pair-local E2E expectations without changing
   production results.
 
-### Query exceptions: 37 entries on 19 servers
+### Query exceptions: 16 entries on 9 servers
 
 | Cause | Exception entries | Assessment |
 | --- | ---: | --- |
-| No usable background-index completion signal | 21 | Protocol/product-semantics problem affecting 15 servers |
 | Fixture/profile requests an inapplicable relationship | 3 | Test-fixture/profile problem, not a server failure |
 | Workspace-symbol readiness race | 4 | Generic readiness problem |
 | Missing semantic result despite an applicable query | 7 | Server, fixture, or capability-advertisement limitation |
@@ -107,9 +106,9 @@ The three fixture/profile exceptions include inapplicable C implementation and R
 type-definition relationships. Perl's definition query remains the low-risk cleanup candidate and
 should move from its declaration to a stable use site.
 
-The 21 `build-index` entries require a product decision. LSP has no universal notification meaning
-"the whole workspace is indexed." A generic implementation cannot promise confirmed completion
-for a server that exposes no terminal progress signal.
+The former 21 `build-index` exceptions across 15 servers were removed in Phase 6. Those servers now
+use bounded best-effort completion selected by generic LSP data; this accepts only a missing
+terminal signal, not transport, protocol, server-reported, or shutdown failures.
 
 ### Expected failures: 125 cases on 60 servers
 
@@ -527,23 +526,25 @@ The product owner resolved the coverage boundary:
    exchange but did not exit by itself?~~ Resolved in Phase 3: yes, after a successful shutdown
    response and `exit` notification, with a one-second grace period bounded by the user timeout.
 
-This phase records product policy. Capability-only case enablement, and the generic best-effort
-`build-index` data field and behavior, are follow-up implementation work and must carry focused
-unit and affected-server E2E validation.
+This phase records product policy. Capability-only case enablement remains follow-up work and must
+carry focused affected-server E2E validation.
 
-Strategic alternatives:
+### Phase 6: implement data-driven best-effort indexing
 
-- **Add installer families.** Improves automatic-download coverage but expands security surface,
-  host-runtime requirements, cache formats, tests, and CI matrices.
-- **Use a system-installed-server lane.** Requires less installer code but is less hermetic and
-  harder to reproduce.
-- **Support another registry.** Can address servers missing from Mason, but creates a major
-  selection, trust, versioning, and maintenance commitment.
-- **Contribute upstream Mason packages.** Keeps lsp-cli simpler and preserves one registry, but
-  depends on external review and maintenance.
-- **Keep exclusions.** Lowest maintenance cost, but the catalog will continue to overstate
-  executable/downloadable coverage unless user-facing documentation distinguishes the levels
-  clearly.
+- Add a validated `build-index-completion` LSP-data field whose default is `confirmed` and whose
+  explicit alternative is `best-effort`.
+- Mark exactly the 15 servers listed in `docs/SERVERS.md`; do not branch on server or language IDs.
+- In best-effort mode, observe the complete bounded wait window and accept only expiry without a
+  terminal signal. Preserve failures for malformed messages, transport loss, server-reported index
+  errors, and unclean shutdown.
+- Remove the 21 obsolete query-exception assertions and keep confirmed behavior for every
+  unmarked server and for explicit symbol-query `--wait-for-index` requests.
+
+This improves executable coverage without pretending the protocol confirmed completion. The cost
+is that successful `build-index` now has two documented strengths; future server updates must remove
+the marker when a reliable terminal signal appears. Immediate success after initialization was
+rejected because it observes no work; global timeout acceptance would silently weaken other servers.
+`make test` passed, as did all 29 smoke cases selected across the 15 affected servers with `-j10`.
 
 ## Architectural consequences and future risks
 
@@ -559,8 +560,8 @@ Strategic alternatives:
   using data-provided constraints for an npm-backed server.
 - A tolerant shutdown policy changes user-visible success semantics. It should distinguish a
   completed LSP exchange from an unknown or interrupted server state.
-- Best-effort `build-index` would weaken the meaning of command success; strict completion leaves
-  many conforming servers unsupported because LSP lacks the necessary universal signal.
+- Best-effort `build-index` gives command success a weaker, explicitly documented meaning for the
+  marked servers; confirmed completion remains the default because LSP lacks a universal signal.
 - Expanding scope to linters, formatters, and framework servers changes what "supported LSP
   server" means and may require capability-specific test profiles rather than one general-purpose
   semantic profile.

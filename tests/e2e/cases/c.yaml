@@ -22,10 +22,6 @@ pairs:
         - command: implementation
           outcome: empty-matches
           reason: C has no interface or inheritance construct for a genuine implementation relationship
-        - command: build-index
-          outcome: failure
-          message: background-work progress
-          reason: clangd exposes no background-work completion notification
       lsp-timeout-seconds: 15
       deadline-seconds: 240
     lifecycle:

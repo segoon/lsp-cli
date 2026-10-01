@@ -33,11 +33,6 @@ pairs:
     tier: smoke
     smoke:
       status: queries
-      exceptions:
-        - command: build-index
-          outcome: failure
-          message: background-work progress
-          reason: LuaLS exposes no background-work completion notification
     lifecycle:
       status: scenarios
       direct-run:

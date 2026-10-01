@@ -17,10 +17,5 @@ pairs:
     tier: smoke
     smoke:
       status: queries
-      exceptions:
-        - command: build-index
-          outcome: failure
-          message: background-work progress
-          reason: clangd exposes no background-work completion notification
       lsp-timeout-seconds: 15
       deadline-seconds: 240

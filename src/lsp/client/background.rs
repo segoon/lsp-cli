@@ -31,6 +31,12 @@ struct BuildIndexState {
     finished_progress: bool,
 }
 
+#[derive(Clone, Copy)]
+enum CompletionPolicy {
+    Confirmed,
+    BestEffort,
+}
+
 impl LspClient {
     pub fn wait_for_readiness_hint(
         &mut self,
@@ -81,12 +87,20 @@ impl LspClient {
     }
 
     pub fn wait_for_background_work(&mut self) -> Result<()> {
+        self.wait_for_background_work_with(CompletionPolicy::Confirmed)
+    }
+
+    pub fn wait_for_background_work_best_effort(&mut self) -> Result<()> {
+        self.wait_for_background_work_with(CompletionPolicy::BestEffort)
+    }
+
+    fn wait_for_background_work_with(&mut self, policy: CompletionPolicy) -> Result<()> {
         let started = Instant::now();
         let mut state = BuildIndexState::default();
 
         loop {
             let Some(remaining) = self.timeout.checked_sub(started.elapsed()) else {
-                return Err(Error::lsp(timeout_error(&state)));
+                return timeout_outcome(policy, &state);
             };
 
             match self.recv_message(remaining) {
@@ -110,7 +124,7 @@ impl LspClient {
                     ));
                 }
                 Err(RecvTimeoutError::Timeout) => {
-                    return Err(Error::lsp(timeout_error(&state)));
+                    return timeout_outcome(policy, &state);
                 }
                 Err(RecvTimeoutError::Disconnected) => {
                     return Err(Error::lsp(
@@ -229,9 +243,21 @@ fn timeout_error(state: &BuildIndexState) -> String {
     }
 }
 
+fn timeout_outcome(policy: CompletionPolicy, state: &BuildIndexState) -> Result<()> {
+    match policy {
+        CompletionPolicy::Confirmed => Err(Error::lsp(timeout_error(state))),
+        // Best-effort servers have no terminal signal. Still consume the bounded wait window so
+        // useful progress can finish, but do not misclassify the absence of a signal as failure.
+        CompletionPolicy::BestEffort => Ok(()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{diagnostic_uri, notification_is_readiness_hint};
+    use super::{
+        BuildIndexState, CompletionPolicy, diagnostic_uri, notification_is_readiness_hint,
+        timeout_outcome,
+    };
     use serde_json::json;
 
     #[test]
@@ -272,5 +298,11 @@ mod tests {
         assert!(!notification_is_readiness_hint(&status("ok", false)).expect("busy status"));
         assert!(notification_is_readiness_hint(&status("ok", true)).expect("ready status"));
         assert!(!notification_is_readiness_hint(&status("error", true)).expect("error status"));
+    }
+
+    #[test]
+    fn best_effort_accepts_missing_completion_signal_after_bounded_wait() {
+        assert!(timeout_outcome(CompletionPolicy::BestEffort, &BuildIndexState::default()).is_ok());
+        assert!(timeout_outcome(CompletionPolicy::Confirmed, &BuildIndexState::default()).is_err());
     }
 }

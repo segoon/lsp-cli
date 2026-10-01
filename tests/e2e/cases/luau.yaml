@@ -17,11 +17,6 @@ pairs:
     tier: smoke
     smoke:
       status: queries
-      exceptions:
-        - command: build-index
-          outcome: failure
-          message: background-work progress
-          reason: luau-lsp exposes no background-work progress signal
     lifecycle:
       status: scenarios
       direct-run:

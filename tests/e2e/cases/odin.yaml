@@ -21,10 +21,6 @@ pairs:
         - command: grep
           outcome: empty-matches
           reason: ols returns no workspace/symbol matches for this fixture
-        - command: build-index
-          outcome: failure
-          message: background-work progress
-          reason: ols exposes no background-work progress signal
     lifecycle:
       status: scenarios
       direct-run:

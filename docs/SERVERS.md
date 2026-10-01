@@ -69,8 +69,8 @@ These 15 servers exposed no usable terminal background-index signal in the real-
 `basedpyright`, `clangd`, `clojure_lsp`, `jedi_language_server`, `lua_ls`, `luau_lsp`, `ols`,
 `omnisharp`, `perlnavigator`, `pyright`, `roslyn_ls`, `ts_ls`, `vtsls`, `zls`, `zuban`.
 
-For these servers, `build-index` is intended to use explicit, data-driven best-effort semantics.
+For these servers, `build-index` uses explicit, data-driven best-effort semantics.
 Success must mean that the bounded best-effort operation completed, not that lsp-cli confirmed a
 fully indexed workspace. Servers outside this list retain confirmed-completion semantics. The
-implementation must not infer best-effort mode from language names, timeout messages, or a
+The implementation does not infer best-effort mode from language names, timeout messages, or a
 server-specific production branch.

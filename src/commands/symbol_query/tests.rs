@@ -40,6 +40,7 @@ fn render_server() -> SuggestedLanguage {
         command: vec!["pyright-langserver".to_string(), "--stdio".to_string()],
         workspace_root: PathBuf::from("."),
         wait_for_index: false,
+        build_index_completion: crate::config::BuildIndexCompletion::Confirmed,
         mason_extra_packages: Vec::new(),
     }
 }

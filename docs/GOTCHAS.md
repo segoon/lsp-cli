@@ -17,6 +17,11 @@
   or healthy quiescent `experimental/serverStatus` can shorten a workspace-symbol retry delay, but
   each is only a readiness hint. Consume at most one hint per query and retain bounded spacing for
   later retries; cached diagnostics must not collapse every remaining delay.
+- LSP has no universal signal proving that an entire workspace index is complete. Servers verified
+  not to expose a terminal `$/progress` or healthy quiescent `experimental/serverStatus` signal
+  use the explicit `build-index-completion: best-effort` data policy. The client still observes the
+  full bounded timeout and reports transport, protocol, server-status, and shutdown errors; only
+  expiry without a terminal signal is accepted, so success must not be described as confirmation.
 
 
 ## Diagnostics
@@ -154,7 +159,7 @@
   shutdown exchange. Its pygls worker may continue trying to write responses after stdout closes.
   Bounded direct-child cleanup now permits semantic smoke coverage without hiding a rejected or
   interrupted shutdown. Because the server exposes no terminal background-progress signal, its
-  `build-index` case retains a narrow exception rather than claiming confirmed index completion.
+  data selects bounded best-effort `build-index` semantics rather than confirmed completion.
 
 ## pylsp
 
@@ -261,8 +266,8 @@
 
 - In an isolated current-Mason run against the Python playground, pyright advertised workspace
   symbols but returned no matches before background analysis completed. It also exposed no
-  background-work completion signal usable by `build-index`; tests assert both bounded outcomes
-  instead of adding a fixed indexing sleep.
+  background-work completion signal usable by `build-index`; workspace queries retain bounded
+  readiness polling and indexing uses the explicit best-effort policy instead of a fixed sleep.
 - pyright does not implement `$/progress`/`workDoneProgress` or `experimental/serverStatus` over
   the language server protocol at all (it only reports progress via its separate CLI's
   `--outputjson` mode), so `wait_for_background_work` has no protocol signal to key off for this
@@ -276,8 +281,8 @@
 ## zuban
 
 - Current-Mason Zuban answers the Python playground's semantic queries but exposes no
-  background-work progress signal usable by `build-index`. Exhaustive coverage asserts the bounded
-  user-facing failure rather than inferring that indexing has completed.
+  background-work progress signal usable by `build-index`. Its data selects bounded best-effort
+  semantics and does not claim that indexing has completed.
 
 ## ty
 
@@ -311,15 +316,15 @@
   `workspace/symbol` request can fail with `No Project` before any document has been opened. A
   capability-aware test must distinguish this advertised-but-not-yet-ready behavior from an
   unsupported capability.
-- The server exposes no background-work progress notification usable by `build-index`; assert the
-  bounded user-facing failure instead of sleeping or assuming that project analysis completed.
+- The server exposes no background-work progress notification usable by `build-index`; its data
+  selects bounded best-effort semantics instead of sleeping or assuming project analysis completed.
 
 ## vtsls
 
 - In isolated current-Mason runs against the JavaScript and TypeScript playgrounds, vtsls returned
   no immediate workspace-symbol matches before project analysis completed and exposed no
-  background-work completion notification usable by `build-index`. Exhaustive coverage records
-  both bounded outcomes instead of relying on a fixed indexing delay.
+  background-work completion notification usable by `build-index`. Workspace-symbol retries and
+  the data-driven best-effort indexing policy keep both paths bounded without a fixed delay.
 
 ## jdtls
 
@@ -439,8 +444,8 @@
 - Two direct-process runs in that investigation completed their queries but failed while waiting
   for LuaLS to exit, adding the configured 30-second timeout. The debug trace showed a successful
   `shutdown` response followed by an `exit` notification. Bounded direct-child cleanup now makes
-  direct queries and lifecycle coverage reliable for this condition. `build-index` still retains
-  a narrow exception because LuaLS exposes no terminal signal proving workspace indexing is done.
+  direct queries and lifecycle coverage reliable for this condition. LuaLS selects best-effort
+  `build-index` because it exposes no terminal signal proving workspace indexing is done.
 
 ## rust-analyzer
 
@@ -466,18 +471,18 @@
 
 ## clangd
 
-- `clangd` may start successfully without sending the background-work progress notifications that
-  `lsp-cli` currently expects for `wait-for-index`/`build-index` flows. Keep normal symbol-query
-  configs on `wait-for-index: false` unless that progress reporting is confirmed for the target
-  `clangd` setup.
+- `clangd` may start successfully without sending background-work progress notifications. Its
+  `build-index` data therefore selects best-effort completion. Keep normal symbol-query configs on
+  `wait-for-index: false` unless progress reporting is confirmed for the target `clangd` setup;
+  explicit symbol-query waits retain confirmed semantics.
 - `compile_commands.json` requires absolute working directories, which makes a committed database
   stale when an E2E project is copied. Portable clangd fixtures should use `compile_flags.txt` or
   generate the database after copying instead of committing checkout-specific paths or a relative
   `directory` value.
 - clangd 22.1.6 returned document symbols, definitions, references, and call hierarchy for the
   CUDA, Objective-C, and Objective-C++ playgrounds, but an immediate `workspace/symbol` query
-  returned no matches. It also exposed no progress signal usable by `build-index`; capability-aware
-  tests need an explicit bounded policy rather than a fixed indexing sleep.
+  returned no matches. It also exposed no progress signal usable by `build-index`; its explicit
+  bounded best-effort policy avoids a fixed indexing sleep without claiming completion.
 - clangd 23.1.0 reproduced that race for Objective-C++ when an implementation-query interface was
   declared only in a `.hpp` file outside the `objcpp` fixture's `.mm` document scan: targeted runs
   could pass while the full parallel suite fell back to an empty immediate `workspace/symbol`

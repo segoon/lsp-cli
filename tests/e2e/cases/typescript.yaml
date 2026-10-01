@@ -22,11 +22,6 @@ pairs:
     tier: smoke
     smoke:
       status: queries
-      exceptions:
-        - command: build-index
-          outcome: failure
-          message: background-work progress
-          reason: typescript-language-server exposes no background-work progress signal
       lsp-timeout-seconds: 20
       deadline-seconds: 240
     lifecycle:
@@ -38,8 +33,3 @@ pairs:
     server: vtsls
     smoke:
       status: queries
-      exceptions:
-        - command: build-index
-          outcome: failure
-          message: background-work progress
-          reason: vtsls exposes no background-work completion notification

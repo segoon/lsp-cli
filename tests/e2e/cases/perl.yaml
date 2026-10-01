@@ -21,10 +21,6 @@ pairs:
         - command: definition
           outcome: variable-matches
           reason: perlnavigator returns either no result or the sub itself when goto-definition is requested at its declaration
-        - command: build-index
-          outcome: failure
-          message: background-work progress
-          reason: perlnavigator exposes no background-work progress signal
     lifecycle:
       status: scenarios
       direct-run:

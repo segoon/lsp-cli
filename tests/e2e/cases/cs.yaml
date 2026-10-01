@@ -16,11 +16,6 @@ pairs:
     server: omnisharp
     smoke:
       status: queries
-      exceptions:
-        - command: build-index
-          outcome: failure
-          message: background-work progress
-          reason: OmniSharp exposes no background-work completion notification
       lsp-timeout-seconds: 60
       deadline-seconds: 400
     lifecycle:
@@ -49,10 +44,6 @@ pairs:
         - command: type-definition
           outcome: empty-matches
           reason: BuildSampleOrder() is a method and has no applicable type-definition relationship
-        - command: build-index
-          outcome: failure
-          message: background-work progress
-          reason: Roslyn exposes no background-work completion notification
       callable-query: BuildSampleOrder()
       expected-names:
         - Playground.Models.Order

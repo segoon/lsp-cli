@@ -27,10 +27,6 @@ pairs:
         - command: declaration
           outcome: empty-matches
           reason: clojure-lsp returns no textDocument/declaration matches for this fixture
-        - command: build-index
-          outcome: failure
-          message: background-work progress
-          reason: clojure-lsp exposes no background-work progress signal
     lifecycle:
       status: scenarios
       direct-run:

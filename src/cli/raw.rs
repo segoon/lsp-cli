@@ -79,7 +79,7 @@ pub(crate) enum RawCommand {
     Implementation(RawImplementationArgs),
     #[command(about = "Find type definitions of a symbol name")]
     TypeDefinition(RawTypeDefinitionArgs),
-    #[command(about = "Wait for the server to finish indexing a workspace")]
+    #[command(about = "Wait for confirmed or configured best-effort workspace indexing")]
     BuildIndex(RawBuildIndexArgs),
     #[command(about = "Force update langages/servers database")]
     Update(RawUpdateArgs),

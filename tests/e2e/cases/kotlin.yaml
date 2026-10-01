@@ -21,7 +21,8 @@ pairs:
     server: kotlin_lsp
     smoke:
       status: excluded
-      reason: Mason kotlin-lsp/v262.9593.0 reports that its build has expired before LSP initialization.
+      reason: Kotlin LSP initializes, but returns no workspace symbols or references for the shared fixture.
     lifecycle:
-      status: excluded
-      reason: The current Mason build expires before a lifecycle client can initialize it.
+      status: scenarios
+      direct-run:
+        status: exchange

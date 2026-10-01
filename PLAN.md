@@ -1,7 +1,8 @@
 # E2E LSP compatibility investigation and remediation plan
 
 Status: Phase 0, expected-failure triage, Phase 2, Phase 3 workspace-symbol readiness plus bounded
-post-shutdown cleanup, and the Phase 4 CMake Language Server dependency repair are complete.
+post-shutdown cleanup, and the Phase 4 CMake Language Server and Kotlin LSP build repairs are
+complete.
 PerlNavigator definition targeting remains a TODO pending a product decision about use-site
 selection. Cross-server changed-fixture verification and Rust test-setup deduplication are
 complete.
@@ -75,16 +76,17 @@ These 13 servers do not overlap the 160 provisioning exclusions.
 | Cause | Servers | Examples |
 | --- | ---: | --- |
 | Shutdown or process-lifecycle incompatibility | 3 | `denols`, `jdtls`, `kotlin_language_server` |
-| Installation/startup prerequisite or upstream packaging failure | 4 | `arduino_language_server`, `kotlin_lsp`, `rpmspec`, `salt_ls` |
+| Installation/startup prerequisite or upstream packaging failure | 3 | `arduino_language_server`, `rpmspec`, `salt_ls` |
 | Missing generic initialization configuration | 1 | `astro` requires a TypeScript SDK path in `initializationOptions` |
-| Shared semantic-profile mismatch or unstable results | 5 | `pylsp`, `pyre`, `pyrefly`, `roslyn_ls`, `ty` |
+| Shared semantic-profile mismatch or unstable results | 6 | `kotlin_lsp`, `pylsp`, `pyre`, `pyrefly`, `roslyn_ls`, `ty` |
 
 Important details:
 
 - Deno rejects the standard parameterless `shutdown` request by demanding non-null parameters.
 - Deno rejects shutdown, while jdtls and Kotlin Language Server retain distinct direct-lifecycle
   failures that occur after the exchange.
-- Kotlin LSP's pinned Mason build reports that it has expired.
+- Kotlin LSP's current Mason build initializes and shuts down cleanly, but returns no workspace
+  symbols or references for the shared fixture even after its background-work progress completes.
 - Arduino Language Server needs board-specific external configuration and tools.
 - Some Python servers initialize but do not expose enough discoverable semantic information for
   the shared source-language query profile.
@@ -465,7 +467,10 @@ Prioritize fixes that do not require new product architecture:
 - ~~Update or constrain the `cmake-language-server`/pygls combination.~~ Complete: LSP data can
   add generic Mason `extra_packages`, PyPI installs honor them, and CMake Language Server pins
   `pygls<2` until upstream publishes a compatible dependency declaration;
-- select a non-expired Kotlin LSP build when available;
+- ~~Select a non-expired Kotlin LSP build when available.~~ Complete: Mason now resolves
+  `kotlin-lsp/v263.4702.0`; provisioning and direct lifecycle coverage are enabled. Semantic smoke
+  remains excluded because the server returns neither workspace symbols nor references for the
+  shared fixture after reporting background work complete;
 - verify `salt-lsp` against the managed Python runtime;
 - determine whether compatible RPM Python bindings can be staged hermetically;
 - decide whether Arduino's board core, CLI configuration, clangd, and FQBN belong in a dedicated
@@ -481,6 +486,16 @@ Phase 4 CMake Language Server validation:
   propagated to Mason resolution without a server-specific production branch;
 - `make -j10 test-e2e CASE=cmake/cmake` passed both planned cases: provisioning and capability
   exchange. The former startup exclusion was removed.
+
+Phase 4 Kotlin LSP validation:
+
+- the Mason package resolved `kotlin-lsp/v263.4702.0`, replacing the expired
+  `kotlin-lsp/v262.9593.0` build;
+- `make -j10 test-e2e CASE=kotlin/kotlin_lsp` passed both executable scopes: provisioning and the
+  direct lifecycle exchange. Semantic smoke remains a reviewed exclusion;
+- exploratory semantic runs confirmed that waiting for terminal work-done progress, including a
+  120-second per-request allowance, does not produce workspace-symbol or reference matches. No
+  Kotlin-specific production behavior or broad timing relaxation was retained.
 
 Pros:
 

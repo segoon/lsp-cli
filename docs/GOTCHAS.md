@@ -337,10 +337,14 @@
   and executable path. Mason version prefixes are package-specific, so lsp-cli's template renderer
   supports quoted `version | strip_prefix "<literal>"` expressions rather than special-casing the
   Kotlin prefix. Unsupported filters remain unresolved instead of being guessed.
-- Mason version `kotlin-lsp/v262.9593.0` downloads and launches, but `intellij-server` reports that
-  the build has expired and exits before completing LSP initialization. Detection and file listing
-  still work, and a daemon can create its socket and be stopped, but capability and semantic checks
-  are blocked until the registry provides a usable build.
+- Mason version `kotlin-lsp/v262.9593.0` downloaded and launched, but `intellij-server` reported
+  that the build had expired before completing LSP initialization. The registry later moved to
+  `kotlin-lsp/v263.4702.0`, which initializes and completes a direct shutdown exchange.
+- Version `kotlin-lsp/v263.4702.0` starts Gradle synchronization and may download a Gradle
+  distribution during a cold start. It reports terminal work-done progress, but still returns no
+  workspace-symbol or reference matches for the shared Kotlin fixture. A longer progress wait does
+  not repair those semantic results, so semantic smoke remains excluded while lifecycle coverage
+  runs independently.
 
 ## roslyn-language-server
 

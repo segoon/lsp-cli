@@ -152,6 +152,25 @@ pub(crate) enum QueryKind {
 }
 
 impl QueryKind {
+    pub(crate) const fn command_name(self) -> &'static str {
+        match self {
+            Self::ServerCapabilities => "server-capabilities",
+            Self::Diagnostics => "diagnostics",
+            Self::Format => "format",
+            Self::Grep => "grep",
+            Self::ListSymbols => "list-symbols",
+            Self::ListFunctions => "list-functions",
+            Self::References => "references",
+            Self::Callers => "callers",
+            Self::Callees => "callees",
+            Self::Definition => "definition",
+            Self::Declaration => "declaration",
+            Self::Implementation => "implementation",
+            Self::TypeDefinition => "type-definition",
+            Self::BuildIndex => "build-index",
+        }
+    }
+
     fn accepts_query_override(self) -> bool {
         matches!(
             self,

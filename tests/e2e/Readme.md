@@ -20,7 +20,7 @@ queries.
 
 The current inventory (detectable filetypes, relevant servers, compatible pairs) is derived
 directly from the pinned `lsp-cli-data` submodule revision and drifts as that data changes; treat
-`tests/e2e/cases/` (one YAML file per language ID) and `tests/e2e/cases/suite.yaml`
+`server-support/` (one YAML file per language ID) and `server-support/suite.yaml`
 (`schema-version`, `coverage: complete`) as the source of truth for current counts rather than any
 number written here.
 
@@ -194,8 +194,8 @@ Each test process sets at least:
 Do not rely on a developer's user configuration, downloaded server cache, daemon sockets, current
 shell, or ambient server versions.
 
-`tests/e2e/cases/suite.yaml` owns global command coverage and assigns every canonical command a
-coverage strategy; each `tests/e2e/cases/<language>.yaml` owns one project and its configured
+`server-support/suite.yaml` owns global command coverage and assigns every canonical command a
+coverage strategy; each `server-support/<language>.yaml` owns one project and its configured
 server behavior. Case YAML contains only E2E-specific behavior — it does not duplicate each
 server's `filetypes` list, which is derived from `data/lsp-cli.yaml`. Pair entries are sparse E2E
 behavior overlays keyed by the LSP YAML filename stem as their stable config ID; bare compatibility
@@ -404,11 +404,11 @@ make test-e2e SERVER=pyright PHASE=provision
 silently running no tests. Smoke membership is an explicit `tier: smoke` property in the case
 manifest; it is not inferred from preferred-server metadata.
 
-Known failures are listed explicitly in `cases/suite.yaml` under `expected-failures`. They continue
-to run, but a matching failure does not fail the target. Every entry declares a `stage` and a
-`diagnostic-contains` substring; a different primary stage, diagnostic, or any additional failure
-stage remains fatal. Passing marked cases are reported separately so repaired cases can be
-reviewed and stale markers removed.
+Known failures are listed explicitly in `server-support/suite.yaml` under `expected-failures`.
+They continue to run, but a matching failure does not fail the target. Every entry declares a
+`stage` and a `diagnostic-contains` substring; a different primary stage, diagnostic, or any
+additional failure stage remains fatal. Passing marked cases are reported separately so repaired
+cases can be reviewed and stale markers removed.
 
 GNU Make's `-jN` option runs up to `N` independently isolated cases concurrently. Omitting `-j`
 keeps the suite sequential, which is useful when reproducing a failure. Provisioning, smoke, and

@@ -351,17 +351,27 @@ fn selected_lifecycle_count(manifest: &Manifest, selection: &Selection) -> usize
         .count()
 }
 
+fn render_servers_doc() -> Result<(), String> {
+    let document =
+        Manifest::load_validated(repository_root())?.render_server_docs(repository_root())?;
+    print!("{document}");
+    Ok(())
+}
+
 fn main() -> ExitCode {
-    let mut args = std::env::args();
-    let _program = args.next();
-    if args.len() == 0 {
+    let args = std::env::args().skip(1).collect::<Vec<_>>();
+    if args.is_empty() {
         return ExitCode::SUCCESS;
     }
-    let result = Selection::parse(args).and_then(|selection| match &selection.action {
-        Action::Run => run(&selection),
-        Action::ListWork => list_work(&selection),
-        Action::MergeResults(directory) => merge_results(&selection, directory),
-    });
+    let result = if args == ["--render-servers-doc"] {
+        render_servers_doc()
+    } else {
+        Selection::parse(args.into_iter()).and_then(|selection| match &selection.action {
+            Action::Run => run(&selection),
+            Action::ListWork => list_work(&selection),
+            Action::MergeResults(directory) => merge_results(&selection, directory),
+        })
+    };
     match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {

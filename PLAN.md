@@ -7,7 +7,7 @@ complete.
 
 This document records the current E2E compatibility findings and prepares the work needed to
 reduce exceptions, expected failures, and exclusions. Counts are derived from
-`tests/e2e/cases/suite.yaml` and the language case files in `tests/e2e/cases/`. They describe the
+`server-support/suite.yaml` and the language case files in `server-support/`. They describe the
 currently pinned `lsp-cli-data` revision and will drift when that revision changes.
 
 ## Executive summary

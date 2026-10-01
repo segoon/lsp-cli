@@ -16,6 +16,8 @@ use validation::validate_config_id;
 mod lifecycle_case;
 #[path = "manifest/real_server_case.rs"]
 mod real_server_case;
+#[path = "manifest/server_docs.rs"]
+mod server_docs;
 use lifecycle_case::LifecycleDisposition;
 pub(crate) use lifecycle_case::RealServerLifecycleCase;
 #[path = "manifest/provisioning_case.rs"]
@@ -149,7 +151,7 @@ impl Manifest {
     }
 
     fn load_cases(repository: &Path) -> Result<Self, String> {
-        let directory = repository.join("tests/e2e/cases");
+        let directory = repository.join("server-support");
         let suite_path = directory.join("suite.yaml");
         let suite: SuiteFile = read_yaml(&suite_path)?;
         let mut languages = Vec::new();

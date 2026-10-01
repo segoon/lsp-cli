@@ -281,7 +281,7 @@ mod tests {
             },
         );
 
-        assert!(resolved.is_empty());
+        assert_eq!(resolved, Vec::new());
     }
 
     #[cfg(unix)]
@@ -310,6 +310,6 @@ mod tests {
             },
         );
 
-        assert!(resolved.is_empty());
+        assert_eq!(resolved, Vec::new());
     }
 }

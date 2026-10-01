@@ -49,7 +49,7 @@ fn complete_manifest_matches_pinned_data() {
             .iter()
             .filter(|server| server.is_capabilities_only())
             .count(),
-        53
+        41
     );
     assert_eq!(
         manifest

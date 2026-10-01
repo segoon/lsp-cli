@@ -302,7 +302,9 @@ mod tests {
 
     #[test]
     fn best_effort_accepts_missing_completion_signal_after_bounded_wait() {
-        assert!(timeout_outcome(CompletionPolicy::BestEffort, &BuildIndexState::default()).is_ok());
-        assert!(timeout_outcome(CompletionPolicy::Confirmed, &BuildIndexState::default()).is_err());
+        timeout_outcome(CompletionPolicy::BestEffort, &BuildIndexState::default())
+            .expect("best-effort completion accepts a missing signal");
+        timeout_outcome(CompletionPolicy::Confirmed, &BuildIndexState::default())
+            .expect_err("confirmed completion requires a signal");
     }
 }

@@ -262,9 +262,9 @@ mod tests {
             select_expected_names(Some(&override_), &defaults),
             override_
         );
-        assert!(validate_expected_names(&override_, "pair").is_ok());
+        validate_expected_names(&override_, "pair").expect("valid expected names");
         for invalid in [Vec::new(), vec![String::new()]] {
-            assert!(validate_expected_names(&invalid, "pair").is_err());
+            validate_expected_names(&invalid, "pair").expect_err("invalid expected names");
         }
         assert_eq!(select_callable_query(None, "default"), "default");
         assert_eq!(

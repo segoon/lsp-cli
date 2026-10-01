@@ -86,7 +86,10 @@ fn debug_serialization_runs_after_enqueue() {
         .logger()
         .debug("prefix: ", Arc::new(json!({"answer": 42})));
     wait_until_entered(&state);
-    assert!(state.0.lock().expect("sink state").records.is_empty());
+    assert_eq!(
+        state.0.lock().expect("sink state").records,
+        Vec::<String>::new()
+    );
     release(&state);
     worker.finish(Duration::from_secs(1));
     assert_eq!(

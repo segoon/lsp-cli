@@ -66,7 +66,7 @@ fn expiry_wins_over_a_buffered_first_message() {
     let (mut reader, mut peer) = pair(Instant::now() + TEST_TIMEOUT);
     write_message(&mut peer, &json!({"id": 1})).expect("first frame");
     // Prefill the exact production buffer, then expire the deadline without relying on sleep.
-    assert!(!reader.reader.fill_buf().expect("prefill").is_empty());
+    assert_ne!(reader.reader.fill_buf().expect("prefill"), &[] as &[u8]);
     reader.reader.get_mut().deadline = Some(Instant::now());
     reader
         .next_message()

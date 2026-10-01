@@ -259,6 +259,6 @@ mod tests {
         )
         .expect("unchanged report should decode");
 
-        assert!(diagnostics.is_empty());
+        assert_eq!(diagnostics, Vec::new());
     }
 }

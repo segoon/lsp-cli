@@ -508,7 +508,9 @@ The product owner resolved the coverage boundary:
    response and `exit` notification, with a one-second grace period bounded by the user timeout.
 
 Phase 7 found that `home_assistant` and `standardrb` belong to the unsupported-family decision,
-leaving 53 capability-only servers and increasing that excluded inventory from 11 to 13.
+leaving 41 capability-only servers and increasing that excluded inventory from 11 to 13. Another
+12 servers are provisioning-excluded because the pinned Mason snapshot has no package from which
+to derive a workflow installation family.
 
 ### Phase 6: implement data-driven best-effort indexing
 
@@ -533,9 +535,9 @@ rejected because it observes no work; global timeout acceptance would silently w
   without pretending every compatible pair satisfies the shared semantic profile.
 - A comma-separated `SERVER` selector permits one affected-only `-j10` invocation; selection and
   expected-failure validation recognize generated owner-language cases.
-- 53 servers now execute provisioning and capability coverage. Against pinned Mason release
+- 41 servers now execute provisioning and capability coverage. Against pinned Mason release
   `2026-09-30-aboard-mob`, 30 initialize successfully; LTeX launchers require explicit generic
-  host tools. The remaining 23 servers account for 39 concrete expected failures across
+  host tools. The remaining 11 servers account for 15 concrete expected failures across
   provisioning and capabilities, documented in the manifest and `docs/GOTCHAS.md`.
 - `home_assistant` (Open VSX) and `standardrb` (RubyGems) remain excluded according to the product
   decision, and the complete inventories are updated in `docs/SERVERS.md`.

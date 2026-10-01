@@ -431,7 +431,7 @@ fn push_version_part(
     // signal is guaranteed to be Some. A None here implies an empty segment
     // we can drop.
     let Some(is_digit) = current_is_digit.take() else {
-        debug_assert!(current.is_empty());
+        debug_assert_eq!(current, "");
         return;
     };
     if current.is_empty() {

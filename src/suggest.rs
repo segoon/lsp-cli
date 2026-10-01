@@ -276,7 +276,7 @@ mod tests {
         )
         .expect("suggestions should succeed");
 
-        assert!(suggestions.is_empty());
+        assert_eq!(suggestions, Vec::new());
     }
 
     #[test]
@@ -305,7 +305,7 @@ mod tests {
         )
         .expect("suggestions should succeed");
 
-        assert!(suggestions.is_empty());
+        assert_eq!(suggestions, Vec::new());
     }
 
     #[test]

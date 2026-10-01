@@ -194,7 +194,7 @@ fn call_hierarchy_queries_filter_non_functions() {
             },
         )
         .expect("call hierarchy");
-        assert!(matches.is_empty());
+        assert_eq!(matches, Vec::new());
         client.shutdown().expect("shutdown");
         server.join().expect("server finishes");
     }

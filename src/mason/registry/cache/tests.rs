@@ -171,6 +171,6 @@ fn does_not_retry_an_unrelated_forbidden_response() {
     let error = result.expect_err("unrelated forbidden response should fail");
     assert!(error.contains("failed to fetch Mason registry metadata"));
     assert!(!error.contains("after 4 attempts"));
-    assert!(delays.is_empty());
+    assert_eq!(delays, Vec::new());
     assert_eq!(requests.len(), 1);
 }

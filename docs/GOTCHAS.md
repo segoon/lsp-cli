@@ -103,6 +103,9 @@
   `markdown_oxide`, `v_analyzer`, and `gitlab_ci_ls` close the transport before the shutdown
   response is read; `csskit` rejects `shutdown` as an unknown method. These must remain separate
   from post-`exit` hangs because a tolerant cleanup policy cannot safely treat them identically.
+- `glsl_analyzer` 1.7.1 and Verible `v0.0-4296-g0f262651` acknowledge `shutdown` and then close the
+  transport before the client can send the required `exit` notification. The resulting broken
+  pipe is distinct from both a missing shutdown response and a process that lingers after `exit`.
 - Five initialize responses are not decodable as LSP: Bicep and Che4z COBOL emit output without a
   `Content-Length` header, Crystalline emits an invalid header, Foam returns boolean `false` where
   `CompletionOptions` are required, and NTT returns `null` where a sequence is required.
@@ -484,10 +487,12 @@
   contains a literal `/path/to/node_modules/...` placeholder. Both need data fixes, not generic
   language-specific production branches.
 - The pinned Mason snapshot has packages whose configured executable cannot be installed or
-  resolved for `debputy`, `fortitude`, `gitlab_duo`, `nextflow_ls`, `selene3p_ls`, `spectral`,
-  `sqruff`, `statix`, `stylelint_lsp`, `stylua3p_ls`, `theme_check`, `ttags`, `turbo_ls`,
-  `tvm_ffi_navigator`, and `vacuum`. Keep these as explicit provisioning and capability expected
-  failures until either the catalog command or Mason recipe is corrected.
+  resolved for `nextflow_ls`, `spectral`, and `stylelint_lsp`. Keep these as explicit provisioning
+  and capability expected failures until either the catalog command or Mason recipe is corrected.
+- The pinned Mason snapshot has no package for `debputy`, `fortitude`, `gitlab_duo`, `selene3p_ls`,
+  `sqruff`, `statix`, `stylua3p_ls`, `theme_check`, `ttags`, `turbo_ls`, `tvm_ffi_navigator`, or
+  `vacuum`. Keep them provisioning-excluded rather than assigning capability coverage: the
+  workflow planner cannot infer an installation family for a package that does not exist.
 - LTeX and LTeX Plus launch through `/usr/bin/env sh` and call standard shell utilities. Their
   isolated cases must stage `sh`, `dirname`, `uname`, and `which`; LTeX also needs host `java`,
   while LTeX Plus includes its own JDK.

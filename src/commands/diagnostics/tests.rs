@@ -47,6 +47,7 @@ fn renders_diagnostics_json_output() {
             command: vec!["rust-analyzer".to_string()],
             workspace_root: PathBuf::from("/workspace"),
             wait_for_index: false,
+            mason_extra_packages: Vec::new(),
         },
         &[diagnostic(
             "src/main.rs",

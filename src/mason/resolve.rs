@@ -81,13 +81,11 @@ fn resolve_suggestion_from_path_or_cache(
     let Some(registry) = registry else {
         return Ok(None);
     };
-    let Some(package) =
-        registry.package_for_detected(&suggestion.config_id, &suggestion.server, program)
-    else {
+    let Some(package) = package_for_suggestion(registry, suggestion, program) else {
         return Ok(None);
     };
 
-    let Ok(Some(executable_path)) = resolve_cached_program(state, package, program) else {
+    let Ok(Some(executable_path)) = resolve_cached_program(state, &package, program) else {
         return Ok(None);
     };
 
@@ -117,22 +115,37 @@ fn install_suggestion(
         ));
     };
     let registry = registry.get_or_insert(MasonRegistry::load(state)?);
-    let Some(package) =
-        registry.package_for_detected(&suggestion.config_id, &suggestion.server, program)
-    else {
+    let Some(package) = package_for_suggestion(registry, suggestion, program) else {
         return Err(Error::unexpected(format!(
             "no Mason install recipe is available for detected server {}",
             suggestion.server
         )));
     };
-    let executable_path = resolve_or_install_program(state, package, program)?;
+    let executable_path = resolve_or_install_program(state, &package, program)?;
 
     Ok(rewrite_program(suggestion, &executable_path))
 }
 
+fn package_for_suggestion(
+    registry: &MasonRegistry,
+    suggestion: &SuggestedLanguage,
+    program: &str,
+) -> Option<crate::mason::registry::MasonPackage> {
+    let mut package = registry
+        .package_for_detected(&suggestion.config_id, &suggestion.server, program)?
+        .clone();
+    for dependency in &suggestion.mason_extra_packages {
+        if !package.source.extra_packages.contains(dependency) {
+            package.source.extra_packages.push(dependency.clone());
+        }
+    }
+    Some(package)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::resolve_detect_suggestions;
+    use super::{package_for_suggestion, resolve_detect_suggestions};
+    use crate::mason::registry::MasonRegistry;
     use crate::test_support::{
         TestDir, env_var, jdtls_package, make_executable, pyright_package, runtime_state_in_home,
         suggested_language, with_env_vars, write_registry,
@@ -154,6 +167,27 @@ mod tests {
         write_registry(&state, packages);
         let package_dir = state.package_dir(package_name);
         (dir, package_dir, state)
+    }
+
+    #[test]
+    fn merges_data_dependencies_into_the_registry_package() {
+        let mut registry_package = pyright_package();
+        registry_package.source.extra_packages = vec!["shared==1".to_string()];
+        let (_dir, _package_dir, state) =
+            prepare_registry_test_home("pyright", &[registry_package]);
+        let registry = MasonRegistry::load_cached(&state).expect("registry should load");
+        let mut suggestion =
+            suggested_language("pyright-langserver", "pyright", "pyright", "python");
+        suggestion.mason_extra_packages =
+            vec!["shared==1".to_string(), "compatibility<2".to_string()];
+
+        let package = package_for_suggestion(&registry, &suggestion, "pyright-langserver")
+            .expect("package should resolve");
+
+        assert_eq!(
+            package.source.extra_packages,
+            ["shared==1", "compatibility<2"]
+        );
     }
 
     #[cfg(unix)]

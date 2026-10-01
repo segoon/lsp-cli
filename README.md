@@ -388,6 +388,12 @@ cmdline: "clangd --background-index --compile-commands-dir=$WORKSPACE"
 wait-for-index: false
 ```
 
+An LSP config can declare `mason-extra-packages` when its Mason package has an incomplete
+dependency constraint. With automatic downloads, lsp-cli installs these package specifications in
+the same npm or Python environment as the server. For example, CMake Language Server currently
+uses `pygls<2` because its released code imports the pygls 1.x API. This is a compatibility escape
+hatch; prefer an upstream package constraint when one is available.
+
 ## Commands and options
 
 <!-- BEGIN GENERATED COMMANDS -->

@@ -13,6 +13,7 @@ pub struct SuggestedLanguage {
     pub command: Vec<String>,
     pub workspace_root: PathBuf,
     pub wait_for_index: bool,
+    pub mason_extra_packages: Vec<String>,
 }
 
 pub fn suggestions_for(
@@ -113,6 +114,7 @@ fn build_suggestion(
         command,
         workspace_root,
         wait_for_index: lsp.wait_for_index,
+        mason_extra_packages: lsp.mason_extra_packages.clone(),
     })
 }
 
@@ -195,6 +197,7 @@ mod tests {
             name: "example-lsp".to_string(),
             cmdline: "example-lsp --stdio $WORKSPACE".to_string(),
             wait_for_index: false,
+            mason_extra_packages: Vec::new(),
         }
     }
 
@@ -206,6 +209,7 @@ mod tests {
             command: vec![server.to_string()],
             workspace_root: Path::new(".").to_path_buf(),
             wait_for_index: false,
+            mason_extra_packages: Vec::new(),
         }
     }
 
@@ -233,6 +237,7 @@ mod tests {
                 ],
                 workspace_root: workspace,
                 wait_for_index: false,
+                mason_extra_packages: Vec::new(),
             }]
         );
     }
@@ -241,6 +246,7 @@ mod tests {
     fn carries_wait_for_index_from_config() {
         let mut lsp = example_lsp();
         lsp.wait_for_index = true;
+        lsp.mason_extra_packages = vec!["pygls<2".to_string()];
         let dir = TestDir::new("suggest");
         let workspace = dir.path().join("workspace");
 
@@ -248,6 +254,7 @@ mod tests {
             .expect("suggestions should succeed");
 
         assert!(suggestions[0].wait_for_index);
+        assert_eq!(suggestions[0].mason_extra_packages, ["pygls<2"]);
     }
 
     #[test]

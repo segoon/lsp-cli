@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 const VENV_DIRECTORY: &str = "local";
-const VENV_LAYOUT_MARKER: &str = ".lsp-cli-pypi-venv-v1";
+const VENV_LAYOUT_MARKER: &str = ".lsp-cli-pypi-venv-v2";
 
 pub(super) fn resolve_cached_program(
     state: &RuntimeState,
@@ -48,7 +48,13 @@ pub(super) fn install_pypi_package(
             python.display()
         )));
     }
-    let mut install = pypi_install_command(&python, package_name, version, extras);
+    let mut install = pypi_install_command(
+        &python,
+        package_name,
+        version,
+        extras,
+        &package.source.extra_packages,
+    );
     run_install_command(&mut install, package, "virtual-environment pip")?;
 
     let resolved = resolve_program(package, program, state, &TemplateContext::empty())?;
@@ -60,12 +66,26 @@ pub(super) fn install_pypi_package(
         &TemplateContext::empty(),
         "virtual-environment pip did not produce a runnable",
     )?;
-    crate::fs::write(&layout_marker(state, package), b"1\n")?;
+    crate::fs::write(
+        &layout_marker(state, package),
+        layout_signature(package).as_bytes(),
+    )?;
     Ok(installed)
 }
 
 fn has_current_layout(state: &RuntimeState, package: &MasonPackage) -> bool {
-    layout_marker(state, package).is_file()
+    std::fs::read_to_string(layout_marker(state, package))
+        .is_ok_and(|contents| contents == layout_signature(package))
+}
+
+fn layout_signature(package: &MasonPackage) -> String {
+    // Debug formatting keeps this private cache marker deterministic and unambiguous without
+    // introducing a second persisted-data schema. Any source or dependency change rebuilds only
+    // this package's virtual environment.
+    format!(
+        "{:?}\n{:?}\n",
+        package.source.id, package.source.extra_packages
+    )
 }
 
 fn layout_marker(state: &RuntimeState, package: &MasonPackage) -> PathBuf {
@@ -88,6 +108,7 @@ fn pypi_install_command(
     package_name: &str,
     version: &str,
     extras: &[String],
+    extra_packages: &[String],
 ) -> Command {
     let install_spec = if extras.is_empty() {
         format!("{package_name}=={version}")
@@ -100,7 +121,8 @@ fn pypi_install_command(
         .arg("pip")
         .arg("install")
         .arg("--disable-pip-version-check")
-        .arg(install_spec);
+        .arg(install_spec)
+        .args(extra_packages);
     command
 }
 
@@ -134,6 +156,7 @@ mod tests {
             "python-lsp-server",
             "1.15.0",
             &["all".to_string()],
+            &["pygls<2".to_string()],
         );
         assert_eq!(install.get_program(), "managed/python/local/bin/python3");
         assert_eq!(
@@ -144,6 +167,7 @@ mod tests {
                 "install",
                 "--disable-pip-version-check",
                 "python-lsp-server[all]==1.15.0",
+                "pygls<2",
             ]
         );
     }
@@ -160,6 +184,7 @@ mod tests {
             "#!/bin/sh\n\
              test \"$1\" = -m || exit 20\n\
              test \"$2\" = pip || exit 21\n\
+             test \"$6\" = 'fixture-dependency<2' || exit 22\n\
              root=${0%/*}\n\
              /bin/printf 'installed\\n' > \"$root/../fixture-module\"\n\
              /bin/printf '#!/bin/sh\\ntest -f \"${0%%/*}/../fixture-module\"\\n' > \"$root/fixture-lsp\"\n\
@@ -214,6 +239,17 @@ mod tests {
                 .expect("valid virtual environment should be reused"),
             installed
         );
+
+        let mut changed_package = package;
+        changed_package
+            .source
+            .extra_packages
+            .push("another-dependency==1".to_string());
+        let error = with_env_vars(&[env_var("PATH", "/nonexistent")], || {
+            resolve_or_install_program(&state, &changed_package, "fixture-lsp")
+                .expect_err("a changed dependency set should invalidate the cached environment")
+        });
+        assert!(error.contains("python3"), "unexpected error: {error}");
     }
 
     fn pypi_package() -> MasonPackage {
@@ -222,7 +258,7 @@ mod tests {
             categories: vec!["LSP".to_string()],
             source: MasonSource {
                 id: "pkg:pypi/fixture-package@1.2.3".to_string(),
-                extra_packages: Vec::new(),
+                extra_packages: vec!["fixture-dependency<2".to_string()],
                 asset: None,
                 download: None,
                 version_overrides: Vec::new(),

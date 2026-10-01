@@ -57,6 +57,7 @@ mod tests {
                     name: "pyright".to_string(),
                     cmdline: "pyright-langserver --stdio".to_string(),
                     wait_for_index: false,
+                    mason_extra_packages: Vec::new(),
                 },
                 LspConfig {
                     id: "ruff".to_string(),
@@ -65,6 +66,7 @@ mod tests {
                     name: "ruff".to_string(),
                     cmdline: "ruff server".to_string(),
                     wait_for_index: false,
+                    mason_extra_packages: Vec::new(),
                 },
                 LspConfig {
                     id: "rust_analyzer".to_string(),
@@ -73,6 +75,7 @@ mod tests {
                     name: "rust-analyzer".to_string(),
                     cmdline: "rust-analyzer".to_string(),
                     wait_for_index: false,
+                    mason_extra_packages: Vec::new(),
                 },
                 LspConfig {
                     id: "rust_analyzer_alt".to_string(),
@@ -81,6 +84,7 @@ mod tests {
                     name: "rust-analyzer".to_string(),
                     cmdline: "rust-analyzer --stdio".to_string(),
                     wait_for_index: false,
+                    mason_extra_packages: Vec::new(),
                 },
             ],
             cli: CliConfig::default(),

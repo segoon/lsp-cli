@@ -317,9 +317,11 @@ npm, PyPI, Cargo, Go, NuGet, GitHub, or generic package sources supported by the
 PyPI packages use a per-package virtual environment under the Mason package's `local/` directory.
 Generated console scripts therefore use the same Python environment that contains their modules,
 without an ambient `PYTHONPATH`. A versioned marker distinguishes this layout from old
-`pip --prefix` installations; a missing marker rebuilds only that package's `local/` environment.
-The tradeoff is additional disk use, and Python installations without `venv` or `ensurepip` cannot
-install PyPI-backed servers.
+`pip --prefix` installations and records the source plus extra dependency constraints. A missing
+or mismatched marker rebuilds only that package's `local/` environment. Mason `extra_packages` and
+data-provided `mason-extra-packages` are resolved in the same pip transaction as the primary
+package. The tradeoff is additional disk use, and Python installations without `venv` or
+`ensurepip` cannot install PyPI-backed servers.
 
 Language SDKs and package-manager runtimes remain explicit host prerequisites, with their resolver
 commands kept in the manifest so a missing prerequisite produces a case-specific error rather than

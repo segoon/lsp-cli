@@ -144,7 +144,9 @@ fn loads_valid_config_store() {
             "  - compile_commands.json\n",
             "name: clangd\n",
             "cmdline: clangd --background-index $WORKSPACE\n",
-            "wait-for-index: true\n"
+            "wait-for-index: true\n",
+            "mason-extra-packages:\n",
+            "  - 'pygls<2'\n"
         ),
     );
 
@@ -156,6 +158,7 @@ fn loads_valid_config_store() {
     assert_eq!(config.lsps[0].id, "clangd");
     assert_eq!(config.lsps[0].name, "clangd");
     assert!(config.lsps[0].wait_for_index);
+    assert_eq!(config.lsps[0].mason_extra_packages, ["pygls<2"]);
     assert_eq!(config.cli, super::CliConfig::default());
 }
 

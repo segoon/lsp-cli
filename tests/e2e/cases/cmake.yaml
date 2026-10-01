@@ -6,8 +6,7 @@ pairs:
   - language: cmake
     server: cmake
     smoke:
-      status: excluded
-      reason: cmake-language-server 0.1.11 installs an incompatible current pygls release and cannot import LanguageServer during startup.
+      status: capabilities
   - language: cmake
     server: neocmake
     smoke:

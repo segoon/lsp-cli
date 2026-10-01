@@ -1,9 +1,10 @@
 # E2E LSP compatibility investigation and remediation plan
 
-Status: Phase 0, expected-failure triage, Phase 2, and Phase 3 workspace-symbol readiness plus
-bounded post-shutdown cleanup are complete. PerlNavigator definition targeting remains a TODO
-pending a product decision about use-site selection. Cross-server changed-fixture verification
-and Rust test-setup deduplication are complete.
+Status: Phase 0, expected-failure triage, Phase 2, Phase 3 workspace-symbol readiness plus bounded
+post-shutdown cleanup, and the Phase 4 CMake Language Server dependency repair are complete.
+PerlNavigator definition targeting remains a TODO pending a product decision about use-site
+selection. Cross-server changed-fixture verification and Rust test-setup deduplication are
+complete.
 
 This document records the current E2E compatibility findings and prepares the work needed to
 reduce exceptions, expected failures, and exclusions. Counts are derived from
@@ -12,12 +13,12 @@ currently pinned `lsp-cli-data` revision and will drift when that revision chang
 
 ## Executive summary
 
-The E2E inventory contains 358 distinct LSP server IDs. Of these, 250 appear in at least one of
+The E2E inventory contains 358 distinct LSP server IDs. Of these, 249 appear in at least one of
 the following categories:
 
 - 18 servers have one or more explicit query exceptions;
 - 60 servers have one or more expected-failure cases;
-- 174 servers are excluded from at least one provisioning or executable-test scope.
+- 173 servers are excluded from at least one provisioning or executable-test scope.
 
 These sets overlap:
 
@@ -25,9 +26,9 @@ These sets overlap:
 - `salt_ls` has both an expected failure and an exclusion;
 - no server appears in all three categories.
 
-Consequently, 108 of the 358 servers have none of these classifications.
+Consequently, 109 of the 358 servers have none of these classifications.
 
-The 250 servers must not be treated as 250 confirmed server defects. Most are coverage or product
+The 249 servers must not be treated as 249 confirmed server defects. Most are coverage or product
 policy exclusions. All remaining expected failures are now diagnosed against a pinned registry
 snapshot.
 
@@ -67,14 +68,14 @@ These classifications are mutually exclusive:
 
 These entries are primarily provisioning or scope gaps, not evidence of LSP protocol failure.
 
-### Pair-level exclusions: 14 servers
+### Pair-level exclusions: 13 servers
 
-These 14 servers do not overlap the 160 provisioning exclusions.
+These 13 servers do not overlap the 160 provisioning exclusions.
 
 | Cause | Servers | Examples |
 | --- | ---: | --- |
 | Shutdown or process-lifecycle incompatibility | 3 | `denols`, `jdtls`, `kotlin_language_server` |
-| Installation/startup prerequisite or upstream packaging failure | 5 | `arduino_language_server`, `cmake`, `kotlin_lsp`, `rpmspec`, `salt_ls` |
+| Installation/startup prerequisite or upstream packaging failure | 4 | `arduino_language_server`, `kotlin_lsp`, `rpmspec`, `salt_ls` |
 | Missing generic initialization configuration | 1 | `astro` requires a TypeScript SDK path in `initializationOptions` |
 | Shared semantic-profile mismatch or unstable results | 5 | `pylsp`, `pyre`, `pyrefly`, `roslyn_ls`, `ty` |
 
@@ -83,7 +84,6 @@ Important details:
 - Deno rejects the standard parameterless `shutdown` request by demanding non-null parameters.
 - Deno rejects shutdown, while jdtls and Kotlin Language Server retain distinct direct-lifecycle
   failures that occur after the exchange.
-- `cmake-language-server` installs an incompatible current pygls dependency and fails at startup.
 - Kotlin LSP's pinned Mason build reports that it has expired.
 - Arduino Language Server needs board-specific external configuration and tools.
 - Some Python servers initialize but do not expose enough discoverable semantic information for
@@ -462,13 +462,25 @@ less self-contained. Hardcoding Astro or another server in production is not acc
 
 Prioritize fixes that do not require new product architecture:
 
-- update or constrain the `cmake-language-server`/pygls combination;
+- ~~Update or constrain the `cmake-language-server`/pygls combination.~~ Complete: LSP data can
+  add generic Mason `extra_packages`, PyPI installs honor them, and CMake Language Server pins
+  `pygls<2` until upstream publishes a compatible dependency declaration;
 - select a non-expired Kotlin LSP build when available;
 - verify `salt-lsp` against the managed Python runtime;
 - determine whether compatible RPM Python bindings can be staged hermetically;
 - decide whether Arduino's board core, CLI configuration, clangd, and FQBN belong in a dedicated
   integration fixture;
 - normalize only E2E expectations, not production LSP results, for decorated Roslyn symbol names.
+
+Phase 4 CMake Language Server validation:
+
+- PyPI installer regressions verify that extra package constraints are passed in the same pip
+  invocation and that changing the source or dependency set invalidates only that package's
+  cached virtual environment;
+- configuration and suggestion regressions verify that `mason-extra-packages` is loaded and
+  propagated to Mason resolution without a server-specific production branch;
+- `make -j10 test-e2e CASE=cmake/cmake` passed both planned cases: provisioning and capability
+  exchange. The former startup exclusion was removed.
 
 Pros:
 
@@ -520,6 +532,11 @@ Strategic alternatives:
 - Generic initialization options make the data catalog responsible for behavioral launch
   configuration, not just discovery metadata. Schema validation and trust expectations must be
   explicit.
+- Mason extra-package constraints make the data catalog partly responsible for repairing upstream
+  dependency metadata. PyPI cache signatures prevent stale environments, but each pin requires
+  review and removal after an upstream fix. The npm installer also accepts Mason extra packages,
+  but its existing cache does not fingerprint dependencies; add equivalent invalidation before
+  using data-provided constraints for an npm-backed server.
 - A tolerant shutdown policy changes user-visible success semantics. It should distinguish a
   completed LSP exchange from an unknown or interrupted server state.
 - Best-effort `build-index` would weaken the meaning of command success; strict completion leaves

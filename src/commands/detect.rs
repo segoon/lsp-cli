@@ -199,6 +199,7 @@ mod tests {
             command: vec!["example-lsp".to_string(), "--stdio".to_string()],
             workspace_root: PathBuf::from("."),
             wait_for_index: false,
+            mason_extra_packages: Vec::new(),
         }
     }
 
@@ -210,6 +211,7 @@ mod tests {
             command: vec!["secondary-lsp".to_string(), "--stdio".to_string()],
             workspace_root: PathBuf::from("."),
             wait_for_index: false,
+            mason_extra_packages: Vec::new(),
         }
     }
 

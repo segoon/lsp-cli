@@ -285,6 +285,7 @@ pub(crate) fn suggested_language(
         command: vec![program.to_string(), "--stdio".to_string()],
         workspace_root: PathBuf::from("."),
         wait_for_index: false,
+        mason_extra_packages: Vec::new(),
     }
 }
 

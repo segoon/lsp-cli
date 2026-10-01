@@ -68,6 +68,7 @@ pub struct LspConfig {
     pub name: String,
     pub cmdline: String,
     pub wait_for_index: bool,
+    pub mason_extra_packages: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -88,6 +89,8 @@ struct LspFile {
     cmdline: String,
     #[serde(rename = "wait-for-index", default)]
     wait_for_index: bool,
+    #[serde(rename = "mason-extra-packages", default)]
+    mason_extra_packages: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -396,6 +399,7 @@ fn load_lsps(dir: &Path) -> Result<Vec<LspConfig>> {
                 name: file.name,
                 cmdline: file.cmdline,
                 wait_for_index: file.wait_for_index,
+                mason_extra_packages: file.mason_extra_packages,
             })
         })
         .collect()

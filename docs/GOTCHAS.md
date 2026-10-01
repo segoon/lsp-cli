@@ -138,6 +138,10 @@
   the isolated package modules. lsp-cli creates a versioned per-package environment under `local/`
   and accepts it as cached only when its layout marker is present. This deliberately ignores old
   prefix launchers without deleting unrelated package installations.
+- Mason `extra_packages` and data-provided `mason-extra-packages` must be installed in the same pip
+  transaction as the primary package so pip resolves their combined constraints. The cache marker
+  includes the source ID and dependency list; changing either rebuilds only that virtual
+  environment instead of silently reusing an incompatible dependency set.
 
 ## Jedi Language Server
 
@@ -177,9 +181,10 @@
 
 ## cmake-language-server
 
-- cmake-language-server 0.1.11 permits a current pygls release whose API no longer exports the
-  `LanguageServer` class where the server imports it. The isolated installation consequently fails
-  during startup and remains excluded pending an upstream dependency constraint or release.
+- cmake-language-server 0.1.11 declares `pygls>=1.1.1` but imports `LanguageServer` from the pygls
+  1.x location. pygls 2 moved that API, so unconstrained installs fail during startup. The bundled
+  LSP data adds `pygls<2` as a Mason extra package until upstream publishes a compatible release or
+  upper bound. Provisioning and capability exchange pass with this constraint.
 
 ## RobotCode
 

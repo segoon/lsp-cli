@@ -7,3 +7,9 @@ pairs:
     server: robotcode
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - references
+        - definition
+        - implementation

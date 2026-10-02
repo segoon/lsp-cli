@@ -7,3 +7,9 @@ pairs:
     server: openscad_lsp
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - definition

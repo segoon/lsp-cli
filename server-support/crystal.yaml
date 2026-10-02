@@ -7,3 +7,5 @@ pairs:
     server: crystalline
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities

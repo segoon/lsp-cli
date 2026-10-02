@@ -7,7 +7,17 @@ pairs:
     server: texlab
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - definition
   - language: tex
     server: textlsp
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities

@@ -7,3 +7,5 @@ pairs:
     server: clarinet
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities

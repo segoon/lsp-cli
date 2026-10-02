@@ -7,3 +7,5 @@ pairs:
     server: fish_lsp
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities

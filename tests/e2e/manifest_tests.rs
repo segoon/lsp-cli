@@ -137,15 +137,6 @@ fn provisioning_inventory_validates_dispositions_and_owners() {
         "deadline",
     );
     assert_invalid_provisioning(
-        |server| {
-            server.coverage = provisioning_case::ServerCoverage::Capabilities {
-                lsp_timeout_seconds: Some(0),
-                deadline_seconds: None,
-            };
-        },
-        "deadlines",
-    );
-    assert_invalid_provisioning(
         |server| server.owner_language = "gomod".to_string(),
         "not compatible with owner language",
     );

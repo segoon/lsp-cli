@@ -7,11 +7,23 @@ pairs:
     server: bzl
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
   - language: bzl
     server: starlark_rust
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - definition
   - language: bzl
     server: starpls
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+        - declaration

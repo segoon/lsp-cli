@@ -24,6 +24,20 @@ fn validation_error(expectation: &str, mutate: impl FnOnce(&mut Manifest)) -> St
     manifest.validate(repository_root()).expect_err(expectation)
 }
 
+fn first_capability_contract(manifest: &mut Manifest) -> &mut Vec<QueryKind> {
+    manifest
+        .pairs
+        .iter_mut()
+        .find_map(|pair| match pair.smoke.as_mut()? {
+            SmokeDisposition::Capabilities {
+                supported_operations,
+                ..
+            } => Some(supported_operations),
+            SmokeDisposition::Queries { .. } | SmokeDisposition::Excluded { .. } => None,
+        })
+        .expect("manifest should contain a capabilities smoke case")
+}
+
 #[test]
 fn server_docs_cover_every_compatible_pair() {
     let manifest = Manifest::load_validated(repository_root()).expect("manifest should validate");
@@ -79,4 +93,32 @@ fn manifest_requires_exception_operations_to_be_supported() {
     });
 
     assert!(error.contains("requires its operation to be supported"));
+}
+
+#[test]
+fn capability_contract_requires_server_capabilities() {
+    let error = validation_error("capability baseline should fail", |manifest| {
+        first_capability_contract(manifest)
+            .retain(|operation| *operation != QueryKind::ServerCapabilities);
+    });
+
+    assert!(error.contains("must support server-capabilities"));
+}
+
+#[test]
+fn server_capability_contract_validates_deadlines() {
+    let error = validation_error("capability deadline should fail", |manifest| {
+        let server = manifest
+            .servers
+            .iter_mut()
+            .find(|server| server.id == "clangd")
+            .expect("clangd provisioning should exist");
+        server.coverage = provisioning_case::ServerCoverage::Capabilities {
+            supported_operations: vec![QueryKind::ServerCapabilities],
+            lsp_timeout_seconds: Some(0),
+            deadline_seconds: None,
+        };
+    });
+
+    assert!(error.contains("deadlines"));
 }

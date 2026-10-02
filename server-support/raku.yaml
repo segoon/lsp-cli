@@ -7,3 +7,5 @@ pairs:
     server: raku_navigator
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities

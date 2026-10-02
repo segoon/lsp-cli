@@ -275,11 +275,14 @@ servers must remain downloadable, use the normal smoke timeout defaults unless o
 
 In `tests/e2e/manifest/query_case.rs`, a `smoke` pair can be `status: queries`. Its required
 `supported-operations` list records which `lsp-cli` query subcommands the server/language pair
-supports. The documentation generator renders this stored list without starting a server. During
-real-server E2E, operations with a direct LSP capability mapping must exactly agree with the
-server's initialize response; unsupported operations are also run to verify their user-facing
-error. `server-capabilities`, `diagnostics`, and `build-index` have no direct advertised capability
-and are required for every query case.
+supports. Every `status: capabilities` pair and server-owned capability case stores the same list,
+limited to `server-capabilities` and operations backed by advertised LSP capabilities. The
+documentation generator renders these stored lists without starting a server. During real-server
+E2E, operations with a direct LSP capability mapping must exactly agree with the server's
+initialize response; query cases additionally run unsupported operations to verify their
+user-facing error. `server-capabilities`, `diagnostics`, and `build-index` have no direct advertised
+capability and are required for every query case; capability-only cases require only
+`server-capabilities`.
 
 Each query case also carries an optional `exceptions` list. Each entry names a `command` (one of the real-server query
 kinds — `grep`, `references`, `callers`, `callees`, `build-index`, `format`, etc.), an `outcome`

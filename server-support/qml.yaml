@@ -7,3 +7,11 @@ pairs:
     server: qmlls
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+        - type-definition

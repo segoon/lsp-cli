@@ -7,3 +7,5 @@ pairs:
     server: julials
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities

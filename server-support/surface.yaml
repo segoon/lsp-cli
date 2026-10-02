@@ -7,15 +7,29 @@ pairs:
     server: elixirls
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
   - language: surface
     server: expert
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - definition
   - language: surface
     server: lexical
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
   - language: surface
     server: nextls
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities

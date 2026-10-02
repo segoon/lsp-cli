@@ -7,3 +7,5 @@ pairs:
     server: mdx_analyzer
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities

@@ -7,15 +7,24 @@ pairs:
     server: bqls
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
   - language: sql
     server: postgres_lsp
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
   - language: sql
     server: sqlls
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
   - language: sql
     server: sqls
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities

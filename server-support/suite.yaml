@@ -1,4 +1,4 @@
-schema-version: 17
+schema-version: 18
 coverage: complete
 platform:
   os: linux
@@ -607,6 +607,8 @@ servers:
     owner-language: typescript
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
     provisioning:
       status: download
   - id: antlersls
@@ -625,6 +627,8 @@ servers:
     owner-language: rust
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
     provisioning:
       status: download
   - id: astro
@@ -657,12 +661,19 @@ servers:
     owner-language: yaml
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - list-symbols
+        - list-functions
+        - definition
     provisioning:
       status: download
   - id: bacon_ls
     owner-language: rust
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
     provisioning:
       status: download
   - id: ballerina
@@ -791,6 +802,8 @@ servers:
     owner-language: rust
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
     provisioning:
       status: download
   - id: coffeesense
@@ -818,6 +831,10 @@ servers:
     owner-language: javascript
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - definition
+        - implementation
     provisioning:
       status: download
   - id: cucumber_language_server
@@ -878,12 +895,22 @@ servers:
     owner-language: python
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - references
+        - definition
     provisioning:
       status: download
   - id: djlsp
     owner-language: html
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - definition
     provisioning:
       status: download
   - id: docker_compose_language_service
@@ -911,6 +938,9 @@ servers:
     owner-language: typescript
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
     provisioning:
       status: download
   - id: dts_lsp
@@ -931,6 +961,8 @@ servers:
     owner-language: lua
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
     provisioning:
       status: download
   - id: elixirls
@@ -949,18 +981,28 @@ servers:
     owner-language: javascript
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - list-symbols
+        - list-functions
+        - references
+        - definition
     provisioning:
       status: download
   - id: emmet_language_server
     owner-language: astro
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
     provisioning:
       status: download
   - id: emmet_ls
     owner-language: astro
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
     provisioning:
       status: download
   - id: emmylua_ls
@@ -979,6 +1021,8 @@ servers:
     owner-language: javascript
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
     provisioning:
       status: download
   - id: expert
@@ -1052,6 +1096,8 @@ servers:
     owner-language: yaml
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
     provisioning:
       status: download
   - id: ghcide
@@ -1108,6 +1154,8 @@ servers:
     owner-language: go
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
     provisioning:
       status: download
   - id: gopls
@@ -1123,6 +1171,8 @@ servers:
     owner-language: markdown
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
     provisioning:
       status: download
   - id: graphql
@@ -1147,6 +1197,8 @@ servers:
     owner-language: rust
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
     provisioning:
       status: download
   - id: hdl_checker
@@ -1161,6 +1213,13 @@ servers:
     owner-language: eruby
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - references
+        - definition
     provisioning:
       status: download
   - id: hhvm
@@ -1199,12 +1258,18 @@ servers:
     owner-language: javascript
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
     provisioning:
       status: download
   - id: hydra_lsp
     owner-language: yaml
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - references
+        - definition
     provisioning:
       status: download
   - id: hylo_ls
@@ -1284,6 +1349,16 @@ servers:
     owner-language: python
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+        - declaration
+        - implementation
+        - type-definition
     provisioning:
       status: download
   - id: kcl
@@ -1325,6 +1400,9 @@ servers:
     owner-language: blade
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - definition
     provisioning:
       status: download
   - id: lean3ls
@@ -1348,6 +1426,8 @@ servers:
     owner-language: bib
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
     provisioning:
       status: download
       host-programs:
@@ -1375,6 +1455,8 @@ servers:
     owner-language: asciidoc
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
     provisioning:
       status: download
       host-programs:
@@ -1406,6 +1488,8 @@ servers:
     owner-language: javascript
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
     provisioning:
       status: download
   - id: m68k
@@ -1510,6 +1594,8 @@ servers:
     owner-language: nextflow
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
     provisioning:
       status: download
   - id: nextls
@@ -1773,6 +1859,8 @@ servers:
     owner-language: javascript
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
     provisioning:
       status: download
   - id: r_language_server
@@ -1869,6 +1957,9 @@ servers:
     owner-language: python
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
     provisioning:
       status: download
   - id: ruff_lsp
@@ -1932,6 +2023,9 @@ servers:
     owner-language: liquid
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - definition
     provisioning:
       status: download
   - id: sixtyfps
@@ -1947,6 +2041,12 @@ servers:
     owner-language: slint
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - definition
     provisioning:
       status: download
   - id: smarty_ls
@@ -1966,6 +2066,8 @@ servers:
     owner-language: python
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
     provisioning:
       status: download
   - id: solang
@@ -2011,6 +2113,8 @@ servers:
     owner-language: json
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
     provisioning:
       status: download
   - id: spyglassmc_language_server
@@ -2061,18 +2165,26 @@ servers:
     owner-language: blade
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - definition
     provisioning:
       status: download
   - id: stylelint_lsp
     owner-language: astro
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
     provisioning:
       status: download
   - id: stylua
     owner-language: lua
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
     provisioning:
       status: download
   - id: stylua3p_ls
@@ -2110,6 +2222,8 @@ servers:
     owner-language: javascript
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
     provisioning:
       status: download
   - id: taplo
@@ -2160,6 +2274,8 @@ servers:
     owner-language: terraform
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
     provisioning:
       status: download
   - id: theme_check
@@ -2271,6 +2387,8 @@ servers:
     owner-language: typescript
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
     provisioning:
       status: download
   - id: uvls
@@ -2295,6 +2413,8 @@ servers:
     owner-language: asciidoc
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
     provisioning:
       status: download
   - id: verible
@@ -2370,6 +2490,13 @@ servers:
     owner-language: typescript
     coverage:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - references
+        - definition
     provisioning:
       status: download
   - id: wgsl_analyzer

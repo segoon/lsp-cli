@@ -7,3 +7,6 @@ pairs:
     server: starlark_rust
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - definition

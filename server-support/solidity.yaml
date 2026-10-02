@@ -7,19 +7,51 @@ pairs:
     server: solang
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - grep
+        - references
+        - definition
+        - declaration
+        - implementation
+        - type-definition
   - language: solidity
     server: solc
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
   - language: solidity
     server: solidity
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - references
+        - definition
   - language: solidity
     server: solidity_ls
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - definition
   - language: solidity
     server: solidity_ls_nomicfoundation
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+        - implementation
+        - type-definition

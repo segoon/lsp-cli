@@ -7,3 +7,5 @@ pairs:
     server: erg_language_server
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities

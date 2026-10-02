@@ -125,6 +125,7 @@ pub(super) enum SmokeDisposition {
         deadline_seconds: Option<u64>,
     },
     Capabilities {
+        supported_operations: Vec<QueryKind>,
         lsp_timeout_seconds: Option<u64>,
         deadline_seconds: Option<u64>,
     },
@@ -229,6 +230,7 @@ pub(crate) struct RealServerCase<'a> {
 pub(crate) struct RealServerCapabilitiesCase<'a> {
     pub(super) language: &'a LanguageCase,
     pub(super) setup: &'a ServerCase,
+    pub(super) supported_operations: &'a [QueryKind],
     pub(super) smoke: bool,
     pub(super) lsp_timeout_seconds: u64,
     pub(super) deadline_seconds: u64,

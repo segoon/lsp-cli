@@ -7,15 +7,30 @@ pairs:
     server: hdl_checker
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - references
+        - definition
   - language: verilog
     server: svlangserver
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - definition
   - language: verilog
     server: svls
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
   - language: verilog
     server: verible
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities

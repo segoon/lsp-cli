@@ -7,7 +7,13 @@ pairs:
     server: glsl_analyzer
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - definition
   - language: tesc
     server: glslls
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities

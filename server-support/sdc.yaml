@@ -7,3 +7,6 @@ pairs:
     server: tclsp
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format

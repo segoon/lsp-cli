@@ -7,3 +7,10 @@ pairs:
     server: serve_d
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - definition

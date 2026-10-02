@@ -7,3 +7,8 @@ pairs:
     server: ginko_ls
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - list-symbols
+        - list-functions
+        - definition

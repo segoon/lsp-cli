@@ -7,3 +7,5 @@ pairs:
     server: elmls
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities

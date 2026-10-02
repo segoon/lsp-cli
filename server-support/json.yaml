@@ -7,7 +7,14 @@ pairs:
     server: jsonls
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - list-symbols
+        - list-functions
   - language: json
     server: nxls
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - definition

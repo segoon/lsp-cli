@@ -301,14 +301,15 @@ impl CapabilitiesTest<'_> {
                 context
                     .record_server_capabilities(&response.capabilities)
                     .at_stage(FailureStage::Capabilities)?;
-                if response.capabilities.is_object() && !response.server.command.is_empty() {
-                    Ok(())
-                } else {
-                    Err(crate::results::E2eFailure::new(
+                if !response.capabilities.is_object() || response.server.command.is_empty() {
+                    return Err(crate::results::E2eFailure::new(
                         FailureStage::Capabilities,
                         "server-capabilities returned an invalid semantic payload",
-                    ))
+                    ));
                 }
+                let observed = observed_operations(&response.capabilities);
+                validate_capability_contract(&self.case, &observed)
+                    .at_stage(FailureStage::Capabilities)
             },
         )
     }
@@ -358,6 +359,43 @@ fn supports(capabilities: &Value, path: &[&str]) -> bool {
         .iter()
         .try_fold(capabilities, |value, part| value.get(*part));
     !matches!(value, None | Some(Value::Bool(false) | Value::Null))
+}
+
+fn observed_operations(capabilities: &Value) -> Vec<QueryKind> {
+    QUERY_COMMANDS
+        .into_iter()
+        .filter(|command| {
+            *command == QueryKind::ServerCapabilities
+                || capability_path(*command).is_some_and(|path| supports(capabilities, path))
+        })
+        .collect()
+}
+
+fn validate_capability_contract(
+    case: &RealServerCapabilitiesCase<'_>,
+    observed: &[QueryKind],
+) -> Result<(), String> {
+    let configured = case
+        .supported_operations()
+        .iter()
+        .copied()
+        .collect::<BTreeSet<_>>();
+    let observed = observed.iter().copied().collect::<BTreeSet<_>>();
+    if configured == observed {
+        Ok(())
+    } else {
+        Err(format!(
+            "stored operations {:?} do not match advertised operations {:?}",
+            configured
+                .iter()
+                .map(|command| command.command_name())
+                .collect::<Vec<_>>(),
+            observed
+                .iter()
+                .map(|command| command.command_name())
+                .collect::<Vec<_>>()
+        ))
+    }
 }
 
 fn validate_unsupported(command: QueryKind, output: &E2eOutput) -> Result<(), String> {

@@ -7,3 +7,10 @@ pairs:
     server: pest_ls
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - references
+        - definition

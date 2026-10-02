@@ -104,11 +104,10 @@ fn support_for(
     language: &str,
     command: &str,
 ) -> Support {
-    if command == "server-capabilities"
-        && server.owner_language == language
-        && server.is_capabilities_only()
+    if server.owner_language == language
+        && let Some(operations) = server.capability_operations()
     {
-        return Support::Supported;
+        return support_from_operations(operations, &[], command);
     }
     let Some(smoke) = pair.and_then(|pair| pair.smoke.as_ref()) else {
         return Support::Unknown;
@@ -118,30 +117,33 @@ fn support_for(
             supported_operations,
             exceptions,
             ..
-        } => {
-            if !supported_operations
-                .iter()
-                .any(|operation| operation.command_name() == command)
-            {
-                return Support::Unknown;
-            }
-            exceptions
-                .iter()
-                .find(|exception| exception.command.command_name() == command)
-                .map_or(Support::Supported, |exception| match exception.outcome {
-                    ExceptionOutcome::EmptyMatches | ExceptionOutcome::VariableMatches => {
-                        Support::Limited
-                    }
-                    ExceptionOutcome::Failure => Support::Failure,
-                })
-        }
-        SmokeDisposition::Capabilities { .. } if command == "server-capabilities" => {
-            Support::Supported
-        }
-        SmokeDisposition::Capabilities { .. } | SmokeDisposition::Excluded { .. } => {
-            Support::Unknown
-        }
+        } => support_from_operations(supported_operations, exceptions, command),
+        SmokeDisposition::Capabilities {
+            supported_operations,
+            ..
+        } => support_from_operations(supported_operations, &[], command),
+        SmokeDisposition::Excluded { .. } => Support::Unknown,
     }
+}
+
+fn support_from_operations(
+    operations: &[super::QueryKind],
+    exceptions: &[super::query_case::QueryException],
+    command: &str,
+) -> Support {
+    if !operations
+        .iter()
+        .any(|operation| operation.command_name() == command)
+    {
+        return Support::Unknown;
+    }
+    exceptions
+        .iter()
+        .find(|exception| exception.command.command_name() == command)
+        .map_or(Support::Supported, |exception| match exception.outcome {
+            ExceptionOutcome::EmptyMatches | ExceptionOutcome::VariableMatches => Support::Limited,
+            ExceptionOutcome::Failure => Support::Failure,
+        })
 }
 
 fn render_error(error: fmt::Error) -> String {

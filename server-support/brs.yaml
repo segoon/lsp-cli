@@ -7,3 +7,10 @@ pairs:
     server: bright_script
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - definition

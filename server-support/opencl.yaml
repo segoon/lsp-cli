@@ -7,3 +7,8 @@ pairs:
     server: opencl_ls
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - definition
+        - declaration
+        - type-definition

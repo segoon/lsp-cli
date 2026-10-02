@@ -7,3 +7,9 @@ pairs:
     server: esbonio
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - grep
+        - list-symbols
+        - list-functions
+        - definition

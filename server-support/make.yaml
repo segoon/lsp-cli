@@ -7,3 +7,7 @@ pairs:
     server: autotools_ls
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - list-symbols
+        - list-functions

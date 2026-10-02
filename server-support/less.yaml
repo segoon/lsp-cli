@@ -7,7 +7,16 @@ pairs:
     server: css_variables
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - definition
   - language: less
     server: cssls
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - list-symbols
+        - list-functions
+        - references
+        - definition

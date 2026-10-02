@@ -7,7 +7,15 @@ pairs:
     server: gitlab_ci_ls
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
   - language: yaml.gitlab
     server: yamlls
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - definition

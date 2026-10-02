@@ -7,3 +7,6 @@ pairs:
     server: circom-lsp
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - definition

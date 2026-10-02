@@ -7,3 +7,9 @@ pairs:
     server: veryl_ls
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - grep
+        - references
+        - definition

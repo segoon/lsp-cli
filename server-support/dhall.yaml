@@ -7,3 +7,5 @@ pairs:
     server: dhall_lsp_server
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities

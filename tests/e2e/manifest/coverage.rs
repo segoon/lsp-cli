@@ -257,6 +257,7 @@ impl Manifest {
     ) -> impl Iterator<Item = RealServerCapabilitiesCase<'_>> {
         let pair_cases = self.pairs.iter().filter_map(|pair| {
             let SmokeDisposition::Capabilities {
+                supported_operations,
                 lsp_timeout_seconds,
                 deadline_seconds,
             } = pair.smoke.as_ref()?
@@ -273,6 +274,7 @@ impl Manifest {
                     .iter()
                     .find(|item| item.id == pair.language)?,
                 setup: setup_for_pair(pair, &self.servers)?,
+                supported_operations,
                 smoke: pair.is_smoke(),
                 lsp_timeout_seconds,
                 deadline_seconds,
@@ -287,6 +289,7 @@ impl Manifest {
                     .iter()
                     .find(|item| item.id == server.owner_language)?,
                 setup: server,
+                supported_operations: server.capability_operations()?,
                 smoke: false,
                 lsp_timeout_seconds,
                 deadline_seconds,

@@ -7,3 +7,5 @@ pairs:
     server: templ
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities

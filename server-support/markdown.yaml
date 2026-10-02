@@ -7,27 +7,55 @@ pairs:
     server: markdown_oxide
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
   - language: markdown
     server: marksman
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - definition
   - language: markdown
     server: mpls
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
   - language: markdown
     server: prosemd_lsp
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
   - language: markdown
     server: remark_ls
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
   - language: markdown
     server: rumdl
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - definition
   - language: markdown
     server: zk
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - references
+        - definition

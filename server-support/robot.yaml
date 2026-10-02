@@ -7,7 +7,21 @@ pairs:
     server: robotcode
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - references
+        - definition
+        - implementation
   - language: robot
     server: robotframework_ls
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - definition

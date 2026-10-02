@@ -7,3 +7,9 @@ pairs:
     server: vimls
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - list-symbols
+        - list-functions
+        - references
+        - definition

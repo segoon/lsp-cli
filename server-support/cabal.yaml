@@ -7,3 +7,5 @@ pairs:
     server: hls
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities

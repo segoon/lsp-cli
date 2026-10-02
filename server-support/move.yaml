@@ -7,3 +7,5 @@ pairs:
     server: move_analyzer
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities

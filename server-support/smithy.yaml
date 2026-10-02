@@ -7,3 +7,5 @@ pairs:
     server: smithy_ls
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities

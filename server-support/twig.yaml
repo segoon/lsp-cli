@@ -7,3 +7,10 @@ pairs:
     server: twiggy_language_server
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - references
+        - definition

@@ -7,3 +7,12 @@ pairs:
     server: cds_lsp
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+        - implementation

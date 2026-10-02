@@ -91,6 +91,10 @@ impl RealServerCapabilitiesCase<'_> {
         self.smoke
     }
 
+    pub(crate) fn supported_operations(&self) -> &[QueryKind] {
+        self.supported_operations
+    }
+
     pub(crate) fn server_name(&self, repository: &Path) -> Result<String, String> {
         server_name(&self.setup.id, repository)
     }

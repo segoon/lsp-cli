@@ -7,3 +7,5 @@ pairs:
     server: powershell_es
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities

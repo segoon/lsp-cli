@@ -7,3 +7,11 @@ pairs:
     server: earthlyls
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+        - declaration

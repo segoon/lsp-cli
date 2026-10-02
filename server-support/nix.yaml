@@ -7,7 +7,13 @@ pairs:
     server: nil_ls
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
   - language: nix
     server: rnix
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - definition

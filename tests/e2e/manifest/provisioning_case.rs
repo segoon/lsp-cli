@@ -31,6 +31,7 @@ pub(super) enum ServerCoverage {
     #[default]
     Pairs,
     Capabilities {
+        supported_operations: Vec<super::QueryKind>,
         lsp_timeout_seconds: Option<u64>,
         deadline_seconds: Option<u64>,
     },
@@ -118,6 +119,9 @@ impl ServerCase {
         if let Some((lsp, deadline)) = self.capability_timeouts(smoke_defaults) {
             validate_deadlines(&format!("server {:?}", self.id), lsp, deadline)?;
         }
+        if let Some(operations) = self.capability_operations() {
+            super::dispositions::validate_operation_list(&self.id, operations)?;
+        }
         Ok(())
     }
 
@@ -137,11 +141,23 @@ impl ServerCase {
         let ServerCoverage::Capabilities {
             lsp_timeout_seconds,
             deadline_seconds,
+            ..
         } = self.coverage
         else {
             return None;
         };
         Some(defaults.resolve(lsp_timeout_seconds, deadline_seconds))
+    }
+
+    pub(super) fn capability_operations(&self) -> Option<&[super::QueryKind]> {
+        let ServerCoverage::Capabilities {
+            supported_operations,
+            ..
+        } = &self.coverage
+        else {
+            return None;
+        };
+        Some(supported_operations)
     }
 
     pub(super) fn host_programs(&self) -> impl Iterator<Item = (&str, &[String])> {

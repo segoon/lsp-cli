@@ -7,3 +7,5 @@ pairs:
     server: c3_lsp
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities

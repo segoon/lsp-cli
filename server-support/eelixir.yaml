@@ -7,15 +7,29 @@ pairs:
     server: elixirls
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
   - language: eelixir
     server: expert
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - definition
   - language: eelixir
     server: lexical
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
   - language: eelixir
     server: nextls
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities

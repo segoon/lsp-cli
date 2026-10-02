@@ -7,7 +7,17 @@ pairs:
     server: regal
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - definition
   - language: rego
     server: regols
     smoke:
       status: capabilities
+      supported-operations:
+        - server-capabilities

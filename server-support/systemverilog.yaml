@@ -1,0 +1,41 @@
+language:
+  id: systemverilog
+  kind: metadata
+  project: playground/systemverilog
+pairs:
+  - language: systemverilog
+    server: hdl_checker
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - references
+        - definition
+  - language: systemverilog
+    server: svlangserver
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - definition
+  - language: systemverilog
+    server: svls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: systemverilog
+    server: verible
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - references
+        - definition

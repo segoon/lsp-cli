@@ -1,0 +1,15 @@
+language:
+  id: veryl
+  kind: metadata
+  project: playground/veryl
+pairs:
+  - language: veryl
+    server: veryl_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - grep
+        - references
+        - definition

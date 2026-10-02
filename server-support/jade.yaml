@@ -1,0 +1,16 @@
+language:
+  id: jade
+  kind: metadata
+  project: playground/jade
+pairs:
+  - language: jade
+    server: htmx
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: jade
+    server: tailwindcss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

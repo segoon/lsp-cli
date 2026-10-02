@@ -1,9 +1,0 @@
-language:
-  id: reason
-  kind: metadata
-  project: playground/reason
-pairs:
-  - language: reason
-    server: reason_ls
-    smoke:
-      status: capabilities

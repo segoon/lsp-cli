@@ -1,0 +1,16 @@
+language:
+  id: helm
+  kind: metadata
+  project: playground/helm
+pairs:
+  - language: helm
+    server: helm_ls
+    smoke:
+      status: excluded
+      reason: pkg:github/mrjosh/helm-ls@v0.5.4 closes the transport while the client waits for the shutdown response.
+  - language: helm
+    server: snyk_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

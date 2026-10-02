@@ -1,0 +1,29 @@
+language:
+  id: gitcommit
+  kind: metadata
+  project: playground/gitcommit
+pairs:
+  - language: gitcommit
+    server: codebook
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: gitcommit
+    server: harper_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: gitcommit
+    server: ltex
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: gitcommit
+    server: ltex_plus
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

@@ -1,0 +1,10 @@
+language:
+  id: sls
+  kind: metadata
+  project: playground/sls
+pairs:
+  - language: sls
+    server: salt_ls
+    smoke:
+      status: excluded
+      reason: salt-lsp 0.0.1 requires PyYAML<6, whose 5.4.1 source build fails on managed Python 3.12.

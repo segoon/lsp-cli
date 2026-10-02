@@ -1,0 +1,67 @@
+language:
+  id: svelte
+  kind: metadata
+  project: playground/svelte
+pairs:
+  - language: svelte
+    server: svelte
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - callers
+        - callees
+        - definition
+        - implementation
+        - type-definition
+  - language: svelte
+    server: emmet_language_server
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: svelte
+    server: emmet_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: svelte
+    server: eslint
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: svelte
+    server: htmx
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: svelte
+    server: tailwindcss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: svelte
+    server: unocss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: svelte
+    server: wc_language_server
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - references
+        - definition

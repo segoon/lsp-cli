@@ -1,9 +1,0 @@
-language:
-  id: rescript
-  kind: metadata
-  project: playground/rescript
-pairs:
-  - language: rescript
-    server: rescriptls
-    smoke:
-      status: capabilities

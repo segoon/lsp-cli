@@ -145,7 +145,17 @@ impl<'a> RealServerTest<'a> {
     ) -> Result<(), String> {
         let output = run(context, &self.command_args(command, server), deadline)
             .map_err(|error| format!("{command:?} could not complete:\n{error}"))?;
-        if capability_path(command).is_some_and(|path| !supports(capabilities, path)) {
+        let configured = self.case.supports(command);
+        if let Some(path) = capability_path(command) {
+            let advertised = supports(capabilities, path);
+            if configured != advertised {
+                return Err(format!(
+                    "stored support for {} is {configured}, but the server advertised {advertised}",
+                    command.command_name()
+                ));
+            }
+        }
+        if !configured {
             return validate_unsupported(command, &output);
         }
         if let Some((outcome, message, reason)) = self.case.exception(command) {
@@ -200,8 +210,7 @@ impl<'a> RealServerTest<'a> {
     fn command_args(&self, command: QueryKind, server: &str) -> Vec<String> {
         let mut args = query_prefix(
             command,
-            self.case.symbol_query(),
-            self.case.callable_query(),
+            self.case.query_for(command),
             self.case.format_file(),
         );
         args.extend([
@@ -292,25 +301,21 @@ impl CapabilitiesTest<'_> {
                 context
                     .record_server_capabilities(&response.capabilities)
                     .at_stage(FailureStage::Capabilities)?;
-                if response.capabilities.is_object() && !response.server.command.is_empty() {
-                    Ok(())
-                } else {
-                    Err(crate::results::E2eFailure::new(
+                if !response.capabilities.is_object() || response.server.command.is_empty() {
+                    return Err(crate::results::E2eFailure::new(
                         FailureStage::Capabilities,
                         "server-capabilities returned an invalid semantic payload",
-                    ))
+                    ));
                 }
+                let observed = observed_operations(&response.capabilities);
+                validate_capability_contract(&self.case, &observed)
+                    .at_stage(FailureStage::Capabilities)
             },
         )
     }
 }
 
-fn query_prefix(
-    command: QueryKind,
-    symbol: &str,
-    callable: &str,
-    format_file: &Path,
-) -> Vec<String> {
+fn query_prefix(command: QueryKind, query: &str, format_file: &Path) -> Vec<String> {
     let values: Vec<&str> = match command {
         QueryKind::ServerCapabilities => vec!["server-capabilities", "."],
         QueryKind::Diagnostics => vec!["diagnostics", "."],
@@ -319,16 +324,16 @@ fn query_prefix(
             format_file.to_str().expect("validated UTF-8 fixture path"),
             "--stdout",
         ],
-        QueryKind::Grep => vec!["grep", symbol, "."],
+        QueryKind::Grep => vec!["grep", query, "."],
         QueryKind::ListSymbols => vec!["list-symbols", "."],
         QueryKind::ListFunctions => vec!["list-functions", "."],
-        QueryKind::References => vec!["references", callable, "."],
-        QueryKind::Callers => vec!["callers", callable, "."],
-        QueryKind::Callees => vec!["callees", callable, "."],
-        QueryKind::Definition => vec!["definition", callable, "."],
-        QueryKind::Declaration => vec!["declaration", callable, "."],
-        QueryKind::Implementation => vec!["implementation", callable, "."],
-        QueryKind::TypeDefinition => vec!["type-definition", callable, "."],
+        QueryKind::References => vec!["references", query, "."],
+        QueryKind::Callers => vec!["callers", query, "."],
+        QueryKind::Callees => vec!["callees", query, "."],
+        QueryKind::Definition => vec!["definition", query, "."],
+        QueryKind::Declaration => vec!["declaration", query, "."],
+        QueryKind::Implementation => vec!["implementation", query, "."],
+        QueryKind::TypeDefinition => vec!["type-definition", query, "."],
         QueryKind::BuildIndex => vec!["build-index", "."],
     };
     values.into_iter().map(str::to_string).collect()
@@ -354,6 +359,43 @@ fn supports(capabilities: &Value, path: &[&str]) -> bool {
         .iter()
         .try_fold(capabilities, |value, part| value.get(*part));
     !matches!(value, None | Some(Value::Bool(false) | Value::Null))
+}
+
+fn observed_operations(capabilities: &Value) -> Vec<QueryKind> {
+    QUERY_COMMANDS
+        .into_iter()
+        .filter(|command| {
+            *command == QueryKind::ServerCapabilities
+                || capability_path(*command).is_some_and(|path| supports(capabilities, path))
+        })
+        .collect()
+}
+
+fn validate_capability_contract(
+    case: &RealServerCapabilitiesCase<'_>,
+    observed: &[QueryKind],
+) -> Result<(), String> {
+    let configured = case
+        .supported_operations()
+        .iter()
+        .copied()
+        .collect::<BTreeSet<_>>();
+    let observed = observed.iter().copied().collect::<BTreeSet<_>>();
+    if configured == observed {
+        Ok(())
+    } else {
+        Err(format!(
+            "stored operations {:?} do not match advertised operations {:?}",
+            configured
+                .iter()
+                .map(|command| command.command_name())
+                .collect::<Vec<_>>(),
+            observed
+                .iter()
+                .map(|command| command.command_name())
+                .collect::<Vec<_>>()
+        ))
+    }
 }
 
 fn validate_unsupported(command: QueryKind, output: &E2eOutput) -> Result<(), String> {

@@ -1,9 +1,0 @@
-language:
-  id: fish
-  kind: metadata
-  project: playground/fish
-pairs:
-  - language: fish
-    server: fish_lsp
-    smoke:
-      status: capabilities

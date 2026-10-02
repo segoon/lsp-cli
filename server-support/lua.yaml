@@ -1,0 +1,95 @@
+language:
+  id: lua
+  kind: source
+  project: playground/lua
+  query-profile:
+    symbol-query: normalize_timestamp
+    callable-query: format_timestamp
+    command-queries:
+      implementation: format
+      type-definition: formatter
+    format-file: timestamp.lua
+    expected-names:
+      - normalize_timestamp
+      - format_timestamp
+pairs:
+  - language: lua
+    server: emmylua_ls
+    smoke:
+      status: queries
+      supported-operations:
+        - server-capabilities
+        - diagnostics
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - callers
+        - callees
+        - definition
+        - implementation
+        - build-index
+      exceptions:
+        - command: format
+          outcome: failure
+          message: returned a line outside
+          reason: EmmyLua returns an invalid formatting edit outside the requested file
+        - command: grep
+          outcome: empty-matches
+          reason: EmmyLua returns no immediate workspace-symbol matches
+        - command: callees
+          outcome: empty-matches
+          reason: EmmyLua returns no outgoing edge for direct named function and method calls
+  - language: lua
+    server: lua_ls
+    tier: smoke
+    smoke:
+      status: queries
+      supported-operations:
+        - server-capabilities
+        - diagnostics
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+        - implementation
+        - type-definition
+        - build-index
+    lifecycle:
+      status: scenarios
+      direct-run:
+        status: exchange
+  - language: lua
+    server: ast_grep
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: lua
+    server: codebook
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: lua
+    server: harper_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: lua
+    server: kakehashi
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+        - declaration
+        - implementation
+        - type-definition

@@ -1,0 +1,22 @@
+language:
+  id: ejs
+  kind: metadata
+  project: playground/ejs
+pairs:
+  - language: ejs
+    server: htmx
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: ejs
+    server: tailwindcss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: ejs
+    server: unocss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

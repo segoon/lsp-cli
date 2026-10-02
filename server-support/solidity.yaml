@@ -1,0 +1,61 @@
+language:
+  id: solidity
+  kind: metadata
+  project: playground/solidity
+pairs:
+  - language: solidity
+    server: solang
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - grep
+        - references
+        - definition
+        - declaration
+        - implementation
+        - type-definition
+  - language: solidity
+    server: solc
+    smoke:
+      status: excluded
+      reason: pkg:github/ethereum/solidity@v0.8.37 reports that LSP support was removed and closes during initialization.
+  - language: solidity
+    server: solidity
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - references
+        - definition
+  - language: solidity
+    server: solidity_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+  - language: solidity
+    server: solidity_ls_nomicfoundation
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+        - implementation
+        - type-definition
+  - language: solidity
+    server: ast_grep
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.

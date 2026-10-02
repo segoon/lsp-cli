@@ -1,0 +1,16 @@
+language:
+  id: kcl
+  kind: metadata
+  project: playground/kcl
+pairs:
+  - language: kcl
+    server: kcl
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - references
+        - definition

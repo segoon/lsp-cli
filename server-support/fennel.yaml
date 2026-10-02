@@ -1,0 +1,10 @@
+language:
+  id: fennel
+  kind: metadata
+  project: playground/fennel
+pairs:
+  - language: fennel
+    server: fennel_language_server
+    smoke:
+      status: excluded
+      reason: pkg:cargo/fennel-language-server@59005549ca1191bf2aa364391e6bf2371889b4f8?repository_url=https://github.com/rydesun/fennel-language-server&rev=true requires repository_url and rev qualifiers that the current Cargo installer discards.

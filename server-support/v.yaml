@@ -1,0 +1,15 @@
+language:
+  id: v
+  kind: metadata
+  project: playground/v
+pairs:
+  - language: v
+    server: v_analyzer
+    smoke:
+      status: excluded
+      reason: pkg:github/vlang/v-analyzer@0.0.6 closes the transport while the client waits for the shutdown response.
+  - language: v
+    server: vls
+    smoke:
+      status: excluded
+      reason: pkg:github/vlang/vls@latest requires v, but the Mason recipe does not expose that executable.

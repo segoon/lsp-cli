@@ -1,0 +1,10 @@
+language:
+  id: clar
+  kind: metadata
+  project: playground/clar
+pairs:
+  - language: clar
+    server: clarinet
+    smoke:
+      status: excluded
+      reason: pkg:github/hirosystems/clarinet@v15.16.0 references a Linux release asset URL that returns HTTP 404.

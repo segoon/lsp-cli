@@ -198,7 +198,7 @@ fn empty_window_sends_no_requests() {
     let results = client
         .document_symbols_window(&[], window(20), |_, _| Ok(()))
         .expect("empty scan");
-    assert!(results.is_empty());
+    assert_eq!(results, Vec::new());
     client.shutdown().expect("shutdown");
     server.join().expect("server finishes");
 }

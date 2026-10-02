@@ -1,0 +1,10 @@
+language:
+  id: bicep-params
+  kind: metadata
+  project: playground/bicep-params
+pairs:
+  - language: bicep-params
+    server: bicep
+    smoke:
+      status: excluded
+      reason: pkg:github/Azure/bicep@v0.47.16 writes output without an LSP Content-Length header during initialization.

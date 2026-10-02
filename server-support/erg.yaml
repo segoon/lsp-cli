@@ -1,0 +1,10 @@
+language:
+  id: erg
+  kind: metadata
+  project: playground/erg
+pairs:
+  - language: erg
+    server: erg_language_server
+    smoke:
+      status: excluded
+      reason: pkg:github/erg-lang/erg-language-server@v0.1.12 requires erg, but the Mason recipe does not expose that executable.

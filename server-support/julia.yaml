@@ -1,0 +1,10 @@
+language:
+  id: julia
+  kind: metadata
+  project: playground/julia
+pairs:
+  - language: julia
+    server: julials
+    smoke:
+      status: excluded
+      reason: pkg:github/mason-org/julia-lsp@v1.219.2 requires julia, but the Mason recipe does not expose that executable.

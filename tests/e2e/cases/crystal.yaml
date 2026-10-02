@@ -1,9 +1,0 @@
-language:
-  id: crystal
-  kind: metadata
-  project: playground/crystal
-pairs:
-  - language: crystal
-    server: crystalline
-    smoke:
-      status: capabilities

@@ -1,0 +1,54 @@
+language:
+  id: elixir
+  kind: metadata
+  project: playground/elixir
+pairs:
+  - language: elixir
+    server: elixirls
+    smoke:
+      status: excluded
+      reason: pkg:github/elixir-lsp/elixir-ls@v0.31.1 is paired with the literal placeholder command /path/to/elixir-ls/language_server.sh in the bundled LSP config.
+  - language: elixir
+    server: expert
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+  - language: elixir
+    server: lexical
+    smoke:
+      status: excluded
+      reason: pkg:github/lexical-lsp/lexical@v0.7.3 launches through /usr/bin/env bash, but bash is absent from the isolated PATH.
+  - language: elixir
+    server: nextls
+    smoke:
+      status: excluded
+      reason: pkg:github/elixir-tools/next-ls@v0.23.4 requires the elixir executable during initialization, but it is absent from the isolated PATH.
+  - language: elixir
+    server: ast_grep
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: elixir
+    server: htmx
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: elixir
+    server: snyk_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: elixir
+    server: tailwindcss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

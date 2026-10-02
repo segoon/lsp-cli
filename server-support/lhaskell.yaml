@@ -1,0 +1,10 @@
+language:
+  id: lhaskell
+  kind: metadata
+  project: playground/lhaskell
+pairs:
+  - language: lhaskell
+    server: hls
+    smoke:
+      status: excluded
+      reason: pkg:generic/haskell/haskell-language-server@2.13.0.0 has no Mason download matching the Linux x86-64 E2E platform.

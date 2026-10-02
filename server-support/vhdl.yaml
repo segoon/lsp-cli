@@ -1,0 +1,18 @@
+language:
+  id: vhdl
+  kind: metadata
+  project: playground/vhdl
+pairs:
+  - language: vhdl
+    server: hdl_checker
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - references
+        - definition
+  - language: vhdl
+    server: vhdl_ls
+    smoke:
+      status: excluded
+      reason: pkg:github/vhdl-ls/rust_hdl@v0.88.0 leaves the Mason template {{source.asset.libraries}} unresolved while installing supporting files.

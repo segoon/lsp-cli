@@ -1,0 +1,10 @@
+language:
+  id: ttcn
+  kind: metadata
+  project: playground/ttcn
+pairs:
+  - language: ttcn
+    server: ntt
+    smoke:
+      status: excluded
+      reason: pkg:github/nokia/ntt@v0.23.2 returns null where an LSP sequence is required in the initialize response.

@@ -1,0 +1,10 @@
+language:
+  id: genie
+  kind: metadata
+  project: playground/genie
+pairs:
+  - language: genie
+    server: vala_ls
+    smoke:
+      status: excluded
+      reason: pkg:github/vala-lang/vala-language-server@8fab39f867a15dc3f1d24bc0ae455f6e019230bd has no Mason asset matching the Linux x86-64 E2E platform.

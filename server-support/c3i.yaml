@@ -1,0 +1,10 @@
+language:
+  id: c3i
+  kind: metadata
+  project: playground/c3i
+pairs:
+  - language: c3i
+    server: c3_lsp
+    smoke:
+      status: excluded
+      reason: pkg:github/pherrymason/c3-lsp@v0.4.0 requires c3c on PATH and crashes during initialization when it is absent.

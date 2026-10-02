@@ -1,0 +1,37 @@
+language:
+  id: terraform
+  kind: metadata
+  project: playground/terraform
+pairs:
+  - language: terraform
+    server: terraformls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+        - declaration
+  - language: terraform
+    server: tofu_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+        - declaration
+  - language: terraform
+    server: snyk_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

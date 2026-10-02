@@ -1,9 +1,0 @@
-language:
-  id: zir
-  kind: metadata
-  project: playground/zir
-pairs:
-  - language: zir
-    server: zls
-    smoke:
-      status: capabilities

@@ -1,9 +1,0 @@
-language:
-  id: raku
-  kind: metadata
-  project: playground/raku
-pairs:
-  - language: raku
-    server: raku_navigator
-    smoke:
-      status: capabilities

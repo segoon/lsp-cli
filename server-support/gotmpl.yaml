@@ -1,0 +1,21 @@
+language:
+  id: gotmpl
+  kind: metadata
+  project: playground/gotmpl
+pairs:
+  - language: gotmpl
+    server: gopls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - callers
+        - callees
+        - definition
+        - implementation
+        - type-definition

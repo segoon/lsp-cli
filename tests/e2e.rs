@@ -17,6 +17,8 @@ mod case_files;
 mod catalog;
 #[path = "e2e/dependencies.rs"]
 mod dependencies;
+#[path = "e2e/failure_stage.rs"]
+mod failure_stage;
 #[path = "e2e/filesystem.rs"]
 mod filesystem;
 #[path = "e2e/fixture.rs"]

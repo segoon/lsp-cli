@@ -1,0 +1,34 @@
+language:
+  id: rescript
+  kind: metadata
+  project: playground/rescript
+pairs:
+  - language: rescript
+    server: rescriptls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+        - type-definition
+  - language: rescript
+    server: htmx
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: rescript
+    server: tailwindcss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: rescript
+    server: unocss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

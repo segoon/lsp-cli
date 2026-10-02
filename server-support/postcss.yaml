@@ -1,0 +1,17 @@
+language:
+  id: postcss
+  kind: metadata
+  project: playground/postcss
+pairs:
+  - language: postcss
+    server: tailwindcss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: postcss
+    server: unocss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

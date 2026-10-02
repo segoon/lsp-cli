@@ -1,0 +1,16 @@
+language:
+  id: slim
+  kind: metadata
+  project: playground/slim
+pairs:
+  - language: slim
+    server: htmx
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: slim
+    server: tailwindcss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

@@ -1,9 +1,0 @@
-language:
-  id: matlab
-  kind: metadata
-  project: playground/matlab
-pairs:
-  - language: matlab
-    server: matlab_ls
-    smoke:
-      status: capabilities

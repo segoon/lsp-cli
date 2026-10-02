@@ -1,0 +1,64 @@
+language:
+  id: clojure
+  kind: source
+  project: playground/clojure
+  query-profile:
+    symbol-query: Order
+    callable-query: build-sample-order
+    command-queries:
+      implementation: OrderFormatting
+      type-definition: formatter
+    format-file: main.clj
+    expected-names:
+      - Order
+      - OrderItem
+      - build-sample-order
+      - format-order
+pairs:
+  - language: clojure
+    server: clojure_lsp
+    tier: smoke
+    smoke:
+      status: queries
+      supported-operations:
+        - server-capabilities
+        - diagnostics
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - callers
+        - callees
+        - definition
+        - declaration
+        - implementation
+        - build-index
+      exceptions:
+        - command: grep
+          outcome: empty-matches
+          reason: clojure-lsp returns no workspace/symbol matches for this fixture
+        - command: declaration
+          outcome: empty-matches
+          reason: clojure-lsp returns no textDocument/declaration matches for this fixture
+    lifecycle:
+      status: scenarios
+      direct-run:
+        status: exchange
+  - language: clojure
+    server: harper_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: clojure
+    server: htmx
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: clojure
+    server: tailwindcss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

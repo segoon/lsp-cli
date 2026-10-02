@@ -1,9 +1,0 @@
-language:
-  id: thrift
-  kind: metadata
-  project: playground/thrift
-pairs:
-  - language: thrift
-    server: thriftls
-    smoke:
-      status: capabilities

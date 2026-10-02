@@ -1,0 +1,76 @@
+language:
+  id: php
+  kind: metadata
+  project: playground/php
+pairs:
+  - language: php
+    server: intelephense
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+  - language: php
+    server: phpactor
+    smoke:
+      status: excluded
+      reason: pkg:github/phpactor/phpactor@2026.07.22.0 does not produce a runnable phpactor at the Mason-configured path.
+  - language: php
+    server: ast_grep
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: php
+    server: codebook
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: php
+    server: harper_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: php
+    server: htmx
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: php
+    server: laravel_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - definition
+  - language: php
+    server: snyk_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: php
+    server: stimulus_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - definition
+  - language: php
+    server: tailwindcss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: php
+    server: unocss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

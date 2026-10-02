@@ -1,0 +1,69 @@
+language:
+  id: c
+  kind: source
+  project: playground/c
+  query-profile:
+    symbol-query: Order
+    callable-query: format_order
+    command-queries:
+      type-definition: order
+    format-file: src/main.c
+    expected-names:
+      - Order
+      - OrderItem
+      - format_order
+pairs:
+  - language: c
+    server: clangd
+    tier: smoke
+    smoke:
+      status: queries
+      supported-operations:
+        - server-capabilities
+        - diagnostics
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - callers
+        - callees
+        - definition
+        - declaration
+        - implementation
+        - type-definition
+        - build-index
+      exceptions:
+        - command: implementation
+          outcome: empty-matches
+          reason: C has no interface or inheritance construct for a genuine implementation relationship
+      lsp-timeout-seconds: 15
+      deadline-seconds: 240
+    lifecycle:
+      status: scenarios
+      direct-run:
+        status: exchange
+      lsp-timeout-seconds: 15
+  - language: c
+    server: ast_grep
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: c
+    server: codebook
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: c
+    server: harper_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: c
+    server: snyk_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

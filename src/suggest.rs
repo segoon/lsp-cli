@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use crate::config::LspConfig;
+use crate::config::{BuildIndexCompletion, LspConfig};
 use crate::detect::DetectionResult;
 use crate::error::{Error, Result};
 
@@ -13,6 +13,8 @@ pub struct SuggestedLanguage {
     pub command: Vec<String>,
     pub workspace_root: PathBuf,
     pub wait_for_index: bool,
+    pub build_index_completion: BuildIndexCompletion,
+    pub mason_extra_packages: Vec<String>,
 }
 
 pub fn suggestions_for(
@@ -113,6 +115,8 @@ fn build_suggestion(
         command,
         workspace_root,
         wait_for_index: lsp.wait_for_index,
+        build_index_completion: lsp.build_index_completion,
+        mason_extra_packages: lsp.mason_extra_packages.clone(),
     })
 }
 
@@ -182,7 +186,7 @@ fn has_any_root_marker(directory: &Path, root_markers: &[String]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{SuggestedLanguage, absolute_path_from, sort_suggestions, suggestions_for};
-    use crate::config::LspConfig;
+    use crate::config::{BuildIndexCompletion, LspConfig};
     use crate::test_support::{TestDir, detection_result};
     use std::collections::BTreeMap;
     use std::path::Path;
@@ -195,6 +199,8 @@ mod tests {
             name: "example-lsp".to_string(),
             cmdline: "example-lsp --stdio $WORKSPACE".to_string(),
             wait_for_index: false,
+            build_index_completion: BuildIndexCompletion::Confirmed,
+            mason_extra_packages: Vec::new(),
         }
     }
 
@@ -206,6 +212,8 @@ mod tests {
             command: vec![server.to_string()],
             workspace_root: Path::new(".").to_path_buf(),
             wait_for_index: false,
+            build_index_completion: BuildIndexCompletion::Confirmed,
+            mason_extra_packages: Vec::new(),
         }
     }
 
@@ -233,14 +241,18 @@ mod tests {
                 ],
                 workspace_root: workspace,
                 wait_for_index: false,
+                build_index_completion: BuildIndexCompletion::Confirmed,
+                mason_extra_packages: Vec::new(),
             }]
         );
     }
 
     #[test]
-    fn carries_wait_for_index_from_config() {
+    fn carries_index_settings_from_config() {
         let mut lsp = example_lsp();
         lsp.wait_for_index = true;
+        lsp.build_index_completion = BuildIndexCompletion::BestEffort;
+        lsp.mason_extra_packages = vec!["pygls<2".to_string()];
         let dir = TestDir::new("suggest");
         let workspace = dir.path().join("workspace");
 
@@ -248,6 +260,11 @@ mod tests {
             .expect("suggestions should succeed");
 
         assert!(suggestions[0].wait_for_index);
+        assert_eq!(
+            suggestions[0].build_index_completion,
+            BuildIndexCompletion::BestEffort
+        );
+        assert_eq!(suggestions[0].mason_extra_packages, ["pygls<2"]);
     }
 
     #[test]
@@ -259,7 +276,7 @@ mod tests {
         )
         .expect("suggestions should succeed");
 
-        assert!(suggestions.is_empty());
+        assert_eq!(suggestions, Vec::new());
     }
 
     #[test]
@@ -288,7 +305,7 @@ mod tests {
         )
         .expect("suggestions should succeed");
 
-        assert!(suggestions.is_empty());
+        assert_eq!(suggestions, Vec::new());
     }
 
     #[test]

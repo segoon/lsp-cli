@@ -1,0 +1,16 @@
+language:
+  id: prisma
+  kind: metadata
+  project: playground/prisma
+pairs:
+  - language: prisma
+    server: prismals
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - references
+        - definition

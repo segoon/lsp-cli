@@ -1,0 +1,26 @@
+language:
+  id: handlebars
+  kind: metadata
+  project: playground/handlebars
+pairs:
+  - language: handlebars
+    server: ember
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+  - language: handlebars
+    server: htmx
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: handlebars
+    server: tailwindcss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

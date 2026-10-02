@@ -1,0 +1,19 @@
+language:
+  id: zir
+  kind: metadata
+  project: playground/zir
+pairs:
+  - language: zir
+    server: zls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+        - declaration
+        - type-definition

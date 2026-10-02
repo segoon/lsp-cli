@@ -9,6 +9,11 @@
 - user-visible messages - more friendly/informative -> into explicit module
 
 - man: https://www.w3tutorials.net/blog/what-is-the-idiomatic-way-of-writing-man-pages-for-rust-cli-tools/
+- explicit table of supported commands per LSP server (generate)
+
+- design installer backends for the currently excluded RubyGems, LuaRocks, Open VSX, OPAM,
+  Composer, and source-build Mason packages; the complete server inventory and required trust,
+  cache, runtime, and test considerations are recorded in `docs/SERVERS.md`
 
 - fill filetypes detection
 
@@ -45,4 +50,6 @@ generic:
 
 - declaration for clangd drops std (e.g. `declaration f` drops `fgetc`)
 
+# Implementation
 
+- move all LSP command names (e.g. `workspace/symbol`) to a separate file

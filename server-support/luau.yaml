@@ -1,0 +1,35 @@
+language:
+  id: luau
+  kind: source
+  project: playground/luau
+  query-profile:
+    symbol-query: Order
+    callable-query: build_sample_order
+    format-file: main.luau
+    expected-names:
+      - Order
+      - OrderItem
+      - build_sample_order
+      - format_order
+pairs:
+  - language: luau
+    server: luau_lsp
+    tier: smoke
+    smoke:
+      status: queries
+      supported-operations:
+        - server-capabilities
+        - diagnostics
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - callers
+        - callees
+        - definition
+        - type-definition
+        - build-index
+    lifecycle:
+      status: scenarios
+      direct-run:
+        status: exchange

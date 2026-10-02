@@ -1,0 +1,41 @@
+language:
+  id: tex
+  kind: metadata
+  project: playground/tex
+pairs:
+  - language: tex
+    server: texlab
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+  - language: tex
+    server: textlsp
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: tex
+    server: ltex
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: tex
+    server: ltex_plus
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: tex
+    server: vale_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

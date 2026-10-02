@@ -1,0 +1,10 @@
+language:
+  id: fish
+  kind: metadata
+  project: playground/fish
+pairs:
+  - language: fish
+    server: fish_lsp
+    smoke:
+      status: excluded
+      reason: pkg:npm/fish-lsp@1.1.4 requires the fish executable on PATH during initialization.

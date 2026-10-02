@@ -1,0 +1,78 @@
+language:
+  id: css
+  kind: metadata
+  project: playground/css
+pairs:
+  - language: css
+    server: css_variables
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - definition
+  - language: css
+    server: csskit
+    smoke:
+      status: excluded
+      reason: pkg:github/csskit/csskit@v0.0.33 rejects the standard shutdown request with JSON-RPC method-not-found (-32601).
+  - language: css
+    server: cssls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+  - language: css
+    server: ast_grep
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: css
+    server: codebook
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: css
+    server: emmet_language_server
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: css
+    server: emmet_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: css
+    server: stylelint_lsp
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: css
+    server: tailwindcss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: css
+    server: unocss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: css
+    server: wc_language_server
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - references
+        - definition

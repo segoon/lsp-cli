@@ -178,6 +178,38 @@ fn server_request_is_answered_while_client_request_is_outstanding() {
 }
 
 #[test]
+fn waits_for_target_diagnostics_as_a_readiness_hint() {
+    let target_uri = "file:///workspace/src/main.rs";
+    let fixture = SocketFixture::spawn("client-readiness-diagnostics", move |mut peer| {
+        peer.initialize();
+        peer.expect_initialized();
+        for uri in ["file:///workspace/src/other.rs", target_uri] {
+            peer.send(
+                &json!({
+                    "jsonrpc": "2.0",
+                    "method": "textDocument/publishDiagnostics",
+                    "params": {"uri": uri, "diagnostics": []},
+                }),
+                "diagnostics notification",
+            );
+        }
+        peer.finish_shutdown();
+    });
+    let mut client = fixture.connect();
+    initialize_client(&mut client);
+
+    assert!(
+        client
+            .wait_for_readiness_hint(target_uri, Duration::from_secs(1))
+            .expect("readiness wait should succeed")
+    );
+    assert_eq!(client.published_diagnostics_len(), 2);
+
+    client.shutdown().expect("shutdown should succeed");
+    fixture.finish();
+}
+
+#[test]
 fn initialize_advertises_and_returns_workspace_folders() {
     let fixture = SocketFixture::spawn("client-init-workspace-folders", |mut peer| {
         let initialize = peer.initialize();

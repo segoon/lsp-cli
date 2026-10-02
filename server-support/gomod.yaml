@@ -1,0 +1,33 @@
+language:
+  id: gomod
+  kind: metadata
+  project: playground/gomod
+pairs:
+  - language: gomod
+    server: gopls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - callers
+        - callees
+        - definition
+        - implementation
+        - type-definition
+  - language: gomod
+    server: golangci_lint_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: gomod
+    server: snyk_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

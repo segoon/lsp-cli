@@ -1,0 +1,10 @@
+language:
+  id: visualforce
+  kind: metadata
+  project: playground/visualforce
+pairs:
+  - language: visualforce
+    server: visualforce_ls
+    smoke:
+      status: excluded
+      reason: pkg:github/forcedotcom/salesforcedx-vscode@v67.20.0 is paired with the literal placeholder script path /path/to/unpacked/archive/extension/node_modules/@salesforce/salesforcedx-visualforce-language-server/out/src/visualforceServer.js.

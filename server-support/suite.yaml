@@ -1,0 +1,2188 @@
+schema-version: 19
+coverage: complete
+platform:
+  os: linux
+  architecture: x86-64
+defaults:
+  smoke:
+    lsp-timeout-seconds: 30
+    deadline-seconds: 300
+  lifecycle:
+    lsp-timeout-seconds: 30
+    deadline-seconds: 240
+  provisioning:
+    deadline-seconds: 600
+expected-failures:
+  - case: provisioning/bicep
+    stage: provisioning
+    diagnostic-contains: "downloaded server program dotnet is outside isolated home"
+    reason: pkg:github/Azure/bicep@v0.47.16 installs a launcher that resolves managed dotnet outside the isolated E2E home.
+  - case: provisioning/bzl
+    stage: provisioning
+    diagnostic-contains: "failed to download bzl: error sending request for url (https://get.bzl.io/linux_amd64/v1.4.22/bzl)"
+    reason: pkg:generic/bzl@v1.4.22 repeatedly fails to download from get.bzl.io without exposing the lower-level request cause.
+  - case: provisioning/cairo_ls
+    stage: provisioning
+    diagnostic-contains: "Mason does not expose executable scarb"
+    reason: pkg:cargo/cairo-language-server@2.15.0 requires scarb, but the Mason recipe does not expose that executable.
+  - case: provisioning/clarinet
+    stage: provisioning
+    diagnostic-contains: "404 Not Found"
+    reason: pkg:github/hirosystems/clarinet@v15.16.0 references a Linux release asset URL that returns HTTP 404.
+  - case: provisioning/dhall_lsp_server
+    stage: provisioning
+    diagnostic-contains: "downloaded asset did not produce a runnable dhall-lsp-server executable"
+    reason: pkg:github/dhall-lang/dhall-haskell@1.42.2 does not produce a runnable dhall-lsp-server at the Mason-configured path.
+  - case: provisioning/elixirls
+    stage: provisioning
+    diagnostic-contains: "configured LSP server executable `/path/to/elixir-ls/language_server.sh` was not found"
+    reason: pkg:github/elixir-lsp/elixir-ls@v0.31.1 is paired with the literal placeholder command /path/to/elixir-ls/language_server.sh in the bundled LSP config.
+  - case: provisioning/erg_language_server
+    stage: provisioning
+    diagnostic-contains: "Mason does not expose executable erg"
+    reason: pkg:github/erg-lang/erg-language-server@v0.1.12 requires erg, but the Mason recipe does not expose that executable.
+  - case: provisioning/fennel_language_server
+    stage: provisioning
+    diagnostic-contains: "cannot install fennel-language-server because cargo failed"
+    reason: pkg:cargo/fennel-language-server@59005549ca1191bf2aa364391e6bf2371889b4f8?repository_url=https://github.com/rydesun/fennel-language-server&rev=true requires repository_url and rev qualifiers that the current Cargo installer discards.
+  - case: provisioning/flux_lsp
+    stage: provisioning
+    diagnostic-contains: "could not find `flux-lsp` in registry `crates-io` with version `=0.8.40`"
+    reason: pkg:cargo/flux-lsp@0.8.40?repository_url=https://github.com/influxdata/flux-lsp requires its repository_url qualifier; crates.io has no matching flux-lsp release.
+  - case: provisioning/glslls
+    stage: provisioning
+    diagnostic-contains: "cannot install glslls on this platform"
+    reason: pkg:github/svenstaro/glsl-language-server@0.5.0 has no Mason asset matching the Linux x86-64 E2E platform.
+  - case: provisioning/groovyls
+    stage: provisioning
+    diagnostic-contains: "downloaded server program java is outside isolated home"
+    reason: pkg:github/GroovyLanguageServer/groovy-language-server@347d098a928707223ce44b52cc45174a6327a5f3 installs a launcher that resolves managed java outside the isolated E2E home.
+  - case: provisioning/hls
+    stage: provisioning
+    diagnostic-contains: "cannot install haskell-language-server on this platform"
+    reason: pkg:generic/haskell/haskell-language-server@2.13.0.0 has no Mason download matching the Linux x86-64 E2E platform.
+  - case: provisioning/hylo_ls
+    stage: provisioning
+    diagnostic-contains: "downloaded asset did not produce a runnable hylo-language-server executable"
+    reason: pkg:github/hylo-lang/hylo-language-server@v0.0.18 does not produce a runnable hylo-language-server at the Mason-configured path.
+  - case: provisioning/julials
+    stage: provisioning
+    diagnostic-contains: "Mason does not expose executable julia"
+    reason: pkg:github/mason-org/julia-lsp@v1.219.2 requires julia, but the Mason recipe does not expose that executable.
+  - case: provisioning/lelwel_ls
+    stage: provisioning
+    diagnostic-contains: "cargo did not produce a runnable lelwel-ls executable"
+    reason: pkg:cargo/lelwel@0.10.4?features=lsp,cli requires the lsp and cli feature qualifiers that the current Cargo installer discards, so no lelwel-ls executable is built.
+  - case: provisioning/matlab_ls
+    stage: provisioning
+    diagnostic-contains: "cannot install matlab-language-server on this platform"
+    reason: pkg:github/mathworks/MATLAB-language-server@3997ef66d0ca3b9e4099e33e1014cfa03029898f has no Mason asset matching the Linux x86-64 E2E platform.
+  - case: provisioning/mm0_ls
+    stage: provisioning
+    diagnostic-contains: "cannot install metamath-zero-lsp on this platform"
+    reason: pkg:github/digama0/mm0@f30b37eed283502835ff9fd62c827f23b2d3a71e has no Mason asset matching the Linux x86-64 E2E platform.
+  - case: provisioning/move_analyzer
+    stage: provisioning
+    diagnostic-contains: "cannot install move-analyzer because cargo failed"
+    reason: pkg:cargo/move-analyzer@ea70797099baea64f05194a918cebd69ed02b285?repository_url=https://github.com/move-language/move&rev=true&locked=false requires repository_url, rev, and locked qualifiers that the current Cargo installer discards.
+  - case: provisioning/nil_ls
+    stage: provisioning
+    diagnostic-contains: "cannot install nil because cargo failed"
+    reason: pkg:cargo/nil@2025-06-13?repository_url=https://github.com/oxalica/nil requires its repository_url qualifier that the current Cargo installer discards.
+  - case: provisioning/nimls
+    stage: provisioning
+    diagnostic-contains: "cannot install nimlsp on this platform"
+    reason: pkg:github/PMunch/nimlsp@v0.4.7 has no Mason asset matching the Linux x86-64 E2E platform.
+  - case: provisioning/pbls
+    stage: provisioning
+    diagnostic-contains: "could not find `pbls` in registry `crates-io` with version `=1.0.1`"
+    reason: pkg:cargo/pbls@1.0.1?repository_url=https://git.sr.ht/~rrc/pbls requires its repository_url qualifier; crates.io has no matching pbls release.
+  - case: provisioning/phpactor
+    stage: provisioning
+    diagnostic-contains: "downloaded asset did not produce a runnable phpactor executable"
+    reason: pkg:github/phpactor/phpactor@2026.07.22.0 does not produce a runnable phpactor at the Mason-configured path.
+  - case: provisioning/pico8_ls
+    stage: provisioning
+    diagnostic-contains: "cannot install pico8-ls on this platform"
+    reason: pkg:github/japhib/pico8-ls@40c53c2061a42b20b22f83467d241e668c2487a2 has no Mason asset matching the Linux x86-64 E2E platform.
+  - case: provisioning/powershell_es
+    stage: provisioning
+    diagnostic-contains: "Mason does not expose executable pwsh"
+    reason: pkg:github/PowerShell/PowerShellEditorServices@v4.7.0 requires pwsh, but the Mason recipe does not expose that executable.
+  - case: provisioning/puppet
+    stage: provisioning
+    diagnostic-contains: "downloaded asset did not produce a runnable puppet-languageserver executable"
+    reason: pkg:github/puppetlabs/puppet-editor-services@v2.0.4 does not produce a runnable puppet-languageserver at the Mason-configured path.
+  - case: provisioning/r_language_server
+    stage: provisioning
+    diagnostic-contains: "cannot install r-languageserver on this platform"
+    reason: pkg:github/mason-org/r-languageserver@v0.3.17 has no Mason asset matching the Linux x86-64 E2E platform.
+  - case: provisioning/raku_navigator
+    stage: provisioning
+    diagnostic-contains: "downloaded server program node is outside isolated home"
+    reason: pkg:github/bscan/RakuNavigator@ccd511dbd156f396eed613f21adbcd8e38a8c784 installs a launcher that resolves managed node outside the isolated E2E home.
+  - case: provisioning/salt_ls
+    stage: provisioning
+    diagnostic-contains: "cannot install salt-lsp because virtual-environment pip failed"
+    reason: pkg:pypi/salt-lsp@0.0.1 requires PyYAML<6, whose 5.4.1 source build fails on the managed Python 3.12 runtime.
+  - case: provisioning/smithy_ls
+    stage: provisioning
+    diagnostic-contains: "Mason does not expose executable coursier"
+    reason: pkg:github/awslabs/smithy-language-server@0.9.0 requires coursier, but the Mason recipe does not expose that executable.
+  - case: provisioning/sqls
+    stage: provisioning
+    diagnostic-contains: "configured LSP server executable `path/to/command` was not found"
+    reason: pkg:golang/github.com/sqls-server/sqls@v0.2.48 is paired with the literal placeholder command path/to/command in the bundled LSP config.
+  - case: provisioning/vala_ls
+    stage: provisioning
+    diagnostic-contains: "cannot install vala-language-server on this platform"
+    reason: pkg:github/vala-lang/vala-language-server@8fab39f867a15dc3f1d24bc0ae455f6e019230bd has no Mason asset matching the Linux x86-64 E2E platform.
+  - case: provisioning/vespa_ls
+    stage: provisioning
+    diagnostic-contains: "downloaded server program java is outside isolated home"
+    reason: pkg:github/vespa-engine/vespa@lsp-v2.6.0 installs a launcher that resolves managed java outside the isolated E2E home.
+  - case: provisioning/vhdl_ls
+    stage: provisioning
+    diagnostic-contains: "{{source.asset.libraries}}"
+    reason: pkg:github/vhdl-ls/rust_hdl@v0.88.0 leaves the Mason template {{source.asset.libraries}} unresolved while installing supporting files.
+  - case: provisioning/visualforce_ls
+    stage: provisioning
+    diagnostic-contains: "downloaded server program node is outside isolated home"
+    reason: pkg:github/forcedotcom/salesforcedx-vscode@v67.20.0 installs a launcher that resolves managed node outside the isolated E2E home.
+  - case: provisioning/vls
+    stage: provisioning
+    diagnostic-contains: "Mason does not expose executable v"
+    reason: pkg:github/vlang/vls@latest requires v, but the Mason recipe does not expose that executable.
+  - case: provisioning/lwc_ls
+    stage: provisioning
+    diagnostic-contains: downloaded server program node is outside isolated home
+    reason: The bundled LWC config resolves managed node outside the isolated home before launching a literal placeholder script path.
+  - case: provisioning/nextflow_ls
+    stage: provisioning
+    diagnostic-contains: downloaded asset did not produce a runnable nextflow-language-server executable
+    reason: The downloaded Nextflow language-server package does not produce a runnable executable at the Mason-configured path.
+  - case: provisioning/spectral
+    stage: provisioning
+    diagnostic-contains: cannot install spectral-language-server on this platform
+    reason: The spectral-language-server Mason package has no source matching the Linux x86-64 E2E platform.
+  - case: provisioning/stylelint_lsp
+    stage: provisioning
+    diagnostic-contains: Mason does not expose executable stylelint-language-server
+    reason: pkg:npm/stylelint-lsp@2.0.1 does not expose the configured stylelint-language-server executable through Mason.
+  - case: smoke/python/pylyzer
+    stage: query
+    diagnostic-contains: "TypeDefinition returned no semantic matches"
+    reason: pkg:github/mtshiba/pylyzer@v0.0.82 returns no textDocument/typeDefinition match for an order parameter explicitly typed as Order after three bounded attempts; server stderr also reports missing ERG_PATH with diagnostics-worker panics.
+
+servers:
+  - id: ada_ls
+    owner-language: ada
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: agda_ls
+    owner-language: agda
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: aiken
+    owner-language: aiken
+    provisioning:
+      status: download
+  - id: air
+    owner-language: r
+    provisioning:
+      status: download
+  - id: alloy_ls
+    owner-language: alloy
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: anakin_language_server
+    owner-language: python
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for anakin-language-server.
+  - id: angularls
+    owner-language: typescript
+    coverage:
+      status: unavailable
+      reason: pkg:npm/%40angular/language-server@22.2.0 receives incomplete probe-location arguments and cannot resolve TypeScript 5 or newer.
+    provisioning:
+      status: download
+  - id: antlersls
+    owner-language: antlers
+    provisioning:
+      status: download
+  - id: arduino_language_server
+    owner-language: arduino
+    provisioning:
+      status: download
+  - id: asm_lsp
+    owner-language: asm
+    provisioning:
+      status: download
+  - id: ast_grep
+    owner-language: rust
+    coverage:
+      status: unavailable
+      reason: pkg:github/ast-grep/ast-grep@0.45.3 refuses to initialize without an ast-grep project configuration.
+    provisioning:
+      status: download
+  - id: astro
+    owner-language: astro
+    provisioning:
+      status: download
+  - id: atlas
+    owner-language: atlas
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: atopile
+    owner-language: ato
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: autohotkey_lsp
+    owner-language: autohotkey
+    provisioning:
+      status: download
+  - id: autotools_ls
+    owner-language: automake
+    provisioning:
+      status: download
+  - id: awk_ls
+    owner-language: awk
+    provisioning:
+      status: download
+  - id: azure_pipelines_ls
+    owner-language: yaml
+    coverage:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - list-symbols
+        - list-functions
+        - definition
+    provisioning:
+      status: download
+  - id: bacon_ls
+    owner-language: rust
+    coverage:
+      status: unavailable
+      reason: pkg:cargo/bacon-ls@0.31.0 rejects the standard initialize request with JSON-RPC invalid-request (-32600).
+    provisioning:
+      status: download
+  - id: ballerina
+    owner-language: ballerina
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: basedpyright
+    owner-language: python
+    provisioning:
+      status: download
+      host-programs:
+        - name: python3
+          resolve:
+            - which
+            - python3
+  - id: bashls
+    owner-language: bash
+    provisioning:
+      status: download
+  - id: bazelrc_lsp
+    owner-language: bazelrc
+    provisioning:
+      status: download
+  - id: beancount
+    owner-language: bean
+    provisioning:
+      status: download
+  - id: bicep
+    owner-language: bicep
+    provisioning:
+      status: download
+      host-programs:
+        - name: dotnet
+          resolve:
+            - which
+            - dotnet
+  - id: bitbake_language_server
+    owner-language: bitbake
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: blueprint_ls
+    owner-language: blueprint
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: bqls
+    owner-language: sql
+    provisioning:
+      status: download
+  - id: bright_script
+    owner-language: brs
+    provisioning:
+      status: download
+  - id: brioche
+    owner-language: brioche
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: buck2
+    owner-language: bzl
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: buddy_ls
+    owner-language: mlir
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: buf_ls
+    owner-language: buf-config
+    provisioning:
+      status: download
+  - id: bzl
+    owner-language: bzl
+    provisioning:
+      status: download
+  - id: c3_lsp
+    owner-language: c3
+    provisioning:
+      status: download
+  - id: cairo_ls
+    owner-language: cairo
+    provisioning:
+      status: download
+  - id: ccls
+    owner-language: c
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for ccls.
+  - id: cds_lsp
+    owner-language: cds
+    provisioning:
+      status: download
+  - id: cir_lsp_server
+    owner-language: cir
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: circom-lsp
+    owner-language: circom
+    provisioning:
+      status: download
+  - id: clangd
+    owner-language: c
+    provisioning:
+      status: download
+  - id: clarinet
+    owner-language: clar
+    provisioning:
+      status: download
+  - id: clojure_lsp
+    owner-language: clojure
+    provisioning:
+      status: download
+  - id: cmake
+    owner-language: cmake
+    provisioning:
+      status: download
+  - id: cobol_ls
+    owner-language: cobol
+    provisioning:
+      status: download
+  - id: codebook
+    owner-language: rust
+    coverage:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+    provisioning:
+      status: download
+  - id: coffeesense
+    owner-language: coffee
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: crystalline
+    owner-language: crystal
+    provisioning:
+      status: download
+  - id: css_variables
+    owner-language: css
+    provisioning:
+      status: download
+  - id: csskit
+    owner-language: css
+    provisioning:
+      status: download
+  - id: cssls
+    owner-language: css
+    provisioning:
+      status: download
+  - id: cssmodules_ls
+    owner-language: javascript
+    coverage:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - definition
+        - implementation
+    provisioning:
+      status: download
+  - id: cucumber_language_server
+    owner-language: cucumber
+    provisioning:
+      status: download
+  - id: cue
+    owner-language: cue
+    provisioning:
+      status: download
+  - id: cypher_ls
+    owner-language: cypher
+    provisioning:
+      status: download
+  - id: daedalus_ls
+    owner-language: d
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: dafny
+    owner-language: dafny
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: dagger
+    owner-language: cue
+    provisioning:
+      status: download
+  - id: dartls
+    owner-language: dart
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: dcmls
+    owner-language: dart
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: debputy
+    owner-language: debchangelog
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: denols
+    owner-language: javascript
+    provisioning:
+      status: download
+  - id: dhall_lsp_server
+    owner-language: dhall
+    provisioning:
+      status: download
+  - id: digestif
+    owner-language: context
+    provisioning:
+      status: excluded
+      reason: lsp-cli cannot install this server because its Mason package uses the unsupported LuaRocks backend.
+  - id: djls
+    owner-language: python
+    coverage:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+    provisioning:
+      status: download
+  - id: djlsp
+    owner-language: html
+    coverage:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - definition
+    provisioning:
+      status: download
+  - id: docker_compose_language_service
+    owner-language: yaml.docker-compose
+    provisioning:
+      status: download
+  - id: docker_language_server
+    owner-language: dockerfile
+    provisioning:
+      status: download
+  - id: dockerls
+    owner-language: dockerfile
+    provisioning:
+      status: download
+  - id: dolmenls
+    owner-language: cnf
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: dotls
+    owner-language: dot
+    provisioning:
+      status: download
+  - id: dprint
+    owner-language: typescript
+    coverage:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+    provisioning:
+      status: download
+  - id: dts_lsp
+    owner-language: dts
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: earthlyls
+    owner-language: earthfile
+    provisioning:
+      status: download
+  - id: ecsact
+    owner-language: ecsact
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: efm
+    owner-language: lua
+    coverage:
+      status: unavailable
+      reason: pkg:github/mattn/efm-langserver@v0.0.57 closes its transport while the client waits for the shutdown response.
+    provisioning:
+      status: download
+  - id: elixirls
+    owner-language: eelixir
+    provisioning:
+      status: download
+  - id: elmls
+    owner-language: elm
+    provisioning:
+      status: download
+  - id: elp
+    owner-language: erlang
+    provisioning:
+      status: download
+  - id: ember
+    owner-language: javascript
+    coverage:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+    provisioning:
+      status: download
+  - id: emmet_language_server
+    owner-language: astro
+    coverage:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+    provisioning:
+      status: download
+  - id: emmet_ls
+    owner-language: astro
+    coverage:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+    provisioning:
+      status: download
+  - id: emmylua_ls
+    owner-language: lua
+    provisioning:
+      status: download
+  - id: erg_language_server
+    owner-language: erg
+    provisioning:
+      status: download
+  - id: esbonio
+    owner-language: rst
+    provisioning:
+      status: download
+  - id: eslint
+    owner-language: javascript
+    coverage:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+    provisioning:
+      status: download
+  - id: expert
+    owner-language: eelixir
+    provisioning:
+      status: download
+  - id: facility_language_server
+    owner-language: fsd
+    provisioning:
+      status: download
+  - id: fennel_language_server
+    owner-language: fennel
+    provisioning:
+      status: download
+  - id: fennel_ls
+    owner-language: fennel
+    provisioning:
+      status: excluded
+      reason: lsp-cli cannot install this server because its Mason package uses the unsupported LuaRocks backend.
+  - id: fish_lsp
+    owner-language: fish
+    provisioning:
+      status: download
+  - id: flow
+    owner-language: javascript
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for Flow.
+  - id: flux_lsp
+    owner-language: flux
+    provisioning:
+      status: download
+  - id: foam_ls
+    owner-language: OpenFOAM
+    provisioning:
+      status: download
+  - id: fortitude
+    owner-language: fortran
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: fortls
+    owner-language: fortran
+    provisioning:
+      status: download
+  - id: fsautocomplete
+    owner-language: fsharp
+    provisioning:
+      status: download
+  - id: fsharp_language_server
+    owner-language: fsharp
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: fstar
+    owner-language: fstar
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: futhark_lsp
+    owner-language: fut
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: gdshader_lsp
+    owner-language: gdshader
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: gh_actions_ls
+    owner-language: yaml
+    coverage:
+      status: unavailable
+      reason: pkg:npm/%40actions/languageserver@0.3.61 rejects initialization without a sessionToken initialization option.
+    provisioning:
+      status: download
+  - id: ghcide
+    owner-language: haskell
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: ghdl_ls
+    owner-language: vhdl
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: ginko_ls
+    owner-language: dts
+    provisioning:
+      status: download
+  - id: gitlab_ci_ls
+    owner-language: yaml.gitlab
+    provisioning:
+      status: download
+  - id: gitlab_duo
+    owner-language: javascript
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: glasgow
+    owner-language: wgsl
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: gleam
+    owner-language: gleam
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: glsl_analyzer
+    owner-language: comp
+    provisioning:
+      status: download
+  - id: glslls
+    owner-language: comp
+    provisioning:
+      status: download
+  - id: gn_language_server
+    owner-language: gn
+    provisioning:
+      status: download
+  - id: gnls
+    owner-language: gn
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: golangci_lint_ls
+    owner-language: go
+    coverage:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+    provisioning:
+      status: download
+  - id: gopls
+    owner-language: go
+    provisioning:
+      status: download
+      host-programs:
+        - name: go
+          resolve:
+            - which
+            - go
+  - id: grammarly
+    owner-language: markdown
+    coverage:
+      status: unavailable
+      reason: pkg:npm/grammarly-languageserver@0.0.4 rejects initialization without a clientId initialization option.
+    provisioning:
+      status: download
+  - id: graphql
+    owner-language: graphql
+    provisioning:
+      status: download
+  - id: groovyls
+    owner-language: groovy
+    provisioning:
+      status: download
+      host-programs:
+        - name: java
+          resolve:
+            - which
+            - java
+  - id: guile_ls
+    owner-language: scheme.guile
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: harper_ls
+    owner-language: rust
+    coverage:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+    provisioning:
+      status: download
+  - id: hdl_checker
+    owner-language: systemverilog
+    provisioning:
+      status: download
+  - id: helm_ls
+    owner-language: helm
+    provisioning:
+      status: download
+  - id: herb_ls
+    owner-language: eruby
+    coverage:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+    provisioning:
+      status: download
+  - id: hhvm
+    owner-language: hack
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: hie
+    owner-language: haskell
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: hlasm
+    owner-language: hlasm
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: hls
+    owner-language: cabal
+    provisioning:
+      status: download
+  - id: home_assistant
+    owner-language: yaml
+    provisioning:
+      status: excluded
+      reason: lsp-cli cannot install this server because its Mason package uses the unsupported Open VSX backend.
+  - id: hoon_ls
+    owner-language: hoon
+    provisioning:
+      status: download
+  - id: html
+    owner-language: html
+    provisioning:
+      status: download
+  - id: htmx
+    owner-language: javascript
+    coverage:
+      status: unavailable
+      reason: pkg:cargo/htmx-lsp@0.1.0 does not handle the standard shutdown request and times out after logging it as unhandled.
+    provisioning:
+      status: download
+  - id: hydra_lsp
+    owner-language: yaml
+    coverage:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - references
+        - definition
+    provisioning:
+      status: download
+  - id: hylo_ls
+    owner-language: hylo
+    provisioning:
+      status: download
+  - id: hyprls
+    owner-language: hyprlang
+    provisioning:
+      status: download
+  - id: idris2_lsp
+    owner-language: idris2
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: intelephense
+    owner-language: php
+    provisioning:
+      status: download
+  - id: janet_lsp
+    owner-language: janet
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: java_language_server
+    owner-language: java
+    provisioning:
+      status: excluded
+      reason: Its Mason package requires a source-build recipe that lsp-cli does not support.
+  - id: jdtls
+    owner-language: java
+    provisioning:
+      status: download
+      host-programs:
+        - name: java
+          resolve:
+            - which
+            - java
+        - name: python3
+          resolve:
+            - which
+            - python3
+  - id: jedi_language_server
+    owner-language: python
+    provisioning:
+      status: download
+      host-programs:
+        - name: python3
+          resolve:
+            - which
+            - python3
+  - id: jinja_lsp
+    owner-language: jinja
+    provisioning:
+      status: download
+  - id: jqls
+    owner-language: jq
+    provisioning:
+      status: download
+  - id: jsonls
+    owner-language: json
+    provisioning:
+      status: download
+  - id: jsonnet_ls
+    owner-language: jsonnet
+    provisioning:
+      status: download
+  - id: julials
+    owner-language: julia
+    provisioning:
+      status: download
+  - id: just
+    owner-language: just
+    provisioning:
+      status: download
+  - id: kakehashi
+    owner-language: python
+    coverage:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+        - declaration
+        - implementation
+        - type-definition
+    provisioning:
+      status: download
+  - id: kcl
+    owner-language: kcl
+    provisioning:
+      status: download
+  - id: koka
+    owner-language: koka
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: kotlin_language_server
+    owner-language: kotlin
+    provisioning:
+      status: download
+      host-programs:
+        - name: java
+          resolve:
+            - which
+            - java
+        - name: uname
+          resolve:
+            - which
+            - uname
+        - name: xargs
+          resolve:
+            - which
+            - xargs
+  - id: kotlin_lsp
+    owner-language: kotlin
+    provisioning:
+      status: download
+  - id: kulala_ls
+    owner-language: http
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: laravel_ls
+    owner-language: blade
+    coverage:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - definition
+    provisioning:
+      status: download
+  - id: lean3ls
+    owner-language: lean3
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: lelwel_ls
+    owner-language: llw
+    provisioning:
+      status: download
+  - id: lemminx
+    owner-language: svg
+    provisioning:
+      status: download
+  - id: lexical
+    owner-language: eelixir
+    provisioning:
+      status: download
+  - id: ltex
+    owner-language: bib
+    coverage:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+    provisioning:
+      status: download
+      host-programs:
+        - name: java
+          resolve:
+            - which
+            - java
+        - name: sh
+          resolve:
+            - which
+            - sh
+        - name: dirname
+          resolve:
+            - which
+            - dirname
+        - name: uname
+          resolve:
+            - which
+            - uname
+        - name: which
+          resolve:
+            - which
+            - which
+  - id: ltex_plus
+    owner-language: asciidoc
+    coverage:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+    provisioning:
+      status: download
+      host-programs:
+        - name: sh
+          resolve:
+            - which
+            - sh
+        - name: dirname
+          resolve:
+            - which
+            - dirname
+        - name: uname
+          resolve:
+            - which
+            - uname
+        - name: which
+          resolve:
+            - which
+            - which
+  - id: lua_ls
+    owner-language: lua
+    provisioning:
+      status: download
+  - id: luau_lsp
+    owner-language: luau
+    provisioning:
+      status: download
+  - id: lwc_ls
+    owner-language: javascript
+    coverage:
+      status: unavailable
+      reason: The bundled LWC config contains the literal placeholder /path/to/node_modules/@salesforce/lwc-language-server/bin/lwc-language-server.js.
+    provisioning:
+      status: download
+  - id: m68k
+    owner-language: asm68k
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: markdown_oxide
+    owner-language: markdown
+    provisioning:
+      status: download
+  - id: marko-js
+    owner-language: marko
+    provisioning:
+      status: download
+  - id: marksman
+    owner-language: markdown
+    provisioning:
+      status: download
+  - id: matlab_ls
+    owner-language: matlab
+    provisioning:
+      status: download
+  - id: mdx_analyzer
+    owner-language: mdx
+    provisioning:
+      status: download
+  - id: mesonlsp
+    owner-language: meson
+    provisioning:
+      status: download
+  - id: metals
+    owner-language: scala
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: millet
+    owner-language: sml
+    provisioning:
+      status: download
+  - id: mint
+    owner-language: mint
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: mlir_lsp_server
+    owner-language: mlir
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: mlir_pdll_lsp_server
+    owner-language: pdll
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: mm0_ls
+    owner-language: metamath-zero
+    provisioning:
+      status: download
+  - id: mojo
+    owner-language: mojo
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: motoko_lsp
+    owner-language: motoko
+    provisioning:
+      status: excluded
+      reason: lsp-cli cannot install this server because its Mason package uses the unsupported Open VSX backend.
+  - id: move_analyzer
+    owner-language: move
+    provisioning:
+      status: download
+  - id: mpls
+    owner-language: markdown
+    provisioning:
+      status: download
+  - id: msbuild_project_tools_server
+    owner-language: msbuild
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: muon
+    owner-language: meson
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: mutt_ls
+    owner-language: muttrc
+    provisioning:
+      status: download
+  - id: nelua_lsp
+    owner-language: nelua
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: neocmake
+    owner-language: cmake
+    provisioning:
+      status: download
+  - id: nextflow_ls
+    owner-language: nextflow
+    coverage:
+      status: unavailable
+      reason: The downloaded Nextflow language-server package does not produce a runnable executable at the Mason-configured path.
+    provisioning:
+      status: download
+  - id: nextls
+    owner-language: eelixir
+    provisioning:
+      status: download
+  - id: nginx_language_server
+    owner-language: nginx
+    provisioning:
+      status: download
+  - id: nickel_ls
+    owner-language: ncl
+    provisioning:
+      status: download
+  - id: nil_ls
+    owner-language: nix
+    provisioning:
+      status: download
+  - id: nim_langserver
+    owner-language: nim
+    provisioning:
+      status: download
+  - id: nimls
+    owner-language: nim
+    provisioning:
+      status: download
+  - id: nixd
+    owner-language: nix
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: ntt
+    owner-language: ttcn
+    provisioning:
+      status: download
+  - id: nushell
+    owner-language: nu
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: nxls
+    owner-language: json
+    provisioning:
+      status: download
+  - id: ocamllsp
+    owner-language: dune
+    provisioning:
+      status: excluded
+      reason: lsp-cli cannot install this server because its Mason package uses the unsupported OPAM backend.
+  - id: ols
+    owner-language: odin
+    provisioning:
+      status: download
+  - id: omnisharp
+    owner-language: cs
+    provisioning:
+      status: download
+      host-programs:
+        - name: dotnet
+          resolve:
+            - which
+            - dotnet
+  - id: opencl_ls
+    owner-language: opencl
+    provisioning:
+      status: download
+  - id: openscad_ls
+    owner-language: openscad
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: openscad_lsp
+    owner-language: openscad
+    provisioning:
+      status: download
+  - id: oso
+    owner-language: polar
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: pact_ls
+    owner-language: pact
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: pasls
+    owner-language: pascal
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: pbls
+    owner-language: proto
+    provisioning:
+      status: download
+  - id: perlls
+    owner-language: perl
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: perlnavigator
+    owner-language: perl
+    provisioning:
+      status: download
+      host-programs:
+        - name: node
+          resolve:
+            - which
+            - node
+        - name: npm
+          resolve:
+            - which
+            - npm
+        - name: perl
+          resolve:
+            - which
+            - perl
+  - id: perlpls
+    owner-language: perl
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: pest_ls
+    owner-language: pest
+    provisioning:
+      status: download
+  - id: phan
+    owner-language: php
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: phpactor
+    owner-language: php
+    provisioning:
+      status: download
+  - id: phptools
+    owner-language: php
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: pico8_ls
+    owner-language: p8
+    provisioning:
+      status: download
+  - id: please
+    owner-language: bzl
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: pli
+    owner-language: pli
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: pony_lsp
+    owner-language: pony
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: poryscript_pls
+    owner-language: pory
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: postgres_lsp
+    owner-language: sql
+    provisioning:
+      status: download
+  - id: powershell_es
+    owner-language: ps1
+    provisioning:
+      status: download
+  - id: prismals
+    owner-language: prisma
+    provisioning:
+      status: download
+  - id: prolog_ls
+    owner-language: prolog
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: prosemd_lsp
+    owner-language: markdown
+    provisioning:
+      status: download
+  - id: protols
+    owner-language: proto
+    provisioning:
+      status: download
+  - id: psalm
+    owner-language: php
+    provisioning:
+      status: excluded
+      reason: lsp-cli cannot install this server because its Mason package uses the unsupported Composer backend.
+  - id: pug
+    owner-language: pug
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: puppet
+    owner-language: puppet
+    provisioning:
+      status: download
+  - id: purescriptls
+    owner-language: purescript
+    provisioning:
+      status: download
+  - id: pylsp
+    owner-language: python
+    provisioning:
+      status: download
+      host-programs:
+        - name: python3
+          resolve:
+            - which
+            - python3
+  - id: pylyzer
+    owner-language: python
+    provisioning:
+      status: download
+      host-programs:
+        - name: python3
+          resolve:
+            - which
+            - python3
+  - id: pyre
+    owner-language: python
+    provisioning:
+      status: download
+      host-programs:
+        - name: python3
+          resolve:
+            - which
+            - python3
+  - id: pyrefly
+    owner-language: python
+    provisioning:
+      status: download
+      host-programs:
+        - name: python3
+          resolve:
+            - which
+            - python3
+  - id: pyright
+    owner-language: python
+    provisioning:
+      status: download
+      host-programs:
+        - name: node
+          resolve:
+            - which
+            - node
+        - name: npm
+          resolve:
+            - which
+            - npm
+  - id: qmlls
+    owner-language: qml
+    provisioning:
+      status: download
+  - id: quick_lint_js
+    owner-language: javascript
+    coverage:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+    provisioning:
+      status: download
+  - id: r_language_server
+    owner-language: quarto
+    provisioning:
+      status: download
+  - id: racket_langserver
+    owner-language: racket
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: raku_navigator
+    owner-language: raku
+    provisioning:
+      status: download
+      host-programs:
+        - name: node
+          resolve:
+            - which
+            - node
+  - id: reason_ls
+    owner-language: reason
+    provisioning:
+      status: download
+  - id: regal
+    owner-language: rego
+    provisioning:
+      status: download
+  - id: regols
+    owner-language: rego
+    provisioning:
+      status: download
+  - id: remark_ls
+    owner-language: markdown
+    provisioning:
+      status: download
+  - id: rescriptls
+    owner-language: rescript
+    provisioning:
+      status: download
+  - id: rls
+    owner-language: rust
+    provisioning:
+      status: excluded
+      reason: RLS is deprecated and replaced by rust-analyzer.
+  - id: rnix
+    owner-language: nix
+    provisioning:
+      status: download
+  - id: robotcode
+    owner-language: resource
+    provisioning:
+      status: download
+  - id: robotframework_ls
+    owner-language: robot
+    provisioning:
+      status: download
+  - id: roc_ls
+    owner-language: roc
+    provisioning:
+      status: download
+  - id: rome
+    owner-language: javascript
+    provisioning:
+      status: excluded
+      reason: Rome is discontinued and replaced by Biome.
+  - id: roslyn_ls
+    owner-language: cs
+    provisioning:
+      status: download
+      host-programs:
+        - name: chmod
+          resolve:
+            - which
+            - chmod
+        - name: dotnet
+          resolve:
+            - which
+            - dotnet
+        - name: env
+          resolve:
+            - which
+            - env
+  - id: rpmspec
+    owner-language: spec
+    provisioning:
+      status: download
+  - id: rubocop
+    owner-language: ruby
+    provisioning:
+      status: excluded
+      reason: lsp-cli cannot install this server because its Mason package uses the unsupported RubyGems backend.
+  - id: ruff
+    owner-language: python
+    coverage:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+    provisioning:
+      status: download
+  - id: ruff_lsp
+    owner-language: python
+    provisioning:
+      status: excluded
+      reason: ruff-lsp is deprecated in favor of Ruff's native server and remains lint/format-specific.
+  - id: rumdl
+    owner-language: markdown
+    provisioning:
+      status: download
+  - id: rune_languageserver
+    owner-language: rune
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: rust_analyzer
+    owner-language: rust
+    provisioning:
+      status: download
+      host-programs:
+        - name: cargo
+          resolve:
+            - rustup
+            - which
+            - cargo
+        - name: rustc
+          resolve:
+            - rustup
+            - which
+            - rustc
+        - name: rustfmt
+          resolve:
+            - rustup
+            - which
+            - rustfmt
+  - id: salt_ls
+    owner-language: sls
+    provisioning:
+      status: download
+  - id: scheme_langserver
+    owner-language: scheme
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: scry
+    owner-language: crystal
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: selene3p_ls
+    owner-language: lua
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: serve_d
+    owner-language: d
+    provisioning:
+      status: download
+  - id: shopify_theme_ls
+    owner-language: liquid
+    coverage:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - definition
+    provisioning:
+      status: download
+  - id: sixtyfps
+    owner-language: sixtyfps
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: slangd
+    owner-language: hlsl
+    provisioning:
+      status: download
+  - id: slint_lsp
+    owner-language: slint
+    coverage:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - definition
+    provisioning:
+      status: download
+  - id: smarty_ls
+    owner-language: smarty
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: smithy_ls
+    owner-language: smithy
+    provisioning:
+      status: download
+  - id: snakeskin_ls
+    owner-language: ss
+    provisioning:
+      status: download
+  - id: snyk_ls
+    owner-language: python
+    coverage:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+    provisioning:
+      status: download
+  - id: solang
+    owner-language: solidity
+    provisioning:
+      status: download
+  - id: solargraph
+    owner-language: ruby
+    provisioning:
+      status: excluded
+      reason: lsp-cli cannot install this server because its Mason package uses the unsupported RubyGems backend.
+  - id: solc
+    owner-language: solidity
+    provisioning:
+      status: download
+  - id: solidity
+    owner-language: solidity
+    provisioning:
+      status: download
+  - id: solidity_ls
+    owner-language: solidity
+    provisioning:
+      status: download
+  - id: solidity_ls_nomicfoundation
+    owner-language: solidity
+    provisioning:
+      status: download
+  - id: somesass_ls
+    owner-language: sass
+    provisioning:
+      status: download
+  - id: sorbet
+    owner-language: ruby
+    provisioning:
+      status: excluded
+      reason: lsp-cli cannot install this server because its Mason package uses the unsupported RubyGems backend.
+  - id: sourcekit
+    owner-language: objc
+    provisioning:
+      status: excluded
+      reason: sourcekit-lsp requires an Apple or Swift toolchain and is not provisionable in the Linux E2E lane.
+  - id: spectral
+    owner-language: json
+    coverage:
+      status: unavailable
+      reason: The spectral-language-server Mason package has no source matching the Linux x86-64 E2E platform.
+    provisioning:
+      status: download
+  - id: spyglassmc_language_server
+    owner-language: mcfunction
+    provisioning:
+      status: download
+  - id: sqlls
+    owner-language: sql
+    provisioning:
+      status: download
+  - id: sqls
+    owner-language: sql
+    provisioning:
+      status: download
+  - id: sqruff
+    owner-language: sql
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: stan_ls
+    owner-language: stan
+    provisioning:
+      status: download
+  - id: standardrb
+    owner-language: ruby
+    provisioning:
+      status: excluded
+      reason: lsp-cli cannot install this server because its Mason package uses the unsupported RubyGems backend.
+  - id: starlark_rust
+    owner-language: BUILD.bazel
+    provisioning:
+      status: download
+  - id: starpls
+    owner-language: bzl
+    provisioning:
+      status: download
+  - id: statix
+    owner-language: nix
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: steep
+    owner-language: eruby
+    provisioning:
+      status: excluded
+      reason: lsp-cli cannot install this server because its Mason package uses the unsupported RubyGems backend.
+  - id: stimulus_ls
+    owner-language: blade
+    coverage:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - definition
+    provisioning:
+      status: download
+  - id: stylelint_lsp
+    owner-language: astro
+    coverage:
+      status: unavailable
+      reason: pkg:npm/stylelint-lsp@2.0.1 does not expose the configured stylelint-language-server executable through Mason.
+    provisioning:
+      status: download
+  - id: stylua
+    owner-language: lua
+    coverage:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+    provisioning:
+      status: download
+  - id: stylua3p_ls
+    owner-language: lua
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: svelte
+    owner-language: svelte
+    provisioning:
+      status: download
+  - id: svlangserver
+    owner-language: systemverilog
+    provisioning:
+      status: download
+  - id: svls
+    owner-language: systemverilog
+    provisioning:
+      status: download
+  - id: swift_mesonls
+    owner-language: meson
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: syntax_tree
+    owner-language: ruby
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: systemd_lsp
+    owner-language: systemd
+    provisioning:
+      status: download
+  - id: tailwindcss
+    owner-language: javascript
+    coverage:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+    provisioning:
+      status: download
+  - id: taplo
+    owner-language: toml
+    provisioning:
+      status: download
+  - id: tblgen_lsp_server
+    owner-language: tablegen
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: tclsp
+    owner-language: sdc
+    provisioning:
+      status: download
+  - id: teal_ls
+    owner-language: teal
+    provisioning:
+      status: excluded
+      reason: lsp-cli cannot install this server because its Mason package uses the unsupported LuaRocks backend.
+  - id: templ
+    owner-language: templ
+    provisioning:
+      status: download
+  - id: terraform_lsp
+    owner-language: hcl
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: terraformls
+    owner-language: terraform
+    provisioning:
+      status: download
+  - id: texlab
+    owner-language: bib
+    provisioning:
+      status: download
+  - id: textlsp
+    owner-language: org
+    provisioning:
+      status: download
+      host-programs:
+        - name: git
+          resolve:
+            - which
+            - git
+  - id: tflint
+    owner-language: terraform
+    coverage:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+    provisioning:
+      status: download
+  - id: theme_check
+    owner-language: liquid
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: thriftls
+    owner-language: thrift
+    provisioning:
+      status: download
+  - id: tilt_ls
+    owner-language: tiltfile
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: tinymist
+    owner-language: typst
+    provisioning:
+      status: download
+  - id: tofu_ls
+    owner-language: opentofu
+    provisioning:
+      status: download
+  - id: tombi
+    owner-language: toml
+    provisioning:
+      status: download
+  - id: ts_ls
+    owner-language: javascript
+    provisioning:
+      status: download
+      host-programs:
+        - name: node
+          resolve:
+            - which
+            - node
+        - name: npm
+          resolve:
+            - which
+            - npm
+  - id: ts_query_ls
+    owner-language: query
+    provisioning:
+      status: download
+  - id: tsp_server
+    owner-language: typespec
+    provisioning:
+      status: download
+  - id: ttags
+    owner-language: rust
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: turbo_ls
+    owner-language: blade
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: turtle_ls
+    owner-language: ttl
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: tvm_ffi_navigator
+    owner-language: python
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: twiggy_language_server
+    owner-language: twig
+    provisioning:
+      status: download
+  - id: ty
+    owner-language: python
+    provisioning:
+      status: download
+      host-programs:
+        - name: python3
+          resolve:
+            - which
+            - python3
+  - id: typeprof
+    owner-language: eruby
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: typst_lsp
+    owner-language: typst
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: uiua
+    owner-language: uiua
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: ungrammar_languageserver
+    owner-language: ungrammar
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: unison
+    owner-language: unison
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: unocss
+    owner-language: typescript
+    coverage:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+    provisioning:
+      status: download
+  - id: uvls
+    owner-language: uvl
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: v_analyzer
+    owner-language: v
+    provisioning:
+      status: download
+  - id: vacuum
+    owner-language: json.openapi
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: vala_ls
+    owner-language: genie
+    provisioning:
+      status: download
+  - id: vale_ls
+    owner-language: asciidoc
+    coverage:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+    provisioning:
+      status: download
+  - id: verible
+    owner-language: systemverilog
+    provisioning:
+      status: download
+  - id: veridian
+    owner-language: systemverilog
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: veryl_ls
+    owner-language: veryl
+    provisioning:
+      status: download
+  - id: vespa_ls
+    owner-language: profile
+    provisioning:
+      status: download
+      host-programs:
+        - name: java
+          resolve:
+            - which
+            - java
+  - id: vhdl_ls
+    owner-language: vhd
+    provisioning:
+      status: download
+  - id: vimls
+    owner-language: vim
+    provisioning:
+      status: download
+  - id: visualforce_ls
+    owner-language: visualforce
+    provisioning:
+      status: download
+      host-programs:
+        - name: node
+          resolve:
+            - which
+            - node
+  - id: vls
+    owner-language: v
+    provisioning:
+      status: download
+  - id: vsrocq
+    owner-language: coq
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: vtsls
+    owner-language: typescript
+    provisioning:
+      status: download
+      host-programs:
+        - name: node
+          resolve:
+            - which
+            - node
+        - name: npm
+          resolve:
+            - which
+            - npm
+  - id: vue_ls
+    owner-language: vue
+    provisioning:
+      status: download
+  - id: wasm_language_tools
+    owner-language: wat
+    provisioning:
+      status: download
+  - id: wc_language_server
+    owner-language: typescript
+    coverage:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+    provisioning:
+      status: download
+  - id: wgsl_analyzer
+    owner-language: wgsl
+    provisioning:
+      status: download
+  - id: yamlls
+    owner-language: yaml
+    provisioning:
+      status: download
+  - id: yang_lsp
+    owner-language: yang
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: yls
+    owner-language: yar
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: ziggy
+    owner-language: ziggy
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: ziggy_schema
+    owner-language: ziggy_schema
+    provisioning:
+      status: excluded
+      reason: The current Mason registry has no package for this server.
+  - id: zk
+    owner-language: markdown
+    provisioning:
+      status: download
+  - id: zls
+    owner-language: zig
+    provisioning:
+      status: download
+  - id: zuban
+    owner-language: python
+    provisioning:
+      status: download
+      host-programs:
+        - name: python3
+          resolve:
+            - which
+            - python3
+commands:
+  - name: commands
+    strategy: catalog
+  - name: languages
+    strategy: catalog
+  - name: servers
+    strategy: catalog
+  - name: completion
+    strategy: catalog
+  - name: agent-skill
+    strategy: catalog
+  - name: detect
+    strategy: filesystem
+  - name: list-files
+    strategy: filesystem
+  - name: server-capabilities
+    strategy: lsp-fixture
+  - name: diagnostics
+    strategy: lsp-fixture
+  - name: format
+    strategy: lsp-fixture
+  - name: grep
+    strategy: lsp-fixture
+  - name: list-symbols
+    strategy: lsp-fixture
+  - name: list-functions
+    strategy: lsp-fixture
+  - name: references
+    strategy: lsp-fixture
+  - name: callers
+    strategy: lsp-fixture
+  - name: callees
+    strategy: lsp-fixture
+  - name: definition
+    strategy: lsp-fixture
+  - name: declaration
+    strategy: lsp-fixture
+  - name: implementation
+    strategy: lsp-fixture
+  - name: type-definition
+    strategy: lsp-fixture
+  - name: build-index
+    strategy: lsp-fixture
+  - name: daemon
+    strategy: lifecycle
+  - name: stop
+    strategy: lifecycle
+  - name: stop-all
+    strategy: lifecycle
+  - name: run
+    strategy: lifecycle
+  - name: update
+    strategy: update-fixture

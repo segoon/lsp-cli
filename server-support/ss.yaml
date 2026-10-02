@@ -1,0 +1,16 @@
+language:
+  id: ss
+  kind: metadata
+  project: playground/ss
+pairs:
+  - language: ss
+    server: snakeskin_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - definition

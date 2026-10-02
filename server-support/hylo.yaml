@@ -1,0 +1,10 @@
+language:
+  id: hylo
+  kind: metadata
+  project: playground/hylo
+pairs:
+  - language: hylo
+    server: hylo_ls
+    smoke:
+      status: excluded
+      reason: pkg:github/hylo-lang/hylo-language-server@v0.0.18 does not produce a runnable hylo-language-server at the Mason-configured path.

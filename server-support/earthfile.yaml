@@ -1,0 +1,17 @@
+language:
+  id: earthfile
+  kind: metadata
+  project: playground/earthfile
+pairs:
+  - language: earthfile
+    server: earthlyls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+        - declaration

@@ -1,0 +1,23 @@
+language:
+  id: sh
+  kind: metadata
+  project: playground/sh
+pairs:
+  - language: sh
+    server: bashls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+  - language: sh
+    server: harper_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

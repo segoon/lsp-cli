@@ -1,0 +1,16 @@
+language:
+  id: html-eex
+  kind: metadata
+  project: playground/html-eex
+pairs:
+  - language: html-eex
+    server: htmx
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: html-eex
+    server: tailwindcss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

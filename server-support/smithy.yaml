@@ -1,0 +1,10 @@
+language:
+  id: smithy
+  kind: metadata
+  project: playground/smithy
+pairs:
+  - language: smithy
+    server: smithy_ls
+    smoke:
+      status: excluded
+      reason: pkg:github/awslabs/smithy-language-server@0.9.0 requires coursier, but the Mason recipe does not expose that executable.

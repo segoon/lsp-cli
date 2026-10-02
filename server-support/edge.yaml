@@ -1,0 +1,16 @@
+language:
+  id: edge
+  kind: metadata
+  project: playground/edge
+pairs:
+  - language: edge
+    server: htmx
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: edge
+    server: tailwindcss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

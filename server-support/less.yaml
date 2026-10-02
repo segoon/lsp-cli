@@ -1,0 +1,62 @@
+language:
+  id: less
+  kind: metadata
+  project: playground/less
+pairs:
+  - language: less
+    server: css_variables
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - definition
+  - language: less
+    server: cssls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+  - language: less
+    server: emmet_language_server
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: less
+    server: emmet_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: less
+    server: stylelint_lsp
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: less
+    server: tailwindcss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: less
+    server: unocss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: less
+    server: wc_language_server
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - references
+        - definition

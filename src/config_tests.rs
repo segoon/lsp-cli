@@ -1,6 +1,6 @@
 use super::{
-    choose_cli_config_user_root, choose_config_root, default_config_root, load_cli_config,
-    load_config_store,
+    BuildIndexCompletion, choose_cli_config_user_root, choose_config_root, default_config_root,
+    load_cli_config, load_config_store,
 };
 use crate::test_support::{LOCAL_SHARE_LSP_CLI, TestDir, env_var, with_env_vars};
 use std::collections::BTreeMap;
@@ -144,7 +144,10 @@ fn loads_valid_config_store() {
             "  - compile_commands.json\n",
             "name: clangd\n",
             "cmdline: clangd --background-index $WORKSPACE\n",
-            "wait-for-index: true\n"
+            "wait-for-index: true\n",
+            "build-index-completion: best-effort\n",
+            "mason-extra-packages:\n",
+            "  - 'pygls<2'\n"
         ),
     );
 
@@ -156,6 +159,11 @@ fn loads_valid_config_store() {
     assert_eq!(config.lsps[0].id, "clangd");
     assert_eq!(config.lsps[0].name, "clangd");
     assert!(config.lsps[0].wait_for_index);
+    assert_eq!(
+        config.lsps[0].build_index_completion,
+        BuildIndexCompletion::BestEffort
+    );
+    assert_eq!(config.lsps[0].mason_extra_packages, ["pygls<2"]);
     assert_eq!(config.cli, super::CliConfig::default());
 }
 

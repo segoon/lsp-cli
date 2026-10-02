@@ -1,0 +1,18 @@
+language:
+  id: geom
+  kind: metadata
+  project: playground/geom
+pairs:
+  - language: geom
+    server: glsl_analyzer
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - definition
+  - language: geom
+    server: glslls
+    smoke:
+      status: excluded
+      reason: pkg:github/svenstaro/glsl-language-server@0.5.0 has no Mason asset matching the Linux x86-64 E2E platform.

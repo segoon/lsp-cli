@@ -8,3 +8,7 @@ std::string format_order(const Order &order) {
          << order.total();
   return output.str();
 }
+
+std::string PlainOrderFormatter::format(const Order &order) const {
+  return format_order(order);
+}

@@ -1,0 +1,35 @@
+language:
+  id: eruby
+  kind: metadata
+  project: playground/eruby
+pairs:
+  - language: eruby
+    server: emmet_language_server
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: eruby
+    server: emmet_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: eruby
+    server: htmx
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: eruby
+    server: stimulus_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - definition
+  - language: eruby
+    server: tailwindcss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

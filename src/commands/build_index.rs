@@ -1,6 +1,6 @@
 use crate::cli::BuildIndexArgs;
 use crate::commands::common::{connect_lsp_client, prepare_workspace};
-use crate::config::ConfigStore;
+use crate::config::{BuildIndexCompletion, ConfigStore};
 use crate::error::Result;
 
 pub(super) fn run(args: &BuildIndexArgs, config: &ConfigStore) -> Result<String> {
@@ -20,7 +20,10 @@ pub(super) fn run(args: &BuildIndexArgs, config: &ConfigStore) -> Result<String>
             error.with_prefix(format!("failed to initialize {}", workspace.server.server))
         })?;
 
-    let wait = client.wait_for_background_work();
+    let wait = match workspace.server.build_index_completion {
+        BuildIndexCompletion::Confirmed => client.wait_for_background_work(),
+        BuildIndexCompletion::BestEffort => client.wait_for_background_work_best_effort(),
+    };
     let shutdown = client.shutdown();
     wait.map_err(|error| {
         error.with_prefix(format!(

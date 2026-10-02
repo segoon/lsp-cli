@@ -1,0 +1,17 @@
+language:
+  id: xhtml
+  kind: metadata
+  project: playground/xhtml
+pairs:
+  - language: xhtml
+    server: ltex
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: xhtml
+    server: ltex_plus
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

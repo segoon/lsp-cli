@@ -1,0 +1,21 @@
+language:
+  id: reason
+  kind: metadata
+  project: playground/reason
+pairs:
+  - language: reason
+    server: reason_ls
+    smoke:
+      status: excluded
+      reason: pkg:github/jaredly/reason-language-server@1.7.13 invokes uname through /bin/sh during initialization, but uname is absent from the isolated PATH.
+  - language: reason
+    server: htmx
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: reason
+    server: tailwindcss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

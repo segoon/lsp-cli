@@ -1,6 +1,5 @@
 use super::*;
-use crate::repository_root;
-use std::fs;
+use {crate::repository_root, std::fs};
 
 fn first_queries_smoke(manifest: &mut Manifest) -> &mut SmokeDisposition {
     manifest
@@ -13,7 +12,7 @@ fn first_queries_smoke(manifest: &mut Manifest) -> &mut SmokeDisposition {
         .expect("selected pair should have a smoke case")
 }
 
-fn validation_error(expectation: &str, mutate: impl FnOnce(&mut Manifest)) -> String {
+pub(super) fn validation_error(expectation: &str, mutate: impl FnOnce(&mut Manifest)) -> String {
     let mut manifest = Manifest::load().expect("E2E manifest should parse");
     mutate(&mut manifest);
     manifest.validate(repository_root()).expect_err(expectation)
@@ -41,16 +40,24 @@ fn complete_manifest_matches_pinned_data() {
     assert_eq!(detectable.len(), 336);
     assert_eq!(servers.len(), 358);
     assert_eq!(compatible.len(), 849);
-    assert_eq!(declared.len(), 302);
-    assert_eq!(compatible.difference(&declared).count(), 547);
+    assert_eq!(declared.len(), 615);
+    assert_eq!(compatible.difference(&declared).count(), 234);
     assert_eq!(manifest.servers.len(), 358);
     assert_eq!(
         manifest
             .servers
             .iter()
-            .filter(|server| server.is_downloadable())
+            .filter(|server| server.is_capabilities_only())
             .count(),
-        198
+        30
+    );
+    assert_eq!(
+        manifest
+            .servers
+            .iter()
+            .filter(|server| server.capability_is_unavailable())
+            .count(),
+        11
     );
     assert_eq!(
         manifest
@@ -91,10 +98,12 @@ fn complete_manifest_rejects_a_missing_downloadable_pair() {
 #[test]
 fn pair_selection_reports_explicit_and_inherited_exclusions() {
     let manifest = Manifest::load_validated(repository_root()).expect("manifest should validate");
-    for pair in ["python/pyrefly", "c/ast_grep"] {
+    for pair in ["python/pyrefly", "yaml/home_assistant"] {
         assert!(manifest.declares_pair(pair));
         assert!(manifest.exclusion_reason(pair).is_some());
     }
+    assert!(manifest.declares_explicit_pair("rust/ast_grep"));
+    assert_eq!(manifest.pair_server("rust/ast_grep"), Some("ast_grep"));
 }
 
 #[test]

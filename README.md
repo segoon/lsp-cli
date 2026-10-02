@@ -386,7 +386,21 @@ cmdline: "clangd --background-index --compile-commands-dir=$WORKSPACE"
 
 # Whether commands that can wait for indexing should do so by default.
 wait-for-index: false
+
+# Use only for servers known not to expose a terminal indexing signal. The default is confirmed.
+build-index-completion: best-effort
 ```
+
+`build-index-completion: best-effort` keeps the command's bounded wait and still reports transport,
+protocol, server, and shutdown errors. It only treats expiry without a terminal progress signal as
+a successful best-effort attempt; success does not confirm that the whole workspace was indexed.
+The maintained best-effort server list is in `docs/SERVERS.md`.
+
+An LSP config can declare `mason-extra-packages` when its Mason package has an incomplete
+dependency constraint. With automatic downloads, lsp-cli installs these package specifications in
+the same npm or Python environment as the server. For example, CMake Language Server currently
+uses `pygls<2` because its released code imports the pygls 1.x API. This is a compatibility escape
+hatch; prefer an upstream package constraint when one is available.
 
 ## Commands and options
 
@@ -419,7 +433,7 @@ Commands:
   declaration          Find declarations of a symbol name
   implementation       Find implementations of a symbol name
   type-definition      Find type definitions of a symbol name
-  build-index          Wait for the server to finish indexing a workspace
+  build-index          Wait for confirmed or configured best-effort workspace indexing
   update               Force update langages/servers database
   completion           Generate a shell completion script, write it to stdout
   agent-skill          Generate a generic Markdown skill file for code agents
@@ -905,7 +919,7 @@ Options:
 
 ```text
 $ lsp-cli build-index --help
-Wait for the server to finish indexing a workspace
+Wait for confirmed or configured best-effort workspace indexing
 
 Usage: lsp-cli build-index [OPTIONS] <DIRECTORY>
 

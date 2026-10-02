@@ -1,9 +1,0 @@
-language:
-  id: p8
-  kind: metadata
-  project: playground/p8
-pairs:
-  - language: p8
-    server: pico8_ls
-    smoke:
-      status: capabilities

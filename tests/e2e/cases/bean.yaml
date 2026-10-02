@@ -1,9 +1,0 @@
-language:
-  id: bean
-  kind: metadata
-  project: playground/bean
-pairs:
-  - language: bean
-    server: beancount
-    smoke:
-      status: capabilities

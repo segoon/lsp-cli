@@ -1,0 +1,49 @@
+language:
+  id: java
+  kind: source
+  project: playground/java
+  query-profile:
+    symbol-query: Order
+    callable-query: createSampleOrder
+    format-file: src/main/java/playground/App.java
+    expected-names:
+      - Order
+      - OrderItem
+      - OrderService
+      - createSampleOrder
+pairs:
+  - language: java
+    server: jdtls
+    tier: smoke
+    smoke:
+      status: excluded
+      reason: jdtls project indexing has no bounded readiness signal, making references and call hierarchy intermittently empty; it also decorates method document-symbol names with parentheses.
+    lifecycle:
+      status: scenarios
+      direct-run:
+        status: excluded
+        reason: jdtls acknowledges shutdown but exits with status 1 after the standard direct protocol exchange
+      deadline-seconds: 300
+  - language: java
+    server: ast_grep
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: java
+    server: codebook
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: java
+    server: harper_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: java
+    server: snyk_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

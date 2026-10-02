@@ -1,0 +1,21 @@
+language:
+  id: edn
+  kind: metadata
+  project: playground/edn
+pairs:
+  - language: edn
+    server: clojure_lsp
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - callers
+        - callees
+        - definition
+        - declaration
+        - implementation

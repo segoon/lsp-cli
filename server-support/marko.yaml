@@ -1,0 +1,16 @@
+language:
+  id: marko
+  kind: metadata
+  project: playground/marko
+pairs:
+  - language: marko
+    server: marko-js
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - references
+        - definition

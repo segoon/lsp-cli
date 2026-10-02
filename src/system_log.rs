@@ -45,6 +45,12 @@ pub(crate) fn log_lsp_server_exit(status: ExitStatus) {
     ));
 }
 
+pub(crate) fn log_lsp_server_forced_termination() {
+    append_system_log_line(
+        "LSP server completed shutdown but did not exit within the grace period; terminating it",
+    );
+}
+
 pub(crate) fn log_lsp_server_stderr_line(line: &str) {
     append_system_log_line(&format!("stderr: {line}"));
 }

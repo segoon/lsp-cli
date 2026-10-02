@@ -13,6 +13,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut output = io::stdout().lock();
     let mut root_uri = String::new();
     let mut report_status = false;
+    let mut workspace_ready = false;
     let advertise_capabilities = !env::args().any(|arg| arg == "--without-capabilities");
 
     while let Some(message) = read_message(&mut input)? {
@@ -49,7 +50,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .unwrap_or(false);
                 initialize_result(advertise_capabilities)
             }
-            "workspace/symbol" | "textDocument/documentSymbol" => {
+            "workspace/symbol" if workspace_ready => json!([symbol(&root_uri)]),
+            "workspace/symbol" => json!([]),
+            "textDocument/documentSymbol" => {
+                workspace_ready = true;
                 json!([symbol(&root_uri)])
             }
             "textDocument/diagnostic" => json!({

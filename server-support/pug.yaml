@@ -1,0 +1,11 @@
+language:
+  id: pug
+  kind: metadata
+  project: playground/pug
+pairs:
+  - language: pug
+    server: emmet_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

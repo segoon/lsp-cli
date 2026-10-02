@@ -1,9 +1,0 @@
-language:
-  id: upf
-  kind: metadata
-  project: playground/upf
-pairs:
-  - language: upf
-    server: tclsp
-    smoke:
-      status: capabilities

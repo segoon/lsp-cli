@@ -1,0 +1,10 @@
+language:
+  id: vv
+  kind: metadata
+  project: playground/vv
+pairs:
+  - language: vv
+    server: v_analyzer
+    smoke:
+      status: excluded
+      reason: pkg:github/vlang/v-analyzer@0.0.6 closes the transport while the client waits for the shutdown response.

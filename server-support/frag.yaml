@@ -1,0 +1,18 @@
+language:
+  id: frag
+  kind: metadata
+  project: playground/frag
+pairs:
+  - language: frag
+    server: glsl_analyzer
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - definition
+  - language: frag
+    server: glslls
+    smoke:
+      status: excluded
+      reason: pkg:github/svenstaro/glsl-language-server@0.5.0 has no Mason asset matching the Linux x86-64 E2E platform.

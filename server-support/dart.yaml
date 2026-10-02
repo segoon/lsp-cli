@@ -1,0 +1,17 @@
+language:
+  id: dart
+  kind: metadata
+  project: playground/dart
+pairs:
+  - language: dart
+    server: harper_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: dart
+    server: snyk_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

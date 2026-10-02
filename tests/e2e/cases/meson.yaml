@@ -1,9 +1,0 @@
-language:
-  id: meson
-  kind: metadata
-  project: playground/meson
-pairs:
-  - language: meson
-    server: mesonlsp
-    smoke:
-      status: capabilities

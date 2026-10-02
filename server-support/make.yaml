@@ -1,0 +1,13 @@
+language:
+  id: make
+  kind: metadata
+  project: playground/make
+pairs:
+  - language: make
+    server: autotools_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - list-symbols
+        - list-functions

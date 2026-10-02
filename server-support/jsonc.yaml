@@ -1,0 +1,27 @@
+language:
+  id: jsonc
+  kind: metadata
+  project: playground/jsonc
+pairs:
+  - language: jsonc
+    server: jsonls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - list-symbols
+        - list-functions
+  - language: jsonc
+    server: nxls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - definition
+  - language: jsonc
+    server: dprint
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format

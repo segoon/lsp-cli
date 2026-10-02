@@ -1,0 +1,16 @@
+language:
+  id: aspnetcorerazor
+  kind: metadata
+  project: playground/aspnetcorerazor
+pairs:
+  - language: aspnetcorerazor
+    server: htmx
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: aspnetcorerazor
+    server: tailwindcss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

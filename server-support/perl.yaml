@@ -1,0 +1,36 @@
+language:
+  id: perl
+  kind: source
+  project: playground/perl
+  query-profile:
+    symbol-query: Order
+    callable-query: build_sample_order
+    format-file: main.pl
+    expected-names:
+      - Order
+      - OrderItem
+      - build_sample_order
+      - format_order
+pairs:
+  - language: perl
+    server: perlnavigator
+    tier: smoke
+    smoke:
+      status: queries
+      supported-operations:
+        - server-capabilities
+        - diagnostics
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - definition
+        - build-index
+      exceptions:
+        - command: definition
+          outcome: variable-matches
+          reason: perlnavigator returns either no result or the sub itself when goto-definition is requested at its declaration
+    lifecycle:
+      status: scenarios
+      direct-run:
+        status: exchange

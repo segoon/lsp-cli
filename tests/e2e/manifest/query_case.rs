@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use serde::Deserialize;
@@ -9,6 +10,8 @@ use super::{LanguageCase, PairCase, ServerCase};
 pub(super) struct QueryProfile {
     pub(super) symbol_query: String,
     pub(super) callable_query: String,
+    #[serde(default)]
+    pub(super) command_queries: BTreeMap<QueryKind, String>,
     pub(super) format_file: PathBuf,
     pub(super) expected_names: Vec<String>,
 }
@@ -20,14 +23,86 @@ impl QueryProfile {
                 "E2E query profile for {language:?} requires query terms"
             ));
         }
+        for (command, query) in &self.command_queries {
+            if !command.accepts_query_override() {
+                return Err(format!(
+                    "E2E query profile for {language:?} cannot override {command:?}"
+                ));
+            }
+            if query.trim().is_empty() {
+                return Err(format!(
+                    "E2E query profile for {language:?} requires a non-empty {command:?} query"
+                ));
+            }
+        }
         if self.format_file.as_os_str().is_empty() || self.format_file.is_absolute() {
             return Err(format!("E2E format file for {language:?} must be relative"));
         }
-        if self.expected_names.is_empty() || self.expected_names.iter().any(String::is_empty) {
-            return Err(format!(
-                "E2E query profile for {language:?} requires expected names"
-            ));
-        }
+        validate_expected_names(
+            &self.expected_names,
+            &format!("E2E query profile for {language:?}"),
+        )
+    }
+
+    fn query_for(&self, command: QueryKind) -> &str {
+        select_query(
+            command,
+            &self.symbol_query,
+            &self.callable_query,
+            &self.command_queries,
+        )
+    }
+
+    pub(super) fn resolved_callable_query<'a>(&'a self, override_: Option<&'a str>) -> &'a str {
+        select_callable_query(override_, &self.callable_query)
+    }
+
+    pub(super) fn resolved_expected_names<'a>(
+        &'a self,
+        override_: Option<&'a [String]>,
+    ) -> &'a [String] {
+        select_expected_names(override_, &self.expected_names)
+    }
+}
+
+pub(super) fn select_query<'a>(
+    command: QueryKind,
+    symbol: &'a str,
+    callable: &'a str,
+    overrides: &'a BTreeMap<QueryKind, String>,
+) -> &'a str {
+    overrides.get(&command).map_or_else(
+        || match command {
+            QueryKind::Grep => symbol,
+            _ => callable,
+        },
+        String::as_str,
+    )
+}
+
+pub(super) fn select_expected_names<'a>(
+    override_: Option<&'a [String]>,
+    defaults: &'a [String],
+) -> &'a [String] {
+    override_.unwrap_or(defaults)
+}
+
+pub(super) fn select_callable_query<'a>(override_: Option<&'a str>, default: &'a str) -> &'a str {
+    override_.unwrap_or(default)
+}
+
+pub(super) fn validate_callable_query(query: Option<&str>, label: &str) -> Result<(), String> {
+    if query.is_some_and(|query| query.trim().is_empty()) {
+        Err(format!("{label} requires a non-empty callable query"))
+    } else {
+        Ok(())
+    }
+}
+
+pub(super) fn validate_expected_names(names: &[String], label: &str) -> Result<(), String> {
+    if names.is_empty() || names.iter().any(String::is_empty) {
+        Err(format!("{label} requires expected names"))
+    } else {
         Ok(())
     }
 }
@@ -41,12 +116,16 @@ impl QueryProfile {
 )]
 pub(super) enum SmokeDisposition {
     Queries {
+        callable_query: Option<String>,
+        expected_names: Option<Vec<String>>,
+        supported_operations: Vec<QueryKind>,
         #[serde(default)]
         exceptions: Vec<QueryException>,
         lsp_timeout_seconds: Option<u64>,
         deadline_seconds: Option<u64>,
     },
     Capabilities {
+        supported_operations: Vec<QueryKind>,
         lsp_timeout_seconds: Option<u64>,
         deadline_seconds: Option<u64>,
     },
@@ -72,6 +151,41 @@ pub(crate) enum QueryKind {
     Implementation,
     TypeDefinition,
     BuildIndex,
+}
+
+impl QueryKind {
+    pub(crate) const fn command_name(self) -> &'static str {
+        match self {
+            Self::ServerCapabilities => "server-capabilities",
+            Self::Diagnostics => "diagnostics",
+            Self::Format => "format",
+            Self::Grep => "grep",
+            Self::ListSymbols => "list-symbols",
+            Self::ListFunctions => "list-functions",
+            Self::References => "references",
+            Self::Callers => "callers",
+            Self::Callees => "callees",
+            Self::Definition => "definition",
+            Self::Declaration => "declaration",
+            Self::Implementation => "implementation",
+            Self::TypeDefinition => "type-definition",
+            Self::BuildIndex => "build-index",
+        }
+    }
+
+    fn accepts_query_override(self) -> bool {
+        matches!(
+            self,
+            Self::Grep
+                | Self::References
+                | Self::Callers
+                | Self::Callees
+                | Self::Definition
+                | Self::Declaration
+                | Self::Implementation
+                | Self::TypeDefinition
+        )
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -104,8 +218,10 @@ pub(crate) struct RealServerCase<'a> {
     pub(super) setup: &'a ServerCase,
     pub(super) symbol_query: &'a str,
     pub(super) callable_query: &'a str,
+    pub(super) command_queries: &'a BTreeMap<QueryKind, String>,
     pub(super) format_file: &'a std::path::Path,
     pub(super) expected_names: &'a [String],
+    pub(super) supported_operations: &'a [QueryKind],
     pub(super) exceptions: &'a [QueryException],
     pub(super) lsp_timeout_seconds: u64,
     pub(super) deadline_seconds: u64,
@@ -113,8 +229,71 @@ pub(crate) struct RealServerCase<'a> {
 
 pub(crate) struct RealServerCapabilitiesCase<'a> {
     pub(super) language: &'a LanguageCase,
-    pub(super) pair: &'a PairCase,
     pub(super) setup: &'a ServerCase,
+    pub(super) supported_operations: &'a [QueryKind],
+    pub(super) smoke: bool,
     pub(super) lsp_timeout_seconds: u64,
     pub(super) deadline_seconds: u64,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn profile(command: QueryKind, query: &str) -> QueryProfile {
+        QueryProfile {
+            symbol_query: "symbol".to_string(),
+            callable_query: "callable".to_string(),
+            command_queries: [(command, query.to_string())].into(),
+            format_file: PathBuf::from("source.test"),
+            expected_names: vec!["symbol".to_string()],
+        }
+    }
+
+    #[test]
+    fn selects_command_queries_with_compatible_fallbacks() {
+        let profile = profile(QueryKind::Implementation, "implementation");
+
+        assert_eq!(profile.query_for(QueryKind::Grep), "symbol");
+        assert_eq!(profile.query_for(QueryKind::References), "callable");
+        assert_eq!(
+            profile.query_for(QueryKind::Implementation),
+            "implementation"
+        );
+    }
+
+    #[test]
+    fn validates_command_query_keys_and_values() {
+        for (command, query, expected) in [
+            (QueryKind::BuildIndex, "invalid", "cannot override"),
+            (QueryKind::Implementation, " ", "non-empty"),
+        ] {
+            let error = profile(command, query)
+                .validate("test")
+                .expect_err("invalid command query should fail");
+            assert!(error.contains(expected), "unexpected error: {error}");
+        }
+    }
+
+    #[test]
+    fn selects_and_validates_pair_expected_names() {
+        let defaults = vec!["default".to_string()];
+        let override_ = vec!["decorated()".to_string()];
+
+        assert_eq!(select_expected_names(None, &defaults), defaults);
+        assert_eq!(
+            select_expected_names(Some(&override_), &defaults),
+            override_
+        );
+        validate_expected_names(&override_, "pair").expect("valid expected names");
+        for invalid in [Vec::new(), vec![String::new()]] {
+            validate_expected_names(&invalid, "pair").expect_err("invalid expected names");
+        }
+        assert_eq!(select_callable_query(None, "default"), "default");
+        assert_eq!(
+            select_callable_query(Some("decorated()"), "default"),
+            "decorated()"
+        );
+        assert!(validate_callable_query(Some(" "), "pair").is_err());
+    }
 }

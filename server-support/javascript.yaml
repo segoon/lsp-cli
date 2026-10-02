@@ -1,0 +1,103 @@
+language:
+  id: javascript
+  kind: source
+  project: playground/js
+  query-profile:
+    symbol-query: Order
+    callable-query: buildSampleOrder
+    format-file: src/index.js
+    expected-names:
+      - Order
+      - OrderItem
+      - buildSampleOrder
+      - formatOrder
+pairs:
+  - language: javascript
+    server: denols
+    smoke:
+      status: excluded
+      reason: Deno LSP rejects the standard shutdown request because it requires non-null parameters.
+  - language: javascript
+    server: ts_ls
+    tier: smoke
+    smoke:
+      status: queries
+      supported-operations:
+        - server-capabilities
+        - diagnostics
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+        - implementation
+        - type-definition
+        - build-index
+      lsp-timeout-seconds: 20
+      deadline-seconds: 240
+  - language: javascript
+    server: vtsls
+    smoke:
+      status: queries
+      supported-operations:
+        - server-capabilities
+        - diagnostics
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - callers
+        - callees
+        - definition
+        - implementation
+        - type-definition
+        - build-index
+  - language: javascript
+    server: ast_grep
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: javascript
+    server: codebook
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: javascript
+    server: dprint
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+  - language: javascript
+    server: harper_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: javascript
+    server: snyk_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: javascript
+    server: unocss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: javascript
+    server: wc_language_server
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - references
+        - definition

@@ -90,29 +90,44 @@ impl Selection {
         {
             return Err(format!("CASE {label:?} is not a declared E2E pair"));
         }
-        if let Some(server) = &self.server
-            && !manifest.declares_server(server)
-        {
-            return Err(format!("SERVER {server:?} is not in the E2E inventory"));
+        if let Some(server) = &self.server {
+            if selected_servers(server).next().is_none() {
+                return Err("SERVER requires at least one server ID".to_string());
+            }
+            for selected in selected_servers(server) {
+                if !manifest.declares_server(selected) {
+                    return Err(format!("SERVER {selected:?} is not in the E2E inventory"));
+                }
+            }
         }
         Ok(())
     }
 
     pub(crate) fn includes_pair(&self, label: &str, server: &str, smoke: bool) -> bool {
         self.case.as_deref().is_none_or(|value| value == label)
-            && self.server.as_deref().is_none_or(|value| value == server)
+            && self
+                .server
+                .as_deref()
+                .is_none_or(|values| selected_servers(values).any(|value| value == server))
             && (self.suite == Suite::All || smoke)
     }
 
     pub(crate) fn includes_server(&self, manifest: &Manifest, server: &str) -> bool {
-        let selected_server = self
+        let selected = self
             .case
             .as_deref()
             .and_then(|label| manifest.pair_server(label))
-            .or(self.server.as_deref());
-        selected_server.is_none_or(|value| value == server)
-            && (self.suite == Suite::All || manifest.smoke_servers().contains(server))
+            .is_none_or(|value| value == server)
+            && self
+                .server
+                .as_deref()
+                .is_none_or(|values| selected_servers(values).any(|value| value == server));
+        selected && (self.suite == Suite::All || manifest.smoke_servers().contains(server))
     }
+}
+
+fn selected_servers(value: &str) -> impl Iterator<Item = &str> {
+    value.split(',').filter(|server| !server.is_empty())
 }
 
 fn set_action(current: &mut Action, requested: Action) -> Result<(), String> {
@@ -167,6 +182,19 @@ mod tests {
         assert_eq!(selection.phase, Phase::Lifecycle);
         assert_eq!(selection.case.as_deref(), Some("rust/rust_analyzer"));
         assert_eq!(selection.action, Action::Run);
+    }
+
+    #[test]
+    fn accepts_multiple_servers() {
+        let selection = parse(&["--suite", "all", "--server", "pyright,ruff"])
+            .expect("server list should parse");
+
+        assert!(
+            selection
+                .server
+                .as_deref()
+                .is_some_and(|value| value == "pyright,ruff")
+        );
     }
 
     #[test]

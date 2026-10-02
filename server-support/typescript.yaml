@@ -1,0 +1,125 @@
+language:
+  id: typescript
+  kind: source
+  project: playground/typescript
+  query-profile:
+    symbol-query: Order
+    callable-query: buildSampleOrder
+    format-file: src/index.ts
+    expected-names:
+      - Order
+      - OrderItem
+      - buildSampleOrder
+      - formatOrder
+pairs:
+  - language: typescript
+    server: denols
+    smoke:
+      status: excluded
+      reason: Deno LSP rejects the standard shutdown request because it requires non-null parameters.
+  - language: typescript
+    server: ts_ls
+    tier: smoke
+    smoke:
+      status: queries
+      supported-operations:
+        - server-capabilities
+        - diagnostics
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+        - implementation
+        - type-definition
+        - build-index
+      lsp-timeout-seconds: 20
+      deadline-seconds: 240
+    lifecycle:
+      status: scenarios
+      direct-run:
+        status: exchange
+      lsp-timeout-seconds: 20
+  - language: typescript
+    server: vtsls
+    smoke:
+      status: queries
+      supported-operations:
+        - server-capabilities
+        - diagnostics
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - callers
+        - callees
+        - definition
+        - implementation
+        - type-definition
+        - build-index
+  - language: typescript
+    server: ast_grep
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: typescript
+    server: codebook
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: typescript
+    server: cssmodules_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - definition
+        - implementation
+  - language: typescript
+    server: ember
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+  - language: typescript
+    server: eslint
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: typescript
+    server: harper_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: typescript
+    server: htmx
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: typescript
+    server: quick_lint_js
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: typescript
+    server: snyk_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: typescript
+    server: tailwindcss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

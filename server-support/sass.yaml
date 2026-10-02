@@ -1,0 +1,40 @@
+language:
+  id: sass
+  kind: metadata
+  project: playground/sass
+pairs:
+  - language: sass
+    server: somesass_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+  - language: sass
+    server: emmet_language_server
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: sass
+    server: emmet_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: sass
+    server: tailwindcss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: sass
+    server: unocss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

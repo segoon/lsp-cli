@@ -1,9 +1,0 @@
-language:
-  id: brs
-  kind: metadata
-  project: playground/brs
-pairs:
-  - language: brs
-    server: bright_script
-    smoke:
-      status: capabilities

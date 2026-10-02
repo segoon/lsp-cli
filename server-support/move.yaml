@@ -1,0 +1,10 @@
+language:
+  id: move
+  kind: metadata
+  project: playground/move
+pairs:
+  - language: move
+    server: move_analyzer
+    smoke:
+      status: excluded
+      reason: pkg:cargo/move-analyzer@ea70797099baea64f05194a918cebd69ed02b285?repository_url=https://github.com/move-language/move&rev=true&locked=false requires repository_url, rev, and locked qualifiers that the current Cargo installer discards.

@@ -1,0 +1,10 @@
+language:
+  id: meson
+  kind: metadata
+  project: playground/meson
+pairs:
+  - language: meson
+    server: mesonlsp
+    smoke:
+      status: excluded
+      reason: pkg:github/JCWasmx86/mesonlsp@v5.0.4 does not answer initialize within the bounded deadline.

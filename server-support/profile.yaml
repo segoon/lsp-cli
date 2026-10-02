@@ -1,0 +1,10 @@
+language:
+  id: profile
+  kind: metadata
+  project: playground/profile
+pairs:
+  - language: profile
+    server: vespa_ls
+    smoke:
+      status: excluded
+      reason: pkg:github/vespa-engine/vespa@lsp-v2.6.0 is paired with the literal placeholder JAR path /path/to/vespa-language-server.jar.

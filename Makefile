@@ -1,8 +1,8 @@
-.PHONY: test check check-format check-tests check-clippy check-readme check-dependencies test-e2e test-e2e-smoke clean-e2e-dependencies gen-readme
+.PHONY: test check check-format check-tests check-clippy check-readme check-servers check-dependencies test-e2e test-e2e-smoke clean-e2e-dependencies gen-readme gen-servers
 
 test: check-tests
 
-check: check-format check-tests check-clippy check-readme check-dependencies
+check: check-format check-tests check-clippy check-readme check-servers check-dependencies
 
 check-format:
 	cargo fmt --check
@@ -17,6 +17,13 @@ check-clippy:
 
 check-readme:
 	python3 scripts/update_readme_commands.py --check
+
+check-servers:
+	@runner="$$(cargo test --locked --test e2e-runner --no-run --message-format=json | python3 scripts/cargo_test_executable.py e2e-runner)" || exit; \
+	output="$$(mktemp "$(CURDIR)/target/SERVERS.md.XXXXXX")" || exit; \
+	trap 'rm -f -- "$$output"' EXIT HUP INT TERM; \
+	"$$runner" --render-servers-doc > "$$output" || exit; \
+	diff -u docs/SERVERS.md "$$output"
 
 check-dependencies:
 	cargo deny check
@@ -49,3 +56,11 @@ clean-e2e-dependencies:
 
 gen-readme:
 	python3 scripts/update_readme_commands.py
+
+gen-servers:
+	@mkdir -p "$(CURDIR)/target" || exit; \
+	runner="$$(cargo test --locked --test e2e-runner --no-run --message-format=json | python3 scripts/cargo_test_executable.py e2e-runner)" || exit; \
+	output="$$(mktemp "$(CURDIR)/target/SERVERS.md.XXXXXX")" || exit; \
+	trap 'rm -f -- "$$output"' EXIT HUP INT TERM; \
+	"$$runner" --render-servers-doc > "$$output" || exit; \
+	mv "$$output" docs/SERVERS.md

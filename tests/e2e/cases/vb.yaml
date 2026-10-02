@@ -1,9 +1,0 @@
-language:
-  id: vb
-  kind: metadata
-  project: playground/vb
-pairs:
-  - language: vb
-    server: omnisharp
-    smoke:
-      status: capabilities

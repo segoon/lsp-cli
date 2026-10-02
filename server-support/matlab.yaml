@@ -1,0 +1,10 @@
+language:
+  id: matlab
+  kind: metadata
+  project: playground/matlab
+pairs:
+  - language: matlab
+    server: matlab_ls
+    smoke:
+      status: excluded
+      reason: pkg:github/mathworks/MATLAB-language-server@3997ef66d0ca3b9e4099e33e1014cfa03029898f has no Mason asset matching the Linux x86-64 E2E platform.

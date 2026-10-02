@@ -1,0 +1,16 @@
+language:
+  id: scala
+  kind: metadata
+  project: playground/scala
+pairs:
+  - language: scala
+    server: ast_grep
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: scala
+    server: snyk_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

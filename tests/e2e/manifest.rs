@@ -16,6 +16,8 @@ use validation::validate_config_id;
 mod lifecycle_case;
 #[path = "manifest/real_server_case.rs"]
 mod real_server_case;
+#[path = "manifest/server_docs.rs"]
+mod server_docs;
 use lifecycle_case::LifecycleDisposition;
 pub(crate) use lifecycle_case::RealServerLifecycleCase;
 #[path = "manifest/provisioning_case.rs"]
@@ -42,7 +44,7 @@ pub(crate) mod coverage_cases;
 mod suite;
 use suite::{Architecture, OperatingSystem, Platform, TestDefaults};
 
-const MANIFEST_SCHEMA_VERSION: u32 = 11;
+const MANIFEST_SCHEMA_VERSION: u32 = 19;
 
 #[derive(Clone, Debug)]
 pub(crate) struct Manifest {
@@ -149,7 +151,7 @@ impl Manifest {
     }
 
     fn load_cases(repository: &Path) -> Result<Self, String> {
-        let directory = repository.join("tests/e2e/cases");
+        let directory = repository.join("server-support");
         let suite_path = directory.join("suite.yaml");
         let suite: SuiteFile = read_yaml(&suite_path)?;
         let mut languages = Vec::new();
@@ -222,6 +224,9 @@ impl Manifest {
     pub(crate) fn real_server_smoke_cases(&self) -> impl Iterator<Item = RealServerCase<'_>> {
         self.pairs.iter().filter_map(|pair| {
             let SmokeDisposition::Queries {
+                callable_query,
+                expected_names,
+                supported_operations,
                 exceptions,
                 lsp_timeout_seconds,
                 deadline_seconds,
@@ -244,9 +249,11 @@ impl Manifest {
                 pair,
                 setup,
                 symbol_query: &profile.symbol_query,
-                callable_query: &profile.callable_query,
+                callable_query: profile.resolved_callable_query(callable_query.as_deref()),
+                command_queries: &profile.command_queries,
                 format_file: &profile.format_file,
-                expected_names: &profile.expected_names,
+                expected_names: profile.resolved_expected_names(expected_names.as_deref()),
+                supported_operations,
                 exceptions,
                 lsp_timeout_seconds,
                 deadline_seconds,
@@ -391,6 +398,7 @@ impl Manifest {
                 &languages,
                 &compatible,
                 self.defaults.provisioning.deadline_seconds,
+                self.defaults.smoke,
             )?;
             if declared.insert(server.id.as_str(), server).is_some() {
                 return Err(format!(
@@ -457,14 +465,6 @@ impl Manifest {
                     SmokeDisposition::Queries { .. } if language.query_profile.is_none() => {
                         return Err(format!(
                             "E2E query pair {}/{} requires a language query profile",
-                            pair.language, pair.server
-                        ));
-                    }
-                    SmokeDisposition::Capabilities { .. }
-                        if language.kind != ProjectKind::Metadata =>
-                    {
-                        return Err(format!(
-                            "E2E capabilities-only pair {}/{} requires a metadata project",
                             pair.language, pair.server
                         ));
                     }
@@ -579,6 +579,9 @@ impl Manifest {
     }
 }
 
+#[cfg(test)]
+#[path = "manifest/support_contract_tests.rs"]
+mod support_contract_tests;
 #[cfg(test)]
 #[path = "manifest_tests.rs"]
 mod tests;

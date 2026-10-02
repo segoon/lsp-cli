@@ -5,10 +5,9 @@ use crate::detect::matching_files;
 use crate::error::{Error, Result};
 use crate::lsp::{
     LspClient, SourceCache, SymbolMatch, document_symbol_matches_from_response,
-    document_symbol_supported, ensure_workspace_symbol_support,
-    function_matches_from_document_response, is_function_symbol_kind, path_to_file_uri,
-    should_skip_document_symbol_error, symbol_full_content_from_document_response,
-    symbol_matches_from_response,
+    document_symbol_supported, function_matches_from_document_response, is_function_symbol_kind,
+    path_to_file_uri, should_skip_document_symbol_error,
+    symbol_full_content_from_document_response, symbol_matches_from_response,
 };
 use crate::suggest::SuggestedLanguage;
 use std::collections::{BTreeSet, HashSet};
@@ -19,14 +18,13 @@ mod kinds;
 mod named;
 use named::{run_call_hierarchy_query, run_named_location_query};
 mod render;
+mod workspace;
+pub(super) use workspace::run_workspace_symbol_query;
 
 #[cfg(test)]
 mod tests;
 
 use kinds::{CallHierarchyDirection, LocationQueryKind};
-
-const PRIME_RETRY_ATTEMPTS: u32 = 5;
-const PRIME_RETRY_DELAY: Duration = Duration::from_millis(750);
 
 pub(super) use render::{
     render_file_list_json, render_list_symbols_json, render_paths_text,
@@ -50,63 +48,6 @@ pub(super) struct FileListQueryResult {
     pub detected_filetypes: BTreeSet<String>,
     pub server: SuggestedLanguage,
     pub files: Vec<PathBuf>,
-}
-
-pub(super) fn run_workspace_symbol_query(
-    args: &LspWorkspaceQueryArgs,
-    query: &str,
-    config: &ConfigStore,
-) -> Result<WorkspaceSymbolQueryResult> {
-    let (workspace, matches) = with_initialized_client(
-        &args.query.directory,
-        args.query.selector.selected_server(),
-        args.query.selector.selected_language(),
-        args.detach,
-        args.download,
-        args.query.wait_for_index,
-        args.query.debug,
-        args.query.timeout,
-        config,
-        |workspace, initialize, client| {
-            ensure_workspace_symbol_support(initialize)?;
-            let matches = client
-                .workspace_symbol(query)
-                .ok()
-                .map(|response| symbol_matches_from_response(&response))
-                .transpose()?
-                .unwrap_or_default();
-            if !matches.is_empty() {
-                return Ok(matches);
-            }
-
-            prime_workspace_document(&args.query.directory, config, workspace, client)?;
-
-            // A freshly opened document can take a moment for the server to
-            // fold into its workspace-wide symbol index (e.g. clangd indexes
-            // headers pulled in by the opened file asynchronously), so poll
-            // briefly rather than giving up on the first still-empty result.
-            let mut matches = Vec::new();
-            for attempt in 0..PRIME_RETRY_ATTEMPTS {
-                if attempt > 0 {
-                    std::thread::sleep(PRIME_RETRY_DELAY);
-                }
-                let response = client.workspace_symbol(query).map_err(|error| {
-                    error.with_prefix(format!("failed to query {}", workspace.server.server))
-                })?;
-                matches = symbol_matches_from_response(&response)?;
-                if !matches.is_empty() {
-                    break;
-                }
-            }
-            Ok(matches)
-        },
-    )?;
-
-    Ok(WorkspaceSymbolQueryResult {
-        detected_filetypes: workspace.detection.filetypes,
-        server: workspace.server,
-        matches,
-    })
 }
 
 pub(super) fn run_document_symbol_query(
@@ -243,19 +184,6 @@ fn scan_workspace_files(
     matching_files(directory, &config.filetypes, &workspace.allowed_filetypes).map_err(|error| {
         Error::unexpected(format!("failed to scan {}: {error}", directory.display()))
     })
-}
-
-fn prime_workspace_document(
-    directory: &Path,
-    config: &ConfigStore,
-    workspace: &PreparedWorkspace,
-    client: &mut LspClient,
-) -> Result<()> {
-    let files = scan_workspace_files(directory, config, workspace)?;
-    if let Some(file) = files.first() {
-        open_document_for(client, file, &workspace.server.server)?;
-    }
-    Ok(())
 }
 
 fn open_document_for(client: &mut LspClient, path: &Path, server_name: &str) -> Result<String> {

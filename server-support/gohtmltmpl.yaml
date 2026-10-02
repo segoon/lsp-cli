@@ -1,0 +1,16 @@
+language:
+  id: gohtmltmpl
+  kind: metadata
+  project: playground/gohtmltmpl
+pairs:
+  - language: gohtmltmpl
+    server: htmx
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: gohtmltmpl
+    server: tailwindcss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

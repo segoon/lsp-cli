@@ -1,0 +1,18 @@
+language:
+  id: buf-config
+  kind: metadata
+  project: playground/buf-config
+pairs:
+  - language: buf-config
+    server: buf_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+        - type-definition

@@ -3,7 +3,11 @@ use std::path::Path;
 
 use serde::Deserialize;
 
-use super::{HostProgram, LanguageCase, LspConfig, PairCase, read_yaml, require_text};
+use super::suite::Timeouts;
+use super::{
+    HostProgram, LanguageCase, LspConfig, PairCase, dispositions::validate_deadlines, read_yaml,
+    require_text,
+};
 use crate::manifest_data::PairKey;
 
 #[derive(Clone, Debug, Deserialize)]
@@ -11,7 +15,29 @@ use crate::manifest_data::PairKey;
 pub(super) struct ServerCase {
     pub(super) id: String,
     pub(super) owner_language: String,
+    #[serde(default)]
+    pub(super) coverage: ServerCoverage,
     pub(super) provisioning: ProvisioningDisposition,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(
+    tag = "status",
+    rename_all = "kebab-case",
+    rename_all_fields = "kebab-case",
+    deny_unknown_fields
+)]
+pub(super) enum ServerCoverage {
+    #[default]
+    Pairs,
+    Capabilities {
+        supported_operations: Vec<super::QueryKind>,
+        lsp_timeout_seconds: Option<u64>,
+        deadline_seconds: Option<u64>,
+    },
+    Unavailable {
+        reason: String,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -46,6 +72,7 @@ impl ServerCase {
         languages: &BTreeMap<&str, &LanguageCase>,
         compatible: &BTreeSet<PairKey>,
         default_deadline_seconds: u64,
+        smoke_defaults: Timeouts,
     ) -> Result<(), String> {
         super::validate_config_id("server", &self.id)?;
         let Some(language) = languages.get(self.owner_language.as_str()) else {
@@ -85,11 +112,62 @@ impl ServerCase {
                 reason,
                 &format!("E2E provisioning exclusion for {:?}", self.id),
             ),
+        }?;
+        if matches!(self.coverage, ServerCoverage::Capabilities { .. }) && !self.is_downloadable() {
+            return Err(format!(
+                "E2E capability-only server {:?} must be downloadable",
+                self.id
+            ));
         }
+        if let Some((lsp, deadline)) = self.capability_timeouts(smoke_defaults) {
+            validate_deadlines(&format!("server {:?}", self.id), lsp, deadline)?;
+        }
+        if let Some(operations) = self.capability_operations() {
+            super::dispositions::validate_operation_list(&self.id, operations)?;
+        }
+        if let ServerCoverage::Unavailable { reason } = &self.coverage {
+            require_text(reason, &format!("E2E server coverage for {:?}", self.id))?;
+        }
+        Ok(())
     }
 
     pub(super) fn is_downloadable(&self) -> bool {
         matches!(self.provisioning, ProvisioningDisposition::Download { .. })
+    }
+
+    pub(super) fn requires_pair_coverage(&self) -> bool {
+        matches!(self.coverage, ServerCoverage::Pairs)
+    }
+
+    pub(super) fn is_capabilities_only(&self) -> bool {
+        matches!(self.coverage, ServerCoverage::Capabilities { .. })
+    }
+
+    pub(super) fn capability_is_unavailable(&self) -> bool {
+        matches!(self.coverage, ServerCoverage::Unavailable { .. })
+    }
+
+    pub(super) fn capability_timeouts(&self, defaults: Timeouts) -> Option<(u64, u64)> {
+        let ServerCoverage::Capabilities {
+            lsp_timeout_seconds,
+            deadline_seconds,
+            ..
+        } = self.coverage
+        else {
+            return None;
+        };
+        Some(defaults.resolve(lsp_timeout_seconds, deadline_seconds))
+    }
+
+    pub(super) fn capability_operations(&self) -> Option<&[super::QueryKind]> {
+        let ServerCoverage::Capabilities {
+            supported_operations,
+            ..
+        } = &self.coverage
+        else {
+            return None;
+        };
+        Some(supported_operations)
     }
 
     pub(super) fn host_programs(&self) -> impl Iterator<Item = (&str, &[String])> {

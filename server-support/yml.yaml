@@ -1,0 +1,10 @@
+language:
+  id: yml
+  kind: metadata
+  project: playground/yml
+pairs:
+  - language: yml
+    server: spectral
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.

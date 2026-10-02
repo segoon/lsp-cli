@@ -1,0 +1,11 @@
+language:
+  id: requirements
+  kind: metadata
+  project: playground/requirements
+pairs:
+  - language: requirements
+    server: snyk_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

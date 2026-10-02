@@ -1,0 +1,22 @@
+language:
+  id: graphql
+  kind: metadata
+  project: playground/graphql
+pairs:
+  - language: graphql
+    server: graphql
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - grep
+        - list-symbols
+        - list-functions
+        - definition
+  - language: graphql
+    server: dprint
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format

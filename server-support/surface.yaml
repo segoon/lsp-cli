@@ -1,0 +1,32 @@
+language:
+  id: surface
+  kind: metadata
+  project: playground/surface
+pairs:
+  - language: surface
+    server: elixirls
+    smoke:
+      status: excluded
+      reason: pkg:github/elixir-lsp/elixir-ls@v0.31.1 is paired with the literal placeholder command /path/to/elixir-ls/language_server.sh in the bundled LSP config.
+  - language: surface
+    server: expert
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+  - language: surface
+    server: lexical
+    smoke:
+      status: excluded
+      reason: pkg:github/lexical-lsp/lexical@v0.7.3 launches through /usr/bin/env bash, but bash is absent from the isolated PATH.
+  - language: surface
+    server: nextls
+    smoke:
+      status: excluded
+      reason: pkg:github/elixir-tools/next-ls@v0.23.4 requires the elixir executable during initialization, but it is absent from the isolated PATH.

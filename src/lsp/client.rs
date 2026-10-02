@@ -17,9 +17,12 @@ use super::{
 use crate::error::{Error, Result, error_fn};
 use crate::server_stderr::CapturedStderr;
 use crate::system_log::{
-    log_lsp_server_cmdline, log_lsp_server_cwd, log_lsp_server_exit, log_lsp_server_started,
-    log_lsp_server_starting, log_unexpected_error,
+    log_lsp_server_cmdline, log_lsp_server_cwd, log_lsp_server_exit,
+    log_lsp_server_forced_termination, log_lsp_server_started, log_lsp_server_starting,
+    log_unexpected_error,
 };
+
+const SHUTDOWN_EXIT_GRACE_PERIOD: Duration = Duration::from_secs(1);
 
 mod background;
 mod process_io;
@@ -338,6 +341,7 @@ impl LspClient {
         const PROCESS_EXIT_POLL_INTERVAL: Duration = Duration::from_millis(50);
 
         let started = Instant::now();
+        let grace_period = self.timeout.min(SHUTDOWN_EXIT_GRACE_PERIOD);
         loop {
             match &mut self.transport {
                 ClientTransport::Process { child, .. } => match child.try_wait() {
@@ -357,9 +361,18 @@ impl LspClient {
                 ClientTransport::Socket { .. } => return Ok(()),
             }
 
-            let Some(remaining) = self.timeout.checked_sub(started.elapsed()) else {
+            let Some(remaining) = grace_period.checked_sub(started.elapsed()) else {
+                // The server already acknowledged `shutdown` and received `exit`, so its LSP
+                // session is complete. Bound cleanup of a child that keeps unrelated workers or
+                // runtimes alive instead of turning a protocol-compliant command into a failure.
+                log_lsp_server_forced_termination();
+                if self.debug {
+                    eprintln!(
+                        "LSP server completed shutdown but did not exit within the grace period; terminating it"
+                    );
+                }
                 self.kill_process()?;
-                return Err(Error::unexpected("timed out waiting for LSP server exit"));
+                return Ok(());
             };
             let poll_timeout = if remaining < PROCESS_EXIT_POLL_INTERVAL {
                 remaining

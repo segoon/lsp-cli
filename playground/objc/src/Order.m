@@ -27,6 +27,8 @@
   return value;
 }
 
+- (double)orderTotalValue { return [self total]; }
+
 @end
 
 double item_total(OrderItem item) { return item.quantity * item.price; }

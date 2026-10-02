@@ -1,0 +1,16 @@
+language:
+  id: nickel
+  kind: metadata
+  project: playground/nickel
+pairs:
+  - language: nickel
+    server: nickel_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - references
+        - definition

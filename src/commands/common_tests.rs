@@ -48,6 +48,8 @@ fn server_with_command(
         command,
         workspace_root: PathBuf::from("."),
         wait_for_index: false,
+        build_index_completion: crate::config::BuildIndexCompletion::Confirmed,
+        mason_extra_packages: Vec::new(),
     }
 }
 
@@ -74,6 +76,8 @@ fn daemon_workspace(
             command,
             workspace_root: workspace_root.to_path_buf(),
             wait_for_index: false,
+            build_index_completion: crate::config::BuildIndexCompletion::Confirmed,
+            mason_extra_packages: Vec::new(),
         },
         allowed_filetypes: BTreeSet::from(["rust".to_string()]),
         root_uri: crate::lsp::path_to_file_uri(workspace_root).expect("root uri should build"),

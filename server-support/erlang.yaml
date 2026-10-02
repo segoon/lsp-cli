@@ -1,0 +1,19 @@
+language:
+  id: erlang
+  kind: metadata
+  project: playground/erlang
+pairs:
+  - language: erlang
+    server: elp
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - callers
+        - callees
+        - definition
+        - type-definition

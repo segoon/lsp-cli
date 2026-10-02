@@ -1,0 +1,10 @@
+language:
+  id: foam
+  kind: metadata
+  project: playground/foam
+pairs:
+  - language: foam
+    server: foam_ls
+    smoke:
+      status: excluded
+      reason: pkg:npm/foam-language-server@0.4.6 returns boolean false where LSP CompletionOptions are required in the initialize response.

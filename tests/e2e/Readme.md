@@ -20,7 +20,7 @@ queries.
 
 The current inventory (detectable filetypes, relevant servers, compatible pairs) is derived
 directly from the pinned `lsp-cli-data` submodule revision and drifts as that data changes; treat
-`tests/e2e/cases/` (one YAML file per language ID) and `tests/e2e/cases/suite.yaml`
+`server-support/` (one YAML file per language ID) and `server-support/suite.yaml`
 (`schema-version`, `coverage: complete`) as the source of truth for current counts rather than any
 number written here.
 
@@ -194,8 +194,8 @@ Each test process sets at least:
 Do not rely on a developer's user configuration, downloaded server cache, daemon sockets, current
 shell, or ambient server versions.
 
-`tests/e2e/cases/suite.yaml` owns global command coverage and assigns every canonical command a
-coverage strategy; each `tests/e2e/cases/<language>.yaml` owns one project and its configured
+`server-support/suite.yaml` owns global command coverage and assigns every canonical command a
+coverage strategy; each `server-support/<language>.yaml` owns one project and its configured
 server behavior. Case YAML contains only E2E-specific behavior — it does not duplicate each
 server's `filetypes` list, which is derived from `data/lsp-cli.yaml`. Pair entries are sparse E2E
 behavior overlays keyed by the LSP YAML filename stem as their stable config ID; bare compatibility
@@ -217,8 +217,29 @@ Direct `run` may be excluded independently when only detached operation is relia
 the chosen project stable when a shared server gains another filetype, without repeating process
 tests for every compatible pair. Source-language query profiles declare shared semantic terms,
 expected symbols, and format paths; pair entries keep only deadlines and narrowly scoped known-
-result exceptions (see "Real-server exceptions" below). Language-specific prerequisites and
-expectations belong in YAML, not in the Rust runner.
+result exceptions (see "Real-server exceptions" below). When one server decorates document-symbol
+names, a query pair can override `callable-query` and `expected-names` with the exact returned
+strings without changing production output or weakening another server's assertions.
+Language-specific prerequisites and expectations belong in YAML, not in the Rust runner.
+
+`query-profile.callable-query` remains the default target for references, call hierarchy,
+definition, declaration, implementation, and type-definition requests. When those operations need
+different semantic relationships, `query-profile.command-queries` can override an individual
+query without changing production behavior. For example:
+
+```yaml
+query-profile:
+  symbol-query: Order
+  callable-query: build_sample_order
+  command-queries:
+    implementation: OrderFormatting
+    type-definition: order
+```
+
+Overrides are accepted only for named symbol queries and must be non-empty. Prefer a genuine
+fixture relationship—such as an abstract interface with a concrete implementation or a value with
+an explicit type—over an exception that merely asserts the absence caused by a mismatched shared
+query term.
 
 ### Extending the manifest
 
@@ -233,10 +254,47 @@ The query runner obtains raw initialized capabilities through `server-capabiliti
 executes every LSP query command. Advertised capabilities require a successful semantic response;
 missing capabilities require the command's user-facing unsupported error.
 
+Servers that are useful but do not fit the shared semantic-query profile declare server-level
+capability coverage:
+
+```yaml
+- id: ruff
+  owner-language: python
+  coverage:
+    status: capabilities
+    supported-operations:
+      - server-capabilities
+      - format
+  provisioning:
+    status: download
+```
+
+This produces one `capabilities/<owner-language>/<server>` case and one provisioning case.
+Capability-only coverage is valid for metadata and source projects, but it does not replace the
+deeper query coverage required for preferred source-language pairs. Capability-only servers must
+remain downloadable, use the normal smoke timeout defaults unless overridden under `coverage`,
+and are intentionally outside the smoke tier. If capability discovery cannot obtain a valid
+initialize response, use `status: unavailable` with a non-empty `reason`; the generated matrix
+renders that owner pair as `N/A`.
+
 ## Real-server exceptions
 
-In `tests/e2e/manifest/query_case.rs`, a `smoke` pair can be `status: queries`, and each query case
-carries an optional `exceptions` list. Each entry names a `command` (one of the real-server query
+In `tests/e2e/manifest/query_case.rs`, a `smoke` pair can be `status: queries`. Its required
+`supported-operations` list records which `lsp-cli` query subcommands the server/language pair
+supports. Every `status: capabilities` pair and server-owned capability case stores the same list,
+limited to `server-capabilities` and operations backed by advertised LSP capabilities. The
+documentation generator renders these stored lists without starting a server. During real-server
+E2E, operations with a direct LSP capability mapping must exactly agree with the server's
+initialize response; query cases additionally run unsupported operations to verify their
+user-facing error. `server-capabilities`, `diagnostics`, and `build-index` have no direct advertised
+capability and are required for every query case; capability-only cases require only
+`server-capabilities`. In the generated matrix, an omitted operation with a direct capability
+mapping is `✗`. `diagnostics` and `build-index` are `N/A` for capability-only cases because they
+cannot be inferred from the initialize response. Explicit pair exclusions and non-installable
+servers also render as `N/A`. Generation fails if an installable compatible pair has neither a
+stored profile nor an explicit unavailable disposition.
+
+Each query case also carries an optional `exceptions` list. Each entry names a `command` (one of the real-server query
 kinds — `grep`, `references`, `callers`, `callees`, `build-index`, `format`, etc.), an `outcome`
 (`failure`, `empty-matches`, or `variable-matches`), an optional expected stderr `message`, and a
 mandatory `reason`.
@@ -256,10 +314,10 @@ is self-documenting and any regression still fails loudly.
 
 ### Known root causes
 
-- **No background-indexing-completion signal** (`build-index` → `failure`, message
-  "background-work progress"). Several servers advertise `$/progress`/work-done tokens but never
-  send a terminal "index build finished" notification the CLI can wait on. This is the single most
-  common exception across the suite.
+- **No background-indexing-completion signal.** Servers proven not to expose a terminal signal use
+  the data-driven `build-index-completion: best-effort` policy. Their cases must succeed after the
+  bounded observation window without claiming confirmed completion; transport, protocol, server,
+  and shutdown failures remain failures. The exhaustive server list is in `docs/SERVERS.md`.
 - **Workspace-symbol search (`grep`) racing indexing.** A server with no synchronous "ready" signal
   can return empty `matches` for `workspace/symbol` issued immediately after startup.
   `run_workspace_symbol_query` (`src/commands/symbol_query.rs`) primes the server by opening a
@@ -274,11 +332,15 @@ is self-documenting and any regression still fails loudly.
 ### Servers excluded entirely (`status: excluded`)
 
 - `denols` (Deno LSP) rejects the standard shutdown request because it requires non-null params.
-- `roslyn_ls` (cs) and `lua_ls` (lua) have lifecycle-level incompatibilities: no smoke queries at
-  all, or no clean exit after direct shutdown.
-- Several Python servers fail to launch/initialize correctly in the isolated harness: `pylsp`
-  (Mason launcher can't import the module), `pyre` (same), `pyrefly` (initializes but returns no
-  workspace/document symbols).
+- `jdtls` remains outside shared semantic smoke because its symbol names are decorated and its
+  asynchronous index readiness is unstable.
+- Several Python servers lack the semantics required by the shared smoke profile: `pylsp` does not
+  advertise workspace symbols, `pyre` advertises only document synchronization, `pyrefly` returns
+  no workspace/document symbols, and `ty` has unstable call-hierarchy results.
+
+Roslyn is covered with exact pair-local decorated-name expectations and explicit exceptions;
+LuaLS, Jedi Language Server, and both RobotCode language aliases are covered now that lsp-cli
+performs bounded cleanup of an owned direct child after a successful shutdown/exit exchange.
 
 Real LSP servers deviate from the LSP spec's strict guarantees in ways that are reproducible but
 server-specific. Rather than weakening assertions globally, the suite encodes each deviation
@@ -295,9 +357,11 @@ npm, PyPI, Cargo, Go, NuGet, GitHub, or generic package sources supported by the
 PyPI packages use a per-package virtual environment under the Mason package's `local/` directory.
 Generated console scripts therefore use the same Python environment that contains their modules,
 without an ambient `PYTHONPATH`. A versioned marker distinguishes this layout from old
-`pip --prefix` installations; a missing marker rebuilds only that package's `local/` environment.
-The tradeoff is additional disk use, and Python installations without `venv` or `ensurepip` cannot
-install PyPI-backed servers.
+`pip --prefix` installations and records the source plus extra dependency constraints. A missing
+or mismatched marker rebuilds only that package's `local/` environment. Mason `extra_packages` and
+data-provided `mason-extra-packages` are resolved in the same pip transaction as the primary
+package. The tradeoff is additional disk use, and Python installations without `venv` or
+`ensurepip` cannot install PyPI-backed servers.
 
 Language SDKs and package-manager runtimes remain explicit host prerequisites, with their resolver
 commands kept in the manifest so a missing prerequisite produces a case-specific error rather than
@@ -347,21 +411,36 @@ make -j4 test-e2e
 # one language/server pair, or every pair for one server
 make test-e2e CASE=python/pyright
 make test-e2e SERVER=pyright
+make -j10 test-e2e SERVER=pyright,ruff
 
 # restrict either selection to one phase
 make test-e2e CASE=java/jdtls PHASE=lifecycle
 make test-e2e SERVER=pyright PHASE=provision
 ```
 
-`CASE` and `SERVER` are mutually exclusive. `PHASE` accepts `all` (the default), `provision`,
+On 2026-10-02, the complete suite took approximately 34 minutes (2,032 seconds) on a
+22-logical-CPU machine using 11 parallel jobs:
+
+```sh
+make -j"$((($(nproc) + 1) / 2))" test-e2e
+```
+
+That measurement used the pinned Mason registry snapshot and a warm package/runtime cache. Cold
+downloads, network latency, server-version changes, and machine load can make a run substantially
+slower. The measured run planned 897 cases, executed 721, and excluded 176; 681 passed and 40
+matched documented expected failures.
+
+`CASE` and `SERVER` are mutually exclusive; `SERVER` accepts comma-separated IDs. `PHASE` accepts
+`all` (the default), `provision`,
 `smoke`, or `lifecycle`. Selecting a scope with no executable behavior fails clearly instead of
 silently running no tests. Smoke membership is an explicit `tier: smoke` property in the case
 manifest; it is not inferred from preferred-server metadata.
 
-Known failures are listed explicitly in `cases/suite.yaml` under `expected-failures`. They continue
-to run, but their failure does not fail the target. A new failure remains an error. Passing marked
-cases are reported separately so flaky or repaired cases can be reviewed and their stale markers
-removed without making the compatibility target nondeterministic.
+Known failures are listed explicitly in `server-support/suite.yaml` under `expected-failures`.
+They continue to run, but a matching failure does not fail the target. Every entry declares a
+`stage` and a `diagnostic-contains` substring; a different primary stage, diagnostic, or any
+additional failure stage remains fatal. Passing marked cases are reported separately so repaired
+cases can be reviewed and stale markers removed.
 
 GNU Make's `-jN` option runs up to `N` independently isolated cases concurrently. Omitting `-j`
 keeps the suite sequential, which is useful when reproducing a failure. Provisioning, smoke, and

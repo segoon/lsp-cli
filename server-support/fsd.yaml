@@ -1,0 +1,10 @@
+language:
+  id: fsd
+  kind: metadata
+  project: playground/fsd
+pairs:
+  - language: fsd
+    server: facility_language_server
+    smoke:
+      status: excluded
+      reason: pkg:github/FacilityApi/FacilityLanguageServer@v2.5.1 requires .NET 6, but the managed E2E environment provides .NET 10 only.

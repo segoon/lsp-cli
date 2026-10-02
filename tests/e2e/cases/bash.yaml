@@ -1,9 +1,0 @@
-language:
-  id: bash
-  kind: metadata
-  project: playground/bash
-pairs:
-  - language: bash
-    server: bashls
-    smoke:
-      status: capabilities

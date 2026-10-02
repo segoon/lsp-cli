@@ -1,0 +1,17 @@
+language:
+  id: r
+  kind: metadata
+  project: playground/r
+pairs:
+  - language: r
+    server: air
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+  - language: r
+    server: r_language_server
+    smoke:
+      status: excluded
+      reason: pkg:github/mason-org/r-languageserver@v0.3.17 has no Mason asset matching the Linux x86-64 E2E platform.

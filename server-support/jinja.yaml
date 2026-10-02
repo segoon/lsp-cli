@@ -1,0 +1,15 @@
+language:
+  id: jinja
+  kind: metadata
+  project: playground/jinja
+pairs:
+  - language: jinja
+    server: jinja_lsp
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - list-symbols
+        - list-functions
+        - references
+        - definition

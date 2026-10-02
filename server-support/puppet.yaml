@@ -1,0 +1,10 @@
+language:
+  id: puppet
+  kind: metadata
+  project: playground/puppet
+pairs:
+  - language: puppet
+    server: puppet
+    smoke:
+      status: excluded
+      reason: pkg:github/puppetlabs/puppet-editor-services@v2.0.4 does not produce a runnable puppet-languageserver at the Mason-configured path.

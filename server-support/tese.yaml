@@ -1,0 +1,18 @@
+language:
+  id: tese
+  kind: metadata
+  project: playground/tese
+pairs:
+  - language: tese
+    server: glsl_analyzer
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - definition
+  - language: tese
+    server: glslls
+    smoke:
+      status: excluded
+      reason: pkg:github/svenstaro/glsl-language-server@0.5.0 has no Mason asset matching the Linux x86-64 E2E platform.

@@ -1,0 +1,23 @@
+language:
+  id: xml
+  kind: metadata
+  project: playground/xml
+pairs:
+  - language: xml
+    server: lemminx
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+        - type-definition
+  - language: xml
+    server: vale_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

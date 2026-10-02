@@ -68,6 +68,16 @@ pub struct LspConfig {
     pub name: String,
     pub cmdline: String,
     pub wait_for_index: bool,
+    pub build_index_completion: BuildIndexCompletion,
+    pub mason_extra_packages: Vec<String>,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "kebab-case")]
+pub enum BuildIndexCompletion {
+    #[default]
+    Confirmed,
+    BestEffort,
 }
 
 #[derive(Deserialize)]
@@ -88,6 +98,10 @@ struct LspFile {
     cmdline: String,
     #[serde(rename = "wait-for-index", default)]
     wait_for_index: bool,
+    #[serde(rename = "build-index-completion", default)]
+    build_index_completion: BuildIndexCompletion,
+    #[serde(rename = "mason-extra-packages", default)]
+    mason_extra_packages: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -396,6 +410,8 @@ fn load_lsps(dir: &Path) -> Result<Vec<LspConfig>> {
                 name: file.name,
                 cmdline: file.cmdline,
                 wait_for_index: file.wait_for_index,
+                build_index_completion: file.build_index_completion,
+                mason_extra_packages: file.mason_extra_packages,
             })
         })
         .collect()

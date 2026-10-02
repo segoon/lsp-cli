@@ -1,0 +1,29 @@
+language:
+  id: nix
+  kind: metadata
+  project: playground/nix
+pairs:
+  - language: nix
+    server: nil_ls
+    smoke:
+      status: excluded
+      reason: pkg:cargo/nil@2025-06-13?repository_url=https://github.com/oxalica/nil requires its repository_url qualifier that the current Cargo installer discards.
+  - language: nix
+    server: rnix
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - definition
+  - language: nix
+    server: ast_grep
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: nix
+    server: harper_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

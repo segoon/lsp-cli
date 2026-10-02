@@ -1,0 +1,11 @@
+language:
+  id: apex
+  kind: metadata
+  project: playground/apex
+pairs:
+  - language: apex
+    server: snyk_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

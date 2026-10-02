@@ -1,0 +1,22 @@
+language:
+  id: rmd
+  kind: metadata
+  project: playground/rmd
+pairs:
+  - language: rmd
+    server: r_language_server
+    smoke:
+      status: excluded
+      reason: pkg:github/mason-org/r-languageserver@v0.3.17 has no Mason asset matching the Linux x86-64 E2E platform.
+  - language: rmd
+    server: ltex
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: rmd
+    server: ltex_plus
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

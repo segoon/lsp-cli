@@ -1,0 +1,23 @@
+language:
+  id: bib
+  kind: metadata
+  project: playground/bib
+pairs:
+  - language: bib
+    server: texlab
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+  - language: bib
+    server: ltex_plus
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

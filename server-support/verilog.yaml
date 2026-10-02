@@ -1,0 +1,35 @@
+language:
+  id: verilog
+  kind: metadata
+  project: playground/verilog
+pairs:
+  - language: verilog
+    server: hdl_checker
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - references
+        - definition
+  - language: verilog
+    server: svlangserver
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - definition
+  - language: verilog
+    server: svls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: verilog
+    server: verible
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.

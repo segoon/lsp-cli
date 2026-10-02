@@ -1,0 +1,23 @@
+language:
+  id: cue
+  kind: metadata
+  project: playground/cue
+pairs:
+  - language: cue
+    server: cue
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+  - language: cue
+    server: dagger
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - definition

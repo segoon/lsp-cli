@@ -1,0 +1,10 @@
+language:
+  id: ps1
+  kind: metadata
+  project: playground/ps1
+pairs:
+  - language: ps1
+    server: powershell_es
+    smoke:
+      status: excluded
+      reason: pkg:github/PowerShell/PowerShellEditorServices@v4.7.0 requires pwsh, but the Mason recipe does not expose that executable.

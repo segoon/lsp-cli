@@ -1,0 +1,14 @@
+language:
+  id: jq
+  kind: metadata
+  project: playground/jq
+pairs:
+  - language: jq
+    server: jqls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - list-symbols
+        - list-functions
+        - definition

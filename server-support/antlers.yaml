@@ -1,0 +1,17 @@
+language:
+  id: antlers
+  kind: metadata
+  project: playground/antlers
+pairs:
+  - language: antlers
+    server: antlersls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - definition

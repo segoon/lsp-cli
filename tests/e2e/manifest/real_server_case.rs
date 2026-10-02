@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use super::query_case::select_query;
 use super::{
     ExceptionOutcome, LspConfig, QueryKind, RealServerCapabilitiesCase, RealServerCase, read_yaml,
 };
@@ -33,12 +34,13 @@ impl RealServerCase<'_> {
         self.setup.host_programs()
     }
 
-    pub(crate) fn symbol_query(&self) -> &str {
-        self.symbol_query
-    }
-
-    pub(crate) fn callable_query(&self) -> &str {
-        self.callable_query
+    pub(crate) fn query_for(&self, command: QueryKind) -> &str {
+        select_query(
+            command,
+            self.symbol_query,
+            self.callable_query,
+            self.command_queries,
+        )
     }
 
     pub(crate) fn format_file(&self) -> &Path {
@@ -47,6 +49,10 @@ impl RealServerCase<'_> {
 
     pub(crate) fn expected_names(&self) -> &[String] {
         self.expected_names
+    }
+
+    pub(crate) fn supports(&self, command: QueryKind) -> bool {
+        self.supported_operations.contains(&command)
     }
 
     pub(crate) fn exception(
@@ -70,7 +76,7 @@ impl RealServerCase<'_> {
 
 impl RealServerCapabilitiesCase<'_> {
     pub(crate) fn label(&self) -> String {
-        format!("{}/{}", self.pair.language, self.pair.server)
+        format!("{}/{}", self.language.id, self.setup.id)
     }
 
     pub(crate) fn language(&self) -> &str {
@@ -78,15 +84,19 @@ impl RealServerCapabilitiesCase<'_> {
     }
 
     pub(crate) fn server_id(&self) -> &str {
-        &self.pair.server
+        &self.setup.id
     }
 
     pub(crate) fn is_smoke(&self) -> bool {
-        self.pair.is_smoke()
+        self.smoke
+    }
+
+    pub(crate) fn supported_operations(&self) -> &[QueryKind] {
+        self.supported_operations
     }
 
     pub(crate) fn server_name(&self, repository: &Path) -> Result<String, String> {
-        server_name(&self.pair.server, repository)
+        server_name(&self.setup.id, repository)
     }
 
     pub(crate) fn project(&self) -> &Path {

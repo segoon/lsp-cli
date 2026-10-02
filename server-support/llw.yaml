@@ -1,0 +1,10 @@
+language:
+  id: llw
+  kind: metadata
+  project: playground/llw
+pairs:
+  - language: llw
+    server: lelwel_ls
+    smoke:
+      status: excluded
+      reason: pkg:cargo/lelwel@0.10.4?features=lsp,cli requires the lsp and cli feature qualifiers that the current Cargo installer discards, so no lelwel-ls executable is built.

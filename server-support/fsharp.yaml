@@ -1,0 +1,21 @@
+language:
+  id: fsharp
+  kind: metadata
+  project: playground/fsharp
+pairs:
+  - language: fsharp
+    server: fsautocomplete
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - callers
+        - callees
+        - definition
+        - implementation
+        - type-definition

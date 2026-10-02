@@ -1,9 +1,0 @@
-language:
-  id: rst
-  kind: metadata
-  project: playground/rst
-pairs:
-  - language: rst
-    server: esbonio
-    smoke:
-      status: capabilities

@@ -1,0 +1,17 @@
+language:
+  id: fortran
+  kind: metadata
+  project: playground/fortran
+pairs:
+  - language: fortran
+    server: fortls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+        - implementation

@@ -1,0 +1,10 @@
+language:
+  id: arduino
+  kind: metadata
+  project: playground/arduino
+pairs:
+  - language: arduino
+    server: arduino_language_server
+    smoke:
+      status: excluded
+      reason: arduino-language-server 0.7.7 requires a CLI config, Arduino CLI, clangd, a downloaded board core, and a fixture-specific FQBN before initialization.

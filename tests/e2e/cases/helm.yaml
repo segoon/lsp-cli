@@ -1,9 +1,0 @@
-language:
-  id: helm
-  kind: metadata
-  project: playground/helm
-pairs:
-  - language: helm
-    server: helm_ls
-    smoke:
-      status: capabilities

@@ -1,0 +1,20 @@
+language:
+  id: yaml.gitlab
+  kind: metadata
+  project: playground/yaml.gitlab
+pairs:
+  - language: yaml.gitlab
+    server: gitlab_ci_ls
+    smoke:
+      status: excluded
+      reason: pkg:cargo/gitlab-ci-ls@1.4.0 closes the transport while the client waits for the shutdown response.
+  - language: yaml.gitlab
+    server: yamlls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - definition

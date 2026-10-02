@@ -1,0 +1,14 @@
+language:
+  id: opencl
+  kind: metadata
+  project: playground/opencl
+pairs:
+  - language: opencl
+    server: opencl_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - definition
+        - declaration
+        - type-definition

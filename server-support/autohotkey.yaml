@@ -1,0 +1,17 @@
+language:
+  id: autohotkey
+  kind: metadata
+  project: playground/autohotkey
+pairs:
+  - language: autohotkey
+    server: autohotkey_lsp
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - definition

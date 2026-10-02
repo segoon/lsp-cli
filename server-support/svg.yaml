@@ -1,0 +1,17 @@
+language:
+  id: svg
+  kind: metadata
+  project: playground/svg
+pairs:
+  - language: svg
+    server: lemminx
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+        - type-definition

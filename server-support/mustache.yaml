@@ -1,0 +1,16 @@
+language:
+  id: mustache
+  kind: metadata
+  project: playground/mustache
+pairs:
+  - language: mustache
+    server: htmx
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: mustache
+    server: tailwindcss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

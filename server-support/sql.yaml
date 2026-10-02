@@ -1,0 +1,27 @@
+language:
+  id: sql
+  kind: metadata
+  project: playground/sql
+pairs:
+  - language: sql
+    server: bqls
+    smoke:
+      status: excluded
+      reason: pkg:github/kitagry/bqls@v0.7.1 rejects initialization without a BigQuery project ID and cannot discover one because gcloud is absent.
+  - language: sql
+    server: postgres_lsp
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+  - language: sql
+    server: sqlls
+    smoke:
+      status: excluded
+      reason: pkg:npm/sql-language-server@1.7.1 fails at startup because a vscode-languageserver-protocol package subpath is no longer exported.
+  - language: sql
+    server: sqls
+    smoke:
+      status: excluded
+      reason: pkg:golang/github.com/sqls-server/sqls@v0.2.48 is paired with the literal placeholder command path/to/command in the bundled LSP config.

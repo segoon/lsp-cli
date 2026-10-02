@@ -303,7 +303,7 @@ impl Manifest {
             .iter()
             .find(|pair| pair.label() == label)
             .map(|pair| pair.server.as_str())
-            .or_else(|| self.capability_server_for_label(label))
+            .or_else(|| self.coverage_server_for_label(label))
     }
 
     pub(crate) fn smoke_servers(&self) -> BTreeSet<&str> {
@@ -355,14 +355,14 @@ impl Manifest {
         self.pairs
             .iter()
             .any(|pair| format!("{}/{}", pair.language, pair.server) == label)
-            || self.capability_server_for_label(label).is_some()
+            || self.coverage_server_for_label(label).is_some()
     }
 
-    fn capability_server_for_label(&self, label: &str) -> Option<&str> {
+    fn coverage_server_for_label(&self, label: &str) -> Option<&str> {
         self.servers
             .iter()
             .find(|server| {
-                server.is_capabilities_only()
+                !server.requires_pair_coverage()
                     && format!("{}/{}", server.owner_language, server.id) == label
             })
             .map(|server| server.id.as_str())
@@ -409,6 +409,13 @@ impl Manifest {
         }
         let (_, server) = label.split_once('/')?;
         self.servers.iter().find_map(|item| {
+            if item.owner_language == label.split_once('/')?.0
+                && item.id == server
+                && let super::provisioning_case::ServerCoverage::Unavailable { reason } =
+                    &item.coverage
+            {
+                return Some(reason.clone());
+            }
             (item.id == server && self.declares_pair(label))
                 .then_some(&item.provisioning)
                 .and_then(|provisioning| match provisioning {

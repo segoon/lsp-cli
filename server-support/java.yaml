@@ -24,3 +24,26 @@ pairs:
         status: excluded
         reason: jdtls acknowledges shutdown but exits with status 1 after the standard direct protocol exchange
       deadline-seconds: 300
+  - language: java
+    server: ast_grep
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: java
+    server: codebook
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: java
+    server: harper_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: java
+    server: snyk_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

@@ -19,9 +19,8 @@ pairs:
   - language: proto
     server: pbls
     smoke:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: excluded
+      reason: pkg:cargo/pbls@1.0.1?repository_url=https://git.sr.ht/~rrc/pbls requires its repository_url qualifier; crates.io has no matching pbls release.
   - language: proto
     server: protols
     smoke:

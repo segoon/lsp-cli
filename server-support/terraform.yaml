@@ -29,3 +29,9 @@ pairs:
         - references
         - definition
         - declaration
+  - language: terraform
+    server: snyk_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

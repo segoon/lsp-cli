@@ -9,3 +9,15 @@ pairs:
       status: capabilities
       supported-operations:
         - server-capabilities
+  - language: org
+    server: ltex
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: org
+    server: ltex_plus
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

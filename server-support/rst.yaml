@@ -13,3 +13,21 @@ pairs:
         - list-symbols
         - list-functions
         - definition
+  - language: rst
+    server: ltex
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: rst
+    server: ltex_plus
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: rst
+    server: vale_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

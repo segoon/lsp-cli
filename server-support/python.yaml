@@ -130,3 +130,32 @@ pairs:
         - implementation
         - type-definition
         - build-index
+  - language: python
+    server: ast_grep
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: python
+    server: codebook
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: python
+    server: dprint
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+  - language: python
+    server: efm
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: python
+    server: harper_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

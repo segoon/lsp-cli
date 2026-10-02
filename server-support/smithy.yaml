@@ -6,6 +6,5 @@ pairs:
   - language: smithy
     server: smithy_ls
     smoke:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: excluded
+      reason: pkg:github/awslabs/smithy-language-server@0.9.0 requires coursier, but the Mason recipe does not expose that executable.

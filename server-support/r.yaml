@@ -13,6 +13,5 @@ pairs:
   - language: r
     server: r_language_server
     smoke:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: excluded
+      reason: pkg:github/mason-org/r-languageserver@v0.3.17 has no Mason asset matching the Linux x86-64 E2E platform.

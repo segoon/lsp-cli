@@ -6,6 +6,5 @@ pairs:
   - language: yql
     server: vespa_ls
     smoke:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: excluded
+      reason: pkg:github/vespa-engine/vespa@lsp-v2.6.0 is paired with the literal placeholder JAR path /path/to/vespa-language-server.jar.

@@ -6,6 +6,5 @@ pairs:
   - language: ps1
     server: powershell_es
     smoke:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: excluded
+      reason: pkg:github/PowerShell/PowerShellEditorServices@v4.7.0 requires pwsh, but the Mason recipe does not expose that executable.

@@ -6,6 +6,22 @@ pairs:
   - language: haskell
     server: hls
     smoke:
+      status: excluded
+      reason: pkg:generic/haskell/haskell-language-server@2.13.0.0 has no Mason download matching the Linux x86-64 E2E platform.
+  - language: haskell
+    server: ast_grep
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: haskell
+    server: codebook
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: haskell
+    server: harper_ls
+    smoke:
       status: capabilities
       supported-operations:
         - server-capabilities

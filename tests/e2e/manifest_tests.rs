@@ -40,8 +40,8 @@ fn complete_manifest_matches_pinned_data() {
     assert_eq!(detectable.len(), 336);
     assert_eq!(servers.len(), 358);
     assert_eq!(compatible.len(), 849);
-    assert_eq!(declared.len(), 302);
-    assert_eq!(compatible.difference(&declared).count(), 547);
+    assert_eq!(declared.len(), 615);
+    assert_eq!(compatible.difference(&declared).count(), 234);
     assert_eq!(manifest.servers.len(), 358);
     assert_eq!(
         manifest
@@ -49,7 +49,15 @@ fn complete_manifest_matches_pinned_data() {
             .iter()
             .filter(|server| server.is_capabilities_only())
             .count(),
-        41
+        30
+    );
+    assert_eq!(
+        manifest
+            .servers
+            .iter()
+            .filter(|server| server.capability_is_unavailable())
+            .count(),
+        11
     );
     assert_eq!(
         manifest

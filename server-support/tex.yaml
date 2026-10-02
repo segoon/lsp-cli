@@ -21,3 +21,21 @@ pairs:
       status: capabilities
       supported-operations:
         - server-capabilities
+  - language: tex
+    server: ltex
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: tex
+    server: ltex_plus
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: tex
+    server: vale_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

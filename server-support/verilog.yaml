@@ -31,6 +31,5 @@ pairs:
   - language: verilog
     server: verible
     smoke:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.

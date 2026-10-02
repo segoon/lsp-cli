@@ -25,3 +25,22 @@ pairs:
         - definition
         - declaration
         - type-definition
+  - language: toml
+    server: codebook
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: toml
+    server: dprint
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+  - language: toml
+    server: harper_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

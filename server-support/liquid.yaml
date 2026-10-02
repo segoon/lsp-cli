@@ -2,3 +2,15 @@ language:
   id: liquid
   kind: metadata
   project: playground/liquid
+pairs:
+  - language: liquid
+    server: htmx
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: liquid
+    server: tailwindcss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

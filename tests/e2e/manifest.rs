@@ -44,7 +44,7 @@ pub(crate) mod coverage_cases;
 mod suite;
 use suite::{Architecture, OperatingSystem, Platform, TestDefaults};
 
-const MANIFEST_SCHEMA_VERSION: u32 = 18;
+const MANIFEST_SCHEMA_VERSION: u32 = 19;
 
 #[derive(Clone, Debug)]
 pub(crate) struct Manifest {
@@ -465,14 +465,6 @@ impl Manifest {
                     SmokeDisposition::Queries { .. } if language.query_profile.is_none() => {
                         return Err(format!(
                             "E2E query pair {}/{} requires a language query profile",
-                            pair.language, pair.server
-                        ));
-                    }
-                    SmokeDisposition::Capabilities { .. }
-                        if language.kind != ProjectKind::Metadata =>
-                    {
-                        return Err(format!(
-                            "E2E capabilities-only pair {}/{} requires a metadata project",
                             pair.language, pair.server
                         ));
                     }

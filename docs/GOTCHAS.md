@@ -88,9 +88,12 @@
 
 ## Exhaustive capability matrix
 
-- Against Mason snapshot `2026-09-30-aboard-mob`, all 118 capability cases carrying an
-  expected-failure marker failed again. Thirty-nine cases on 26 servers fail during provisioning,
-  before an LSP session exists; those results must not be classified as protocol incompatibility.
+- Against Mason snapshot `2026-09-30-aboard-mob`, 100 capability cases could not produce a valid
+  initialize response. They are stored as unavailable coverage and rendered `N/A`, with their
+  earlier expected-failure diagnostics retained as exclusion reasons; they must not be presented
+  as unsupported operations. Thirty-nine cases on 26 servers still fail during provisioning,
+  before an LSP session exists, and remain expected failures because provisioning is validated
+  independently of capability coverage.
 - Twenty-nine cases on 23 servers historically completed initialization but did not exit within
   the command deadline after the standard `shutdown` response and `exit` notification:
   `bazelrc_lsp`, `buf_ls`, `circom-lsp`, `earthlyls`, `ginko_ls`, `gn_language_server`, `hyprls`,

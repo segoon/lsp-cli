@@ -35,3 +35,25 @@ pairs:
         - build-index
       lsp-timeout-seconds: 15
       deadline-seconds: 240
+  - language: cpp
+    server: ast_grep
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: cpp
+    server: efm
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: cpp
+    server: harper_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: cpp
+    server: snyk_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

@@ -6,6 +6,5 @@ pairs:
   - language: fish
     server: fish_lsp
     smoke:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: excluded
+      reason: pkg:npm/fish-lsp@1.1.4 requires the fish executable on PATH during initialization.

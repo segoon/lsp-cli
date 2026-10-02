@@ -19,6 +19,5 @@ pairs:
   - language: nim
     server: nimls
     smoke:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: excluded
+      reason: pkg:github/PMunch/nimlsp@v0.4.7 has no Mason asset matching the Linux x86-64 E2E platform.

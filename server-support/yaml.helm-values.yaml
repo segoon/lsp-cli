@@ -6,9 +6,8 @@ pairs:
   - language: yaml.helm-values
     server: helm_ls
     smoke:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: excluded
+      reason: pkg:github/mrjosh/helm-ls@v0.5.4 closes the transport while the client waits for the shutdown response.
   - language: yaml.helm-values
     server: yamlls
     smoke:

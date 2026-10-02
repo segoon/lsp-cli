@@ -59,3 +59,67 @@ pairs:
         - implementation
         - type-definition
         - build-index
+  - language: typescript
+    server: ast_grep
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: typescript
+    server: codebook
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: typescript
+    server: cssmodules_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - definition
+        - implementation
+  - language: typescript
+    server: ember
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+  - language: typescript
+    server: eslint
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: typescript
+    server: harper_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: typescript
+    server: htmx
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: typescript
+    server: quick_lint_js
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: typescript
+    server: snyk_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: typescript
+    server: tailwindcss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

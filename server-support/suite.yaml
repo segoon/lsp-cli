@@ -1,4 +1,4 @@
-schema-version: 18
+schema-version: 19
 coverage: complete
 platform:
   os: linux
@@ -13,406 +13,6 @@ defaults:
   provisioning:
     deadline-seconds: 600
 expected-failures:
-  - case: capabilities/OpenFOAM/foam_ls
-    stage: capabilities
-    diagnostic-contains: "invalid type: boolean `false`, expected struct CompletionOptions"
-    reason: pkg:npm/foam-language-server@0.4.6 returns boolean false where LSP CompletionOptions are required in the initialize response.
-  - case: capabilities/bicep-params/bicep
-    stage: capabilities
-    diagnostic-contains: "missing Content-Length header"
-    reason: pkg:github/Azure/bicep@v0.47.16 writes output without an LSP Content-Length header during initialization.
-  - case: capabilities/bicep/bicep
-    stage: capabilities
-    diagnostic-contains: "missing Content-Length header"
-    reason: pkg:github/Azure/bicep@v0.47.16 writes output without an LSP Content-Length header during initialization.
-  - case: capabilities/bzl/bzl
-    stage: capabilities
-    diagnostic-contains: "failed to download bzl: error sending request for url (https://get.bzl.io/linux_amd64/v1.4.22/bzl)"
-    reason: pkg:generic/bzl@v1.4.22 repeatedly fails to download from get.bzl.io without exposing the lower-level request cause.
-  - case: capabilities/c3/c3_lsp
-    stage: capabilities
-    diagnostic-contains: "exec: \"c3c\": executable file not found in $PATH"
-    reason: pkg:github/pherrymason/c3-lsp@v0.4.0 requires c3c on PATH and crashes during initialization when it is absent.
-  - case: capabilities/c3i/c3_lsp
-    stage: capabilities
-    diagnostic-contains: "exec: \"c3c\": executable file not found in $PATH"
-    reason: pkg:github/pherrymason/c3-lsp@v0.4.0 requires c3c on PATH and crashes during initialization when it is absent.
-  - case: capabilities/cabal/hls
-    stage: capabilities
-    diagnostic-contains: "cannot install haskell-language-server on this platform"
-    reason: pkg:generic/haskell/haskell-language-server@2.13.0.0 has no Mason download matching the Linux x86-64 E2E platform.
-  - case: capabilities/cairo/cairo_ls
-    stage: capabilities
-    diagnostic-contains: "Mason does not expose executable scarb"
-    reason: pkg:cargo/cairo-language-server@2.15.0 requires scarb, but the Mason recipe does not expose that executable.
-  - case: capabilities/clar/clarinet
-    stage: capabilities
-    diagnostic-contains: "404 Not Found"
-    reason: pkg:github/hirosystems/clarinet@v15.16.0 references a Linux release asset URL that returns HTTP 404.
-  - case: capabilities/clarity/clarinet
-    stage: capabilities
-    diagnostic-contains: "404 Not Found"
-    reason: pkg:github/hirosystems/clarinet@v15.16.0 references a Linux release asset URL that returns HTTP 404.
-  - case: capabilities/cmake/neocmake
-    stage: capabilities
-    diagnostic-contains: "LSP server closed while waiting for shutdown"
-    reason: pkg:github/neocmakelsp/neocmakelsp@v0.11.2 closes the transport while the client waits for the shutdown response.
-  - case: capabilities/cobol/cobol_ls
-    stage: capabilities
-    diagnostic-contains: "missing Content-Length header"
-    reason: pkg:github/eclipse-che4z/che-che4z-lsp-for-cobol@2.5.1 writes output without an LSP Content-Length header during initialization.
-  - case: capabilities/comp/glslls
-    stage: capabilities
-    diagnostic-contains: "cannot install glslls on this platform"
-    reason: pkg:github/svenstaro/glsl-language-server@0.5.0 has no Mason asset matching the Linux x86-64 E2E platform.
-  - case: capabilities/crystal/crystalline
-    stage: capabilities
-    diagnostic-contains: "invalid LSP header: ???"
-    reason: pkg:github/elbywan/crystalline@v0.19.0 writes an invalid LSP header during initialization.
-  - case: capabilities/css/csskit
-    stage: capabilities
-    diagnostic-contains: "shutdown failed with -32601"
-    reason: pkg:github/csskit/csskit@v0.0.33 rejects the standard shutdown request with JSON-RPC method-not-found (-32601).
-  - case: capabilities/dhall/dhall_lsp_server
-    stage: capabilities
-    diagnostic-contains: "downloaded asset did not produce a runnable dhall-lsp-server executable"
-    reason: pkg:github/dhall-lang/dhall-haskell@1.42.2 does not produce a runnable dhall-lsp-server at the Mason-configured path.
-  - case: capabilities/eelixir/elixirls
-    stage: capabilities
-    diagnostic-contains: "configured LSP server executable `/path/to/elixir-ls/language_server.sh` was not found"
-    reason: pkg:github/elixir-lsp/elixir-ls@v0.31.1 is paired with the literal placeholder command /path/to/elixir-ls/language_server.sh in the bundled LSP config.
-  - case: capabilities/eelixir/lexical
-    stage: capabilities
-    diagnostic-contains: "/usr/bin/env: 'bash': No such file or directory"
-    reason: pkg:github/lexical-lsp/lexical@v0.7.3 launches through /usr/bin/env bash, but bash is absent from the isolated PATH.
-  - case: capabilities/eelixir/nextls
-    stage: capabilities
-    diagnostic-contains: "failed_to_start_child,'Elixir.NextLS'"
-    reason: pkg:github/elixir-tools/next-ls@v0.23.4 requires the elixir executable during initialization, but it is absent from the isolated PATH.
-  - case: capabilities/elixir/elixirls
-    stage: capabilities
-    diagnostic-contains: "configured LSP server executable `/path/to/elixir-ls/language_server.sh` was not found"
-    reason: pkg:github/elixir-lsp/elixir-ls@v0.31.1 is paired with the literal placeholder command /path/to/elixir-ls/language_server.sh in the bundled LSP config.
-  - case: capabilities/elixir/lexical
-    stage: capabilities
-    diagnostic-contains: "/usr/bin/env: 'bash': No such file or directory"
-    reason: pkg:github/lexical-lsp/lexical@v0.7.3 launches through /usr/bin/env bash, but bash is absent from the isolated PATH.
-  - case: capabilities/elixir/nextls
-    stage: capabilities
-    diagnostic-contains: "failed_to_start_child,'Elixir.NextLS'"
-    reason: pkg:github/elixir-tools/next-ls@v0.23.4 requires the elixir executable during initialization, but it is absent from the isolated PATH.
-  - case: capabilities/erg/erg_language_server
-    stage: capabilities
-    diagnostic-contains: "Mason does not expose executable erg"
-    reason: pkg:github/erg-lang/erg-language-server@v0.1.12 requires erg, but the Mason recipe does not expose that executable.
-  - case: capabilities/fennel/fennel_language_server
-    stage: capabilities
-    diagnostic-contains: "cannot install fennel-language-server because cargo failed"
-    reason: pkg:cargo/fennel-language-server@59005549ca1191bf2aa364391e6bf2371889b4f8?repository_url=https://github.com/rydesun/fennel-language-server&rev=true requires repository_url and rev qualifiers that the current Cargo installer discards.
-  - case: capabilities/fish/fish_lsp
-    stage: capabilities
-    diagnostic-contains: "spawn fish ENOENT"
-    reason: pkg:npm/fish-lsp@1.1.4 requires the fish executable on PATH during initialization.
-  - case: capabilities/flux/flux_lsp
-    stage: capabilities
-    diagnostic-contains: "could not find `flux-lsp` in registry `crates-io` with version `=0.8.40`"
-    reason: pkg:cargo/flux-lsp@0.8.40?repository_url=https://github.com/influxdata/flux-lsp requires its repository_url qualifier; crates.io has no matching flux-lsp release.
-  - case: capabilities/foam/foam_ls
-    stage: capabilities
-    diagnostic-contains: "invalid type: boolean `false`, expected struct CompletionOptions"
-    reason: pkg:npm/foam-language-server@0.4.6 returns boolean false where LSP CompletionOptions are required in the initialize response.
-  - case: capabilities/frag/glslls
-    stage: capabilities
-    diagnostic-contains: "cannot install glslls on this platform"
-    reason: pkg:github/svenstaro/glsl-language-server@0.5.0 has no Mason asset matching the Linux x86-64 E2E platform.
-  - case: capabilities/fsd/facility_language_server
-    stage: capabilities
-    diagnostic-contains: "Framework: 'Microsoft.NETCore.App', version '6.0.0'"
-    reason: pkg:github/FacilityApi/FacilityLanguageServer@v2.5.1 requires .NET 6, but the managed E2E environment provides .NET 10 only.
-  - case: capabilities/genie/vala_ls
-    stage: capabilities
-    diagnostic-contains: "cannot install vala-language-server on this platform"
-    reason: pkg:github/vala-lang/vala-language-server@8fab39f867a15dc3f1d24bc0ae455f6e019230bd has no Mason asset matching the Linux x86-64 E2E platform.
-  - case: capabilities/geom/glslls
-    stage: capabilities
-    diagnostic-contains: "cannot install glslls on this platform"
-    reason: pkg:github/svenstaro/glsl-language-server@0.5.0 has no Mason asset matching the Linux x86-64 E2E platform.
-  - case: capabilities/glsl/glslls
-    stage: capabilities
-    diagnostic-contains: "cannot install glslls on this platform"
-    reason: pkg:github/svenstaro/glsl-language-server@0.5.0 has no Mason asset matching the Linux x86-64 E2E platform.
-  - case: capabilities/groovy/groovyls
-    stage: capabilities
-    diagnostic-contains: "Unable to access jarfile path/to/groovyls/groovy-language-server-all.jar"
-    reason: pkg:github/GroovyLanguageServer/groovy-language-server@347d098a928707223ce44b52cc45174a6327a5f3 is paired with the literal placeholder JAR path path/to/groovyls/groovy-language-server-all.jar.
-  - case: capabilities/haskell/hls
-    stage: capabilities
-    diagnostic-contains: "cannot install haskell-language-server on this platform"
-    reason: pkg:generic/haskell/haskell-language-server@2.13.0.0 has no Mason download matching the Linux x86-64 E2E platform.
-  - case: capabilities/heex/elixirls
-    stage: capabilities
-    diagnostic-contains: "configured LSP server executable `/path/to/elixir-ls/language_server.sh` was not found"
-    reason: pkg:github/elixir-lsp/elixir-ls@v0.31.1 is paired with the literal placeholder command /path/to/elixir-ls/language_server.sh in the bundled LSP config.
-  - case: capabilities/heex/lexical
-    stage: capabilities
-    diagnostic-contains: "/usr/bin/env: 'bash': No such file or directory"
-    reason: pkg:github/lexical-lsp/lexical@v0.7.3 launches through /usr/bin/env bash, but bash is absent from the isolated PATH.
-  - case: capabilities/heex/nextls
-    stage: capabilities
-    diagnostic-contains: "failed_to_start_child,'Elixir.NextLS'"
-    reason: pkg:github/elixir-tools/next-ls@v0.23.4 requires the elixir executable during initialization, but it is absent from the isolated PATH.
-  - case: capabilities/helm/helm_ls
-    stage: capabilities
-    diagnostic-contains: "LSP server closed while waiting for shutdown"
-    reason: pkg:github/mrjosh/helm-ls@v0.5.4 closes the transport while the client waits for the shutdown response.
-  - case: capabilities/hoon/hoon_ls
-    stage: capabilities
-    diagnostic-contains: "connect ECONNREFUSED 127.0.0.1:80"
-    reason: pkg:npm/%40urbit/hoon-language-server@0.1.2 attempts to connect to 127.0.0.1:80 during initialization and exits when the service is absent.
-  - case: capabilities/hylo/hylo_ls
-    stage: capabilities
-    diagnostic-contains: "downloaded asset did not produce a runnable hylo-language-server executable"
-    reason: pkg:github/hylo-lang/hylo-language-server@v0.0.18 does not produce a runnable hylo-language-server at the Mason-configured path.
-  - case: capabilities/julia/julials
-    stage: capabilities
-    diagnostic-contains: "Mason does not expose executable julia"
-    reason: pkg:github/mason-org/julia-lsp@v1.219.2 requires julia, but the Mason recipe does not expose that executable.
-  - case: capabilities/lhaskell/hls
-    stage: capabilities
-    diagnostic-contains: "cannot install haskell-language-server on this platform"
-    reason: pkg:generic/haskell/haskell-language-server@2.13.0.0 has no Mason download matching the Linux x86-64 E2E platform.
-  - case: capabilities/llw/lelwel_ls
-    stage: capabilities
-    diagnostic-contains: "cargo did not produce a runnable lelwel-ls executable"
-    reason: pkg:cargo/lelwel@0.10.4?features=lsp,cli requires the lsp and cli feature qualifiers that the current Cargo installer discards, so no lelwel-ls executable is built.
-  - case: capabilities/markdown/markdown_oxide
-    stage: capabilities
-    diagnostic-contains: "LSP server closed while waiting for shutdown"
-    reason: pkg:github/feel-ix-343/markdown-oxide@v0.25.12 closes the transport while the client waits for the shutdown response.
-  - case: capabilities/matlab/matlab_ls
-    stage: capabilities
-    diagnostic-contains: "cannot install matlab-language-server on this platform"
-    reason: pkg:github/mathworks/MATLAB-language-server@3997ef66d0ca3b9e4099e33e1014cfa03029898f has no Mason asset matching the Linux x86-64 E2E platform.
-  - case: capabilities/mdx/mdx_analyzer
-    stage: capabilities
-    diagnostic-contains: "Missing initialization option typescript.tsdk"
-    reason: pkg:npm/%40mdx-js/language-server@0.6.4 rejects initialization without the required typescript.tsdk option.
-  - case: capabilities/meson/mesonlsp
-    stage: capabilities
-    diagnostic-contains: "timed out waiting for initialize"
-    reason: pkg:github/JCWasmx86/mesonlsp@v5.0.4 does not answer initialize within the bounded deadline.
-  - case: capabilities/metamath-zero/mm0_ls
-    stage: capabilities
-    diagnostic-contains: "cannot install metamath-zero-lsp on this platform"
-    reason: pkg:github/digama0/mm0@f30b37eed283502835ff9fd62c827f23b2d3a71e has no Mason asset matching the Linux x86-64 E2E platform.
-  - case: capabilities/move/move_analyzer
-    stage: capabilities
-    diagnostic-contains: "cannot install move-analyzer because cargo failed"
-    reason: pkg:cargo/move-analyzer@ea70797099baea64f05194a918cebd69ed02b285?repository_url=https://github.com/move-language/move&rev=true&locked=false requires repository_url, rev, and locked qualifiers that the current Cargo installer discards.
-  - case: capabilities/nim/nimls
-    stage: capabilities
-    diagnostic-contains: "cannot install nimlsp on this platform"
-    reason: pkg:github/PMunch/nimlsp@v0.4.7 has no Mason asset matching the Linux x86-64 E2E platform.
-  - case: capabilities/nix/nil_ls
-    stage: capabilities
-    diagnostic-contains: "cannot install nil because cargo failed"
-    reason: pkg:cargo/nil@2025-06-13?repository_url=https://github.com/oxalica/nil requires its repository_url qualifier that the current Cargo installer discards.
-  - case: capabilities/p8/pico8_ls
-    stage: capabilities
-    diagnostic-contains: "cannot install pico8-ls on this platform"
-    reason: pkg:github/japhib/pico8-ls@40c53c2061a42b20b22f83467d241e668c2487a2 has no Mason asset matching the Linux x86-64 E2E platform.
-  - case: capabilities/php/phpactor
-    stage: capabilities
-    diagnostic-contains: "downloaded asset did not produce a runnable phpactor executable"
-    reason: pkg:github/phpactor/phpactor@2026.07.22.0 does not produce a runnable phpactor at the Mason-configured path.
-  - case: capabilities/profile/vespa_ls
-    stage: capabilities
-    diagnostic-contains: "Unable to access jarfile /path/to/vespa-language-server.jar"
-    reason: pkg:github/vespa-engine/vespa@lsp-v2.6.0 is paired with the literal placeholder JAR path /path/to/vespa-language-server.jar.
-  - case: capabilities/proto/pbls
-    stage: capabilities
-    diagnostic-contains: "could not find `pbls` in registry `crates-io` with version `=1.0.1`"
-    reason: pkg:cargo/pbls@1.0.1?repository_url=https://git.sr.ht/~rrc/pbls requires its repository_url qualifier; crates.io has no matching pbls release.
-  - case: capabilities/ps1/powershell_es
-    stage: capabilities
-    diagnostic-contains: "Mason does not expose executable pwsh"
-    reason: pkg:github/PowerShell/PowerShellEditorServices@v4.7.0 requires pwsh, but the Mason recipe does not expose that executable.
-  - case: capabilities/puppet/puppet
-    stage: capabilities
-    diagnostic-contains: "downloaded asset did not produce a runnable puppet-languageserver executable"
-    reason: pkg:github/puppetlabs/puppet-editor-services@v2.0.4 does not produce a runnable puppet-languageserver at the Mason-configured path.
-  - case: capabilities/quarto/r_language_server
-    stage: capabilities
-    diagnostic-contains: "cannot install r-languageserver on this platform"
-    reason: pkg:github/mason-org/r-languageserver@v0.3.17 has no Mason asset matching the Linux x86-64 E2E platform.
-  - case: capabilities/r/r_language_server
-    stage: capabilities
-    diagnostic-contains: "cannot install r-languageserver on this platform"
-    reason: pkg:github/mason-org/r-languageserver@v0.3.17 has no Mason asset matching the Linux x86-64 E2E platform.
-  - case: capabilities/raku/raku_navigator
-    stage: capabilities
-    diagnostic-contains: "<path_to_repo>/server/out/server.js"
-    reason: pkg:github/bscan/RakuNavigator@ccd511dbd156f396eed613f21adbcd8e38a8c784 is paired with the literal placeholder script path <path_to_repo>/server/out/server.js.
-  - case: capabilities/reason/reason_ls
-    stage: capabilities
-    diagnostic-contains: "/bin/sh: 1: uname: not found"
-    reason: pkg:github/jaredly/reason-language-server@1.7.13 invokes uname through /bin/sh during initialization, but uname is absent from the isolated PATH.
-  - case: capabilities/rego/regols
-    stage: capabilities
-    diagnostic-contains: "lstat : no such file or directory"
-    reason: pkg:golang/github.com/kitagry/regols@v0.2.4 rejects initialization while resolving an empty required filesystem path.
-  - case: capabilities/rmd/r_language_server
-    stage: capabilities
-    diagnostic-contains: "cannot install r-languageserver on this platform"
-    reason: pkg:github/mason-org/r-languageserver@v0.3.17 has no Mason asset matching the Linux x86-64 E2E platform.
-  - case: capabilities/sd/vespa_ls
-    stage: capabilities
-    diagnostic-contains: "Unable to access jarfile /path/to/vespa-language-server.jar"
-    reason: pkg:github/vespa-engine/vespa@lsp-v2.6.0 is paired with the literal placeholder JAR path /path/to/vespa-language-server.jar.
-  - case: capabilities/smithy/smithy_ls
-    stage: capabilities
-    diagnostic-contains: "Mason does not expose executable coursier"
-    reason: pkg:github/awslabs/smithy-language-server@0.9.0 requires coursier, but the Mason recipe does not expose that executable.
-  - case: capabilities/solidity/solc
-    stage: capabilities
-    diagnostic-contains: "Language Server Protocol (LSP) support has been removed from solc"
-    reason: pkg:github/ethereum/solidity@v0.8.37 reports that LSP support was removed and closes during initialization.
-  - case: capabilities/sql/bqls
-    stage: capabilities
-    diagnostic-contains: "You don't set Bigquery projectID"
-    reason: pkg:github/kitagry/bqls@v0.7.1 rejects initialization without a BigQuery project ID and cannot discover one because gcloud is absent.
-  - case: capabilities/sql/sqlls
-    stage: capabilities
-    diagnostic-contains: "ERR_PACKAGE_PATH_NOT_EXPORTED"
-    reason: pkg:npm/sql-language-server@1.7.1 fails at startup because a vscode-languageserver-protocol package subpath is no longer exported.
-  - case: capabilities/sql/sqls
-    stage: capabilities
-    diagnostic-contains: "configured LSP server executable `path/to/command` was not found"
-    reason: pkg:golang/github.com/sqls-server/sqls@v0.2.48 is paired with the literal placeholder command path/to/command in the bundled LSP config.
-  - case: capabilities/surface/elixirls
-    stage: capabilities
-    diagnostic-contains: "configured LSP server executable `/path/to/elixir-ls/language_server.sh` was not found"
-    reason: pkg:github/elixir-lsp/elixir-ls@v0.31.1 is paired with the literal placeholder command /path/to/elixir-ls/language_server.sh in the bundled LSP config.
-  - case: capabilities/surface/lexical
-    stage: capabilities
-    diagnostic-contains: "/usr/bin/env: 'bash': No such file or directory"
-    reason: pkg:github/lexical-lsp/lexical@v0.7.3 launches through /usr/bin/env bash, but bash is absent from the isolated PATH.
-  - case: capabilities/surface/nextls
-    stage: capabilities
-    diagnostic-contains: "failed_to_start_child,'Elixir.NextLS'"
-    reason: pkg:github/elixir-tools/next-ls@v0.23.4 requires the elixir executable during initialization, but it is absent from the isolated PATH.
-  - case: capabilities/templ/templ
-    stage: capabilities
-    diagnostic-contains: "LSP server closed while waiting for initialize"
-    reason: pkg:github/a-h/templ@v0.3.1020 closes during initialization without emitting a diagnostic.
-  - case: capabilities/tesc/glslls
-    stage: capabilities
-    diagnostic-contains: "cannot install glslls on this platform"
-    reason: pkg:github/svenstaro/glsl-language-server@0.5.0 has no Mason asset matching the Linux x86-64 E2E platform.
-  - case: capabilities/tese/glslls
-    stage: capabilities
-    diagnostic-contains: "cannot install glslls on this platform"
-    reason: pkg:github/svenstaro/glsl-language-server@0.5.0 has no Mason asset matching the Linux x86-64 E2E platform.
-  - case: capabilities/ttcn/ntt
-    stage: capabilities
-    diagnostic-contains: "invalid type: null, expected a sequence"
-    reason: pkg:github/nokia/ntt@v0.23.2 returns null where an LSP sequence is required in the initialize response.
-  - case: capabilities/v/v_analyzer
-    stage: capabilities
-    diagnostic-contains: "LSP server closed while waiting for shutdown"
-    reason: pkg:github/vlang/v-analyzer@0.0.6 closes the transport while the client waits for the shutdown response.
-  - case: capabilities/v/vls
-    stage: capabilities
-    diagnostic-contains: "Mason does not expose executable v"
-    reason: pkg:github/vlang/vls@latest requires v, but the Mason recipe does not expose that executable.
-  - case: capabilities/vala/vala_ls
-    stage: capabilities
-    diagnostic-contains: "cannot install vala-language-server on this platform"
-    reason: pkg:github/vala-lang/vala-language-server@8fab39f867a15dc3f1d24bc0ae455f6e019230bd has no Mason asset matching the Linux x86-64 E2E platform.
-  - case: capabilities/vert/glslls
-    stage: capabilities
-    diagnostic-contains: "cannot install glslls on this platform"
-    reason: pkg:github/svenstaro/glsl-language-server@0.5.0 has no Mason asset matching the Linux x86-64 E2E platform.
-  - case: capabilities/vhd/vhdl_ls
-    stage: capabilities
-    diagnostic-contains: "{{source.asset.libraries}}"
-    reason: pkg:github/vhdl-ls/rust_hdl@v0.88.0 leaves the Mason template {{source.asset.libraries}} unresolved while installing supporting files.
-  - case: capabilities/vhdl/vhdl_ls
-    stage: capabilities
-    diagnostic-contains: "{{source.asset.libraries}}"
-    reason: pkg:github/vhdl-ls/rust_hdl@v0.88.0 leaves the Mason template {{source.asset.libraries}} unresolved while installing supporting files.
-  - case: capabilities/visualforce/visualforce_ls
-    stage: capabilities
-    diagnostic-contains: "/path/to/unpacked/archive/extension/node_modules/@salesforce/salesforcedx-visualforce-language-server/out/src/visualforceServer.js"
-    reason: pkg:github/forcedotcom/salesforcedx-vscode@v67.20.0 is paired with the literal placeholder script path /path/to/unpacked/archive/extension/node_modules/@salesforce/salesforcedx-visualforce-language-server/out/src/visualforceServer.js.
-  - case: capabilities/vlang/vls
-    stage: capabilities
-    diagnostic-contains: "Mason does not expose executable v"
-    reason: pkg:github/vlang/vls@latest requires v, but the Mason recipe does not expose that executable.
-  - case: capabilities/vsh/v_analyzer
-    stage: capabilities
-    diagnostic-contains: "LSP server closed while waiting for shutdown"
-    reason: pkg:github/vlang/v-analyzer@0.0.6 closes the transport while the client waits for the shutdown response.
-  - case: capabilities/vv/v_analyzer
-    stage: capabilities
-    diagnostic-contains: "LSP server closed while waiting for shutdown"
-    reason: pkg:github/vlang/v-analyzer@0.0.6 closes the transport while the client waits for the shutdown response.
-  - case: capabilities/yaml.gitlab/gitlab_ci_ls
-    stage: capabilities
-    diagnostic-contains: "LSP server closed while waiting for shutdown"
-    reason: pkg:cargo/gitlab-ci-ls@1.4.0 closes the transport while the client waits for the shutdown response.
-  - case: capabilities/yaml.helm-values/helm_ls
-    stage: capabilities
-    diagnostic-contains: "LSP server closed while waiting for shutdown"
-    reason: pkg:github/mrjosh/helm-ls@v0.5.4 closes the transport while the client waits for the shutdown response.
-  - case: capabilities/yql/vespa_ls
-    stage: capabilities
-    diagnostic-contains: "Unable to access jarfile /path/to/vespa-language-server.jar"
-    reason: pkg:github/vespa-engine/vespa@lsp-v2.6.0 is paired with the literal placeholder JAR path /path/to/vespa-language-server.jar.
-  - case: capabilities/astro/stylelint_lsp
-    stage: capabilities
-    diagnostic-contains: Mason does not expose executable stylelint-language-server
-    reason: pkg:npm/stylelint-lsp@2.0.1 does not expose the configured stylelint-language-server executable through Mason.
-  - case: capabilities/javascript/htmx
-    stage: capabilities
-    diagnostic-contains: timed out waiting for shutdown
-    reason: pkg:cargo/htmx-lsp@0.1.0 does not handle the standard shutdown request and times out after logging it as unhandled.
-  - case: capabilities/javascript/lwc_ls
-    stage: capabilities
-    diagnostic-contains: Cannot find module '/path/to/node_modules/@salesforce/lwc-language-server
-    reason: The bundled LWC config contains the literal placeholder /path/to/node_modules/@salesforce/lwc-language-server/bin/lwc-language-server.js.
-  - case: capabilities/json/spectral
-    stage: capabilities
-    diagnostic-contains: cannot install spectral-language-server on this platform
-    reason: The spectral-language-server Mason package has no source matching the Linux x86-64 E2E platform.
-  - case: capabilities/lua/efm
-    stage: capabilities
-    diagnostic-contains: LSP server closed while waiting for shutdown
-    reason: pkg:github/mattn/efm-langserver@v0.0.57 closes its transport while the client waits for the shutdown response.
-  - case: capabilities/markdown/grammarly
-    stage: capabilities
-    diagnostic-contains: 'clientId is required'
-    reason: pkg:npm/grammarly-languageserver@0.0.4 rejects initialization without a clientId initialization option.
-  - case: capabilities/nextflow/nextflow_ls
-    stage: capabilities
-    diagnostic-contains: downloaded asset did not produce a runnable nextflow-language-server executable
-    reason: The downloaded Nextflow language-server package does not produce a runnable executable at the Mason-configured path.
-  - case: capabilities/rust/ast_grep
-    stage: capabilities
-    diagnostic-contains: No ast-grep project configuration is found
-    reason: pkg:github/ast-grep/ast-grep@0.45.3 refuses to initialize without an ast-grep project configuration.
-  - case: capabilities/rust/bacon_ls
-    stage: capabilities
-    diagnostic-contains: 'initialize failed with -32600: Invalid request'
-    reason: pkg:cargo/bacon-ls@0.31.0 rejects the standard initialize request with JSON-RPC invalid-request (-32600).
-  - case: capabilities/typescript/angularls
-    stage: capabilities
-    diagnostic-contains: Failed to resolve 'typescript/lib/tsserverlibrary' with minimum version '5.0'
-    reason: pkg:npm/%40angular/language-server@22.2.0 receives incomplete probe-location arguments and cannot resolve TypeScript 5 or newer.
-  - case: capabilities/yaml/gh_actions_ls
-    stage: capabilities
-    diagnostic-contains: Cannot read properties of undefined (reading 'sessionToken')
-    reason: pkg:npm/%40actions/languageserver@0.3.61 rejects initialization without a sessionToken initialization option.
   - case: provisioning/bicep
     stage: provisioning
     diagnostic-contains: "downloaded server program dotnet is outside isolated home"
@@ -606,9 +206,8 @@ servers:
   - id: angularls
     owner-language: typescript
     coverage:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: unavailable
+      reason: pkg:npm/%40angular/language-server@22.2.0 receives incomplete probe-location arguments and cannot resolve TypeScript 5 or newer.
     provisioning:
       status: download
   - id: antlersls
@@ -626,9 +225,8 @@ servers:
   - id: ast_grep
     owner-language: rust
     coverage:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: unavailable
+      reason: pkg:github/ast-grep/ast-grep@0.45.3 refuses to initialize without an ast-grep project configuration.
     provisioning:
       status: download
   - id: astro
@@ -671,9 +269,8 @@ servers:
   - id: bacon_ls
     owner-language: rust
     coverage:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: unavailable
+      reason: pkg:cargo/bacon-ls@0.31.0 rejects the standard initialize request with JSON-RPC invalid-request (-32600).
     provisioning:
       status: download
   - id: ballerina
@@ -960,9 +557,8 @@ servers:
   - id: efm
     owner-language: lua
     coverage:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: unavailable
+      reason: pkg:github/mattn/efm-langserver@v0.0.57 closes its transport while the client waits for the shutdown response.
     provisioning:
       status: download
   - id: elixirls
@@ -1095,9 +691,8 @@ servers:
   - id: gh_actions_ls
     owner-language: yaml
     coverage:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: unavailable
+      reason: pkg:npm/%40actions/languageserver@0.3.61 rejects initialization without a sessionToken initialization option.
     provisioning:
       status: download
   - id: ghcide
@@ -1170,9 +765,8 @@ servers:
   - id: grammarly
     owner-language: markdown
     coverage:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: unavailable
+      reason: pkg:npm/grammarly-languageserver@0.0.4 rejects initialization without a clientId initialization option.
     provisioning:
       status: download
   - id: graphql
@@ -1257,9 +851,8 @@ servers:
   - id: htmx
     owner-language: javascript
     coverage:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: unavailable
+      reason: pkg:cargo/htmx-lsp@0.1.0 does not handle the standard shutdown request and times out after logging it as unhandled.
     provisioning:
       status: download
   - id: hydra_lsp
@@ -1487,9 +1080,8 @@ servers:
   - id: lwc_ls
     owner-language: javascript
     coverage:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: unavailable
+      reason: The bundled LWC config contains the literal placeholder /path/to/node_modules/@salesforce/lwc-language-server/bin/lwc-language-server.js.
     provisioning:
       status: download
   - id: m68k
@@ -1593,9 +1185,8 @@ servers:
   - id: nextflow_ls
     owner-language: nextflow
     coverage:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: unavailable
+      reason: The downloaded Nextflow language-server package does not produce a runnable executable at the Mason-configured path.
     provisioning:
       status: download
   - id: nextls
@@ -2112,9 +1703,8 @@ servers:
   - id: spectral
     owner-language: json
     coverage:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: unavailable
+      reason: The spectral-language-server Mason package has no source matching the Linux x86-64 E2E platform.
     provisioning:
       status: download
   - id: spyglassmc_language_server
@@ -2173,9 +1763,8 @@ servers:
   - id: stylelint_lsp
     owner-language: astro
     coverage:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: unavailable
+      reason: pkg:npm/stylelint-lsp@2.0.1 does not expose the configured stylelint-language-server executable through Mason.
     provisioning:
       status: download
   - id: stylua

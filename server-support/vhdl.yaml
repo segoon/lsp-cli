@@ -14,6 +14,5 @@ pairs:
   - language: vhdl
     server: vhdl_ls
     smoke:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: excluded
+      reason: pkg:github/vhdl-ls/rust_hdl@v0.88.0 leaves the Mason template {{source.asset.libraries}} unresolved while installing supporting files.

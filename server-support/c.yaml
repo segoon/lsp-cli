@@ -44,3 +44,26 @@ pairs:
       direct-run:
         status: exchange
       lsp-timeout-seconds: 15
+  - language: c
+    server: ast_grep
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: c
+    server: codebook
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: c
+    server: harper_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: c
+    server: snyk_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

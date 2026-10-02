@@ -2,3 +2,10 @@ language:
   id: sugarss
   kind: metadata
   project: playground/sugarss
+pairs:
+  - language: sugarss
+    server: tailwindcss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

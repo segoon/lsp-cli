@@ -6,6 +6,5 @@ pairs:
   - language: meson
     server: mesonlsp
     smoke:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: excluded
+      reason: pkg:github/JCWasmx86/mesonlsp@v5.0.4 does not answer initialize within the bounded deadline.

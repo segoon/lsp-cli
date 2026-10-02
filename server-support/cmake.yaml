@@ -12,6 +12,11 @@ pairs:
   - language: cmake
     server: neocmake
     smoke:
+      status: excluded
+      reason: pkg:github/neocmakelsp/neocmakelsp@v0.11.2 closes the transport while the client waits for the shutdown response.
+  - language: cmake
+    server: harper_ls
+    smoke:
       status: capabilities
       supported-operations:
         - server-capabilities

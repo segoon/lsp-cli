@@ -18,3 +18,21 @@ pairs:
       supported-operations:
         - server-capabilities
         - definition
+  - language: json
+    server: ast_grep
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: json
+    server: dprint
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+  - language: json
+    server: snyk_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

@@ -6,6 +6,5 @@ pairs:
   - language: cairo
     server: cairo_ls
     smoke:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: excluded
+      reason: pkg:cargo/cairo-language-server@2.15.0 requires scarb, but the Mason recipe does not expose that executable.

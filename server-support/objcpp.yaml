@@ -34,3 +34,9 @@ pairs:
         - build-index
       lsp-timeout-seconds: 15
       deadline-seconds: 240
+  - language: objcpp
+    server: snyk_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

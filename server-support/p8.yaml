@@ -6,6 +6,5 @@ pairs:
   - language: p8
     server: pico8_ls
     smoke:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: excluded
+      reason: pkg:github/japhib/pico8-ls@40c53c2061a42b20b22f83467d241e668c2487a2 has no Mason asset matching the Linux x86-64 E2E platform.

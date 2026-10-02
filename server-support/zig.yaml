@@ -33,3 +33,9 @@ pairs:
       status: scenarios
       direct-run:
         status: exchange
+  - language: zig
+    server: codebook
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

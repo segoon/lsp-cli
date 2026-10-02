@@ -2,3 +2,14 @@ language:
   id: javascript.glimmer
   kind: metadata
   project: playground/javascript.glimmer
+pairs:
+  - language: javascript.glimmer
+    server: ember
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - list-symbols
+        - list-functions
+        - references
+        - definition

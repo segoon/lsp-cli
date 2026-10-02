@@ -2,3 +2,21 @@ language:
   id: haml
   kind: metadata
   project: playground/haml
+pairs:
+  - language: haml
+    server: htmx
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: haml
+    server: tailwindcss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: haml
+    server: unocss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

@@ -2,3 +2,16 @@ language:
   id: stylus
   kind: metadata
   project: playground/stylus
+pairs:
+  - language: stylus
+    server: tailwindcss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: stylus
+    server: unocss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

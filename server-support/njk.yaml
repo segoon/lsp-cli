@@ -2,3 +2,15 @@ language:
   id: njk
   kind: metadata
   project: playground/njk
+pairs:
+  - language: njk
+    server: htmx
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: njk
+    server: tailwindcss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

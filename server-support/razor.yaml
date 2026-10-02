@@ -2,3 +2,15 @@ language:
   id: razor
   kind: metadata
   project: playground/razor
+pairs:
+  - language: razor
+    server: htmx
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: razor
+    server: tailwindcss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

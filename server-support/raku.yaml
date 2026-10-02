@@ -6,6 +6,5 @@ pairs:
   - language: raku
     server: raku_navigator
     smoke:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: excluded
+      reason: pkg:github/bscan/RakuNavigator@ccd511dbd156f396eed613f21adbcd8e38a8c784 is paired with the literal placeholder script path <path_to_repo>/server/out/server.js.

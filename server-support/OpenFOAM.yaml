@@ -6,6 +6,5 @@ pairs:
   - language: OpenFOAM
     server: foam_ls
     smoke:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: excluded
+      reason: pkg:npm/foam-language-server@0.4.6 returns boolean false where LSP CompletionOptions are required in the initialize response.

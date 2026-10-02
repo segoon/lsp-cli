@@ -35,6 +35,9 @@ pub(super) enum ServerCoverage {
         lsp_timeout_seconds: Option<u64>,
         deadline_seconds: Option<u64>,
     },
+    Unavailable {
+        reason: String,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -122,6 +125,9 @@ impl ServerCase {
         if let Some(operations) = self.capability_operations() {
             super::dispositions::validate_operation_list(&self.id, operations)?;
         }
+        if let ServerCoverage::Unavailable { reason } = &self.coverage {
+            require_text(reason, &format!("E2E server coverage for {:?}", self.id))?;
+        }
         Ok(())
     }
 
@@ -135,6 +141,10 @@ impl ServerCase {
 
     pub(super) fn is_capabilities_only(&self) -> bool {
         matches!(self.coverage, ServerCoverage::Capabilities { .. })
+    }
+
+    pub(super) fn capability_is_unavailable(&self) -> bool {
+        matches!(self.coverage, ServerCoverage::Unavailable { .. })
     }
 
     pub(super) fn capability_timeouts(&self, defaults: Timeouts) -> Option<(u64, u64)> {

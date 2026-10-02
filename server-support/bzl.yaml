@@ -6,9 +6,8 @@ pairs:
   - language: bzl
     server: bzl
     smoke:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: excluded
+      reason: pkg:generic/bzl@v1.4.22 repeatedly fails to download from get.bzl.io without exposing the lower-level request cause.
   - language: bzl
     server: starlark_rust
     smoke:

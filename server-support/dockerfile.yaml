@@ -23,3 +23,9 @@ pairs:
         - list-symbols
         - list-functions
         - definition
+  - language: dockerfile
+    server: snyk_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

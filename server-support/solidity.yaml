@@ -19,9 +19,8 @@ pairs:
   - language: solidity
     server: solc
     smoke:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: excluded
+      reason: pkg:github/ethereum/solidity@v0.8.37 reports that LSP support was removed and closes during initialization.
   - language: solidity
     server: solidity
     smoke:
@@ -55,3 +54,8 @@ pairs:
         - definition
         - implementation
         - type-definition
+  - language: solidity
+    server: ast_grep
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.

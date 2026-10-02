@@ -8,7 +8,8 @@ use super::{
 
 #[derive(Clone, Copy)]
 enum Support {
-    Unknown,
+    Unsupported,
+    NotApplicable,
     Supported,
     Limited,
     Failure,
@@ -17,7 +18,8 @@ enum Support {
 impl Support {
     const fn marker(self) -> &'static str {
         match self {
-            Self::Unknown => "—",
+            Self::Unsupported => "✗",
+            Self::NotApplicable => "N/A",
             Self::Supported => "✓",
             Self::Limited => "△",
             Self::Failure => "⚠",
@@ -50,9 +52,10 @@ impl Manifest {
              - **✓**: configured support\n\
              - **△**: supported with a documented result limitation\n\
              - **⚠**: documented command failure\n\
-             - **—**: no configured support evidence\n\n\
-             In the Mason column, **✓** means automatic download is configured and **—** means it\n\
-             is excluded.\n\n\
+             - **✗**: the measured capabilities do not support the operation\n\
+             - **N/A**: unavailable to the suite or not inferable from advertised capabilities\n\n\
+             In the Mason column, **✓** means automatic download is configured and **N/A** means\n\
+             it is unavailable.\n\n\
              | Server | Language | Mason |",
         );
         for command in &commands {
@@ -76,7 +79,7 @@ impl Manifest {
                 .find(|pair| pair.language == key.language && pair.server == key.server);
             let mason = match server.provisioning {
                 ProvisioningDisposition::Download { .. } => "✓",
-                ProvisioningDisposition::Excluded { .. } => "—",
+                ProvisioningDisposition::Excluded { .. } => "N/A",
             };
             write!(
                 output,
@@ -85,12 +88,14 @@ impl Manifest {
             )
             .map_err(render_error)?;
             for command in &commands {
-                write!(
-                    output,
-                    " {} |",
-                    support_for(pair, server, &key.language, command).marker()
-                )
-                .map_err(render_error)?;
+                let support =
+                    support_for(pair, server, &key.language, command).ok_or_else(|| {
+                        format!(
+                            "support matrix has no verdict for {}/{} command {command}",
+                            key.language, key.server
+                        )
+                    })?;
+                write!(output, " {} |", support.marker()).map_err(render_error)?;
             }
             output.push('\n');
         }
@@ -103,39 +108,61 @@ fn support_for(
     server: &ServerCase,
     language: &str,
     command: &str,
-) -> Support {
+) -> Option<Support> {
+    if matches!(
+        server.provisioning,
+        ProvisioningDisposition::Excluded { .. }
+    ) {
+        return Some(Support::NotApplicable);
+    }
+    if server.owner_language == language && server.capability_is_unavailable() {
+        return Some(Support::NotApplicable);
+    }
     if server.owner_language == language
         && let Some(operations) = server.capability_operations()
     {
-        return support_from_operations(operations, &[], command);
+        return Some(support_from_capabilities(operations, command));
     }
-    let Some(smoke) = pair.and_then(|pair| pair.smoke.as_ref()) else {
-        return Support::Unknown;
-    };
-    match smoke {
+    let smoke = pair.and_then(|pair| pair.smoke.as_ref())?;
+    Some(match smoke {
         SmokeDisposition::Queries {
             supported_operations,
             exceptions,
             ..
-        } => support_from_operations(supported_operations, exceptions, command),
+        } => support_from_operations(
+            supported_operations,
+            exceptions,
+            command,
+            Support::Unsupported,
+        ),
         SmokeDisposition::Capabilities {
             supported_operations,
             ..
-        } => support_from_operations(supported_operations, &[], command),
-        SmokeDisposition::Excluded { .. } => Support::Unknown,
-    }
+        } => support_from_capabilities(supported_operations, command),
+        SmokeDisposition::Excluded { .. } => Support::NotApplicable,
+    })
+}
+
+fn support_from_capabilities(operations: &[super::QueryKind], command: &str) -> Support {
+    let absent = if matches!(command, "diagnostics" | "build-index") {
+        Support::NotApplicable
+    } else {
+        Support::Unsupported
+    };
+    support_from_operations(operations, &[], command, absent)
 }
 
 fn support_from_operations(
     operations: &[super::QueryKind],
     exceptions: &[super::query_case::QueryException],
     command: &str,
+    absent: Support,
 ) -> Support {
     if !operations
         .iter()
         .any(|operation| operation.command_name() == command)
     {
-        return Support::Unknown;
+        return absent;
     }
     exceptions
         .iter()

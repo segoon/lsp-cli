@@ -18,3 +18,10 @@ pairs:
       supported-operations:
         - server-capabilities
         - definition
+  - language: jsonc
+    server: dprint
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format

@@ -6,6 +6,5 @@ pairs:
   - language: dhall
     server: dhall_lsp_server
     smoke:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: excluded
+      reason: pkg:github/dhall-lang/dhall-haskell@1.42.2 does not produce a runnable dhall-lsp-server at the Mason-configured path.

@@ -6,6 +6,5 @@ pairs:
   - language: fsd
     server: facility_language_server
     smoke:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: excluded
+      reason: pkg:github/FacilityApi/FacilityLanguageServer@v2.5.1 requires .NET 6, but the managed E2E environment provides .NET 10 only.

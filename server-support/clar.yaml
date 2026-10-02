@@ -6,6 +6,5 @@ pairs:
   - language: clar
     server: clarinet
     smoke:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: excluded
+      reason: pkg:github/hirosystems/clarinet@v15.16.0 references a Linux release asset URL that returns HTTP 404.

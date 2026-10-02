@@ -6,6 +6,22 @@ pairs:
   - language: templ
     server: templ
     smoke:
+      status: excluded
+      reason: pkg:github/a-h/templ@v0.3.1020 closes during initialization without emitting a diagnostic.
+  - language: templ
+    server: emmet_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: templ
+    server: htmx
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: templ
+    server: tailwindcss
+    smoke:
       status: capabilities
       supported-operations:
         - server-capabilities

@@ -18,6 +18,5 @@ pairs:
   - language: rego
     server: regols
     smoke:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: excluded
+      reason: pkg:golang/github.com/kitagry/regols@v0.2.4 rejects initialization while resolving an empty required filesystem path.

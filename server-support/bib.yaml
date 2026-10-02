@@ -15,3 +15,9 @@ pairs:
         - list-functions
         - references
         - definition
+  - language: bib
+    server: ltex_plus
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

@@ -6,6 +6,17 @@ pairs:
   - language: quarto
     server: r_language_server
     smoke:
+      status: excluded
+      reason: pkg:github/mason-org/r-languageserver@v0.3.17 has no Mason asset matching the Linux x86-64 E2E platform.
+  - language: quarto
+    server: ltex
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: quarto
+    server: ltex_plus
+    smoke:
       status: capabilities
       supported-operations:
         - server-capabilities

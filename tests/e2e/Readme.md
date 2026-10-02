@@ -262,14 +262,20 @@ capability coverage:
   owner-language: python
   coverage:
     status: capabilities
+    supported-operations:
+      - server-capabilities
+      - format
   provisioning:
     status: download
 ```
 
-This produces one `capabilities/<owner-language>/<server>` case and one provisioning case without
-requiring every compatible language/server pair to declare semantic behavior. Capability-only
-servers must remain downloadable, use the normal smoke timeout defaults unless overridden under
-`coverage`, and are intentionally outside the smoke tier.
+This produces one `capabilities/<owner-language>/<server>` case and one provisioning case.
+Capability-only coverage is valid for metadata and source projects, but it does not replace the
+deeper query coverage required for preferred source-language pairs. Capability-only servers must
+remain downloadable, use the normal smoke timeout defaults unless overridden under `coverage`,
+and are intentionally outside the smoke tier. If capability discovery cannot obtain a valid
+initialize response, use `status: unavailable` with a non-empty `reason`; the generated matrix
+renders that owner pair as `N/A`.
 
 ## Real-server exceptions
 
@@ -282,7 +288,11 @@ E2E, operations with a direct LSP capability mapping must exactly agree with the
 initialize response; query cases additionally run unsupported operations to verify their
 user-facing error. `server-capabilities`, `diagnostics`, and `build-index` have no direct advertised
 capability and are required for every query case; capability-only cases require only
-`server-capabilities`.
+`server-capabilities`. In the generated matrix, an omitted operation with a direct capability
+mapping is `✗`. `diagnostics` and `build-index` are `N/A` for capability-only cases because they
+cannot be inferred from the initialize response. Explicit pair exclusions and non-installable
+servers also render as `N/A`. Generation fails if an installable compatible pair has neither a
+stored profile nor an explicit unavailable disposition.
 
 Each query case also carries an optional `exceptions` list. Each entry names a `command` (one of the real-server query
 kinds — `grep`, `references`, `callers`, `callees`, `build-index`, `format`, etc.), an `outcome`
@@ -407,6 +417,18 @@ make -j10 test-e2e SERVER=pyright,ruff
 make test-e2e CASE=java/jdtls PHASE=lifecycle
 make test-e2e SERVER=pyright PHASE=provision
 ```
+
+On 2026-10-02, the complete suite took approximately 34 minutes (2,032 seconds) on a
+22-logical-CPU machine using 11 parallel jobs:
+
+```sh
+make -j"$((($(nproc) + 1) / 2))" test-e2e
+```
+
+That measurement used the pinned Mason registry snapshot and a warm package/runtime cache. Cold
+downloads, network latency, server-version changes, and machine load can make a run substantially
+slower. The measured run planned 897 cases, executed 721, and excluded 176; 681 passed and 40
+matched documented expected failures.
 
 `CASE` and `SERVER` are mutually exclusive; `SERVER` accepts comma-separated IDs. `PHASE` accepts
 `all` (the default), `provision`,

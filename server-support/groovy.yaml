@@ -6,6 +6,11 @@ pairs:
   - language: groovy
     server: groovyls
     smoke:
+      status: excluded
+      reason: pkg:github/GroovyLanguageServer/groovy-language-server@347d098a928707223ce44b52cc45174a6327a5f3 is paired with the literal placeholder JAR path path/to/groovyls/groovy-language-server-all.jar.
+  - language: groovy
+    server: snyk_ls
+    smoke:
       status: capabilities
       supported-operations:
         - server-capabilities

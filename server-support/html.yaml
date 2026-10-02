@@ -25,3 +25,122 @@ pairs:
         - list-functions
         - references
         - definition
+  - language: html
+    server: angularls
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: html
+    server: ast_grep
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: html
+    server: codebook
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: html
+    server: djls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+  - language: html
+    server: emmet_language_server
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: html
+    server: emmet_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: html
+    server: harper_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: html
+    server: herb_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+  - language: html
+    server: htmx
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: html
+    server: ltex
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: html
+    server: ltex_plus
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: html
+    server: lwc_ls
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: html
+    server: stimulus_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - definition
+  - language: html
+    server: stylelint_lsp
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: html
+    server: tailwindcss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: html
+    server: unocss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: html
+    server: vale_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: html
+    server: wc_language_server
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - references
+        - definition

@@ -13,3 +13,19 @@ pairs:
         - list-symbols
         - list-functions
         - definition
+  - language: yaml
+    server: ast_grep
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: yaml
+    server: snyk_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: yaml
+    server: spectral
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.

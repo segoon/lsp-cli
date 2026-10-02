@@ -13,3 +13,10 @@ pairs:
         - list-symbols
         - list-functions
         - definition
+  - language: graphql
+    server: dprint
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format

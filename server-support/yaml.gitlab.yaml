@@ -6,9 +6,8 @@ pairs:
   - language: yaml.gitlab
     server: gitlab_ci_ls
     smoke:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: excluded
+      reason: pkg:cargo/gitlab-ci-ls@1.4.0 closes the transport while the client waits for the shutdown response.
   - language: yaml.gitlab
     server: yamlls
     smoke:

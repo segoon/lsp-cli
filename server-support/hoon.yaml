@@ -6,6 +6,5 @@ pairs:
   - language: hoon
     server: hoon_ls
     smoke:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: excluded
+      reason: pkg:npm/%40urbit/hoon-language-server@0.1.2 attempts to connect to 127.0.0.1:80 during initialization and exits when the service is absent.

@@ -6,6 +6,5 @@ pairs:
   - language: vlang
     server: vls
     smoke:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: excluded
+      reason: pkg:github/vlang/vls@latest requires v, but the Mason recipe does not expose that executable.

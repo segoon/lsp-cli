@@ -2,3 +2,16 @@ language:
   id: rnoweb
   kind: metadata
   project: playground/rnoweb
+pairs:
+  - language: rnoweb
+    server: ltex
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: rnoweb
+    server: ltex_plus
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

@@ -44,3 +44,36 @@ pairs:
       status: scenarios
       direct-run:
         status: exchange
+  - language: rust
+    server: dprint
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+  - language: rust
+    server: kakehashi
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+        - declaration
+        - implementation
+        - type-definition
+  - language: rust
+    server: snyk_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: rust
+    server: unocss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

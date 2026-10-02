@@ -2,3 +2,10 @@ language:
   id: asciidoc
   kind: metadata
   project: playground/asciidoc
+pairs:
+  - language: asciidoc
+    server: harper_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

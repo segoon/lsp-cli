@@ -6,6 +6,5 @@ pairs:
   - language: julia
     server: julials
     smoke:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: excluded
+      reason: pkg:github/mason-org/julia-lsp@v1.219.2 requires julia, but the Mason recipe does not expose that executable.

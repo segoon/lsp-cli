@@ -15,3 +15,9 @@ pairs:
         - references
         - definition
         - type-definition
+  - language: xml
+    server: vale_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

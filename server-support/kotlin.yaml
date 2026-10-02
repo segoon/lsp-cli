@@ -26,3 +26,14 @@ pairs:
       status: scenarios
       direct-run:
         status: exchange
+  - language: kotlin
+    server: ast_grep
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: kotlin
+    server: snyk_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

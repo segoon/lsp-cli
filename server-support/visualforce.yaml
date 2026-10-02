@@ -6,6 +6,5 @@ pairs:
   - language: visualforce
     server: visualforce_ls
     smoke:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: excluded
+      reason: pkg:github/forcedotcom/salesforcedx-vscode@v67.20.0 is paired with the literal placeholder script path /path/to/unpacked/archive/extension/node_modules/@salesforce/salesforcedx-visualforce-language-server/out/src/visualforceServer.js.

@@ -6,6 +6,5 @@ pairs:
   - language: cobol
     server: cobol_ls
     smoke:
-      status: capabilities
-      supported-operations:
-        - server-capabilities
+      status: excluded
+      reason: pkg:github/eclipse-che4z/che-che4z-lsp-for-cobol@2.5.1 writes output without an LSP Content-Length header during initialization.

@@ -19,3 +19,15 @@ pairs:
         - definition
         - implementation
         - type-definition
+  - language: gomod
+    server: golangci_lint_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: gomod
+    server: snyk_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

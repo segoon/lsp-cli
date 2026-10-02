@@ -2,3 +2,10 @@ language:
   id: apexcode
   kind: metadata
   project: playground/apexcode
+pairs:
+  - language: apexcode
+    server: snyk_ls
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

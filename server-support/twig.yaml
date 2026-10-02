@@ -14,3 +14,14 @@ pairs:
         - list-functions
         - references
         - definition
+  - language: twig
+    server: htmx
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: twig
+    server: tailwindcss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities

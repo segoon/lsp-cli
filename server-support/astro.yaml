@@ -8,3 +8,37 @@ pairs:
     smoke:
       status: excluded
       reason: Astro Language Server requires a TypeScript SDK path in initializationOptions, which lsp-cli cannot configure yet.
+  - language: astro
+    server: eslint
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: astro
+    server: htmx
+    smoke:
+      status: excluded
+      reason: Capability discovery could not obtain a valid initialize response.
+  - language: astro
+    server: tailwindcss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: astro
+    server: unocss
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+  - language: astro
+    server: wc_language_server
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - references
+        - definition

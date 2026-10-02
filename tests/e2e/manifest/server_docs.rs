@@ -114,15 +114,27 @@ fn support_for(
         return Support::Unknown;
     };
     match smoke {
-        SmokeDisposition::Queries { exceptions, .. } => exceptions
-            .iter()
-            .find(|exception| exception.command.command_name() == command)
-            .map_or(Support::Supported, |exception| match exception.outcome {
-                ExceptionOutcome::EmptyMatches | ExceptionOutcome::VariableMatches => {
-                    Support::Limited
-                }
-                ExceptionOutcome::Failure => Support::Failure,
-            }),
+        SmokeDisposition::Queries {
+            supported_operations,
+            exceptions,
+            ..
+        } => {
+            if !supported_operations
+                .iter()
+                .any(|operation| operation.command_name() == command)
+            {
+                return Support::Unknown;
+            }
+            exceptions
+                .iter()
+                .find(|exception| exception.command.command_name() == command)
+                .map_or(Support::Supported, |exception| match exception.outcome {
+                    ExceptionOutcome::EmptyMatches | ExceptionOutcome::VariableMatches => {
+                        Support::Limited
+                    }
+                    ExceptionOutcome::Failure => Support::Failure,
+                })
+        }
         SmokeDisposition::Capabilities { .. } if command == "server-capabilities" => {
             Support::Supported
         }

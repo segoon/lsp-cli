@@ -16,6 +16,11 @@ pairs:
     server: omnisharp
     smoke:
       status: queries
+      supported-operations:
+        - server-capabilities
+        - diagnostics
+        - grep
+        - build-index
       lsp-timeout-seconds: 60
       deadline-seconds: 400
     lifecycle:
@@ -28,6 +33,20 @@ pairs:
     tier: smoke
     smoke:
       status: queries
+      supported-operations:
+        - server-capabilities
+        - diagnostics
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - callers
+        - callees
+        - definition
+        - implementation
+        - type-definition
+        - build-index
       exceptions:
         - command: grep
           outcome: empty-matches

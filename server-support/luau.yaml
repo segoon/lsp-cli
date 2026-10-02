@@ -17,6 +17,18 @@ pairs:
     tier: smoke
     smoke:
       status: queries
+      supported-operations:
+        - server-capabilities
+        - diagnostics
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - callers
+        - callees
+        - definition
+        - type-definition
+        - build-index
     lifecycle:
       status: scenarios
       direct-run:

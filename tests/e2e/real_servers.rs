@@ -145,7 +145,17 @@ impl<'a> RealServerTest<'a> {
     ) -> Result<(), String> {
         let output = run(context, &self.command_args(command, server), deadline)
             .map_err(|error| format!("{command:?} could not complete:\n{error}"))?;
-        if capability_path(command).is_some_and(|path| !supports(capabilities, path)) {
+        let configured = self.case.supports(command);
+        if let Some(path) = capability_path(command) {
+            let advertised = supports(capabilities, path);
+            if configured != advertised {
+                return Err(format!(
+                    "stored support for {} is {configured}, but the server advertised {advertised}",
+                    command.command_name()
+                ));
+            }
+        }
+        if !configured {
             return validate_unsupported(command, &output);
         }
         if let Some((outcome, message, reason)) = self.case.exception(command) {

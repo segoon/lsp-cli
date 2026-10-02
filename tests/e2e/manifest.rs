@@ -44,7 +44,7 @@ pub(crate) mod coverage_cases;
 mod suite;
 use suite::{Architecture, OperatingSystem, Platform, TestDefaults};
 
-const MANIFEST_SCHEMA_VERSION: u32 = 16;
+const MANIFEST_SCHEMA_VERSION: u32 = 17;
 
 #[derive(Clone, Debug)]
 pub(crate) struct Manifest {
@@ -226,6 +226,7 @@ impl Manifest {
             let SmokeDisposition::Queries {
                 callable_query,
                 expected_names,
+                supported_operations,
                 exceptions,
                 lsp_timeout_seconds,
                 deadline_seconds,
@@ -252,6 +253,7 @@ impl Manifest {
                 command_queries: &profile.command_queries,
                 format_file: &profile.format_file,
                 expected_names: profile.resolved_expected_names(expected_names.as_deref()),
+                supported_operations,
                 exceptions,
                 lsp_timeout_seconds,
                 deadline_seconds,
@@ -585,6 +587,9 @@ impl Manifest {
     }
 }
 
+#[cfg(test)]
+#[path = "manifest/support_contract_tests.rs"]
+mod support_contract_tests;
 #[cfg(test)]
 #[path = "manifest_tests.rs"]
 mod tests;

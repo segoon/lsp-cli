@@ -17,6 +17,15 @@ pairs:
     tier: smoke
     smoke:
       status: queries
+      supported-operations:
+        - server-capabilities
+        - diagnostics
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - definition
+        - build-index
       exceptions:
         - command: definition
           outcome: variable-matches

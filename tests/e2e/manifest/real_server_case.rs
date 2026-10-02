@@ -51,6 +51,10 @@ impl RealServerCase<'_> {
         self.expected_names
     }
 
+    pub(crate) fn supports(&self, command: QueryKind) -> bool {
+        self.supported_operations.contains(&command)
+    }
+
     pub(crate) fn exception(
         &self,
         command: QueryKind,

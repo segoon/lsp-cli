@@ -20,6 +20,21 @@ pairs:
     tier: smoke
     smoke:
       status: queries
+      supported-operations:
+        - server-capabilities
+        - diagnostics
+        - format
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - callers
+        - callees
+        - definition
+        - declaration
+        - implementation
+        - type-definition
+        - build-index
       exceptions:
         - command: type-definition
           outcome: empty-matches

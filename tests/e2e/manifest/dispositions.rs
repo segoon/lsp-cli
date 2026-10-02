@@ -23,6 +23,7 @@ impl SmokeDisposition {
             Self::Queries {
                 callable_query,
                 expected_names,
+                supported_operations,
                 exceptions,
                 lsp_timeout_seconds,
                 deadline_seconds,
@@ -35,7 +36,7 @@ impl SmokeDisposition {
                     callable_query.as_deref(),
                     &format!("E2E smoke case {label}"),
                 )?;
-                validate_queries(&label, exceptions, lsp, deadline)
+                validate_queries(&label, supported_operations, exceptions, lsp, deadline)
             }
         }
     }
@@ -43,13 +44,40 @@ impl SmokeDisposition {
 
 fn validate_queries(
     label: &str,
+    supported_operations: &[super::QueryKind],
     exceptions: &[super::query_case::QueryException],
     lsp_timeout_seconds: u64,
     deadline_seconds: u64,
 ) -> Result<(), String> {
     validate_deadlines(label, lsp_timeout_seconds, deadline_seconds)?;
+    let supported = supported_operations
+        .iter()
+        .copied()
+        .collect::<BTreeSet<_>>();
+    if supported.len() != supported_operations.len() {
+        return Err(format!(
+            "E2E smoke case {label} repeats a supported operation"
+        ));
+    }
+    for required in [
+        super::QueryKind::ServerCapabilities,
+        super::QueryKind::Diagnostics,
+        super::QueryKind::BuildIndex,
+    ] {
+        if !supported.contains(&required) {
+            return Err(format!(
+                "E2E smoke case {label} must support {}",
+                required.command_name()
+            ));
+        }
+    }
     let mut commands = BTreeSet::new();
     for exception in exceptions {
+        if !supported.contains(&exception.command) {
+            return Err(format!(
+                "E2E exception for {label} requires its operation to be supported"
+            ));
+        }
         if !commands.insert(exception.command) {
             return Err(format!("E2E smoke case {label} repeats an exception"));
         }

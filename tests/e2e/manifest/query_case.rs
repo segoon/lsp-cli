@@ -118,6 +118,7 @@ pub(super) enum SmokeDisposition {
     Queries {
         callable_query: Option<String>,
         expected_names: Option<Vec<String>>,
+        supported_operations: Vec<QueryKind>,
         #[serde(default)]
         exceptions: Vec<QueryException>,
         lsp_timeout_seconds: Option<u64>,
@@ -219,6 +220,7 @@ pub(crate) struct RealServerCase<'a> {
     pub(super) command_queries: &'a BTreeMap<QueryKind, String>,
     pub(super) format_file: &'a std::path::Path,
     pub(super) expected_names: &'a [String],
+    pub(super) supported_operations: &'a [QueryKind],
     pub(super) exceptions: &'a [QueryException],
     pub(super) lsp_timeout_seconds: u64,
     pub(super) deadline_seconds: u64,

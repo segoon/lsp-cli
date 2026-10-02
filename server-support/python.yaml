@@ -19,10 +19,35 @@ pairs:
     server: basedpyright
     smoke:
       status: queries
+      supported-operations:
+        - server-capabilities
+        - diagnostics
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - callers
+        - callees
+        - definition
+        - declaration
+        - implementation
+        - type-definition
+        - build-index
   - language: python
     server: jedi_language_server
     smoke:
       status: queries
+      supported-operations:
+        - server-capabilities
+        - diagnostics
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+        - declaration
+        - type-definition
+        - build-index
   - language: python
     server: pylsp
     smoke:
@@ -32,6 +57,19 @@ pairs:
     server: pylyzer
     smoke:
       status: queries
+      supported-operations:
+        - server-capabilities
+        - diagnostics
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - callers
+        - callees
+        - definition
+        - implementation
+        - type-definition
+        - build-index
       exceptions:
         - command: callers
           outcome: empty-matches
@@ -51,6 +89,19 @@ pairs:
     tier: smoke
     smoke:
       status: queries
+      supported-operations:
+        - server-capabilities
+        - diagnostics
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - callers
+        - callees
+        - definition
+        - declaration
+        - type-definition
+        - build-index
       lsp-timeout-seconds: 20
       deadline-seconds: 240
     lifecycle:
@@ -67,3 +118,15 @@ pairs:
     server: zuban
     smoke:
       status: queries
+      supported-operations:
+        - server-capabilities
+        - diagnostics
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+        - declaration
+        - implementation
+        - type-definition
+        - build-index

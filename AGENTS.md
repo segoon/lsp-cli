@@ -85,6 +85,8 @@ write a comment why you have to do it.
 Prefer using methods instead of free functions for "do smth with an object" actions.
 Use OOP where appropriate.
 
+Use one item per line in yaml lists instead of `[...]`.
+
 See @docs/SMELLS.md for known code smells in Rust.
 
 See @docs/GOTCHAS.md for LSP protocol/servers tricky/buggy details.

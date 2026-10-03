@@ -177,7 +177,7 @@ fn client_errors_are_permanent_except_timeouts_and_rate_limits() {
     for status in [400, 401, 403, 404, 422] {
         let (result, delays, count) = Fixture::new(vec![response(status)]).fetch(&policy());
         result.expect_err("permanent HTTP failure should fail");
-        assert!(delays.is_empty());
+        assert_eq!(delays, Vec::new());
         assert_eq!(count, 1);
     }
     for status in [408, 429] {
@@ -212,7 +212,7 @@ fn retry_after_exceeding_budget_fails_without_waiting_or_repeating() {
     let error = result.expect_err("retry cannot fit").to_string();
     assert!(error.contains("503 Test"));
     assert!(error.contains("time budget"));
-    assert!(delays.is_empty());
+    assert_eq!(delays, Vec::new());
     assert_eq!(count, 1);
 }
 

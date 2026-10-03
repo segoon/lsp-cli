@@ -206,6 +206,6 @@ fn malformed_metadata_is_not_retried() {
             .expect_err("invalid metadata should fail")
             .contains("failed to parse Mason registry metadata")
     );
-    assert!(delays.is_empty());
+    assert_eq!(delays, Vec::new());
     assert_eq!(requests.len(), 1);
 }

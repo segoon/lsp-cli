@@ -45,6 +45,7 @@ mod env_vars;
 mod error;
 mod fs;
 mod hash;
+mod http;
 mod lsp;
 mod mason;
 mod runtime_state;

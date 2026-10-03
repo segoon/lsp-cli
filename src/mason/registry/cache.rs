@@ -1,10 +1,9 @@
 use crate::error::{Error, Result, error_fn};
 use crate::hash::encode_hex;
-use crate::mason::http::{download_bytes as http_download_bytes, read_json as http_read_json};
+use crate::http::retry::RetryPolicy;
+use crate::http::{download_bytes as http_download_bytes, read_json as http_read_json};
 use crate::runtime_state::RuntimeState;
-use reqwest::StatusCode;
-use reqwest::blocking::{Client, Response};
-use reqwest::header::RETRY_AFTER;
+use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fs;
@@ -19,11 +18,6 @@ const GITHUB_API_URL: &str =
 const REGISTRY_ASSET_NAME: &str = "registry.json.zip";
 const REGISTRY_FRESHNESS_THRESHOLD: Duration = Duration::from_hours(24 * 30);
 const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
-const RATE_LIMIT_RETRY_DELAYS: [Duration; 3] = [
-    Duration::from_secs(1),
-    Duration::from_secs(2),
-    Duration::from_secs(4),
-];
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub(super) struct RegistryMetadata {
@@ -77,6 +71,8 @@ fn refresh_registry_cache(
 ) -> Result<()> {
     let client = Client::builder()
         .user_agent(USER_AGENT)
+        .connect_timeout(std::time::Duration::from_secs(10))
+        .retry(reqwest::retry::never())
         .build()
         .map_err(error_fn!(Error::network, "failed to create HTTP client"))?;
 
@@ -110,8 +106,6 @@ fn refresh_registry_cache(
         &client,
         &asset.browser_download_url,
         "failed to download Mason registry archive",
-        "failed to download Mason registry archive",
-        "failed to read Mason registry archive",
     )?;
     verify_sha256(&archive_bytes, asset.digest.as_deref())?;
     let registry_bytes = unpack_registry_json(&archive_bytes)?;
@@ -129,78 +123,35 @@ fn refresh_registry_cache(
 }
 
 fn fetch_latest_release(client: &Client, github_token: Option<&str>) -> Result<GithubRelease> {
-    fetch_latest_release_from(client, GITHUB_API_URL, github_token, std::thread::sleep)
+    fetch_latest_release_from(
+        client,
+        GITHUB_API_URL,
+        github_token,
+        &RetryPolicy::default(),
+        std::thread::sleep,
+    )
 }
 
 fn fetch_latest_release_from(
     client: &Client,
     url: &str,
     github_token: Option<&str>,
-    mut sleep: impl FnMut(Duration),
+    policy: &RetryPolicy,
+    sleep: impl Fn(Duration) + 'static,
 ) -> Result<GithubRelease> {
-    let mut retry_index = 0;
-    loop {
-        let mut request = client
-            .get(url)
-            .header("Accept", "application/vnd.github+json");
-        if let Some(token) = github_token.filter(|token| !token.is_empty()) {
-            request = request.bearer_auth(token);
-        }
-        let response = request.send().map_err(error_fn!(
-            Error::network,
-            "failed to contact GitHub for Mason registry metadata"
-        ))?;
-        if response.status().is_success() {
-            return http_read_json(response, "failed to parse Mason registry metadata");
-        }
-
-        let retry_after = numeric_retry_after(&response);
-        let status = response.status();
-        let status_error = match response.error_for_status_ref() {
-            Ok(_) => "GitHub returned an unsuccessful response".to_string(),
-            Err(error) => error.to_string(),
-        };
-        let body = response.text().unwrap_or_default();
-        let rate_limited = status == StatusCode::TOO_MANY_REQUESTS
-            || contains_rate_limit_message(&status_error)
-            || contains_rate_limit_message(&body);
-        if !rate_limited {
-            return Err(Error::network(format!(
-                "failed to fetch Mason registry metadata: {status_error}"
-            )));
-        }
-        let Some(backoff) = RATE_LIMIT_RETRY_DELAYS.get(retry_index).copied() else {
-            return Err(Error::network(format!(
-                "failed to fetch Mason registry metadata after {} attempts: {status_error}",
-                RATE_LIMIT_RETRY_DELAYS.len() + 1
-            )));
-        };
-
-        let delay = retry_after.map_or(backoff, |requested| requested.min(backoff));
-        eprintln!(
-            "warning: GitHub rate-limited Mason registry metadata; retrying in {}s (attempt {}/{})",
-            delay.as_secs(),
-            retry_index + 2,
-            RATE_LIMIT_RETRY_DELAYS.len() + 1
-        );
-        sleep(delay);
-        retry_index += 1;
+    let mut request = client
+        .get(url)
+        .header("Accept", "application/vnd.github+json");
+    if let Some(token) = github_token.filter(|token| !token.is_empty()) {
+        request = request.bearer_auth(token);
     }
-}
-
-fn numeric_retry_after(response: &Response) -> Option<Duration> {
-    response
-        .headers()
-        .get(RETRY_AFTER)?
-        .to_str()
-        .ok()?
-        .parse::<u64>()
-        .ok()
-        .map(Duration::from_secs)
-}
-
-fn contains_rate_limit_message(value: &str) -> bool {
-    value.to_ascii_lowercase().contains("rate limit exceeded")
+    http_read_json(
+        request,
+        "failed to fetch Mason registry metadata",
+        "failed to parse Mason registry metadata",
+        policy,
+        sleep,
+    )
 }
 
 fn verify_sha256(bytes: &[u8], digest: Option<&str>) -> Result<()> {

@@ -60,3 +60,18 @@ The main reasons why `--download` can fail:
 - the installation completes but does not produce a runnable server
 
 It can also fail when the local environment is incomplete, for example if the home directory cannot be resolved. In some cases `lsp-cli` may still continue if one candidate server fails but another matching server works.
+
+## Recovery From Network Failures
+
+Direct server downloads, server-registry requests, and data updates retry all HTTP server errors (5xx) and
+network failures, including interrupted response bodies. They make at most four attempts, with
+exponential delays starting at 2, 4, and 8 seconds plus random jitter. Retry warnings explain the
+failure and the next delay. HTTP 408 and 429 responses and explicit GitHub rate limits are also
+retried; other client errors fail immediately.
+
+Each transfer has a five-minute time budget, a two-minute timeout per attempt, and a ten-second
+connection timeout. A numeric `Retry-After` header can increase the delay; if that delay cannot
+fit within the remaining budget, the transfer fails rather than retrying too early. HTTP-date
+`Retry-After` values currently fall back to exponential backoff. Invalid metadata, checksum
+failures, and local filesystem errors fail immediately. Downloads performed by package managers
+such as npm, pip, Cargo, Go, and NuGet use those tools' own network policies.

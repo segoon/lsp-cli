@@ -70,7 +70,7 @@ impl HttpFixture {
             .expect("HTTP fixture thread should be present")
             .join()
             .expect("HTTP fixture thread should not panic")
-            .expect("HTTP fixture should serve both requests");
+            .expect("HTTP fixture should serve all requests");
     }
 }
 
@@ -84,12 +84,19 @@ impl Drop for HttpFixture {
 }
 
 fn serve(listener: TcpListener, base: &str, archive: &[u8]) -> Result<(), String> {
-    let deadline = Instant::now() + Duration::from_secs(10);
+    let deadline = Instant::now() + Duration::from_secs(15);
     let mut served = 0;
-    while served < 2 && Instant::now() < deadline {
+    while served < 3 && Instant::now() < deadline {
         match listener.accept() {
             Ok((mut stream, _address)) => {
-                serve_request(&mut stream, base, archive)?;
+                if served == 0 {
+                    // Fail the first release request to cover recovery through the actual CLI.
+                    read_request(&mut stream)?;
+                    stream.write_all(b"HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+                        .map_err(|error| error.to_string())?;
+                } else {
+                    serve_request(&mut stream, base, archive)?;
+                }
                 served += 1;
             }
             Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
@@ -98,16 +105,16 @@ fn serve(listener: TcpListener, base: &str, archive: &[u8]) -> Result<(), String
             Err(error) => return Err(format!("HTTP fixture accept failed: {error}")),
         }
     }
-    if served == 2 {
+    if served == 3 {
         Ok(())
     } else {
         Err(format!(
-            "HTTP fixture served {served} of 2 expected requests"
+            "HTTP fixture served {served} of 3 expected requests"
         ))
     }
 }
 
-fn serve_request(stream: &mut TcpStream, base: &str, archive: &[u8]) -> Result<(), String> {
+fn read_request(stream: &mut TcpStream) -> Result<String, String> {
     stream
         .set_read_timeout(Some(Duration::from_secs(2)))
         .map_err(|error| error.to_string())?;
@@ -119,7 +126,13 @@ fn serve_request(stream: &mut TcpStream, base: &str, archive: &[u8]) -> Result<(
         request
             .get(..length)
             .expect("read byte count should fit its buffer"),
-    );
+    )
+    .into_owned();
+    Ok(request)
+}
+
+fn serve_request(stream: &mut TcpStream, base: &str, archive: &[u8]) -> Result<(), String> {
+    let request = read_request(stream)?;
     let (content_type, body) = if request.starts_with("GET /release ") {
         let body = json!({
             "tag_name": "e2e-v1",

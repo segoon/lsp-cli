@@ -529,7 +529,14 @@ Classify failures as:
 
 Only category 6 is an immediate passing outcome. Known limitations must be explicit manifest
 entries and, when they concern protocol or server behavior, documented in `docs/GOTCHAS.md`. Mason
-registry metadata requests retry rate-limit responses three times with bounded exponential backoff.
+registry requests, direct server downloads, and managed-runtime downloads share the `backon`
+HTTP retry policy: all 5xx and network failures get up to three retries with exponential delays
+starting at 2, 4, and 8 seconds plus jitter. HTTP 408, 429, and explicit GitHub rate limits are
+also retried. Numeric `Retry-After` values are minimum waits; HTTP-date values currently fall
+back to exponential backoff. The per-transfer budget is five minutes, with two minutes per
+attempt and ten seconds to connect; an E2E case's process deadline can stop a transfer sooner.
+Partial downloads are discarded on retry; local writes, checksum failures, and invalid metadata
+fail immediately. Package-manager subprocesses retain their own network policies.
 Do not add unbounded retries — a retry may cover an identified transient installation/network step,
 but must not conceal query or protocol failures.
 

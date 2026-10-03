@@ -22,6 +22,8 @@ mod error;
 mod fs;
 #[path = "../../../src/hash.rs"]
 mod hash;
+#[path = "../../../src/http.rs"]
+mod http;
 mod mason;
 #[path = "../../../src/runtime_state.rs"]
 mod runtime_state;

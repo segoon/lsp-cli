@@ -1,5 +1,5 @@
 use crate::error::{Error, Result, error_fn};
-use crate::mason::http::download_bytes as http_download_bytes;
+use crate::http::download_bytes as http_download_bytes;
 use crate::mason::install::join_relative_path;
 use crate::mason::platform::MasonPlatform;
 use crate::mason::registry::{MasonAsset, MasonAssetBin, MasonDownload, MasonPackage, OneOrMany};
@@ -224,6 +224,8 @@ pub(super) fn command_failure_detail(stderr: &str) -> &str {
 pub(super) fn http_client() -> Result<Client> {
     Client::builder()
         .user_agent(USER_AGENT)
+        .connect_timeout(std::time::Duration::from_secs(10))
+        .retry(reqwest::retry::never())
         .build()
         .map_err(error_fn!(Error::network, "failed to create HTTP client"))
 }
@@ -233,13 +235,7 @@ pub(super) fn download_bytes(
     url: &str,
     package: &MasonPackage,
 ) -> Result<Vec<u8>> {
-    http_download_bytes(
-        client,
-        url,
-        &format!("failed to download {}", package.name),
-        &format!("failed to download {}", package.name),
-        &format!("failed to read download for {}", package.name),
-    )
+    http_download_bytes(client, url, &format!("failed to download {}", package.name))
 }
 
 /// Creates the install root and materializes one downloaded payload into it.

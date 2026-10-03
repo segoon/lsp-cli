@@ -1,10 +1,9 @@
 use serde_json::Value;
 
-use crate::local_fixture::LocalFixture;
+use super::local_fixture::LocalFixture;
 use crate::manifest::CommandStrategy;
 
-#[test]
-fn lsp_fixture_command_paths_are_covered() {
+pub fn lsp_fixture_command_paths_are_covered() {
     let fixture = LocalFixture::new().expect("local fixture should initialize");
 
     for command in fixture.commands_for(CommandStrategy::LspFixture) {
@@ -79,8 +78,7 @@ fn command_prefix(command: &str) -> Vec<String> {
     }
 }
 
-#[test]
-fn unadvertised_capabilities_produce_user_facing_errors() {
+pub fn unadvertised_capabilities_produce_user_facing_errors() {
     let fixture = LocalFixture::new_unsupported().expect("local fixture should initialize");
 
     for (command, expected) in [

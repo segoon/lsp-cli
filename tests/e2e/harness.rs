@@ -9,6 +9,7 @@ use std::time::Duration;
 use fs_extra::dir::CopyOptions;
 use tempfile::TempDir;
 
+use crate::child_reaper::ChildReaper;
 use crate::process::{self, ProcessOutput};
 
 #[path = "../../src/test_support/temp_root.rs"]
@@ -31,9 +32,12 @@ mod process_state;
 use self::environment::{CARGO_HOME_ENV, INSTALL_PATH_ENV, RUSTUP_HOME_ENV, RUSTUP_TOOLCHAIN_ENV};
 use self::process_state::runtime_state;
 
+#[cfg(feature = "mock-tests")]
 const DEFAULT_COMMAND_DEADLINE: Duration = Duration::from_secs(30);
 
 pub(crate) struct E2eContext {
+    reaper: Option<ChildReaper>,
+    finalized: bool,
     _sandbox: TempDir,
     _runtime_sandbox: TempDir,
     home: PathBuf,
@@ -100,6 +104,8 @@ impl E2eContext {
         }
 
         Ok(Self {
+            reaper: None,
+            finalized: false,
             _sandbox: sandbox,
             _runtime_sandbox: runtime_sandbox,
             home,
@@ -109,7 +115,7 @@ impl E2eContext {
             workspace,
             bin_dir,
             build_dir,
-            data_dir: PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data"),
+            data_dir: crate::repository_root().join("data"),
             install_path: None,
             cargo_home: None,
             rustup_home: None,
@@ -132,11 +138,13 @@ impl E2eContext {
             })
     }
 
+    #[cfg(feature = "mock-tests")]
     pub(crate) fn with_data_dir(mut self, data_dir: PathBuf) -> Self {
         self.data_dir = data_dir;
         self
     }
 
+    #[cfg(any(test, feature = "mock-tests"))]
     pub(crate) fn stage_program(&self, name: &str, source: &Path) -> Result<(), String> {
         let source = source
             .canonicalize()
@@ -155,7 +163,7 @@ impl E2eContext {
             .split_first()
             .ok_or_else(|| format!("host program {name:?} has no resolver command"))?;
         let mut command = Command::new(program);
-        command.args(args).current_dir(env!("CARGO_MANIFEST_DIR"));
+        command.args(args).current_dir(crate::repository_root());
         if let Some(path) = self.install_path.as_deref() {
             command.env("PATH", path);
         }
@@ -288,14 +296,17 @@ impl E2eContext {
         &self.workspace
     }
 
+    #[cfg(feature = "mock-tests")]
     pub(crate) fn installed_data(&self) -> PathBuf {
         self.home.join(".local/share/lsp-cli/data")
     }
 
+    #[cfg(feature = "mock-tests")]
     pub(crate) fn run(&self, args: &[&str]) -> E2eOutput {
         self.run_with_deadline(args, DEFAULT_COMMAND_DEADLINE)
     }
 
+    #[cfg(feature = "mock-tests")]
     pub(crate) fn run_with_deadline(&self, args: &[&str], deadline: Duration) -> E2eOutput {
         self.try_run_with_deadline(args, deadline)
             .unwrap_or_else(|diagnostic| panic!("{diagnostic}"))
@@ -311,6 +322,7 @@ impl E2eContext {
         self.run_command(&mut command, deadline)
     }
 
+    #[cfg(feature = "mock-tests")]
     pub(crate) fn run_with_env(&self, args: &[&str], environment: &[(&str, &str)]) -> E2eOutput {
         let mut command = self.command();
         command.args(args).envs(environment.iter().copied());
@@ -319,7 +331,7 @@ impl E2eContext {
     }
 
     pub(crate) fn command(&self) -> Command {
-        self.command_for(env!("CARGO_BIN_EXE_lsp-cli"))
+        self.command_for(crate::lsp_cli_binary())
     }
 
     fn command_for(&self, program: impl AsRef<OsStr>) -> Command {
@@ -327,11 +339,17 @@ impl E2eContext {
         command
             .env_clear()
             .env("HOME", &self.home)
-            // The JVM derives java.io.tmpdir independently of TMPDIR, so isolate both paths.
+            // JVM home/temp properties do not follow HOME/TMPDIR. Isolate Gradle's daemon
+            // registry as well, so a case cannot reuse a process outside its descendant tree.
             .env(
                 "JAVA_TOOL_OPTIONS",
-                format!("-Djava.io.tmpdir={}", self.temp_dir.display()),
+                format!(
+                    "-Djava.io.tmpdir={} -Duser.home={}",
+                    self.temp_dir.display(),
+                    self.home.display()
+                ),
             )
+            .env("GRADLE_USER_HOME", self.home.join(".gradle"))
             .env("CARGO_TARGET_DIR", &self.build_dir)
             // Go makes module-cache directories read-only unless this flag is set, preventing the
             // isolated sandbox from being removed after a real-server case.
@@ -391,201 +409,5 @@ impl E2eContext {
 }
 
 #[cfg(test)]
-mod tests {
-    use std::collections::BTreeMap;
-    use std::ffi::OsString;
-    #[cfg(target_os = "linux")]
-    use std::path::Path;
-    #[cfg(target_os = "linux")]
-    use std::time::Instant;
-
-    use super::*;
-
-    fn context() -> E2eContext {
-        E2eContext::new().expect("E2E context should initialize")
-    }
-
-    fn run_shell(
-        context: &E2eContext,
-        script: &str,
-        deadline: Duration,
-    ) -> Result<E2eOutput, String> {
-        context.run_test_program("/bin/sh", &["-c", script], deadline)
-    }
-
-    #[cfg(target_os = "linux")]
-    fn assert_recorded_process_is_gone(pid_file: &Path) {
-        let pid = fs::read_to_string(pid_file).expect("descendant PID should be recorded");
-        let process = Path::new("/proc").join(&pid);
-        let reaping_deadline = Instant::now() + Duration::from_secs(1);
-        while process.exists() && Instant::now() < reaping_deadline {
-            std::thread::sleep(Duration::from_millis(10));
-        }
-        assert!(
-            !process.exists(),
-            "descendant process {pid} survived group cleanup"
-        );
-    }
-
-    #[test]
-    fn command_isolated_from_ambient_process_state() {
-        let context = context();
-        let command = context.command();
-        let actual = command
-            .get_envs()
-            .map(|(name, value)| (name.to_os_string(), value.map(OsString::from)))
-            .collect::<BTreeMap<_, _>>();
-        let expected = [
-            (
-                "CARGO_TARGET_DIR",
-                context.build_dir.as_os_str().to_os_string(),
-            ),
-            ("HOME", context.home.as_os_str().to_os_string()),
-            ("GOFLAGS", OsString::from("-modcacherw")),
-            (
-                "JAVA_TOOL_OPTIONS",
-                OsString::from(format!("-Djava.io.tmpdir={}", context.temp_dir.display())),
-            ),
-            ("LANG", OsString::from("C")),
-            ("LC_ALL", OsString::from("C")),
-            ("LSP_DATA", context.data_dir.as_os_str().to_os_string()),
-            ("PATH", context.bin_dir.as_os_str().to_os_string()),
-            ("TMPDIR", context.temp_dir.as_os_str().to_os_string()),
-            ("TZ", OsString::from("UTC")),
-            (
-                "XDG_CONFIG_HOME",
-                context.config_home.as_os_str().to_os_string(),
-            ),
-            (
-                "XDG_RUNTIME_DIR",
-                context.runtime_dir.as_os_str().to_os_string(),
-            ),
-        ]
-        .into_iter()
-        .map(|(name, value)| (OsString::from(name), Some(value)))
-        .collect::<BTreeMap<_, _>>();
-
-        assert_eq!(actual, expected);
-        assert_eq!(command.get_current_dir(), Some(context.workspace.as_path()));
-        assert!(!context.runtime_dir.starts_with(context._sandbox.path()));
-        assert!(!context.temp_dir.starts_with("/tmp"));
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn runtime_directory_has_room_for_daemon_socket_name() {
-        use std::os::unix::net::UnixListener;
-
-        let context = context();
-        let daemon_root = context.runtime_dir.join("lsp-cli");
-        fs::create_dir(&daemon_root).expect("daemon root should be created");
-        let socket_path = daemon_root.join(format!("{}-{}.sock", "s".repeat(32), "f".repeat(24)));
-        let _listener = UnixListener::bind(&socket_path).unwrap_or_else(|error| {
-            panic!(
-                "E2E runtime path {} cannot hold a daemon socket: {error}",
-                socket_path.display()
-            )
-        });
-    }
-
-    #[test]
-    fn captures_large_stdout_and_stderr_without_deadlock() {
-        let context = context();
-        let output = run_shell(
-            &context,
-            "i=0; while [ \"$i\" -lt 100000 ]; do printf o; printf e >&2; i=$((i + 1)); done",
-            Duration::from_secs(5),
-        )
-        .expect("output fixture should finish");
-
-        assert_eq!(output.process.stdout().len(), 100_000);
-        assert_eq!(output.process.stderr().len(), 100_000);
-    }
-
-    #[test]
-    fn deadline_kills_the_command_process_group() {
-        let context = context();
-        let pid_file = context.workspace.join("descendant.pid");
-        let script = format!(
-            "/bin/sleep 30 & child=$!; printf '%s' \"$child\" > {}; wait",
-            pid_file.display()
-        );
-        let diagnostic = run_shell(&context, &script, Duration::from_millis(100))
-            .err()
-            .expect("stalled fixture should exceed its deadline");
-
-        assert!(diagnostic.contains("process exceeded its deadline"));
-        assert!(diagnostic.contains("process group killed and reaped"));
-        #[cfg(target_os = "linux")]
-        assert_recorded_process_is_gone(&pid_file);
-    }
-
-    #[test]
-    fn deadline_includes_output_pipes_held_by_descendants() {
-        let context = context();
-        let pid_file = context.workspace.join("pipe-holder.pid");
-        let script = format!(
-            "/bin/sleep 30 & child=$!; printf '%s' \"$child\" > {}",
-            pid_file.display()
-        );
-        let diagnostic = run_shell(&context, &script, Duration::from_millis(100))
-            .err()
-            .expect("inherited pipe should keep the process group beyond its deadline");
-
-        assert!(diagnostic.contains("remained open after the command deadline"));
-        assert!(diagnostic.contains("process group killed and reaped"));
-        #[cfg(target_os = "linux")]
-        assert_recorded_process_is_gone(&pid_file);
-    }
-
-    #[test]
-    fn parses_json_output_into_requested_type() {
-        let context = context();
-        let output = run_shell(
-            &context,
-            "printf '%s' '{\"answer\":42}'",
-            Duration::from_secs(1),
-        )
-        .expect("JSON fixture should finish");
-        let value: serde_json::Value = output.json();
-
-        assert_eq!(value, serde_json::json!({"answer": 42}));
-    }
-
-    #[test]
-    fn invalid_json_reports_command_and_captured_output() {
-        let context = context();
-        let output = run_shell(&context, "printf not-json", Duration::from_secs(1))
-            .expect("invalid JSON fixture should finish");
-        let diagnostic = output
-            .try_json::<serde_json::Value>()
-            .expect_err("invalid JSON should be rejected");
-
-        assert!(diagnostic.contains("stdout is not valid JSON"));
-        assert!(diagnostic.contains("command: \"/bin/sh\" \"-c\""));
-        assert!(diagnostic.contains("not-json"));
-    }
-
-    #[test]
-    fn failed_command_diagnostic_includes_execution_context_and_output() {
-        let context = context();
-        let output = run_shell(
-            &context,
-            "printf stdout-marker; printf stderr-marker >&2; exit 7",
-            Duration::from_secs(1),
-        )
-        .expect("failure fixture should finish");
-        let diagnostic = output.diagnostic("fixture failed");
-
-        assert!(diagnostic.contains("fixture failed"));
-        assert!(diagnostic.contains("command: \"/bin/sh\" \"-c\""));
-        assert!(diagnostic.contains(&format!(
-            "working directory: {}",
-            context.workspace.display()
-        )));
-        assert!(diagnostic.contains("status: exit status: 7"));
-        assert!(diagnostic.contains("stdout-marker"));
-        assert!(diagnostic.contains("stderr-marker"));
-        assert!(diagnostic.contains("runtime state:"));
-    }
-}
+#[path = "harness/tests.rs"]
+mod tests;

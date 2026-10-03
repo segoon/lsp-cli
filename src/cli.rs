@@ -90,7 +90,6 @@ impl InstallDebugArgs {
     }
 }
 
-#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Eq, PartialEq)]
 pub struct DetectArgs {
     pub path: PathBuf,
@@ -139,7 +138,6 @@ pub struct DiagnosticsArgs {
     pub query: LspWorkspaceQueryArgs,
 }
 
-#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Eq, PartialEq)]
 pub struct FormatArgs {
     pub path: PathBuf,
@@ -151,7 +149,6 @@ pub struct FormatArgs {
     pub stdout: bool,
 }
 
-#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Eq, PartialEq)]
 pub struct ListSymbolsArgs {
     pub path: PathBuf,

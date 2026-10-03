@@ -36,8 +36,8 @@ entries) is a product-policy call, not an implementation fact.
 - Do not require a server to implement an optional LSP capability.
 - Do not put language-specific parsing or source-code knowledge into production `lsp-cli` code.
 - Do not make tracked playground files writable test state.
-- Do not add a Rust dependency without explicit permission. The existing `tempfile`, `serde`,
-  `serde_json`, and `serde_yaml` dependencies are sufficient for the harness.
+- Do not add a Rust dependency without explicit permission. The Linux harness uses the `nix`
+  crate's safe process APIs; the same version is also used by `command-group`.
 
 ## Local dev environment
 
@@ -75,6 +75,8 @@ The harness resolves those programs from the managed runtimes and stages them in
 server directory. A server's explicit manifest `host-programs` entry overrides a runtime default
 with the same name. The process `PATH` remains isolated; unrelated host executables are not made
 visible to downloaded servers.
+
+See [process cleanup](ProcessCleanup.md) for descendant supervision and failure retention.
 
 ## Test projects (playgrounds)
 
@@ -153,22 +155,39 @@ snapshots when server versions can legitimately change ordering, signatures, or 
 
 ## Harness & manifest layout
 
-A normal Cargo integration-test crate invokes the built binary through `CARGO_BIN_EXE_lsp-cli`:
+The unpublished `lsp-cli-e2e-support` workspace crate owns the shared harness and its unit tests.
+All integration-test entry points pass the built binary through `CARGO_BIN_EXE_lsp-cli`, without
+assuming Cargo's executable directory layout. The real-server runner and subreaper regressions run
+on their main threads; mock cases use the standard test harness. Mock fixtures compile under the
+`mock-tests` feature enabled by the application's dev-dependency, and helper unit tests use
+`cfg(test)`. Each target keeps unused-code and import warnings.
 
 ```text
 tests/
-  e2e.rs
+  e2e_runner.rs
+  e2e_reaper.rs
+  e2e_mock.rs
   e2e/
+    Cargo.toml / lib.rs
+    runner.rs
+    planner/
     harness.rs
     manifest.rs / manifest/
-    catalog.rs
-    queries.rs
-    lifecycle.rs
-    update.rs
+    mock/
+      catalog.rs
+      queries.rs
+      lifecycle.rs
+      update.rs
     cases/
       suite.yaml
       <language>.yaml
 ```
+
+`make test` tests both default workspace members. Support-library unit tests do not require the
+application binary; `cargo test -p lsp-cli --test e2e_mock` builds it and runs the mock cases.
+Register new public mock cases in `mock_cases!` in `tests/e2e_mock.rs` so libtest discovers them.
+CI runs the planner with
+`cargo run -p lsp-cli-e2e-support --features e2e-workflow-planner --bin e2e-workflow-plan`.
 
 Keep every Rust file under 600 lines; move repeated process setup and assertions into helpers as
 soon as a second test needs them.
@@ -484,9 +503,9 @@ common defaults; cases only declare intentional overrides.
 Jobs never share homes, daemon runtime directories, or mutable workspaces. The planner uploads one
 immutable, verified Mason registry snapshot for all shards; each case copies that snapshot into its
 own runtime state. A case never substitutes a separately installed server for `--download`. Every
-real-server case tears down its isolated home and temporary roots (Mason packages, Go module/build
-caches, other server download state) before the next case starts; only immutable Rust build
-artifacts and registry input are shared by CI.
+real-server case tears down its isolated home and temporary roots after descendant cleanup;
+incomplete cleanup retains those roots and fails the case. Only immutable Rust build artifacts
+and registry input are shared by CI.
 
 Split CI (fast PR smoke + exhaustive nightly) trades "a regression affecting a non-preferred server
 may surface the following night rather than on the originating PR" for much lower latency, cost,
@@ -495,80 +514,7 @@ running everything on every PR.
 
 ## Triage a CI failure
 
-Pairs use `<language>/<server-config-id>`, e.g. `python/pyright`. The server component is the
-filename stem under `data/lsp/`, not necessarily the executable or display name.
-
-1. Open the workflow summary and find the pair's executable or excluded classification.
-2. Open the failed `<language>/<installation-family>` matrix job.
-3. Read the `E2E failed case IDs` footer, which lists the specific failed pairs collected from the
-   diagnostics above it. If the footer says the IDs are unavailable, failure occurred before a case
-   emitted its labelled diagnostic — start with the planner, build, or test-runner error
-   immediately above the footer.
-
-Each matrix job also uploads `e2e-results-<language>-<installation-family>`. Its JSON document has
-`schema_version: 1`, one result per executed case, and aggregate pass/failure counts. A failed case
-records its human-readable diagnostic and one of these stable execution stages: `setup`,
-`provisioning`, `capabilities`, `query`, `lifecycle`, or `cleanup`. The stage identifies where the
-E2E harness observed the failure; it is not a substitute for diagnosing the underlying cause.
-
-The job summary contains the same aggregate stage counts. If no result file was produced, the test
-binary failed before it could finish a labelled case; the summary says to inspect the job log rather
-than inventing a case classification.
-
-### Identify the upstream version
-
-A failed case retains this block before deleting its isolated home:
-
-```text
-server package source IDs:
-pkg:npm/pyright@1.1.409
-server command line:
-...
-server capabilities:
-...
-server stderr summary:
-...
-cleanup state:
-...
-```
-
-Treat each complete `pkg:<installation-family>/<package>@<version>` source ID as the authoritative
-package identity — preserve the whole value, since versions and package names can contain
-prefixes, scopes, or backend-specific suffixes. The executable name and `initialize` response
-version may describe a product differently and are supporting evidence, not replacements for the
-source ID.
-
-`<unavailable: no completed server installation>` normally means provisioning failed before a
-receipt was written; inspect the preceding download/install error rather than inferring a version
-from an older run. Outside the isolated suite, successful downloads store JSON receipts under
-`~/.local/share/lsp-cli/receipts/` (same `source_id` field meaning). E2E case homes and their
-receipts are intentionally removed after every case, including failures, so use the retained
-diagnostic rather than a path printed earlier in the log.
-
-Successful E2E cases print no retained failure context. The suite follows Mason latest, so a later
-rerun may resolve a different source ID — compare IDs from available failing runs and record the ID
-in an issue when exact upstream identity matters; the suite does not promise the registry will
-retain an older version for reproduction.
-
-### Classify the failure
-
-Check evidence in this order:
-
-1. **Planner or manifest:** an unknown selector, missing registry package, or validation failure
-   happened before a server case ran.
-2. **Provisioning or network:** no completed receipt, package-manager output, HTTP failure, or an
-   absent host program points to installation rather than LSP behavior — use
-   `make test-e2e PHASE=provision`.
-3. **Startup or shutdown:** use the retained command line and server stderr. SDK incompatibility,
-   launcher failure, crash, and failure to exit are distinct from query-result drift.
-4. **Protocol or capability:** compare the retained capabilities with the command exercised by the
-   case. An unadvertised optional capability passes only when lsp-cli returns its expected
-   user-facing unsupported error.
-5. **Semantic result:** compare stable names and the pair's reviewed exceptions (see "Real-server
-   exceptions" above). Do not weaken an expectation until the same source ID reproduces the
-   behavior or an upstream change is confirmed.
-6. **Cleanup:** inspect sandbox and runtime roots independently of the primary failure — a
-   successful query with a retained root is still a cleanup regression.
+See [failure triage](Triage.md) for package identity, retained diagnostics and cleanup failures.
 
 ## Failure policy
 

@@ -7,11 +7,10 @@ use flate2::Compression;
 use flate2::write::GzEncoder;
 use serde_json::json;
 
-use crate::fixture::E2eFixture;
+use super::fixture::E2eFixture;
 use crate::manifest::CommandStrategy;
 
-#[test]
-fn update_command_path_uses_local_release_fixture() {
+pub fn update_command_path_uses_local_release_fixture() {
     let fixture = E2eFixture::new().expect("E2E fixture should initialize");
     assert_eq!(
         fixture

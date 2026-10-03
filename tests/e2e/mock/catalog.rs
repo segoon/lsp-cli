@@ -1,9 +1,8 @@
-use crate::fixture::E2eFixture;
+use super::fixture::E2eFixture;
 use crate::manifest::CommandStrategy;
 use std::collections::BTreeSet;
 
-#[test]
-fn catalog_command_paths_are_covered() {
+pub fn catalog_command_paths_are_covered() {
     let fixture = E2eFixture::new().expect("E2E fixture should initialize");
     let context = fixture.context();
 

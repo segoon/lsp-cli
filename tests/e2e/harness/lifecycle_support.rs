@@ -116,6 +116,11 @@ impl E2eContext {
     ) -> Result<(), String> {
         let deadline = Instant::now() + timeout;
         loop {
+            if let Some(reaper) = &self.reaper {
+                // A stopped server adopted by our subreaper remains in /proc until we reap it.
+                // Normal command waits have already finished; this must never kill live servers.
+                reaper.reap_exited()?;
+            }
             let live = pids
                 .iter()
                 .copied()

@@ -52,7 +52,7 @@ jobs:
           E2E_REPORT_OUTPUT: ${{ runner.temp }}/e2e-report.md
           E2E_REGISTRY_SNAPSHOT_OUTPUT: ${{ runner.temp }}/mason-registry
         run: |
-          cargo run --locked --features e2e-workflow-planner --bin e2e-workflow-plan
+          cargo run --locked -p lsp-cli-e2e-support --features e2e-workflow-planner --bin e2e-workflow-plan
           echo "plan=$(<"$E2E_PLAN_OUTPUT")" >> "$GITHUB_OUTPUT"
           cat "$E2E_REPORT_OUTPUT" >> "$GITHUB_STEP_SUMMARY"
       - name: Upload Mason registry snapshot

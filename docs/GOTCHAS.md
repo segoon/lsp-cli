@@ -373,6 +373,12 @@
   not repair those semantic results, so semantic smoke remains excluded while lifecycle coverage
   runs independently.
 
+- Kotlin LSP can leave a detached Gradle daemon alive after LSP/daemon shutdown. That daemon can
+  continue writing workspace `.gradle` state while a test removes its sandbox. E2E cleanup therefore
+  adopts and drains descendants before filesystem deletion. `HOME` alone does not isolate JVM
+  `user.home`; the E2E environment also sets that property and a case-local `GRADLE_USER_HOME` to
+  prevent reuse of a Gradle daemon started outside the case.
+
 ## roslyn-language-server
 
 - The Mason package exposes Roslyn through the `roslyn-language-server` .NET tool launcher. A data
@@ -392,6 +398,24 @@
   twice in fresh isolated homes, including repeated direct shutdown exchanges. Its stale broad
   expected-failure marker was removed; the dedicated lifecycle scenario remains the narrower place
   to detect a recurrence.
+- Full-suite validation with snapshot `2026-10-01-remote-route` reproduced this shutdown closure
+  for `pkg:github/OmniSharp/omnisharp-roslyn@v1.39.15` during the initial C# capability query.
+  Descendant cleanup and removal of both isolated roots succeeded; the protocol failure remains
+  separate from orphan-process cleanup and has not been added back to expected failures.
+
+## Verible
+
+- Full-suite validation with snapshot `2026-10-01-remote-route` found that
+  `pkg:github/chipsalliance/verible@v0.0-4296-g0f262651` closed its input during shutdown.
+  The SystemVerilog capability case logged `Shutting down due to shutdown request.`, then lsp-cli
+  reported a broken pipe while writing the remaining shutdown exchange. Descendant cleanup and
+  removal of both isolated roots succeeded; this is a shutdown failure, not retained children.
+
+## HDL Checker
+
+- `pkg:pypi/hdl-checker@0.7.5` initialized but timed out waiting for `shutdown` in the Verilog and
+  VHDL capability cases against snapshot `2026-10-01-remote-route`. No server stderr explanation
+  was captured. Descendant cleanup and removal of both isolated roots succeeded.
 
 ## svls
 

@@ -3,7 +3,7 @@ use std::process::Command;
 use std::sync::OnceLock;
 use std::time::Duration;
 
-use crate::fixture::E2eFixture;
+use super::fixture::E2eFixture;
 use crate::harness::E2eContext;
 use crate::manifest::CommandStrategy;
 use crate::process;

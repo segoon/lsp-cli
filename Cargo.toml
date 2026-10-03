@@ -43,7 +43,7 @@ url = "2.5.7"
 zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
 
 [dev-dependencies]
-lsp-cli-e2e-support = { path = "tests/e2e" }
+lsp-cli-e2e-support = { path = "tests/e2e", features = ["mock-tests"] }
 
 [lints]
 workspace = true

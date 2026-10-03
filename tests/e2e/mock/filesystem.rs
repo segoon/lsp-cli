@@ -1,10 +1,9 @@
 use serde_json::Value;
 
-use crate::local_fixture::LocalFixture;
+use super::local_fixture::LocalFixture;
 use crate::manifest::CommandStrategy;
 
-#[test]
-fn filesystem_command_paths_are_covered() {
+pub fn filesystem_command_paths_are_covered() {
     let fixture = LocalFixture::new().expect("local fixture should initialize");
 
     for command in fixture.commands_for(CommandStrategy::Filesystem) {

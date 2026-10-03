@@ -32,7 +32,7 @@ fn assert_recorded_process_is_gone(pid_file: &Path) {
 #[test]
 fn command_isolated_from_ambient_process_state() {
     let context = context();
-    let command = context.command();
+    let command = context.command_for("unused-test-program");
     let actual = command
         .get_envs()
         .map(|(name, value)| (name.to_os_string(), value.map(OsString::from)))
@@ -96,6 +96,9 @@ fn runtime_directory_has_room_for_daemon_socket_name() {
             socket_path.display()
         )
     });
+    // This socket only checks path length; remove its directory so Drop does not try to stop
+    // a nonexistent daemon. Harness unit tests must not require an application executable.
+    fs::remove_dir_all(&daemon_root).expect("socket fixture should be removed");
 }
 
 #[test]

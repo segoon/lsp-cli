@@ -249,7 +249,7 @@ mod tests {
         );
 
         let actual = std::env::split_paths(&context.process_path()).collect::<Vec<_>>();
-        let command = context.command();
+        let command = context.command_for("unused-test-program");
         let environment = command
             .get_envs()
             .map(|(name, value)| (name.to_os_string(), value.map(OsString::from)))

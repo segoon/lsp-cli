@@ -32,7 +32,7 @@ mod process_state;
 use self::environment::{CARGO_HOME_ENV, INSTALL_PATH_ENV, RUSTUP_HOME_ENV, RUSTUP_TOOLCHAIN_ENV};
 use self::process_state::runtime_state;
 
-#[cfg(test)]
+#[cfg(feature = "mock-tests")]
 const DEFAULT_COMMAND_DEADLINE: Duration = Duration::from_secs(30);
 
 pub(crate) struct E2eContext {
@@ -138,13 +138,13 @@ impl E2eContext {
             })
     }
 
-    #[cfg(test)]
+    #[cfg(feature = "mock-tests")]
     pub(crate) fn with_data_dir(mut self, data_dir: PathBuf) -> Self {
         self.data_dir = data_dir;
         self
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "mock-tests"))]
     pub(crate) fn stage_program(&self, name: &str, source: &Path) -> Result<(), String> {
         let source = source
             .canonicalize()
@@ -296,17 +296,17 @@ impl E2eContext {
         &self.workspace
     }
 
-    #[cfg(test)]
+    #[cfg(feature = "mock-tests")]
     pub(crate) fn installed_data(&self) -> PathBuf {
         self.home.join(".local/share/lsp-cli/data")
     }
 
-    #[cfg(test)]
+    #[cfg(feature = "mock-tests")]
     pub(crate) fn run(&self, args: &[&str]) -> E2eOutput {
         self.run_with_deadline(args, DEFAULT_COMMAND_DEADLINE)
     }
 
-    #[cfg(test)]
+    #[cfg(feature = "mock-tests")]
     pub(crate) fn run_with_deadline(&self, args: &[&str], deadline: Duration) -> E2eOutput {
         self.try_run_with_deadline(args, deadline)
             .unwrap_or_else(|diagnostic| panic!("{diagnostic}"))
@@ -322,7 +322,7 @@ impl E2eContext {
         self.run_command(&mut command, deadline)
     }
 
-    #[cfg(test)]
+    #[cfg(feature = "mock-tests")]
     pub(crate) fn run_with_env(&self, args: &[&str], environment: &[(&str, &str)]) -> E2eOutput {
         let mut command = self.command();
         command.args(args).envs(environment.iter().copied());

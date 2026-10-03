@@ -218,7 +218,7 @@ impl Manifest {
         Ok(manifest)
     }
 
-    #[cfg(test)]
+    #[cfg(feature = "mock-tests")]
     pub(crate) fn load_repository() -> Result<Self, String> {
         Self::load_validated(repository_root())
     }
@@ -288,7 +288,7 @@ impl Manifest {
         })
     }
 
-    #[cfg(test)]
+    #[cfg(feature = "mock-tests")]
     pub(crate) fn command_names(&self) -> BTreeSet<&str> {
         self.commands
             .iter()

@@ -156,32 +156,37 @@ snapshots when server versions can legitimately change ordering, signatures, or 
 ## Harness & manifest layout
 
 The unpublished `lsp-cli-e2e-support` workspace crate owns the shared harness and its unit tests.
-The two standalone integration-test entry points pass the built binary through
-`CARGO_BIN_EXE_lsp-cli`; the real-server runner and subreaper regressions run on their main threads.
-Mock-only helpers compile under `cfg(test)`, so each target keeps unused-code and import warnings.
+All integration-test entry points pass the built binary through `CARGO_BIN_EXE_lsp-cli`, without
+assuming Cargo's executable directory layout. The real-server runner and subreaper regressions run
+on their main threads; mock cases use the standard test harness. Mock fixtures compile under the
+`mock-tests` feature enabled by the application's dev-dependency, and helper unit tests use
+`cfg(test)`. Each target keeps unused-code and import warnings.
 
 ```text
 tests/
   e2e_runner.rs
   e2e_reaper.rs
+  e2e_mock.rs
   e2e/
     Cargo.toml / lib.rs
     runner.rs
     planner/
     harness.rs
     manifest.rs / manifest/
-    catalog.rs
-    queries.rs
-    lifecycle.rs
-    update.rs
+    mock/
+      catalog.rs
+      queries.rs
+      lifecycle.rs
+      update.rs
     cases/
       suite.yaml
       <language>.yaml
 ```
 
-`make test` tests both default workspace members. Library unit tests find `lsp-cli` beside Cargo's
-`deps/` directory; build the application first when testing only the support package. This also
-works with custom target directories and build profiles. CI runs the planner with
+`make test` tests both default workspace members. Support-library unit tests do not require the
+application binary; `cargo test -p lsp-cli --test e2e_mock` builds it and runs the mock cases.
+Register new public mock cases in `mock_cases!` in `tests/e2e_mock.rs` so libtest discovers them.
+CI runs the planner with
 `cargo run -p lsp-cli-e2e-support --features e2e-workflow-planner --bin e2e-workflow-plan`.
 
 Keep every Rust file under 600 lines; move repeated process setup and assertions into helpers as

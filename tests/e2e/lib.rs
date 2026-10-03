@@ -28,20 +28,8 @@ mod runner_selection;
 #[cfg(feature = "e2e-workflow-planner")]
 pub mod workflow_plan;
 
-#[cfg(test)]
-mod catalog;
-#[cfg(test)]
-mod filesystem;
-#[cfg(test)]
-mod fixture;
-#[cfg(test)]
-mod lifecycle;
-#[cfg(test)]
-mod local_fixture;
-#[cfg(test)]
-mod queries;
-#[cfg(test)]
-mod update;
+#[cfg(feature = "mock-tests")]
+pub mod mock;
 
 static LSP_CLI_BINARY: OnceLock<PathBuf> = OnceLock::new();
 
@@ -59,23 +47,15 @@ pub fn run_reaper_regressions(binary: &Path) {
 }
 
 fn initialize(binary: &Path) {
-    LSP_CLI_BINARY
-        .set(binary.to_path_buf())
-        .expect("E2E entry point should initialize the executable once");
+    // Libtest runs mock cases concurrently; every case must supply the same Cargo-built binary.
+    assert_eq!(
+        LSP_CLI_BINARY.get_or_init(|| binary.to_path_buf()),
+        binary,
+        "E2E cases must use the same lsp-cli executable"
+    );
 }
 
 fn lsp_cli_binary() -> &'static Path {
-    #[cfg(test)]
-    LSP_CLI_BINARY.get_or_init(|| {
-        // Workspace tests build lsp-cli alongside the library's unit-test executable in deps/.
-        // Resolving from that executable also supports custom target directories and profiles.
-        std::env::current_exe()
-            .expect("unit-test executable path")
-            .parent()
-            .and_then(Path::parent)
-            .expect("Cargo unit-test executable should be in the profile's deps directory")
-            .join(format!("lsp-cli{}", std::env::consts::EXE_SUFFIX))
-    });
     LSP_CLI_BINARY
         .get()
         .expect("E2E entry point should supply the lsp-cli executable")

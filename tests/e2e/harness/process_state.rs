@@ -13,9 +13,26 @@ const DAEMON_CLEANUP_DEADLINE: Duration = Duration::from_secs(5);
 
 impl Drop for E2eContext {
     fn drop(&mut self) {
+        // Explicit finalization must not launch another command after proving ECHILD. A supervised
+        // context also retains its roots if unwinding bypasses finalization; Drop cannot prove safety.
+        if self.finalized || self.reaper.is_some() {
+            return;
+        }
+        if let Err(diagnostic) = self.stop_daemons() {
+            if std::thread::panicking() {
+                eprintln!("E2E daemon cleanup failed:\n{diagnostic}");
+            } else {
+                panic!("E2E daemon cleanup failed:\n{diagnostic}");
+            }
+        }
+    }
+}
+
+impl E2eContext {
+    pub(super) fn stop_daemons(&self) -> Result<(), String> {
         let daemon_root = self.runtime_dir.join("lsp-cli");
         if !daemon_root.exists() {
-            return;
+            return Ok(());
         }
 
         // Detached daemons outlive command process groups, so the context must stop them explicitly.
@@ -23,18 +40,14 @@ impl Drop for E2eContext {
         command.args(["stop-all", "--debug"]);
         let cleanup = process::run(&mut command, DAEMON_CLEANUP_DEADLINE);
         let diagnostic = match cleanup {
-            Ok(output) if output.status().success() => return,
+            Ok(output) if output.status().success() => return Ok(()),
             Ok(output) => output.diagnostic(
                 "E2E daemon cleanup exited unsuccessfully",
                 &runtime_state(&self.runtime_dir),
             ),
             Err(failure) => failure.diagnostic(&runtime_state(&self.runtime_dir)),
         };
-        if std::thread::panicking() {
-            eprintln!("E2E daemon cleanup failed:\n{diagnostic}");
-        } else {
-            panic!("E2E daemon cleanup failed:\n{diagnostic}");
-        }
+        Err(diagnostic)
     }
 }
 

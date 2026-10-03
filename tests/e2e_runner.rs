@@ -11,6 +11,8 @@
 
 #[path = "e2e/case_files.rs"]
 mod case_files;
+#[path = "e2e/child_reaper.rs"]
+mod child_reaper;
 #[path = "e2e/dependencies.rs"]
 mod dependencies;
 #[path = "e2e/failure_stage.rs"]
@@ -62,6 +64,7 @@ fn run(selection: &Selection) -> Result<(), String> {
         eprintln!("E2E case {label}: reviewed exclusion: {reason}");
     }
 
+    child_reaper::ChildReaper::enable()?;
     let dependencies = ManagedDependencies::prepare()?;
     let excluded = excluded_count(&manifest, selection);
     let mut report = RunReport::default();

@@ -1,10 +1,11 @@
-use std::path::Path;
+use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
 
 use super::E2eContext;
+use crate::child_reaper::ChildReaper;
 use crate::dependencies::ManagedDependencies;
 use crate::results::{E2eFailure, E2eResult, FailureStage};
 
-trait CleanupFailure: Sized {
+pub(crate) trait CleanupFailure: Sized {
     fn append(self, detail: String) -> Self;
     fn cleanup(detail: String) -> Self;
     fn add_cleanup(self, detail: String) -> Self;
@@ -40,7 +41,7 @@ impl CleanupFailure for E2eFailure {
 }
 
 impl E2eContext {
-    pub(super) fn isolated_roots(&self) -> [std::path::PathBuf; 2] {
+    pub(crate) fn isolated_roots(&self) -> [std::path::PathBuf; 2] {
         [
             self.home
                 .parent()
@@ -63,22 +64,34 @@ impl E2eContext {
         operation: impl FnOnce(&Self) -> E2eResult,
     ) -> E2eResult {
         let context = Self::new_for_real_server(dependencies)
-            .map_err(|error| E2eFailure::new(FailureStage::Setup, error));
+            .map_err(|error| E2eFailure::new(FailureStage::Setup, error))
+            .and_then(|context| {
+                let reaper = ChildReaper::begin_case()
+                    .map_err(|error| E2eFailure::new(FailureStage::Setup, error))?;
+                Ok(context.with_reaper(reaper))
+            });
         Self::run_cleaned_context(context, operation)
     }
 
-    fn run_cleaned_context<E: CleanupFailure>(
+    pub(crate) fn with_reaper(mut self, reaper: ChildReaper) -> Self {
+        // An abandoned context must retain files that a descendant could still be writing.
+        self._sandbox.disable_cleanup(true);
+        self._runtime_sandbox.disable_cleanup(true);
+        self.reaper = Some(reaper);
+        self
+    }
+
+    pub(crate) fn run_cleaned_context<E: CleanupFailure>(
         context: Result<Self, E>,
         operation: impl FnOnce(&Self) -> Result<(), E>,
     ) -> Result<(), E> {
-        let context = context?;
+        let mut context = context?;
         let [cache_root, runtime_root] = context.isolated_roots();
-        let result = operation(&context);
+        // We only catch unwinding to finalize resources, then resume the original panic. No
+        // possibly inconsistent test state is reused after the panic.
+        let outcome = catch_unwind(AssertUnwindSafe(|| operation(&context)));
         let retained = context.retained_failure_state();
-
-        // Drop here, instead of at function exit, so every real-server case verifies that its
-        // downloaded packages, compiler caches, temporary build output, and runtime state vanish.
-        drop(context);
+        let cleanup = context.finalize();
         let roots = [
             ("sandbox", cache_root.as_path()),
             ("runtime", runtime_root.as_path()),
@@ -95,17 +108,15 @@ impl E2eContext {
             })
             .collect::<Vec<_>>()
             .join("\n");
-        let leftovers = roots
-            .into_iter()
-            .filter(|(_, path)| path.exists())
-            .map(|(_, path)| Path::display(path).to_string())
-            .collect::<Vec<_>>();
-        let cleanup = leftovers.is_empty().then_some(()).ok_or_else(|| {
-            format!(
-                "isolated E2E download cache was not removed: {}",
-                leftovers.join(", ")
-            )
-        });
+        let result = match outcome {
+            Ok(result) => result,
+            Err(panic) => {
+                if let Err(error) = cleanup {
+                    eprintln!("E2E cleanup failed while unwinding: {error}\n{cleanup_state}");
+                }
+                resume_unwind(panic);
+            }
+        };
 
         match (result, cleanup) {
             (Err(case), cleanup) => {
@@ -122,6 +133,40 @@ impl E2eContext {
                 "{error}\nretained E2E failure context:\n{retained}\ncleanup state:\n{cleanup_state}"
             ))),
             (Ok(()), Ok(())) => Ok(()),
+        }
+    }
+
+    fn finalize(&mut self) -> Result<(), String> {
+        self.finalized = true;
+        self._sandbox.disable_cleanup(true);
+        self._runtime_sandbox.disable_cleanup(true);
+        let mut errors = Vec::new();
+        if let Err(error) = self.stop_daemons() {
+            errors.push(error);
+        }
+        let descendants = match &mut self.reaper {
+            Some(reaper) => reaper.finish(),
+            None => Ok(()),
+        };
+        match descendants {
+            Err(error) => errors.push(error),
+            Ok(()) => {
+                for root in self.isolated_roots() {
+                    if let Err(error) = std::fs::remove_dir_all(&root)
+                        && error.kind() != std::io::ErrorKind::NotFound
+                    {
+                        errors.push(format!(
+                            "failed to remove E2E directory {}: {error}",
+                            root.display()
+                        ));
+                    }
+                }
+            }
+        }
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors.join("\n"))
         }
     }
 }

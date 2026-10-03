@@ -805,6 +805,7 @@ dependencies = [
  "humantime",
  "lsp-types",
  "lzma-rs",
+ "nix",
  "regex",
  "reqwest",
  "serde",

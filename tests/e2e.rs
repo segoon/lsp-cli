@@ -15,6 +15,8 @@
 mod case_files;
 #[path = "e2e/catalog.rs"]
 mod catalog;
+#[path = "e2e/child_reaper.rs"]
+mod child_reaper;
 #[path = "e2e/dependencies.rs"]
 mod dependencies;
 #[path = "e2e/failure_stage.rs"]

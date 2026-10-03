@@ -1,5 +1,4 @@
 use std::fs;
-use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use flate2::read::GzDecoder;
@@ -12,6 +11,8 @@ use crate::config::{
     CliConfig, CliConfigRoots, default_config_root, load_cli_config, load_config_store,
 };
 use crate::error::{Error, Result, error_fn};
+use crate::http::retry::RetryPolicy;
+use crate::http::{download_bytes as http_download_bytes, read_json as http_read_json};
 use crate::runtime_state::{RuntimeState, default_runtime_state_root};
 
 const DATA_REPOSITORY: &str = "segoon/lsp-cli-data";
@@ -227,23 +228,14 @@ fn extract_zip(root: &Path, bytes: &[u8]) -> Result<()> {
 fn http_client() -> Result<Client> {
     Client::builder()
         .user_agent(USER_AGENT)
+        .connect_timeout(std::time::Duration::from_secs(10))
+        .retry(reqwest::retry::never())
         .build()
         .map_err(error_fn!(Error::network, "failed to create HTTP client"))
 }
 
 fn download_bytes(client: &Client, url: &str) -> Result<Vec<u8>> {
-    let mut response = client
-        .get(url)
-        .send()
-        .map_err(error_fn!(Error::network, "failed to download lsp-cli-data"))?
-        .error_for_status()
-        .map_err(error_fn!(Error::network, "failed to download lsp-cli-data"))?;
-    let mut bytes = Vec::new();
-    response.read_to_end(&mut bytes).map_err(error_fn!(
-        Error::network,
-        "failed to read lsp-cli-data download"
-    ))?;
-    Ok(bytes)
+    http_download_bytes(client, url, "failed to download lsp-cli-data")
 }
 
 #[derive(Deserialize)]
@@ -260,23 +252,13 @@ struct ReleaseDownload {
 
 fn fetch_release(client: &Client, version: &str) -> Result<ReleaseDownload> {
     let url = crate::env_vars::data_release_api_url().unwrap_or_else(|| release_url(version));
-    let release: GithubRelease = client
-        .get(url)
-        .send()
-        .map_err(error_fn!(
-            Error::network,
-            "failed to query lsp-cli-data releases"
-        ))?
-        .error_for_status()
-        .map_err(error_fn!(
-            Error::network,
-            "failed to query lsp-cli-data releases"
-        ))?
-        .json()
-        .map_err(error_fn!(
-            Error::network,
-            "failed to parse lsp-cli-data release metadata"
-        ))?;
+    let release: GithubRelease = http_read_json(
+        client.get(url),
+        "failed to query lsp-cli-data releases",
+        "failed to parse lsp-cli-data release metadata",
+        &RetryPolicy::default(),
+        std::thread::sleep,
+    )?;
     let Some(archive_url) = release.tarball_url.or(release.zipball_url) else {
         return Err(Error::network(
             "lsp-cli-data release does not provide a downloadable archive",

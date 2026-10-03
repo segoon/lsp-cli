@@ -5,6 +5,7 @@ use std::thread;
 
 use super::*;
 use crate::dependencies::catalog::Validation;
+use backon::ExponentialBuilder;
 
 const PAYLOAD_SHA256: &str = "672eb8316fec83f94119a4193f9fc552513d56a147502f8be4830e017d817831";
 
@@ -72,6 +73,26 @@ fn serve(responses: Vec<(u16, &'static [u8])>) -> (String, thread::JoinHandle<()
     (format!("http://{address}/fixture"), server)
 }
 
+fn download(cache: &Cache, dependency: &Dependency) -> Result<PathBuf, String> {
+    cache.ensure_download_with(
+        dependency,
+        &RetryPolicy {
+            backoff: ExponentialBuilder::default().with_min_delay(Duration::from_secs(2)),
+            ..RetryPolicy::default()
+        },
+        |_| {},
+    )
+}
+
+fn cached_fixture(
+    responses: Vec<(u16, &'static [u8])>,
+) -> (tempfile::TempDir, Cache, Dependency, thread::JoinHandle<()>) {
+    let directory = tempfile::tempdir().expect("temporary directory should be created");
+    let (url, server) = serve(responses);
+    let cache = test_cache(&directory.path().join("cache"));
+    (directory, cache, dependency(url), server)
+}
+
 fn test_cache(path: &Path) -> Cache {
     Cache {
         root: path.to_path_buf(),
@@ -93,32 +114,22 @@ fn hashes_cached_downloads() {
 
 #[test]
 fn download_cache_avoids_a_second_request() {
-    let directory = tempfile::tempdir().expect("temporary directory should be created");
-    let (url, server) = serve(vec![(200, b"verified\n")]);
-    let dependency = dependency(url);
-    let cache = test_cache(&directory.path().join("cache"));
+    let (_directory, cache, dependency, server) = cached_fixture(vec![(200, b"verified\n")]);
 
-    let first = cache
-        .ensure_download(&dependency)
-        .expect("first download should succeed");
+    let first = download(&cache, &dependency).expect("first download should succeed");
     server.join().expect("fixture server should finish");
-    let second = cache
-        .ensure_download(&dependency)
-        .expect("cached download should succeed without its server");
+    let second =
+        download(&cache, &dependency).expect("cached download should succeed without its server");
 
     assert_eq!(first, second);
 }
 
 #[test]
 fn retries_transient_download_failures() {
-    let directory = tempfile::tempdir().expect("temporary directory should be created");
-    let (url, server) = serve(vec![(500, b""), (503, b""), (200, b"verified\n")]);
-    let dependency = dependency(url);
-    let cache = test_cache(&directory.path().join("cache"));
+    let (_directory, cache, dependency, server) =
+        cached_fixture(vec![(500, b""), (503, b""), (200, b"verified\n")]);
 
-    cache
-        .ensure_download(&dependency)
-        .expect("third download attempt should succeed");
+    download(&cache, &dependency).expect("third download attempt should succeed");
     server.join().expect("fixture server should finish");
 }
 
@@ -126,7 +137,7 @@ fn retries_transient_download_failures() {
 fn invalid_completed_installation_is_preserved() {
     let directory = tempfile::tempdir().expect("temporary directory should be created");
     let dependency = dependency("http://127.0.0.1:1/unreachable".to_string());
-    let cache = Cache::new(directory.path().join("cache"));
+    let cache = Cache::new(directory.path().join("cache")).expect("cache should initialize");
     let installation = cache.installation_path(&dependency);
     fs::create_dir_all(&installation).expect("invalid installation should be created");
 
@@ -189,4 +200,35 @@ fn assembles_managed_directories_before_host_path() {
             PathBuf::from("/host/two"),
         ]
     );
+}
+
+#[test]
+fn checksum_failures_leave_no_completed_download_and_are_not_retried() {
+    let (_directory, cache, dependency, server) = cached_fixture(vec![(200, b"corrupted")]);
+    let error = download(&cache, &dependency).expect_err("checksum should fail");
+    assert!(error.contains("checksum validation"));
+    let download_directory = cache.root.join("downloads/sha256").join(PAYLOAD_SHA256);
+    assert_eq!(
+        fs::read_dir(download_directory)
+            .expect("download directory should exist")
+            .count(),
+        0
+    );
+    server.join().expect("fixture server should finish");
+}
+
+#[test]
+fn local_write_failure_is_not_retried() {
+    let (url, server) = serve(vec![(200, b"verified\n")]);
+    let client = Client::builder()
+        .no_proxy()
+        .build()
+        .expect("client should build");
+    let result = RetryPolicy::default().run(
+        client.get(url),
+        |response| DownloadResponse::new(response).copy_to(&mut std::io::Cursor::new(&mut [][..])),
+        |_| panic!("local write errors must not be retried"),
+    );
+    result.expect_err("an empty destination cannot accept the download");
+    server.join().expect("fixture server should finish");
 }

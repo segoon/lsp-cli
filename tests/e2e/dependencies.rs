@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Duration;
 
-use reqwest::blocking::Client;
+use reqwest::blocking::{Client, Response};
 use sha2::{Sha256, Sha512};
 
 #[path = "dependencies/catalog.rs"]
@@ -14,6 +14,10 @@ mod catalog;
 use catalog::{Dependency, Digest};
 
 use crate::repository_root;
+
+#[path = "../../src/http/retry.rs"]
+mod retry;
+use retry::{Failure, RetryPolicy};
 
 const AUTO_DOWNLOAD_ENV: &str = "E2E_AUTO_DOWNLOAD";
 
@@ -32,7 +36,7 @@ impl ManagedDependencies {
 
         require_program("tar")?;
         require_program("xz")?;
-        let cache = Cache::new(repository_root().join(".env"));
+        let cache = Cache::new(repository_root().join(".env"))?;
         let catalog = catalog::dependencies()?;
         let installations = cache.ensure_all(&catalog)?;
         let install_path = assemble_install_path(&installations, &host_path)?;
@@ -74,11 +78,13 @@ struct Cache {
 }
 
 impl Cache {
-    fn new(root: PathBuf) -> Self {
-        Self {
-            root,
-            client: Client::new(),
-        }
+    fn new(root: PathBuf) -> Result<Self, String> {
+        let client = Client::builder()
+            .connect_timeout(Duration::from_secs(10))
+            .retry(reqwest::retry::never())
+            .build()
+            .map_err(|error| format!("failed to create E2E download client: {error}"))?;
+        Ok(Self { root, client })
     }
 
     fn ensure_all<'a>(
@@ -158,6 +164,15 @@ impl Cache {
     }
 
     fn ensure_download(&self, dependency: &Dependency) -> Result<PathBuf, String> {
+        self.ensure_download_with(dependency, &RetryPolicy::default(), std::thread::sleep)
+    }
+
+    fn ensure_download_with(
+        &self,
+        dependency: &Dependency,
+        policy: &RetryPolicy,
+        sleep: impl Fn(Duration) + 'static,
+    ) -> Result<PathBuf, String> {
         let destination = self
             .root
             .join("downloads")
@@ -183,65 +198,34 @@ impl Cache {
             )
         })?;
         eprintln!("Downloading {} {}", dependency.name, dependency.version);
-        let mut last_error = String::new();
-        for attempt in 1..=3 {
-            match self.download_once(dependency, parent, &destination) {
-                Ok(()) => return Ok(destination),
-                Err(error) => {
-                    last_error = error;
-                    if attempt < 3 {
-                        eprintln!(
-                            "retrying E2E {} download after attempt {attempt} failed",
-                            dependency.name
-                        );
+        policy
+            .run(
+                self.client.get(&dependency.url),
+                |response| {
+                    let mut temporary =
+                        tempfile::NamedTempFile::new_in(parent).map_err(Failure::permanent)?;
+                    DownloadResponse::new(response).copy_to(temporary.as_file_mut())?;
+                    if !verify_digest(temporary.path(), dependency.digest)
+                        .map_err(Failure::permanent)?
+                    {
+                        return Err(Failure::permanent(format!(
+                            "download failed {} checksum validation",
+                            dependency.digest.algorithm()
+                        )));
                     }
-                }
-            }
-        }
-        Err(last_error)
-    }
-
-    fn download_once(
-        &self,
-        dependency: &Dependency,
-        parent: &Path,
-        destination: &Path,
-    ) -> Result<(), String> {
-        let mut temporary = tempfile::NamedTempFile::new_in(parent).map_err(|error| {
-            format!(
-                "failed to create temporary E2E {} download: {error}",
-                dependency.name
+                    temporary.persist(&destination).map_err(|error| {
+                        Failure::permanent(format!("failed to cache download: {}", error.error))
+                    })?;
+                    Ok(destination.clone())
+                },
+                sleep,
             )
-        })?;
-        let mut response = self
-            .client
-            .get(&dependency.url)
-            .send()
-            .and_then(reqwest::blocking::Response::error_for_status)
-            .map_err(|error| format!("failed to download E2E {}: {error}", dependency.name))?;
-        std::io::copy(&mut response, temporary.as_file_mut()).map_err(|error| {
-            format!(
-                "failed to save E2E {} download from {}: {error}",
-                dependency.name, dependency.url
-            )
-        })?;
-        if !verify_digest(temporary.path(), dependency.digest)? {
-            return Err(format!(
-                "E2E {} download from {} failed {} checksum validation",
-                dependency.name,
-                dependency.url,
-                dependency.digest.algorithm()
-            ));
-        }
-        temporary.persist(destination).map_err(|error| {
-            format!(
-                "failed to cache E2E {} download at {}: {}",
-                dependency.name,
-                destination.display(),
-                error.error
-            )
-        })?;
-        Ok(())
+            .map_err(|error| {
+                format!(
+                    "failed to download E2E {} from {}: {error}",
+                    dependency.name, dependency.url
+                )
+            })
     }
 
     fn installation_path(&self, dependency: &Dependency) -> PathBuf {
@@ -251,6 +235,40 @@ impl Cache {
             .join(dependency.version)
             .join(&dependency.platform)
             .join(dependency.digest.expected())
+    }
+}
+
+/// `io::copy` reports both read and write errors as `io::Error`. Track which side
+/// failed so interrupted HTTP bodies retry, while local disk failures fail immediately.
+struct DownloadResponse {
+    response: Response,
+    read_failed: bool,
+}
+
+impl DownloadResponse {
+    fn new(response: Response) -> Self {
+        Self {
+            response,
+            read_failed: false,
+        }
+    }
+
+    fn copy_to(&mut self, writer: &mut impl std::io::Write) -> Result<u64, Failure> {
+        std::io::copy(&mut *self, writer).map_err(|error| {
+            if self.read_failed {
+                Failure::network(error)
+            } else {
+                Failure::permanent(error)
+            }
+        })
+    }
+}
+
+impl Read for DownloadResponse {
+    fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
+        let result = self.response.read(buffer);
+        self.read_failed |= result.is_err();
+        result
     }
 }
 

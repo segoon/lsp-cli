@@ -3,7 +3,6 @@ pub mod registry;
 pub mod resolve;
 pub mod template;
 
-mod http;
 mod install;
 mod link;
 mod source;

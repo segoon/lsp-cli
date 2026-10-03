@@ -1,6 +1,7 @@
-use std::cell::RefCell;
+use backon::ExponentialBuilder;
 use std::fmt::Write as _;
 use std::net::TcpListener;
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 use super::*;
@@ -73,13 +74,27 @@ fn fetch(
     token: Option<&str>,
 ) -> (Result<GithubRelease>, Vec<Duration>, Vec<String>) {
     let (url, server) = serve(responses);
-    let delays = RefCell::new(Vec::new());
-    let result = fetch_latest_release_from(&Client::new(), &url, token, |delay| {
-        delays.borrow_mut().push(delay);
-    });
+    let delays = Arc::new(Mutex::new(Vec::new()));
+    let recorded = Arc::clone(&delays);
+    let policy = RetryPolicy {
+        backoff: ExponentialBuilder::default().with_min_delay(Duration::from_secs(2)),
+        ..RetryPolicy::default()
+    };
+    let result = fetch_latest_release_from(
+        &Client::builder()
+            .no_proxy()
+            .build()
+            .expect("client should build"),
+        &url,
+        token,
+        &policy,
+        move |delay| {
+            recorded.lock().expect("delays should lock").push(delay);
+        },
+    );
     (
         result,
-        delays.into_inner(),
+        delays.lock().expect("delays should lock").clone(),
         server.join().expect("fixture server should finish"),
     )
 }
@@ -93,11 +108,12 @@ fn response(status: u16, body: &'static str) -> FixtureResponse {
 }
 
 #[test]
-fn retries_429_and_rate_limit_messages_with_exponential_backoff() {
+fn retries_server_errors_and_rate_limits_with_exponential_backoff() {
     let (result, delays, requests) = fetch(
         vec![
             response(429, "slow down"),
             response(403, r#"{"message":"API rate limit exceeded"}"#),
+            response(503, "unavailable"),
             response(200, RELEASE),
         ],
         Some("fixture-token"),
@@ -109,7 +125,14 @@ fn retries_429_and_rate_limit_messages_with_exponential_backoff() {
             .tag_name,
         "2026-09-28"
     );
-    assert_eq!(delays, [Duration::from_secs(1), Duration::from_secs(2)]);
+    assert_eq!(
+        delays,
+        [
+            Duration::from_secs(2),
+            Duration::from_secs(4),
+            Duration::from_secs(8)
+        ]
+    );
     assert!(requests.iter().all(|request| {
         request
             .to_ascii_lowercase()
@@ -134,9 +157,9 @@ fn caps_retries_and_reports_the_final_rate_limit() {
     assert_eq!(
         delays,
         [
-            Duration::from_secs(1),
             Duration::from_secs(2),
             Duration::from_secs(4),
+            Duration::from_secs(8),
         ]
     );
     assert!(
@@ -147,7 +170,7 @@ fn caps_retries_and_reports_the_final_rate_limit() {
 }
 
 #[test]
-fn shorter_numeric_retry_after_reduces_the_delay() {
+fn numeric_retry_after_never_shortens_exponential_backoff() {
     let (result, delays, _) = fetch(
         vec![
             FixtureResponse {
@@ -161,7 +184,7 @@ fn shorter_numeric_retry_after_reduces_the_delay() {
     );
 
     result.expect("request should succeed after Retry-After");
-    assert_eq!(delays, [Duration::ZERO]);
+    assert_eq!(delays, [Duration::from_secs(2)]);
 }
 
 #[test]
@@ -172,5 +195,17 @@ fn does_not_retry_an_unrelated_forbidden_response() {
     assert!(error.contains("failed to fetch Mason registry metadata"));
     assert!(!error.contains("after 4 attempts"));
     assert_eq!(delays, Vec::new());
+    assert_eq!(requests.len(), 1);
+}
+
+#[test]
+fn malformed_metadata_is_not_retried() {
+    let (result, delays, requests) = fetch(vec![response(200, "not JSON")], None);
+    assert!(
+        result
+            .expect_err("invalid metadata should fail")
+            .contains("failed to parse Mason registry metadata")
+    );
+    assert!(delays.is_empty());
     assert_eq!(requests.len(), 1);
 }

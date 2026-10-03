@@ -8,7 +8,7 @@ use super::*;
 
 #[cfg(feature = "e2e-workflow-planner")]
 #[derive(Clone, Copy)]
-pub(crate) enum WorkflowSelector {
+pub enum WorkflowSelector {
     All,
     Language,
     Server,
@@ -18,7 +18,7 @@ pub(crate) enum WorkflowSelector {
 #[cfg(feature = "e2e-workflow-planner")]
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "kebab-case")]
-pub(crate) enum InstallationFamily {
+pub enum InstallationFamily {
     Cargo,
     Generic,
     Github,
@@ -30,31 +30,31 @@ pub(crate) enum InstallationFamily {
 
 #[cfg(feature = "e2e-workflow-planner")]
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct WorkflowPackage {
-    pub(crate) installation_family: InstallationFamily,
-    pub(crate) source_id: String,
+pub struct WorkflowPackage {
+    pub installation_family: InstallationFamily,
+    pub source_id: String,
 }
 
 #[cfg(feature = "e2e-workflow-planner")]
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
-pub(crate) struct RegistrySnapshot {
-    pub(crate) release_tag: String,
-    pub(crate) refreshed_at_epoch_seconds: u64,
-    pub(crate) digest: Option<String>,
+pub struct RegistrySnapshot {
+    pub release_tag: String,
+    pub refreshed_at_epoch_seconds: u64,
+    pub digest: Option<String>,
 }
 
 #[cfg(feature = "e2e-workflow-planner")]
 #[derive(Serialize)]
-pub(crate) struct WorkflowPlan {
+pub struct WorkflowPlan {
     has_runnable: bool,
     matrix: WorkflowMatrix,
 }
 
 #[cfg(feature = "e2e-workflow-planner")]
-pub(crate) struct DownloadableServer {
-    pub(crate) id: String,
-    pub(crate) name: String,
-    pub(crate) program: String,
+pub struct DownloadableServer {
+    pub id: String,
+    pub name: String,
+    pub program: String,
 }
 
 #[cfg(feature = "e2e-workflow-planner")]
@@ -381,20 +381,6 @@ impl Manifest {
             && std::env::consts::ARCH == "x86_64"
     }
 
-    pub(crate) fn is_preferred_pair(&self, label: &str) -> bool {
-        let languages = self
-            .languages
-            .iter()
-            .filter(|language| language.kind == ProjectKind::Source)
-            .map(|language| language.id.clone())
-            .collect();
-        preferred_pairs(&repository_root().join("data"), &languages).is_ok_and(|pairs| {
-            pairs
-                .iter()
-                .any(|pair| format!("{}/{}", pair.language, pair.server) == label)
-        })
-    }
-
     pub(crate) fn exclusion_reason(&self, label: &str) -> Option<String> {
         if let Some(reason) = self.pairs.iter().find_map(|pair| {
             (format!("{}/{}", pair.language, pair.server) == label)
@@ -454,7 +440,6 @@ impl Manifest {
 }
 
 #[cfg(feature = "e2e-workflow-planner")]
-#[cfg(feature = "e2e-workflow-planner")]
 impl InstallationFamily {
     pub(crate) fn label(self) -> &'static str {
         match self {
@@ -481,7 +466,7 @@ impl InstallationFamily {
         }
     }
 
-    pub(crate) fn from_source_id(source_id: &str) -> Result<Self, String> {
+    pub fn from_source_id(source_id: &str) -> Result<Self, String> {
         let family = source_id
             .strip_prefix("pkg:")
             .and_then(|value| value.split('/').next())

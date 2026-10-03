@@ -155,12 +155,19 @@ snapshots when server versions can legitimately change ordering, signatures, or 
 
 ## Harness & manifest layout
 
-A normal Cargo integration-test crate invokes the built binary through `CARGO_BIN_EXE_lsp-cli`:
+The unpublished `lsp-cli-e2e-support` workspace crate owns the shared harness and its unit tests.
+The two standalone integration-test entry points pass the built binary through
+`CARGO_BIN_EXE_lsp-cli`; the real-server runner and subreaper regressions run on their main threads.
+Mock-only helpers compile under `cfg(test)`, so each target keeps unused-code and import warnings.
 
 ```text
 tests/
-  e2e.rs
+  e2e_runner.rs
+  e2e_reaper.rs
   e2e/
+    Cargo.toml / lib.rs
+    runner.rs
+    planner/
     harness.rs
     manifest.rs / manifest/
     catalog.rs
@@ -171,6 +178,11 @@ tests/
       suite.yaml
       <language>.yaml
 ```
+
+`make test` tests both default workspace members. Library unit tests find `lsp-cli` beside Cargo's
+`deps/` directory; build the application first when testing only the support package. This also
+works with custom target directories and build profiles. CI runs the planner with
+`cargo run -p lsp-cli-e2e-support --features e2e-workflow-planner --bin e2e-workflow-plan`.
 
 Keep every Rust file under 600 lines; move repeated process setup and assertions into helpers as
 soon as a second test needs them.

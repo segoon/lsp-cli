@@ -18,7 +18,7 @@ use nix::{
 const CLEANUP_TIMEOUT: Duration = Duration::from_secs(5);
 const POLL_INTERVAL: Duration = Duration::from_millis(10);
 
-#[cfg(all(test, target_os = "linux"))]
+#[cfg(target_os = "linux")]
 #[path = "child_reaper/regression.rs"]
 pub(crate) mod regression;
 

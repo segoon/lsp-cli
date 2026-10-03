@@ -801,11 +801,10 @@ dependencies = [
  "clap_complete",
  "command-group",
  "flate2",
- "fs_extra",
  "humantime",
+ "lsp-cli-e2e-support",
  "lsp-types",
  "lzma-rs",
- "nix",
  "regex",
  "reqwest",
  "serde",
@@ -813,6 +812,26 @@ dependencies = [
  "serde_yaml",
  "sha2",
  "shlex 2.0.1",
+ "tar",
+ "tempfile",
+ "thiserror",
+ "url",
+ "zip",
+]
+
+[[package]]
+name = "lsp-cli-e2e-support"
+version = "0.0.0"
+dependencies = [
+ "command-group",
+ "flate2",
+ "fs_extra",
+ "nix",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "sha2",
  "tar",
  "tempfile",
  "thiserror",

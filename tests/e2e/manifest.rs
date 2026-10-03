@@ -146,6 +146,7 @@ enum PairTier {
 }
 
 impl Manifest {
+    #[cfg(test)]
     fn load() -> Result<Self, String> {
         Self::load_cases(repository_root())
     }
@@ -217,6 +218,7 @@ impl Manifest {
         Ok(manifest)
     }
 
+    #[cfg(test)]
     pub(crate) fn load_repository() -> Result<Self, String> {
         Self::load_validated(repository_root())
     }
@@ -286,6 +288,7 @@ impl Manifest {
         })
     }
 
+    #[cfg(test)]
     pub(crate) fn command_names(&self) -> BTreeSet<&str> {
         self.commands
             .iter()
@@ -307,12 +310,6 @@ impl Manifest {
 
     pub(crate) fn declares_server(&self, id: &str) -> bool {
         self.servers.iter().any(|server| server.id == id)
-    }
-
-    pub(crate) fn server_is_downloadable(&self, id: &str) -> bool {
-        self.servers
-            .iter()
-            .any(|server| server.id == id && server.is_downloadable())
     }
 
     pub(crate) fn commands_for(&self, strategy: CommandStrategy) -> impl Iterator<Item = &str> {

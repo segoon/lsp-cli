@@ -44,6 +44,7 @@ impl QueryProfile {
         )
     }
 
+    #[cfg(test)]
     fn query_for(&self, command: QueryKind) -> &str {
         select_query(
             command,

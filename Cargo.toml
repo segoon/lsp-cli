@@ -11,15 +11,6 @@ keywords = ["lsp", "cli", "language-server"]
 categories = ["command-line-utilities", "development-tools"]
 exclude = ["data/**", "playground/rust/target/**", "playground/c/.cache/**", "playground/cpp/.cache"]
 
-[features]
-e2e-workflow-planner = []
-
-[[bin]]
-name = "e2e-workflow-plan"
-path = "src/bin/e2e_workflow_plan.rs"
-required-features = ["e2e-workflow-planner"]
-test = false
-
 [[test]]
 name = "e2e-runner"
 path = "tests/e2e_runner.rs"
@@ -52,18 +43,17 @@ url = "2.5.7"
 zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
 
 [dev-dependencies]
-fs_extra = "1.3.0"
-wait-timeout = "0.2.1"
-
-[target.'cfg(target_os = "linux")'.dev-dependencies]
-nix = { version = "=0.27.1", features = ["process", "signal"] }
+lsp-cli-e2e-support = { path = "tests/e2e" }
 
 [lints]
 workspace = true
 
-# Workspace Cargo.toml
+[workspace]
+members = ["tests/e2e"]
+default-members = [".", "tests/e2e"]
 
 [workspace.lints.clippy]
+struct_excessive_bools = "allow"
 # Don't Panic - prevent panics from unwraps and unsafe slicing or indexing
 string_slice = "warn"
 indexing_slicing = "warn"

@@ -1,4 +1,9 @@
 #![warn(clippy::pedantic)]
+// The crate-level lint group overrides Cargo lint levels, so repeat the workspace policy here.
+#![allow(
+    clippy::struct_excessive_bools,
+    reason = "CLI options represent independent boolean choices."
+)]
 #![expect(
     clippy::allow_attributes,
     reason = "Existing targeted suppressions predate workspace lint activation and will be migrated incrementally."

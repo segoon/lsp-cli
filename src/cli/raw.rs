@@ -146,7 +146,6 @@ pub(crate) struct RawLimitArgs {
     pub(crate) limit: Option<usize>,
 }
 
-#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Args, Eq, PartialEq)]
 pub(crate) struct RawDetectArgs {
     #[arg(
@@ -178,7 +177,6 @@ pub(crate) struct RawDetectArgs {
     pub(crate) debug: RawDebugArgs,
 }
 
-#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Args, Eq, PartialEq)]
 pub(crate) struct RawWorkspaceQueryArgs {
     #[arg(
@@ -204,7 +202,6 @@ pub(crate) struct RawWorkspaceQueryArgs {
     pub(crate) limit: RawLimitArgs,
 }
 
-#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Args, Eq, PartialEq)]
 pub(crate) struct RawLspWorkspaceQueryArgs {
     #[command(flatten)]
@@ -234,7 +231,6 @@ pub(crate) struct RawDiagnosticsArgs {
     pub(crate) query: RawLspWorkspaceQueryArgs,
 }
 
-#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Args, Eq, PartialEq)]
 pub(crate) struct RawFormatArgs {
     #[arg(
@@ -264,7 +260,6 @@ pub(crate) struct RawFormatArgs {
     pub(crate) stdout: bool,
 }
 
-#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Args, Eq, PartialEq)]
 pub(crate) struct RawListSymbolsArgs {
     #[arg(
@@ -351,7 +346,6 @@ pub(crate) struct RawTypeDefinitionArgs {
     pub(crate) full: bool,
 }
 
-#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Args, Eq, PartialEq)]
 pub(crate) struct RawBuildIndexArgs {
     #[arg(
@@ -372,7 +366,6 @@ pub(crate) struct RawBuildIndexArgs {
     pub(crate) timeout: RawTimeoutArgs,
 }
 
-#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Args, Eq, PartialEq)]
 pub(crate) struct RawRunArgs {
     #[arg(
@@ -390,7 +383,6 @@ pub(crate) struct RawRunArgs {
     pub(crate) debug: RawDebugArgs,
 }
 
-#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Args, Eq, PartialEq)]
 pub(crate) struct RawDaemonArgs {
     #[arg(
@@ -415,7 +407,6 @@ pub(crate) struct RawDaemonArgs {
     pub(crate) idle_timeout: Option<Duration>,
 }
 
-#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Args, Eq, PartialEq)]
 pub(crate) struct RawStopArgs {
     #[arg(
@@ -431,7 +422,6 @@ pub(crate) struct RawStopArgs {
     pub(crate) debug: RawDebugArgs,
 }
 
-#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Args, Eq, PartialEq)]
 pub(crate) struct RawStopAllArgs {
     #[command(flatten)]
@@ -447,7 +437,6 @@ pub(crate) struct RawServersArgs {
     pub(crate) lang: Option<String>,
 }
 
-#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Args, Eq, PartialEq)]
 pub(crate) struct RawServerCapabilitiesArgs {
     #[arg(

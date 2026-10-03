@@ -52,6 +52,7 @@ impl E2eContext {
 }
 
 impl E2eOutput {
+    #[cfg(test)]
     pub(crate) fn assert_success(&self) {
         self.ensure_success()
             .unwrap_or_else(|diagnostic| panic!("{diagnostic}"));
@@ -74,6 +75,7 @@ impl E2eOutput {
         })
     }
 
+    #[cfg(test)]
     pub(crate) fn assert_stdout_contains(&self, expected: &str) {
         if !self.stdout_text().contains(expected) {
             panic!(
@@ -92,6 +94,7 @@ impl E2eOutput {
         })
     }
 
+    #[cfg(test)]
     pub(crate) fn json<T: DeserializeOwned>(&self) -> T {
         self.try_json()
             .unwrap_or_else(|diagnostic| panic!("{diagnostic}"))

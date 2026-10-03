@@ -51,6 +51,7 @@ impl E2eContext {
         ]
     }
 
+    #[cfg(test)]
     pub(crate) fn run_cleaned(
         operation: impl FnOnce(&Self) -> Result<(), String>,
     ) -> Result<(), String> {

@@ -38,7 +38,7 @@ zip = { version = "8.6.0", default-features = false, features = ["deflate"], opt
 backon = { version = "1.6.0", default-features = false, features = ["std", "std-blocking-sleep"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-nix = { version = "=0.27.1", features = ["process", "signal"] }
+nix = { version = "=0.31.3", features = ["process", "signal"] }
 
 [lints]
 workspace = true

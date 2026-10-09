@@ -1,5 +1,9 @@
 # lsp-cli
 
+[![CI](https://github.com/segoon/lsp-cli/actions/workflows/ci.yml/badge.svg?branch=master&event=push)](https://github.com/segoon/lsp-cli/actions/workflows/ci.yml?query=branch%3Amaster+event%3Apush)
+[![Nightly compatibility](https://github.com/segoon/lsp-cli/actions/workflows/e2e.yml/badge.svg?branch=master&event=schedule)](https://github.com/segoon/lsp-cli/actions/workflows/e2e.yml?query=branch%3Amaster+event%3Aschedule)
+[![Dependency audit](https://github.com/segoon/lsp-cli/actions/workflows/audit.yml/badge.svg?branch=master&event=schedule)](https://github.com/segoon/lsp-cli/actions/workflows/audit.yml?query=branch%3Amaster+event%3Aschedule)
+
 `lsp-cli` is a command-line tool for talking to Language Server Protocol (LSP) servers from the terminal without an editor.
 
 It helps you do editor-style code navigation and inspection from a terminal:

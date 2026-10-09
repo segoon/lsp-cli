@@ -203,7 +203,7 @@ it is unavailable.
 | `elixirls` | `heex` | ✓ | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A |
 | `elixirls` | `surface` | ✓ | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A |
 | `elmls` | `elm` | ✓ | ✓ | N/A | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | N/A |
-| `elp` | `erlang` | ✓ | ✓ | N/A | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✓ | N/A |
+| `elp` | `erlang` | ✓ | ✓ | N/A | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | N/A |
 | `ember` | `handlebars` | ✓ | ✓ | N/A | ✗ | ✗ | ✓ | ✓ | ✓ | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ | N/A |
 | `ember` | `javascript` | ✓ | ✓ | N/A | ✗ | ✗ | ✓ | ✓ | ✓ | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ | N/A |
 | `ember` | `javascript.glimmer` | ✓ | ✓ | N/A | ✗ | ✗ | ✓ | ✓ | ✓ | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ | N/A |

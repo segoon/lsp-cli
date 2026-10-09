@@ -129,6 +129,13 @@
 - MesonLSP 5.0.4 times out during initialization. Templ 0.3.1020 closes during initialization
   without a diagnostic; its root cause remains unknown.
 
+## Erlang Language Platform (ELP)
+
+- Release `2026-10-05` advertises `implementationProvider: true`. The earlier stored capability
+  profile omitted `implementation`, causing the October 9 compatibility run to fail before any
+  query was executed. Keep the stored operations and generated matrix aligned with this response;
+  capability coverage does not establish that implementation queries return useful matches.
+
 ## Arduino Language Server
 
 - Arduino Language Server 0.7.7 is not self-contained after installation. Without an explicit

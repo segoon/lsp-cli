@@ -16,4 +16,5 @@ pairs:
         - callers
         - callees
         - definition
+        - implementation
         - type-definition

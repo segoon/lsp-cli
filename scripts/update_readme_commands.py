@@ -18,19 +18,19 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Build lsp-cli, capture `--help` output for every top-level subcommand, "
-            "and update README.md."
+            "and update docs/COMMANDS.md."
         )
     )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument(
         "--check",
         action="store_true",
-        help="Exit with an error if README.md is out of date instead of rewriting it.",
+        help="Exit with an error if docs/COMMANDS.md is out of date instead of rewriting it.",
     )
     mode.add_argument(
         "--write",
         action="store_true",
-        help="Rewrite README.md with the generated command reference. This is the default.",
+        help="Rewrite docs/COMMANDS.md with the generated command reference. This is the default.",
     )
     return parser.parse_args()
 
@@ -112,22 +112,22 @@ def render_generated_section(root: Path, binary: Path) -> str:
     return "\n\n".join(blocks)
 
 
-def replace_generated_section(readme: str, generated: str) -> str:
-    begin_count = readme.count(BEGIN_MARKER)
-    end_count = readme.count(END_MARKER)
+def replace_generated_section(document: str, generated: str) -> str:
+    begin_count = document.count(BEGIN_MARKER)
+    end_count = document.count(END_MARKER)
     if begin_count != 1 or end_count != 1:
         fail(
-            "README.md must contain exactly one generated commands marker pair "
+            "docs/COMMANDS.md must contain exactly one generated commands marker pair "
             f"({BEGIN_MARKER} ... {END_MARKER})"
         )
 
-    begin = readme.index(BEGIN_MARKER) + len(BEGIN_MARKER)
-    end = readme.index(END_MARKER)
+    begin = document.index(BEGIN_MARKER) + len(BEGIN_MARKER)
+    end = document.index(END_MARKER)
     if begin > end:
-        fail("README.md generated commands markers are in the wrong order")
+        fail("docs/COMMANDS.md generated commands markers are in the wrong order")
 
     body = f"\n{generated}\n"
-    return readme[:begin] + body + readme[end:]
+    return document[:begin] + body + document[end:]
 
 
 def fail_command(command: list[str], result: subprocess.CompletedProcess[str], message: str) -> None:
@@ -148,25 +148,25 @@ def fail(message: str) -> None:
 def main() -> int:
     args = parse_args()
     root = repo_root()
-    readme_path = root / "README.md"
+    document_path = root / "docs/COMMANDS.md"
     run_cargo_build(root)
     binary = binary_path(root)
 
     generated = render_generated_section(root, binary)
-    original = readme_path.read_text(encoding="utf-8")
+    original = document_path.read_text(encoding="utf-8")
     updated = replace_generated_section(original, generated)
 
     if args.check:
         if updated != original:
             print(
-                "README.md Commands and options section is out of date; "
+                "docs/COMMANDS.md Commands and options section is out of date; "
                 "run scripts/update_readme_commands.py",
                 file=sys.stderr,
             )
             return 1
         return 0
 
-    readme_path.write_text(updated, encoding="utf-8")
+    document_path.write_text(updated, encoding="utf-8")
     return 0
 
 

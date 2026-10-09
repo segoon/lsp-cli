@@ -355,6 +355,13 @@
   and stall initialization. Lifecycle tests wait, with a deadline, for the recorded upstream PID
   to exit after `stop`; socket disappearance alone does not prove complete process termination.
 
+## LTeX LS Plus
+
+- During the October 9 full suite with 11 parallel cases, `ltex-ls-plus` 18.7.0 timed out waiting
+  for initialization in the BibTeX fixture. An isolated capability-case retry using the same CI
+  registry snapshot passed. The cause is unconfirmed; this observation does not establish a
+  missing capability or justify changing the stored support profile.
+
 ## kotlin-language-server
 
 - The current Mason Kotlin Language Server launcher also needs `uname` and `xargs` in its isolated
@@ -379,10 +386,15 @@
   `https://download-cdn.jetbrains.com/language-server/kotlin-server/263.6379.0/kotlin-server-263.6379.0.tar.gz`.
   This URL matches Mason's Linux x64 template; the lifecycle case's subsequent "LSP server closed
   stdout" is a consequence of failed installation, not evidence of an LSP initialization defect.
-  The CDN URL still returned 404 when checked on October 8. The official release page links the
-  same archive path through `download.jetbrains.com`, but that host returned HTTP 451 from the
-  investigation environment, so changing hosts was not verified as a workaround. Older builds
-  can expire (see above), so pinning a previous release is not a durable remedy.
+  On October 9, the unsigned CDN URL still returned 404, while the official release endpoint at
+  `download.jetbrains.com` redirected to the same CDN path with signing parameters and returned
+  HTTP 200. Mason artifact downloads therefore route unsigned HTTPS URLs on this exact CDN host
+  through the official download host, preserving the path; URLs with query parameters remain
+  unchanged so existing signatures are preserved. The official host previously returned HTTP 451
+  from the investigation environment, so regional availability can still differ. Older builds
+  can expire (see above), so pinning a previous release is not a durable remedy. With this routing,
+  `kotlin-lsp/v263.6379.0` passed provisioning and direct initialization/shutdown in the Kotlin
+  playground using the October 9 CI registry snapshot.
 - Version `kotlin-lsp/v263.4702.0` starts Gradle synchronization and may download a Gradle
   distribution during a cold start. It reports terminal work-done progress, but still returns no
   workspace-symbol or reference matches for the shared Kotlin fixture. A longer progress wait does

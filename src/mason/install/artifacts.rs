@@ -235,7 +235,27 @@ pub(super) fn download_bytes(
     url: &str,
     package: &MasonPackage,
 ) -> Result<Vec<u8>> {
-    http_download_bytes(client, url, &format!("failed to download {}", package.name))
+    let url = artifact_download_url(url)?;
+    http_download_bytes(
+        client,
+        url.as_str(),
+        &format!("failed to download {}", package.name),
+    )
+}
+
+pub(super) fn artifact_download_url(value: &str) -> Result<url::Url> {
+    let mut url = url::Url::parse(value)
+        .map_err(|error| Error::network(format!("invalid download URL {value}: {error}")))?;
+    if url.scheme() == "https"
+        && url.host_str() == Some("download-cdn.jetbrains.com")
+        && url.query().is_none()
+    {
+        // Unsigned JetBrains CDN links can return 404 for existing releases. The official
+        // download endpoint supplies a signed redirect; already signed URLs stay intact.
+        url.set_host(Some("download.jetbrains.com"))
+            .map_err(|error| Error::network(format!("invalid download host: {error}")))?;
+    }
+    Ok(url)
 }
 
 /// Creates the install root and materializes one downloaded payload into it.

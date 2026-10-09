@@ -5,7 +5,10 @@ use std::path::Path;
 use std::fs;
 
 use super::{
-    artifacts::{command_failure_detail, install_downloaded_artifact, parse_archive_file_spec},
+    artifacts::{
+        artifact_download_url, command_failure_detail, install_downloaded_artifact,
+        parse_archive_file_spec,
+    },
     golang_install_target, installer_command, nuget_install_command, resolve_or_install_program,
 };
 #[cfg(unix)]
@@ -266,4 +269,47 @@ fn installer_command_scopes_toolchain_environment_to_cargo() {
         Some(cargo_home.into_os_string())
     );
     assert!(!npm_environment.contains_key(std::ffi::OsStr::new("CARGO_HOME")));
+}
+
+#[test]
+fn jetbrains_artifacts_use_the_official_download_endpoint() {
+    let path = "/language-server/kotlin-server/263.6379.0/kotlin-server-263.6379.0.tar.gz";
+    for (source, destination) in [
+        (
+            "https://download-cdn.jetbrains.com",
+            "https://download.jetbrains.com",
+        ),
+        (
+            "https://download.jetbrains.com",
+            "https://download.jetbrains.com",
+        ),
+        ("https://example.com", "https://example.com"),
+        (
+            "https://download-cdn.jetbrains.com.example.com",
+            "https://download-cdn.jetbrains.com.example.com",
+        ),
+        (
+            "http://download-cdn.jetbrains.com",
+            "http://download-cdn.jetbrains.com",
+        ),
+    ] {
+        let actual =
+            artifact_download_url(&format!("{source}{path}")).expect("artifact URL should parse");
+        assert_eq!(actual.as_str(), format!("{destination}{path}"));
+    }
+}
+
+#[test]
+fn artifact_urls_preserve_signed_queries_and_report_invalid_urls() {
+    let signed = "https://download-cdn.jetbrains.com/archive.tar.gz?Expires=123&Signature=a%2Bb&Key-Pair-Id=key";
+    assert_eq!(
+        artifact_download_url(signed)
+            .expect("signed URL should parse")
+            .as_str(),
+        signed,
+    );
+    let error = artifact_download_url("not a URL")
+        .expect_err("invalid URL should fail")
+        .to_string();
+    assert!(error.contains("invalid download URL not a URL"));
 }

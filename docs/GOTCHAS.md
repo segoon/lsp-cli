@@ -367,6 +367,15 @@
 - Mason version `kotlin-lsp/v262.9593.0` downloaded and launched, but `intellij-server` reported
   that the build had expired before completing LSP initialization. The registry later moved to
   `kotlin-lsp/v263.4702.0`, which initializes and completes a direct shutdown exchange.
+- The October 6, 2026 compatibility run failed to provision Mason version
+  `kotlin-lsp/v263.6379.0`: JetBrains returned HTTP 404 for
+  `https://download-cdn.jetbrains.com/language-server/kotlin-server/263.6379.0/kotlin-server-263.6379.0.tar.gz`.
+  This URL matches Mason's Linux x64 template; the lifecycle case's subsequent "LSP server closed
+  stdout" is a consequence of failed installation, not evidence of an LSP initialization defect.
+  The CDN URL still returned 404 when checked on October 8. The official release page links the
+  same archive path through `download.jetbrains.com`, but that host returned HTTP 451 from the
+  investigation environment, so changing hosts was not verified as a workaround. Older builds
+  can expire (see above), so pinning a previous release is not a durable remedy.
 - Version `kotlin-lsp/v263.4702.0` starts Gradle synchronization and may download a Gradle
   distribution during a cold start. It reports terminal work-done progress, but still returns no
   workspace-symbol or reference matches for the shared Kotlin fixture. A longer progress wait does

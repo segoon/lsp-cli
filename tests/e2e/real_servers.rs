@@ -308,7 +308,7 @@ impl CapabilitiesTest<'_> {
                     ));
                 }
                 let observed = observed_operations(&response.capabilities);
-                validate_capability_contract(&self.case, &observed)
+                validate_capability_contract(self.case.supported_operations(), &observed)
                     .at_stage(FailureStage::Capabilities)
             },
         )
@@ -372,30 +372,35 @@ fn observed_operations(capabilities: &Value) -> Vec<QueryKind> {
 }
 
 fn validate_capability_contract(
-    case: &RealServerCapabilitiesCase<'_>,
+    configured: &[QueryKind],
     observed: &[QueryKind],
 ) -> Result<(), String> {
-    let configured = case
-        .supported_operations()
-        .iter()
-        .copied()
-        .collect::<BTreeSet<_>>();
+    let configured = configured.iter().copied().collect::<BTreeSet<_>>();
     let observed = observed.iter().copied().collect::<BTreeSet<_>>();
     if configured == observed {
-        Ok(())
-    } else {
-        Err(format!(
-            "stored operations {:?} do not match advertised operations {:?}",
-            configured
-                .iter()
-                .map(|command| command.command_name())
-                .collect::<Vec<_>>(),
-            observed
-                .iter()
-                .map(|command| command.command_name())
-                .collect::<Vec<_>>()
-        ))
+        return Ok(());
     }
+    let mut lines =
+        vec!["server capabilities differ from stored supported-operations:".to_string()];
+    for (heading, operations) in [
+        (
+            "Advertised by the server but missing from stored operations:",
+            observed.difference(&configured),
+        ),
+        (
+            "Stored as supported but not advertised by the server:",
+            configured.difference(&observed),
+        ),
+    ] {
+        let changes = operations
+            .map(|command| format!("    - {}", command.command_name()))
+            .collect::<Vec<_>>();
+        if !changes.is_empty() {
+            lines.push(format!("  {heading}"));
+            lines.extend(changes);
+        }
+    }
+    Err(lines.join("\n"))
 }
 
 fn validate_unsupported(command: QueryKind, output: &E2eOutput) -> Result<(), String> {

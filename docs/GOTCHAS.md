@@ -129,6 +129,13 @@
 - MesonLSP 5.0.4 times out during initialization. Templ 0.3.1020 closes during initialization
   without a diagnostic; its root cause remains unknown.
 
+## Erlang Language Platform (ELP)
+
+- Release `2026-10-05` advertises `implementationProvider: true`. The earlier stored capability
+  profile omitted `implementation`, causing the October 9 compatibility run to fail before any
+  query was executed. Keep the stored operations and generated matrix aligned with this response;
+  capability coverage does not establish that implementation queries return useful matches.
+
 ## Arduino Language Server
 
 - Arduino Language Server 0.7.7 is not self-contained after installation. Without an explicit
@@ -348,6 +355,13 @@
   and stall initialization. Lifecycle tests wait, with a deadline, for the recorded upstream PID
   to exit after `stop`; socket disappearance alone does not prove complete process termination.
 
+## LTeX LS Plus
+
+- During the October 9 full suite with 11 parallel cases, `ltex-ls-plus` 18.7.0 timed out waiting
+  for initialization in the BibTeX fixture. An isolated capability-case retry using the same CI
+  registry snapshot passed. The cause is unconfirmed; this observation does not establish a
+  missing capability or justify changing the stored support profile.
+
 ## kotlin-language-server
 
 - The current Mason Kotlin Language Server launcher also needs `uname` and `xargs` in its isolated
@@ -367,6 +381,22 @@
 - Mason version `kotlin-lsp/v262.9593.0` downloaded and launched, but `intellij-server` reported
   that the build had expired before completing LSP initialization. The registry later moved to
   `kotlin-lsp/v263.4702.0`, which initializes and completes a direct shutdown exchange.
+- The October 6, 2026 compatibility run failed to provision Mason version
+  `kotlin-lsp/v263.6379.0`: JetBrains returned HTTP 404 for
+  `https://download-cdn.jetbrains.com/language-server/kotlin-server/263.6379.0/kotlin-server-263.6379.0.tar.gz`.
+  This URL matches Mason's Linux x64 template; the lifecycle case's subsequent "LSP server closed
+  stdout" is a consequence of failed installation, not evidence of an LSP initialization defect.
+  On October 9, the unsigned CDN URL still returned 404, while the official release endpoint at
+  `download.jetbrains.com` redirected to the same CDN path with signing parameters and returned
+  HTTP 200. The correction belongs in Mason's download URL templates: use the official endpoint
+  and let the generic HTTP client follow its signed redirect. A client-side hostname rewrite was
+  tested and removed in favor of [upstream recipe PR #17371](https://github.com/mason-org/mason-registry/pull/17371).
+  The corrected local recipe passes provisioning and direct initialization/shutdown without a
+  client-side rewrite. Existing registry snapshots retain the broken URLs until refreshed to a
+  release containing the correction. The official
+  host previously returned HTTP 451 from the investigation environment, so regional availability
+  can still differ. Older builds can expire (see above), so pinning a previous release is not a
+  durable remedy.
 - Version `kotlin-lsp/v263.4702.0` starts Gradle synchronization and may download a Gradle
   distribution during a cold start. It reports terminal work-done progress, but still returns no
   workspace-symbol or reference matches for the shared Kotlin fixture. A longer progress wait does

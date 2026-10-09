@@ -388,13 +388,15 @@
   stdout" is a consequence of failed installation, not evidence of an LSP initialization defect.
   On October 9, the unsigned CDN URL still returned 404, while the official release endpoint at
   `download.jetbrains.com` redirected to the same CDN path with signing parameters and returned
-  HTTP 200. Mason artifact downloads therefore route unsigned HTTPS URLs on this exact CDN host
-  through the official download host, preserving the path; URLs with query parameters remain
-  unchanged so existing signatures are preserved. The official host previously returned HTTP 451
-  from the investigation environment, so regional availability can still differ. Older builds
-  can expire (see above), so pinning a previous release is not a durable remedy. With this routing,
-  `kotlin-lsp/v263.6379.0` passed provisioning and direct initialization/shutdown in the Kotlin
-  playground using the October 9 CI registry snapshot.
+  HTTP 200. The correction belongs in Mason's download URL templates: use the official endpoint
+  and let the generic HTTP client follow its signed redirect. A client-side hostname rewrite was
+  tested and removed in favor of [upstream recipe PR #17371](https://github.com/mason-org/mason-registry/pull/17371).
+  The corrected local recipe passes provisioning and direct initialization/shutdown without a
+  client-side rewrite. Existing registry snapshots retain the broken URLs until refreshed to a
+  release containing the correction. The official
+  host previously returned HTTP 451 from the investigation environment, so regional availability
+  can still differ. Older builds can expire (see above), so pinning a previous release is not a
+  durable remedy.
 - Version `kotlin-lsp/v263.4702.0` starts Gradle synchronization and may download a Gradle
   distribution during a cold start. It reports terminal work-done progress, but still returns no
   workspace-symbol or reference matches for the shared Kotlin fixture. A longer progress wait does

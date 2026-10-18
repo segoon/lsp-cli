@@ -41,7 +41,7 @@ tar = "0.4.46"
 tempfile = "3.23.0"
 thiserror = "2.0.17"
 url = "2.5.7"
-zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
+zip = { version = "9.0.3", default-features = false, features = ["deflate"] }
 
 [dev-dependencies]
 lsp-cli-e2e-support = { path = "tests/e2e", features = ["mock-tests"] }

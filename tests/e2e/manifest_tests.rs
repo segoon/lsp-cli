@@ -272,7 +272,7 @@ fn manifest_rejects_a_pair_without_test_behavior() {
 
 #[test]
 fn manifest_rejects_unknown_fields() {
-    let error = serde_yaml::from_str::<SuiteFile>(
+    let error = serde_saphyr::from_str::<SuiteFile>(
         "schema-version: 4\ncoverage: partial\ncommands: []\nunknown: true\n",
     )
     .expect_err("unknown manifest fields should fail");
@@ -296,7 +296,7 @@ fn manifest_rejects_a_source_language_without_a_preferred_server() {
 
 #[test]
 fn language_case_filename_must_match_its_id() {
-    let case = serde_yaml::from_str::<LanguageFile>(
+    let case = serde_saphyr::from_str::<LanguageFile>(
         "language:\n  id: gomod\n  kind: metadata\n  project: playground/gomod\n",
     )
     .expect("language case should parse");
@@ -310,7 +310,7 @@ fn language_case_filename_must_match_its_id() {
 
 #[test]
 fn language_case_must_own_its_pairs() {
-    let case = serde_yaml::from_str::<LanguageFile>(
+    let case = serde_saphyr::from_str::<LanguageFile>(
         "language:\n  id: gomod\n  kind: metadata\n  project: playground/gomod\npairs:\n  - language: gowork\n    server: gopls\n",
     )
     .expect("language case should parse");

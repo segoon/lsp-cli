@@ -446,7 +446,8 @@ fn ensure_decompressed_size_limit(size: u64, path: &str) -> Result<()> {
 
 #[cfg(unix)]
 fn owner_writable_mode(mode: u32) -> u32 {
-    mode & !0o022
+    // Archive permissions must not grant special privileges to installed files.
+    (mode & 0o777) & !0o022
 }
 
 fn write_file(path: &Path, bytes: &[u8]) -> Result<()> {
@@ -464,5 +465,17 @@ pub(super) fn parse_archive_file_spec(file: &str) -> (&str, Option<&str>) {
     match file.split_once(':') {
         Some((archive, directory)) => (archive, Some(directory.trim_end_matches('/'))),
         None => (file, None),
+    }
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::owner_writable_mode;
+
+    #[test]
+    fn archive_modes_cannot_grant_special_privileges() {
+        for (mode, expected) in [(0o107_777, 0o755), (0o106_666, 0o644), (0o100_700, 0o700)] {
+            assert_eq!(owner_writable_mode(mode), expected);
+        }
     }
 }

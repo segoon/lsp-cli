@@ -21,7 +21,7 @@ pub(crate) fn yaml_paths(directory: &Path) -> Result<Vec<PathBuf>, String> {
 pub(crate) fn read_yaml<T: DeserializeOwned>(path: &Path) -> Result<T, String> {
     let contents = fs::read_to_string(path)
         .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
-    serde_yaml::from_str(&contents)
+    serde_saphyr::from_str(&contents)
         .map_err(|error| format!("failed to parse {}: {error}", path.display()))
 }
 

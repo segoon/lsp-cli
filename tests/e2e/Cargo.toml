@@ -34,7 +34,7 @@ tempfile = "3.23.0"
 thiserror = { version = "2.0.17", optional = true }
 wait-timeout = "0.2.1"
 url = "2.5.7"
-zip = { version = "8.6.0", default-features = false, features = ["deflate"], optional = true }
+zip = { version = "9.0.3", default-features = false, features = ["deflate"], optional = true }
 backon = { version = "1.6.0", default-features = false, features = ["std", "std-blocking-sleep"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]

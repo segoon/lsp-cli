@@ -30,20 +30,25 @@ fn parses_archive_file_spec() {
     );
 }
 
-#[test]
-fn extracts_vsix_as_a_zip_archive() {
-    let directory = tempfile::tempdir().expect("temporary directory should initialize");
+fn zip_with_file(path: &str, mode: u32) -> Vec<u8> {
     let mut archive = zip::ZipWriter::new(Cursor::new(Vec::new()));
     archive
         .start_file(
-            "extension/server/dist/server.js",
-            zip::write::SimpleFileOptions::default(),
+            path,
+            // Encode special bits in the archive to exercise extraction of untrusted modes.
+            zip::write::SimpleFileOptions::default().external_attributes(mode << 16),
         )
-        .expect("VSIX entry should initialize");
+        .expect("ZIP entry should initialize");
     archive
         .write_all(b"server")
-        .expect("VSIX entry should be written");
-    let bytes = archive.finish().expect("VSIX should finish").into_inner();
+        .expect("ZIP entry should be written");
+    archive.finish().expect("ZIP should finish").into_inner()
+}
+
+#[test]
+fn extracts_vsix_as_a_zip_archive() {
+    let directory = tempfile::tempdir().expect("temporary directory should initialize");
+    let bytes = zip_with_file("extension/server/dist/server.js", 0o100_644);
 
     install_downloaded_artifact(directory.path(), "server.vsix", &bytes)
         .expect("VSIX should extract");
@@ -266,4 +271,23 @@ fn installer_command_scopes_toolchain_environment_to_cargo() {
         Some(cargo_home.into_os_string())
     );
     assert!(!npm_environment.contains_key(std::ffi::OsStr::new("CARGO_HOME")));
+}
+
+#[cfg(unix)]
+#[test]
+fn zip_extraction_strips_special_permissions_and_preserves_executable_bits() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let directory = tempfile::tempdir().expect("temporary directory should initialize");
+    for (mode, expected) in [(0o107_777, 0o755), (0o106_666, 0o644)] {
+        let bytes = zip_with_file("server", mode);
+
+        install_downloaded_artifact(directory.path(), "server.zip", &bytes)
+            .expect("ZIP should extract");
+
+        let permissions = fs::metadata(directory.path().join("server"))
+            .expect("server should be extracted")
+            .permissions();
+        assert_eq!(permissions.mode() & 0o7777, expected);
+    }
 }

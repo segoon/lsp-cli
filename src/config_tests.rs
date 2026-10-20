@@ -387,3 +387,20 @@ fn rejects_invalid_request_window_sizes() {
         assert!(error.contains("max-requests-in-flight must be a positive integer"));
     }
 }
+
+#[test]
+fn loads_yaml_aliases_and_string_scalars() {
+    let global = TestDir::new("cli-config-yaml-aliases");
+    global.write_file(
+        "lsp-cli.yaml",
+        "lsp:\n  first: &servers\n    - on\n    - '123'\n  second: *servers\n",
+    );
+
+    let config = load_cli_config(global.path(), None).expect("YAML aliases should load");
+
+    assert_eq!(config.lsp_preferences["first"], ["on", "123"]);
+    assert_eq!(
+        config.lsp_preferences["second"],
+        config.lsp_preferences["first"]
+    );
+}

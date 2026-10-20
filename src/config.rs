@@ -237,7 +237,7 @@ fn load_optional_cli_config_file(path: &Path) -> Result<CliConfig> {
     }
 
     let contents = path_fs::read_to_string(path)?;
-    let file: CliConfigFile = serde_yaml::from_str(&contents)
+    let file: CliConfigFile = serde_saphyr::from_str(&contents)
         .map_err(|error| Error::config_format(path_fs::format_path_error(path, error)))?;
     Ok(CliConfig::from(file))
 }
@@ -351,7 +351,7 @@ fn load_filetypes(dir: &Path) -> Result<Vec<FiletypeConfig>> {
         .into_iter()
         .map(|path| {
             let contents = path_fs::read_to_string(&path)?;
-            let file: FiletypeFile = serde_yaml::from_str(&contents)
+            let file: FiletypeFile = serde_saphyr::from_str(&contents)
                 .map_err(|error| Error::config_format(path_fs::format_path_error(&path, error)))?;
             let Some(stem) = path.file_stem().and_then(|value| value.to_str()) else {
                 return Err(Error::config_format(format!(
@@ -393,7 +393,7 @@ fn load_lsps(dir: &Path) -> Result<Vec<LspConfig>> {
         .into_iter()
         .map(|path| {
             let contents = path_fs::read_to_string(&path)?;
-            let file: LspFile = serde_yaml::from_str(&contents)
+            let file: LspFile = serde_saphyr::from_str(&contents)
                 .map_err(|error| Error::config_format(path_fs::format_path_error(&path, error)))?;
             let Some(stem) = path.file_stem().and_then(|value| value.to_str()) else {
                 return Err(Error::config_format(format!(

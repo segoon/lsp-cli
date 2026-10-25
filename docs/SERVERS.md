@@ -243,10 +243,10 @@ it is unavailable.
 | `eslint` | `typescript` | ✓ | ✓ | N/A | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | N/A |
 | `eslint` | `typescriptreact` | ✓ | ✓ | N/A | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | N/A |
 | `eslint` | `vue` | ✓ | ✓ | N/A | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | N/A |
-| `expert` | `eelixir` | ✓ | ✓ | N/A | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ | N/A |
-| `expert` | `elixir` | ✓ | ✓ | N/A | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ | N/A |
-| `expert` | `heex` | ✓ | ✓ | N/A | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ | N/A |
-| `expert` | `surface` | ✓ | ✓ | N/A | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ | N/A |
+| `expert` | `eelixir` | ✓ | ✓ | N/A | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | N/A |
+| `expert` | `elixir` | ✓ | ✓ | N/A | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | N/A |
+| `expert` | `heex` | ✓ | ✓ | N/A | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | N/A |
+| `expert` | `surface` | ✓ | ✓ | N/A | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | N/A |
 | `facility_language_server` | `fsd` | ✓ | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A |
 | `fennel_language_server` | `fennel` | ✓ | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A |
 | `fennel_ls` | `fennel` | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A |

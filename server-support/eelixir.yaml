@@ -19,7 +19,11 @@ pairs:
         - list-symbols
         - list-functions
         - references
+        - callers
+        - callees
         - definition
+        - declaration
+        - implementation
   - language: eelixir
     server: lexical
     smoke:

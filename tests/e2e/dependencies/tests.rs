@@ -5,6 +5,7 @@ use std::thread;
 
 use super::*;
 use crate::dependencies::catalog::Validation;
+use crate::dependencies::paths::PathEntry;
 use backon::ExponentialBuilder;
 
 const PAYLOAD_SHA256: &str = "672eb8316fec83f94119a4193f9fc552513d56a147502f8be4830e017d817831";
@@ -29,7 +30,7 @@ fn dependency(url: String) -> Dependency {
         archive_name: "fixture.tar.gz",
         digest: Digest::Sha256(PAYLOAD_SHA256),
         strip_components: 1,
-        path_directory: "bin",
+        path_entry: PathEntry::Directory("bin"),
         validation: Validation {
             program: "bin/fixture",
             args: &["--version"],
@@ -183,10 +184,12 @@ fn extracts_archives_with_the_declared_strip_depth() {
 
 #[test]
 fn assembles_managed_directories_before_host_path() {
-    let dependencies = catalog::dependencies().expect("catalog should load");
+    let bin = dependency("http://unused".to_string());
+    let mut root = dependency("http://unused".to_string());
+    root.path_entry = PathEntry::Directory("");
     let installations = vec![
-        (&dependencies[0], PathBuf::from("/managed/go")),
-        (&dependencies[3], PathBuf::from("/managed/dotnet")),
+        (&bin, PathBuf::from("/managed/go")),
+        (&root, PathBuf::from("/managed/dotnet")),
     ];
     let host = std::env::join_paths(["/host/one", "/host/two"]).expect("host PATH should join");
     let actual = assemble_install_path(&installations, &host).expect("managed PATH should join");

@@ -1,6 +1,8 @@
 use std::fs;
 use std::path::Path;
 
+use super::paths::PathEntry;
+
 #[derive(Clone, Copy)]
 pub(super) enum Digest {
     Sha256(&'static str),
@@ -37,7 +39,7 @@ pub(super) struct Dependency {
     pub(super) archive_name: &'static str,
     pub(super) digest: Digest,
     pub(super) strip_components: u8,
-    pub(super) path_directory: &'static str,
+    pub(super) path_entry: PathEntry,
     pub(super) validation: Validation,
 }
 
@@ -73,7 +75,7 @@ pub(super) fn dependencies() -> Result<Vec<Dependency>, String> {
                 "63d339f0da5ab53635a56f2490a7984dfe12dfcff22ad749f63edaf590168445",
             ),
             strip_components: 1,
-            path_directory: "bin",
+            path_entry: PathEntry::Directory("bin"),
             validation: Validation {
                 program: "bin/go",
                 args: &["version"],
@@ -91,11 +93,30 @@ pub(super) fn dependencies() -> Result<Vec<Dependency>, String> {
                 "ce79869e1307ed8ee1e2baa86a412b1eb5b75d10a01006d788a6f968bcfaee94",
             ),
             strip_components: 1,
-            path_directory: "bin",
+            path_entry: PathEntry::Directory("bin"),
             validation: Validation {
                 program: "bin/java",
                 args: &["-version"],
                 expected: "21.0.12.1",
+                include_stderr: true,
+            },
+        },
+        Dependency {
+            name: "java25",
+            version: "25.0.4.1+1",
+            platform: linux.clone(),
+            url: "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.4.1%2B1/OpenJDK25U-jdk_x64_linux_hotspot_25.0.4.1_1.tar.gz".to_string(),
+            archive_name: "OpenJDK25U-jdk_x64_linux_hotspot_25.0.4.1_1.tar.gz",
+            digest: Digest::Sha256(
+                "dbb698396d478e7fa2b1e50f4103324b2a99b90569ee27c33f2261f9215cf41e",
+            ),
+            strip_components: 1,
+            // JDTLS needs Java 25; keep it separate from the default Java 21 used by LTeX.
+            path_entry: PathEntry::Alias { name: "java25", program: "bin/java" },
+            validation: Validation {
+                program: "bin/java",
+                args: &["-version"],
+                expected: "25.0.4.1",
                 include_stderr: true,
             },
         },
@@ -110,7 +131,7 @@ pub(super) fn dependencies() -> Result<Vec<Dependency>, String> {
                 "fd8e59d5a511510f6a298afb548f18c7d2b1be404d8b4a27d94fbe49f56cb2d6",
             ),
             strip_components: 1,
-            path_directory: "bin",
+            path_entry: PathEntry::Directory("bin"),
             validation: Validation {
                 program: "bin/node",
                 args: &["--version"],
@@ -128,7 +149,7 @@ pub(super) fn dependencies() -> Result<Vec<Dependency>, String> {
                 "51c8b999af9e8dd9998c9edc5944e19a90788862068acd38694e098889054ce8c23d4f0c5cccfa16bf187d044562359e5ee69a9f8ad0bbe913ba90311fbce25b",
             ),
             strip_components: 0,
-            path_directory: "",
+            path_entry: PathEntry::Directory(""),
             validation: Validation {
                 program: "dotnet",
                 args: &["--version"],
@@ -147,7 +168,7 @@ pub(super) fn dependencies() -> Result<Vec<Dependency>, String> {
                 "02aa270f183da276e5b5920b1dac44a63f1a49e55050ebde3aecc9eb82f93239",
             ),
             strip_components: 1,
-            path_directory: "",
+            path_entry: PathEntry::Directory(""),
             validation: Validation {
                 program: "zig",
                 args: &["version"],
@@ -165,7 +186,7 @@ pub(super) fn dependencies() -> Result<Vec<Dependency>, String> {
             archive_name: ruby_archive,
             digest: Digest::Sha256(ruby_digest),
             strip_components: 1,
-            path_directory: "bin",
+            path_entry: PathEntry::Directory("bin"),
             validation: Validation {
                 program: "bin/ruby",
                 args: &["--version"],

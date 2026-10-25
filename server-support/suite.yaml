@@ -900,7 +900,7 @@ servers:
         - name: java
           resolve:
             - which
-            - java
+            - java25
         - name: python3
           resolve:
             - which

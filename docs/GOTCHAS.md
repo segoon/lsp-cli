@@ -341,9 +341,18 @@
 
 ## jdtls
 
-- The current Mason jdtls launcher requires Java 21 or newer. Merely resolving a `java` executable
-  is insufficient: GitHub's default Java may be older and makes the launcher exit before the LSP
-  `initialize` response. CI must provision Java 21 explicitly before enabling the lifecycle case.
+- Mason `pkg:generic/eclipse/eclipse.jdt.ls@v1.62.0`, archive
+  `jdt-language-server-1.62.0-202610131109.tar.gz`, fails startup on Java 21 despite its
+  README and launcher accepting that version. Bundled `org.eclipse.core.filesystem`
+  `1.12.0.v20260927-0940` requires JavaSE 25. Eclipse writes a startup error to stdout,
+  producing an invalid LSP header; its private configuration log reveals the OSGi error,
+  which the retained stderr summary omits. Capture that log before sandbox deletion.
+  On snapshot `2026-10-19-sulky-frog`, the isolated detached lifecycle case fails with
+  Java 21.0.12.1 and passes with Java 25.0.4.1. JDTLS resolves the managed `java25` alias
+  and stages it as `java`; other servers keep Java 21 because Java 25 regresses LTeX.
+- Earlier Mason jdtls launchers already required Java 21 or newer. Merely resolving a `java`
+  executable is insufficient: an older runtime makes the launcher exit before the LSP
+  `initialize` response. Resolve a sufficiently new runtime explicitly for the selected release.
 - The current Mason jdtls package needs both Java to run and Python to install its launcher.
   Bounded cleanup handles its direct-process lifetime after a successful exchange, but shared
   semantic smoke remains excluded: method symbols are decorated rather than matching the fixture
@@ -354,6 +363,14 @@
   shutdown. Immediately starting another jdtls for the same workspace can overlap the old process
   and stall initialization. Lifecycle tests wait, with a deadline, for the recorded upstream PID
   to exit after `stop`; socket disappearance alone does not prove complete process termination.
+
+## LTeX LS
+
+- LTeX LS 16.0.0 initializes with Java 21.0.12.1 but fails with Java 25.0.4.1:
+  LanguageTool's grammar exceeds `jdk.xml.totalEntitySizeLimit` (100,009 versus 100,000;
+  `JAXP00010004`). An isolated `context/ltex` comparison with identical binaries and
+  snapshot `2026-10-19-sulky-frog` confirmed the regression. Keep Java 21 for LTeX;
+  changing XML parser limits would require separate, server-local validation.
 
 ## LTeX LS Plus
 

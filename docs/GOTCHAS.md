@@ -1,5 +1,16 @@
 # LSP protocol
 
+## Position encoding
+
+- The client advertises only UTF-16 positions. LSP `character` values are UTF-16 code units,
+  not UTF-8 byte offsets or Unicode scalar counts. Convert range endpoints before slicing Rust
+  strings and convert byte offsets from text searches back to UTF-16 before sending requests.
+  Cyrillic text can otherwise cause a string-slice panic; characters outside the BMP (such as
+  emoji) also expose errors when extracting `--full` content by Unicode scalar count.
+- Columns inside a UTF-16 surrogate pair cannot identify a UTF-8 character boundary. Symbol-name
+  anchoring falls back to the server location for such ranges; source extraction reports
+  `<line unavailable>` rather than slicing at an invalid boundary.
+
 ## Capabilities
 
 - Some servers send client requests such as `client/registerCapability` immediately after the

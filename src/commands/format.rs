@@ -2,7 +2,7 @@ use crate::cli::FormatArgs;
 use crate::commands::common::{connect_lsp_client, prepare_workspace};
 use crate::config::ConfigStore;
 use crate::error::{Error, Result, error_fn};
-use crate::lsp::{ensure_formatting_support, path_to_file_uri};
+use crate::lsp::{ensure_formatting_support, path_to_file_uri, utf16_column_to_byte};
 use lsp_types::{Position, TextEdit};
 use serde_json::json;
 use std::path::Path;
@@ -207,26 +207,4 @@ fn position_to_offset(
         )));
     };
     Ok(line_start + byte_in_line)
-}
-
-fn utf16_column_to_byte(line: &str, utf16_col: usize) -> Option<usize> {
-    if utf16_col == 0 {
-        return Some(0);
-    }
-
-    let mut units = 0;
-    for (index, ch) in line.char_indices() {
-        if units == utf16_col {
-            return Some(index);
-        }
-        units += ch.len_utf16();
-        if units == utf16_col {
-            return Some(index + ch.len_utf8());
-        }
-        if units > utf16_col {
-            return None;
-        }
-    }
-
-    (units == utf16_col).then_some(line.len())
 }

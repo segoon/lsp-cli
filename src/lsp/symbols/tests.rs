@@ -7,7 +7,7 @@ use super::{
 };
 use crate::lsp::{SourceCache, symbol_full_content_from_document_response};
 use crate::test_support::TestDir;
-use lsp_types::SymbolKind;
+use lsp_types::{Position, Range, SymbolKind};
 use serde_json::json;
 use url::Url;
 
@@ -16,6 +16,16 @@ struct SourceFixture {
     file: std::path::PathBuf,
     uri: String,
     cache: SourceCache,
+}
+
+impl SourceFixture {
+    fn flat_symbol_response(&self, name: &str, range: Range) -> serde_json::Value {
+        json!([{
+            "name": name,
+            "kind": 12,
+            "location": { "uri": self.uri, "range": range }
+        }])
+    }
 }
 
 fn matched(
@@ -227,19 +237,10 @@ fn parses_flat_document_symbols_at_symbol_name() {
         source_fixture("pub fn format_order(order: &str) -> String { order.to_string() }\n");
 
     let matches = document_symbol_matches_from_response(
-        &json!([
-            {
-                "name": "format_order",
-                "kind": 12,
-                "location": {
-                    "uri": fixture.uri,
-                    "range": {
-                        "start": { "line": 0, "character": 0 },
-                        "end": { "line": 0, "character": 62 }
-                    }
-                }
-            }
-        ]),
+        &fixture.flat_symbol_response(
+            "format_order",
+            Range::new(Position::new(0, 0), Position::new(0, 62)),
+        ),
         &fixture.file,
         &mut fixture.cache,
     )
@@ -258,19 +259,10 @@ fn parses_flat_document_symbols_inside_attributed_ranges() {
     let mut fixture = source_fixture("#[test]\nfn parses_callers_arguments() {}\n");
 
     let matches = function_matches_from_document_response(
-        &json!([
-            {
-                "name": "parses_callers_arguments",
-                "kind": 12,
-                "location": {
-                    "uri": fixture.uri,
-                    "range": {
-                        "start": { "line": 0, "character": 0 },
-                        "end": { "line": 1, "character": 32 }
-                    }
-                }
-            }
-        ]),
+        &fixture.flat_symbol_response(
+            "parses_callers_arguments",
+            Range::new(Position::new(0, 0), Position::new(1, 32)),
+        ),
         &fixture.file,
         &mut fixture.cache,
     )
@@ -513,3 +505,6 @@ fn parses_call_hierarchy_outgoing_calls() {
 
     assert_eq!(matches[0].name, "callee");
 }
+
+#[path = "unicode_tests.rs"]
+mod unicode_tests;

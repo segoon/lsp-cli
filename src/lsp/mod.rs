@@ -4,6 +4,7 @@ mod custom_types;
 mod diagnostics;
 mod full_content;
 mod jsonrpc;
+mod position;
 mod source_cache;
 mod symbols;
 pub(crate) mod transport;
@@ -23,6 +24,7 @@ pub use diagnostics::{
 };
 pub use full_content::symbol_full_content_from_document_response;
 pub use jsonrpc::jsonrpc;
+pub(crate) use position::utf16_column_to_byte;
 pub use source_cache::SourceCache;
 pub use symbols::{
     SymbolMatch, call_hierarchy_matches_from_incoming_response,

@@ -1,3 +1,4 @@
+use super::utf16_column_to_byte;
 use lsp_types::Range;
 use std::collections::HashMap;
 use std::fs;
@@ -41,14 +42,13 @@ impl SourceCache {
             let end_char = if line_index == end_line {
                 usize::try_from(range.end.character).ok()
             } else {
-                Some(line.chars().count())
+                Some(line.encode_utf16().count())
             };
-            let Some(start_byte) =
-                start_char.and_then(|value| byte_index_for_character(line, value))
+            let Some(start_byte) = start_char.and_then(|value| utf16_column_to_byte(line, value))
             else {
                 return "<line unavailable>".to_string();
             };
-            let Some(end_byte) = end_char.and_then(|value| byte_index_for_character(line, value))
+            let Some(end_byte) = end_char.and_then(|value| utf16_column_to_byte(line, value))
             else {
                 return "<line unavailable>".to_string();
             };
@@ -85,14 +85,6 @@ impl SourceCache {
                 .unwrap_or_default()
         })
     }
-}
-
-fn byte_index_for_character(line: &str, character: usize) -> Option<usize> {
-    if character == line.chars().count() {
-        return Some(line.len());
-    }
-
-    line.char_indices().nth(character).map(|(index, _)| index)
 }
 
 fn comment_start_line(lines: &[String], start_line: usize) -> usize {

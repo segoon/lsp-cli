@@ -8,7 +8,7 @@ use lsp_types::{
 use serde::Deserialize;
 use serde_json::Value;
 
-use super::{SourceCache, file_uri_to_path};
+use super::{SourceCache, file_uri_to_path, utf16_column_to_byte};
 use crate::error::{Error, Result, error_fn};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -283,23 +283,29 @@ fn name_offset_in_range(
     for line_index in start_line_index..=end_line_index {
         let line = lines.get(line_index)?;
         let start_col = if line_index == start_line_index {
-            usize::try_from(range.start.character).ok()?
+            utf16_column_to_byte(line, usize::try_from(range.start.character).ok()?)?
         } else {
             0
         };
         let end_col = if line_index == end_line_index {
-            usize::try_from(range.end.character).ok()?
+            utf16_column_to_byte(
+                line,
+                usize::try_from(range.end.character)
+                    .ok()?
+                    .min(line.encode_utf16().count()),
+            )?
         } else {
             line.len()
         };
-        let end_col = end_col.min(line.len());
         if start_col > end_col {
             continue;
         }
 
-        let segment = &line[start_col..end_col];
+        let segment = line.get(start_col..end_col)?;
         if let Some(offset) = identifier_name_offset(segment, name) {
-            let character = u32::try_from(start_col + offset).ok()?;
+            // Search returns a UTF-8 byte offset; outgoing LSP requests need UTF-16 units.
+            let prefix = line.get(..start_col + offset)?;
+            let character = u32::try_from(prefix.encode_utf16().count()).ok()?;
             return Some((line_index, character));
         }
     }

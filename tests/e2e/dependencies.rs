@@ -11,6 +11,8 @@ use sha2::{Sha256, Sha512};
 
 #[path = "dependencies/catalog.rs"]
 mod catalog;
+#[path = "dependencies/paths.rs"]
+mod paths;
 use catalog::{Dependency, Digest};
 
 use crate::repository_root;
@@ -65,7 +67,7 @@ fn assemble_install_path(
 ) -> Result<OsString, String> {
     let paths = installations
         .iter()
-        .map(|(dependency, root)| root.join(dependency.path_directory))
+        .map(|(dependency, root)| dependency.path_entry.directory(root))
         .chain(std::env::split_paths(host_path))
         .collect::<Vec<_>>();
     std::env::join_paths(paths)
@@ -100,7 +102,11 @@ impl Cache {
         let _lock = CacheLock::acquire(&self.root.join("locks/setup"))?;
         dependencies
             .iter()
-            .map(|dependency| self.ensure(dependency).map(|path| (dependency, path)))
+            .map(|dependency| {
+                let path = self.ensure(dependency)?;
+                dependency.path_entry.prepare(&path)?;
+                Ok((dependency, path))
+            })
             .collect()
     }
 

@@ -51,7 +51,11 @@ where
     reader
         .read_exact(&mut body)
         .map_err(error_fn!(Error::lsp, "failed to read LSP body"))?;
-    serde_json::from_slice(&body).map_err(error_fn!(Error::lsp, "invalid JSON-RPC payload"))
+    // Parse a received value before wrapping it: Option<Value> would interpret a framed
+    // JSON null as EOF and stop reading the server's subsequent response.
+    serde_json::from_slice::<Value>(&body)
+        .map(Some)
+        .map_err(error_fn!(Error::lsp, "invalid JSON-RPC payload"))
 }
 
 pub(crate) fn write_message<W>(writer: &mut W, message: &Value) -> Result<()>
@@ -93,16 +97,26 @@ mod tests {
     use std::io::BufReader;
 
     #[test]
-    fn writes_and_reads_lsp_message() {
+    fn reads_null_payload_and_following_response_before_eof() {
+        // OmniSharp can send a framed null before its shutdown response. Only an empty
+        // stream is EOF; deserializing into Option<Value> would conflate null with EOF.
+        let messages = [
+            json!(null),
+            json!({"jsonrpc": "2.0", "id": 1, "result": null}),
+        ];
         let mut buffer = Vec::new();
-        let message = json!({"jsonrpc": "2.0", "id": 1, "result": null});
-        write_message(&mut buffer, &message).expect("message should be written");
+        for message in &messages {
+            write_message(&mut buffer, message).expect("message should be written");
+        }
 
         let mut reader = BufReader::new(buffer.as_slice());
-        assert_eq!(
-            read_message(&mut reader).expect("message should read"),
-            Some(message)
-        );
+        for message in messages {
+            assert_eq!(
+                read_message(&mut reader).expect("message should read"),
+                Some(message)
+            );
+        }
+        assert_eq!(read_message(&mut reader).expect("EOF should read"), None);
     }
 
     #[test]

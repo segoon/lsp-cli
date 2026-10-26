@@ -49,6 +49,14 @@ directly from those installations; it does not create an aggregate bin directory
 managed environment supports Ubuntu 22.04 and 24.04 on x86-64; Ruby's upstream binary distribution
 is the limiting dependency.
 
+Java 21 remains the default `java`. JDTLS explicitly resolves the managed `java25` alias,
+which the harness stages as `java` only inside its isolated cases. The Java 25 installation
+exposes only that alias, so its other executables cannot replace default tools on the installer
+`PATH`. This keeps LTeX 16 compatible with Java 21 while allowing current JDTLS to start.
+The extra pinned JDK uses the same checksum validation and versioned cache as other runtimes.
+When automatic setup is disabled, JDTLS cases require a Java 25 executable named `java25`
+on the supplied `PATH` in addition to the default `java` used by other servers.
+
 Rust/Cargo, Bash, curl, `tar`, `xz`, checksum utilities, Git, Python with pip/venv, Perl, and basic
 system utilities remain host prerequisites. Set `E2E_AUTO_DOWNLOAD=0` to disable automatic setup
 for an offline run which already supplies every required runtime on `PATH`. Normal tests never

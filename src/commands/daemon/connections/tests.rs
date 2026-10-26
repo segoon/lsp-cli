@@ -10,8 +10,8 @@ use std::io::{BufReader, Read, Write};
 
 const TEST_TIMEOUT: Duration = Duration::from_secs(3);
 
-struct Peer {
-    reader: BufReader<UnixStream>,
+struct Peer<R = UnixStream> {
+    reader: BufReader<R>,
 }
 
 impl Peer {
@@ -39,12 +39,54 @@ impl Peer {
             .expect("read response")
             .expect("response exists")
     }
+}
 
+impl<R: Read> Peer<R> {
     fn assert_closed(&mut self) {
-        match self.reader.read(&mut [0]) {
-            Ok(bytes) => assert_eq!(bytes, 0, "connection closed without a response"),
-            Err(error) => assert_eq!(error.kind(), std::io::ErrorKind::ConnectionReset),
+        // read_exact retries Interrupted: a signal does not establish whether the peer closed.
+        let error = self
+            .reader
+            .read_exact(&mut [0])
+            .expect_err("connection closed without a response");
+        assert!(
+            matches!(
+                error.kind(),
+                std::io::ErrorKind::UnexpectedEof | std::io::ErrorKind::ConnectionReset
+            ),
+            "expected a closed connection, got {error}"
+        );
+    }
+}
+
+struct InterruptedClose {
+    interrupted: bool,
+    reset: bool,
+}
+
+impl Read for InterruptedClose {
+    fn read(&mut self, _buffer: &mut [u8]) -> std::io::Result<usize> {
+        if !self.interrupted {
+            self.interrupted = true;
+            return Err(std::io::ErrorKind::Interrupted.into());
         }
+        if self.reset {
+            Err(std::io::ErrorKind::ConnectionReset.into())
+        } else {
+            Ok(0)
+        }
+    }
+}
+
+#[test]
+fn closure_assertion_retries_interrupted_reads() {
+    for reset in [false, true] {
+        let mut peer = Peer {
+            reader: BufReader::new(InterruptedClose {
+                interrupted: false,
+                reset,
+            }),
+        };
+        peer.assert_closed();
     }
 }
 

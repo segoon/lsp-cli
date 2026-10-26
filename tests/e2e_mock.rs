@@ -29,11 +29,14 @@ fn mock_cases_find_cli_after_test_executable_is_relocated() {
     let directory = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR"))
         .expect("relocated test directory should initialize");
     let executable = directory.path().join("relocated-tests");
-    std::fs::copy(
+    // A concurrent fork can inherit a copy's writable descriptor until exec, making Linux
+    // reject the relocated executable as busy. Both paths are on Cargo's target filesystem;
+    // linking relocates the executable without ever opening it for writing.
+    std::fs::hard_link(
         std::env::current_exe().expect("integration-test executable should be available"),
         &executable,
     )
-    .expect("integration-test executable should copy");
+    .expect("integration-test executable should link");
     let output = std::process::Command::new(&executable)
         .args([
             "catalog_command_paths_are_covered",

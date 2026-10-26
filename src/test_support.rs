@@ -342,6 +342,14 @@ pub(crate) fn make_executable(path: &Path) {
     fs::set_permissions(path, permissions).expect("permissions should be updated");
 }
 
+/// Build a zero-based UTF-16 position for protocol and source fixtures.
+pub(crate) fn utf16_position(line: u32, column: u32) -> crate::lsp::Utf16Position {
+    crate::lsp::Utf16Position::new(
+        crate::lsp::LineIndex::new(line),
+        crate::lsp::Utf16Column::new(column),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::{

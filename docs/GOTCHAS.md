@@ -2,143 +2,122 @@
 
 ## Position encoding
 
-- The client advertises only UTF-16 positions. LSP `character` values are UTF-16 code units,
-  not UTF-8 byte offsets or Unicode scalar counts. Convert range endpoints before slicing Rust
-  strings and convert byte offsets from text searches back to UTF-16 before sending requests.
-  Cyrillic text can otherwise cause a string-slice panic; characters outside the BMP (such as
-  emoji) also expose errors when extracting `--full` content by Unicode scalar count.
-- Columns inside a UTF-16 surrogate pair cannot identify a UTF-8 character boundary. Symbol-name
-  anchoring falls back to the server location for such ranges; source extraction reports
-  `<line unavailable>` rather than slicing at an invalid boundary.
+- The client advertises only UTF-16 positions. LSP `character` values are UTF-16 code units, not UTF-8 byte offsets or Unicode scalar
+  counts. Convert range endpoints before slicing Rust strings and convert byte offsets from text searches back to UTF-16 before sending
+  requests. Cyrillic text can otherwise cause a string-slice panic; characters outside the BMP (such as emoji) also expose errors when
+  extracting `--full` content by Unicode scalar count.
+- Columns inside a UTF-16 surrogate pair cannot identify a UTF-8 character boundary. Symbol-name anchoring falls back to the server location
+  for such ranges; source extraction reports `<line unavailable>` rather than slicing at an invalid boundary. Out-of-document start lines
+  must also be rejected before scanning preceding comments.
+- Internal source coordinates use explicit zero-based `Utf16Position` / `Utf16Range` values; `ByteOffset` is a separate unit used only for
+  UTF-8 string operations. `SourceLine` validates conversions and slices against the supplied text. An offset is not tied to a document
+  snapshot, so it must not be reused against different text without validation.
+- A missing server `positionEncoding` means UTF-16. Since the client offers only UTF-16, initialization rejects any explicit different
+  encoding before interpreting positions. Supporting another encoding requires extending the conversion boundary and negotiation together.
+- Text and JSON output retain one-based UTF-16 columns, which are not terminal display columns or UTF-8 byte columns. Conversion to
+  one-based numbers happens only when rendering.
 
 ## Capabilities
 
-- Some servers send client requests such as `client/registerCapability` immediately after the
-  `initialize` response and expect those requests to be answered before later client traffic.
-  lsp-cli therefore drains and replies to requests already queued after `initialized` and before
-  later outgoing operations. Requests that race with the next client request are answered while
-  that request is outstanding, instead of assuming request-response traffic is strictly
-  one-directional or waiting for a fixed post-initialization quiet period.
-- After an initially empty `workspace/symbol` result, a `textDocument/didOpen` followed by a
-  successful `textDocument/documentSymbol` response is a useful bounded signal that the server
-  processed that document, but it does not prove that the workspace index is complete. OLS,
-  Clojure LSP, and EmmyLua LS still returned no matching workspace symbols after this barrier in
-  the pinned E2E fixtures, so workspace-symbol polling and their documented exceptions remain.
-- A target-document `textDocument/publishDiagnostics` notification, completed `$/progress` item,
-  or healthy quiescent `experimental/serverStatus` can shorten a workspace-symbol retry delay, but
-  each is only a readiness hint. Consume at most one hint per query and retain bounded spacing for
-  later retries; cached diagnostics must not collapse every remaining delay.
-- LSP has no universal signal proving that an entire workspace index is complete. Servers verified
-  not to expose a terminal `$/progress` or healthy quiescent `experimental/serverStatus` signal
-  use the explicit `build-index-completion: best-effort` data policy. The client still observes the
-  full bounded timeout and reports transport, protocol, server-status, and shutdown errors; only
-  expiry without a terminal signal is accepted, so success must not be described as confirmation.
+- Some servers send client requests such as `client/registerCapability` immediately after the `initialize` response and expect those
+  requests to be answered before later client traffic. lsp-cli therefore drains and replies to requests already queued after `initialized`
+  and before later outgoing operations. Requests that race with the next client request are answered while that request is outstanding,
+  instead of assuming request-response traffic is strictly one-directional or waiting for a fixed post-initialization quiet period.
+- After an initially empty `workspace/symbol` result, a `textDocument/didOpen` followed by a successful `textDocument/documentSymbol`
+  response is a useful bounded signal that the server processed that document, but it does not prove that the workspace index is complete.
+  OLS, Clojure LSP, and EmmyLua LS still returned no matching workspace symbols after this barrier in the pinned E2E fixtures, so
+  workspace-symbol polling and their documented exceptions remain.
+- A target-document `textDocument/publishDiagnostics` notification, completed `$/progress` item, or healthy quiescent
+  `experimental/serverStatus` can shorten a workspace-symbol retry delay, but each is only a readiness hint. Consume at most one hint per
+  query and retain bounded spacing for later retries; cached diagnostics must not collapse every remaining delay.
+- LSP has no universal signal proving that an entire workspace index is complete. Servers verified not to expose a terminal `$/progress` or
+  healthy quiescent `experimental/serverStatus` signal use the explicit `build-index-completion: best-effort` data policy. The client still
+  observes the full bounded timeout and reports transport, protocol, server-status, and shutdown errors; only expiry without a terminal
+  signal is accepted, so success must not be described as confirmation.
 
 
 ## Diagnostics
 
-- Diagnostics are not uniformly query-shaped across servers.
-  Some servers support client-initiated `textDocument/diagnostic`, while others only publish
-  `textDocument/publishDiagnostics` asynchronously after `didOpen` or background analysis.
-  A CLI diagnostics command therefore cannot rely on only one path if it wants broad coverage.
-- `textDocument/publishDiagnostics` is latest-state data, not an append-only stream.
-  Servers may replace older diagnostics for the same URI with a newer notification, including an
-  empty list to clear prior errors. Keep only the latest notification per URI instead of treating
+- Diagnostics are not uniformly query-shaped across servers. Some servers support client-initiated `textDocument/diagnostic`, while others
+  only publish `textDocument/publishDiagnostics` asynchronously after `didOpen` or background analysis. A CLI diagnostics command therefore
+  cannot rely on only one path if it wants broad coverage.
+- `textDocument/publishDiagnostics` is latest-state data, not an append-only stream. Servers may replace older diagnostics for the same URI
+  with a newer notification, including an empty list to clear prior errors. Keep only the latest notification per URI instead of treating
   each publish as an independent result item.
-- A diagnostics command that only opens files and waits a short fixed delay is fragile.
-  Some servers publish diagnostics only after preamble building, indexing, or other async work, so
-  the client may need to wait through a bounded timeout budget instead of assuming diagnostics are
-  available immediately after `didOpen`.
-- Background-work progress such as `$/progress` is useful for diagnostics timing, but it is not a
-  diagnostics result by itself. A server can report indexing activity without publishing any
-  diagnostics yet, and some servers expose progress inconsistently, so progress should be treated as
-  a hint rather than as the sole completion signal for `diag`.
+- A diagnostics command that only opens files and waits a short fixed delay is fragile. Some servers publish diagnostics only after preamble
+  building, indexing, or other async work, so the client may need to wait through a bounded timeout budget instead of assuming diagnostics
+  are available immediately after `didOpen`.
+- Background-work progress such as `$/progress` is useful for diagnostics timing, but it is not a diagnostics result by itself. A server can
+  report indexing activity without publishing any diagnostics yet, and some servers expose progress inconsistently, so progress should be
+  treated as a hint rather than as the sole completion signal for `diag`.
 
 
 # Daemon gotchas
 
-- Daemon initialization compares workspace URIs literally. Directory URIs produced by
-  `path_to_file_uri` end with `/`; raw socket clients and fixtures must use the same trailing
-  slash in `rootUri` and workspace folder URIs, or initialization is rejected.
+- Daemon initialization compares workspace URIs literally. Directory URIs produced by `path_to_file_uri` end with `/`; raw socket clients
+  and fixtures must use the same trailing slash in `rootUri` and workspace folder URIs, or initialization is rejected.
 
-- LSP 3.17 assumes one server serves one tool. `lsp-cli daemon` therefore implements a
-  conservative proxy policy instead of transparent multi-client sharing: only one client may be
-  connected at a time, downstream `shutdown`/`exit` are handled locally, and a later client with
-  different normalized `initialize` settings forces a fresh upstream server.
-- `lsp-cli daemon` drops stale responses for disconnected clients and closes all client-owned
-  documents on disconnect, but it does not persist dynamic registrations across sessions. If the
-  upstream server uses `client/registerCapability` or `client/unregisterCapability`, lsp-cli marks
-  the session as non-reusable and restarts the upstream server before the next client.
-- Reused daemon sessions can attach after the upstream server has already finished indexing. To
-  keep `wait-for-index` semantics stable for warm sessions, the daemon synthesizes a quiescent
-  `experimental/serverStatus` notification after cached `initialize` replies when it already knows
-  the upstream server is idle.
-- Normal LSP commands opportunistically reuse the daemon socket. If the expected socket path exists
-  but no daemon listens on it anymore, lsp-cli treats it as stale runtime state, removes the dead
-  socket file, and falls back to starting a direct LSP server for that command.
-- `stop` and `stop-all` use a private daemon control request over the Unix socket instead of normal
-  LSP `shutdown`. This keeps regular client shutdown local to the proxy, but it also means `stop`
-  only finds daemons whose socket path still matches the currently resolved workspace root and LSP
-  command line; use `stop-all` when config changes make the exact match ambiguous.
-- `workspace/applyEdit` only works while a client is actively connected. If no client is connected,
-  lsp-cli rejects the request instead of editing files behind the client's back.
-- During the LuaLS request-window benchmark, one `stop-all` cleanup reported an unexpected
-  stop-response ID even though the daemon exited. Retrying against the same isolated runtime
-  directory removed its stale socket. The unexpected response was not diagnosed; a failed stop
+- LSP 3.17 assumes one server serves one tool. `lsp-cli daemon` therefore implements a conservative proxy policy instead of transparent
+  multi-client sharing: only one client may be connected at a time, downstream `shutdown`/`exit` are handled locally, and a later client
+  with different normalized `initialize` settings forces a fresh upstream server.
+- `lsp-cli daemon` drops stale responses for disconnected clients and closes all client-owned documents on disconnect, but it does not
+  persist dynamic registrations across sessions. If the upstream server uses `client/registerCapability` or `client/unregisterCapability`,
+  lsp-cli marks the session as non-reusable and restarts the upstream server before the next client.
+- Reused daemon sessions can attach after the upstream server has already finished indexing. To keep `wait-for-index` semantics stable for
+  warm sessions, the daemon synthesizes a quiescent `experimental/serverStatus` notification after cached `initialize` replies when it
+  already knows the upstream server is idle.
+- Normal LSP commands opportunistically reuse the daemon socket. If the expected socket path exists but no daemon listens on it anymore,
+  lsp-cli treats it as stale runtime state, removes the dead socket file, and falls back to starting a direct LSP server for that command.
+- `stop` and `stop-all` use a private daemon control request over the Unix socket instead of normal LSP `shutdown`. This keeps regular
+  client shutdown local to the proxy, but it also means `stop` only finds daemons whose socket path still matches the currently resolved
+  workspace root and LSP command line; use `stop-all` when config changes make the exact match ambiguous.
+- `workspace/applyEdit` only works while a client is actively connected. If no client is connected, lsp-cli rejects the request instead of
+  editing files behind the client's back.
+- During the LuaLS request-window benchmark, one `stop-all` cleanup reported an unexpected stop-response ID even though the daemon exited.
+  Retrying against the same isolated runtime directory removed its stale socket. The unexpected response was not diagnosed; a failed stop
   response does not necessarily mean the daemon remains alive.
-- Release profiling also reproduced a daemon exit after a successful query with
-  `failed to write daemon client message: failed to write JSON-RPC message: Broken pipe`.
-  Upstream notifications can race with client disconnect: the coordinator drains upstream
-  traffic before client events, and a failed downstream write propagates out of `serve`.
-  This can leave a stale socket and lose the indexed server between commands. Repeated commands
-  must not be described as warm measurements without verifying process reuse. A regression
-  test for a fix should close the client while an upstream notification is queued and verify
-  that the daemon remains available to a subsequent client.
+- Release profiling also reproduced a daemon exit after a successful query with `failed to write daemon client message: failed to write
+  JSON-RPC message: Broken pipe`. Upstream notifications can race with client disconnect: the coordinator drains upstream traffic before
+  client events, and a failed downstream write propagates out of `serve`. This can leave a stale socket and lose the indexed server between
+  commands. Repeated commands must not be described as warm measurements without verifying process reuse. A regression test for a fix should
+  close the client while an upstream notification is queued and verify that the daemon remains available to a subsequent client.
 
 # LSP server implementations
 
 ## Exhaustive capability matrix
 
-- Against Mason snapshot `2026-09-30-aboard-mob`, 100 capability cases could not produce a valid
-  initialize response. They are stored as unavailable coverage and rendered `N/A`, with their
-  earlier expected-failure diagnostics retained as exclusion reasons; they must not be presented
-  as unsupported operations. Thirty-nine cases on 26 servers still fail during provisioning,
-  before an LSP session exists, and remain expected failures because provisioning is validated
-  independently of capability coverage.
-- Twenty-nine cases on 23 servers historically completed initialization but did not exit within
-  the command deadline after the standard `shutdown` response and `exit` notification:
-  `bazelrc_lsp`, `buf_ls`, `circom-lsp`, `earthlyls`, `ginko_ls`, `gn_language_server`, `hyprls`,
-  `jinja_lsp`, `jqls`, `jsonnet_ls`, `just`, `pest_ls`, `postgres_lsp`, `prosemd_lsp`, `regal`,
-  `roc_ls`, `rumdl`, `solang`, `svls`, `terraformls`, `thriftls`, `tofu_ls`, and `ts_query_ls`.
-  lsp-cli now gives an owned direct child up to one second to exit after that completed exchange,
-  then terminates and reaps it without failing the completed operation. Their markers were removed
-  and every affected case passed the final full-suite validation.
-- Six more servers have distinct shutdown incompatibilities. `neocmake`, `helm_ls`,
-  `markdown_oxide`, `v_analyzer`, and `gitlab_ci_ls` close the transport before the shutdown
-  response is read; `csskit` rejects `shutdown` as an unknown method. These must remain separate
-  from post-`exit` hangs because a tolerant cleanup policy cannot safely treat them identically.
-- `glsl_analyzer` 1.7.1 and Verible `v0.0-4296-g0f262651` acknowledge `shutdown` and then close the
-  transport before the client can send the required `exit` notification. The resulting broken
-  pipe is distinct from both a missing shutdown response and a process that lingers after `exit`.
-- Five initialize responses are not decodable as LSP: Bicep and Che4z COBOL emit output without a
-  `Content-Length` header, Crystalline emits an invalid header, Foam returns boolean `false` where
-  `CompletionOptions` are required, and NTT returns `null` where a sequence is required.
-- Seven server configurations retain literal or unresolved paths: ElixirLS, GroovyLS,
-  RakuNavigator, SQLS, Vespa LS, VHDL LS, and Visualforce LS. These are data/catalog defects, not
-  evidence that their server implementations reject the protocol.
-- Several otherwise installed servers depend on host tools hidden by the isolated E2E `PATH`.
-  C3 LSP needs `c3c` and crashes when it is missing; Lexical needs `bash`; NextLS needs `elixir`;
-  Reason Language Server invokes `uname`; Fish LSP needs `fish`; and Facility Language Server
-  requires the .NET 6 runtime rather than the staged .NET 10 runtime.
-- MDX requires `initializationOptions.typescript.tsdk`; BQLS requires a BigQuery project ID or
-  `gcloud`; and Regols tries to resolve an empty filesystem path during initialization. These need
-  explicit, data-driven configuration or dedicated fixtures rather than server-specific production
-  branches.
-- Three pinned releases are incompatible with the generic lane for upstream reasons: Hoon LS tries
-  to reach a service at `127.0.0.1:80`, Solidity 0.8.37 reports that LSP support was removed, and
-  SQL Language Server 1.7.1 imports a Node package subpath that is no longer exported.
-- MesonLSP 5.0.4 times out during initialization. Templ 0.3.1020 closes during initialization
-  without a diagnostic; its root cause remains unknown.
+- Against Mason snapshot `2026-09-30-aboard-mob`, 100 capability cases could not produce a valid initialize response. They are stored as
+  unavailable coverage and rendered `N/A`, with their earlier expected-failure diagnostics retained as exclusion reasons; they must not be
+  presented as unsupported operations. Thirty-nine cases on 26 servers still fail during provisioning, before an LSP session exists, and
+  remain expected failures because provisioning is validated independently of capability coverage.
+- Twenty-nine cases on 23 servers historically completed initialization but did not exit within the command deadline after the standard
+  `shutdown` response and `exit` notification: `bazelrc_lsp`, `buf_ls`, `circom-lsp`, `earthlyls`, `ginko_ls`, `gn_language_server`,
+  `hyprls`, `jinja_lsp`, `jqls`, `jsonnet_ls`, `just`, `pest_ls`, `postgres_lsp`, `prosemd_lsp`, `regal`, `roc_ls`, `rumdl`, `solang`,
+  `svls`, `terraformls`, `thriftls`, `tofu_ls`, and `ts_query_ls`. lsp-cli now gives an owned direct child up to one second to exit after
+  that completed exchange, then terminates and reaps it without failing the completed operation. Their markers were removed and every
+  affected case passed the final full-suite validation.
+- Six more servers have distinct shutdown incompatibilities. `neocmake`, `helm_ls`, `markdown_oxide`, `v_analyzer`, and `gitlab_ci_ls` close
+  the transport before the shutdown response is read; `csskit` rejects `shutdown` as an unknown method. These must remain separate from
+  post-`exit` hangs because a tolerant cleanup policy cannot safely treat them identically.
+- `glsl_analyzer` 1.7.1 and Verible `v0.0-4296-g0f262651` acknowledge `shutdown` and then close the transport before the client can send the
+  required `exit` notification. The resulting broken pipe is distinct from both a missing shutdown response and a process that lingers after
+  `exit`.
+- Five initialize responses are not decodable as LSP: Bicep and Che4z COBOL emit output without a `Content-Length` header, Crystalline emits
+  an invalid header, Foam returns boolean `false` where `CompletionOptions` are required, and NTT returns `null` where a sequence is
+  required.
+- Seven server configurations retain literal or unresolved paths: ElixirLS, GroovyLS, RakuNavigator, SQLS, Vespa LS, VHDL LS, and
+  Visualforce LS. These are data/catalog defects, not evidence that their server implementations reject the protocol.
+- Several otherwise installed servers depend on host tools hidden by the isolated E2E `PATH`. C3 LSP needs `c3c` and crashes when it is
+  missing; Lexical needs `bash`; NextLS needs `elixir`; Reason Language Server invokes `uname`; Fish LSP needs `fish`; and Facility Language
+  Server requires the .NET 6 runtime rather than the staged .NET 10 runtime.
+- MDX requires `initializationOptions.typescript.tsdk`; BQLS requires a BigQuery project ID or `gcloud`; and Regols tries to resolve an
+  empty filesystem path during initialization. These need explicit, data-driven configuration or dedicated fixtures rather than
+  server-specific production branches.
+- Three pinned releases are incompatible with the generic lane for upstream reasons: Hoon LS tries to reach a service at `127.0.0.1:80`,
+  Solidity 0.8.37 reports that LSP support was removed, and SQL Language Server 1.7.1 imports a Node package subpath that is no longer
+  exported.
+- MesonLSP 5.0.4 times out during initialization. Templ 0.3.1020 closes during initialization without a diagnostic; its root cause remains
+  unknown.
 
 ## Erlang Language Platform (ELP)
 

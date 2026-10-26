@@ -1,5 +1,5 @@
 use super::symbols::symbol_information_anchor;
-use super::{SourceCache, SymbolMatch};
+use super::{SourceCache, SymbolMatch, Utf16Position, Utf16Range};
 use crate::error::{Error, Result, error_fn};
 use lsp_types::{DocumentSymbol, DocumentSymbolResponse};
 use serde_json::Value;
@@ -26,13 +26,11 @@ pub fn symbol_full_content_from_document_response(
             .into_iter()
             .filter(|symbol| symbol.name == target.name)
             .filter_map(|symbol| {
-                let line_col = symbol_information_anchor(&symbol.location, &symbol.name, path).ok();
-                let range = symbol.location.range;
-                if line_col.is_some_and(|(line, col, _)| line == target.line && col == target.col)
-                    || range_contains_match(&range, target)
-                {
+                let position = symbol_information_anchor(&symbol.location, &symbol.name, path);
+                let range = Utf16Range::from_lsp(symbol.location.range);
+                if position == target.position || range.contains_anchor(target.position) {
                     Some((
-                        range_size(&range),
+                        range.size_hint(),
                         source_cache.range_content_with_leading_comments(path, &range),
                     ))
                 } else {
@@ -57,15 +55,15 @@ fn matching_document_symbol_content(
     target: &SymbolMatch,
     source_cache: &mut SourceCache,
 ) -> Option<(u64, String)> {
+    let range = Utf16Range::from_lsp(symbol.range);
     let direct_match = symbol.name == target.name
-        && ((symbol.selection_range.start.line + 1 == target.line
-            && symbol.selection_range.start.character + 1 == target.col)
-            || range_contains_match(&symbol.range, target));
+        && (Utf16Position::from_lsp(symbol.selection_range.start) == target.position
+            || range.contains_anchor(target.position));
 
     let direct = if direct_match {
         Some((
-            range_size(&symbol.range),
-            source_cache.range_content_with_leading_comments(path, &symbol.range),
+            range.size_hint(),
+            source_cache.range_content_with_leading_comments(path, &range),
         ))
     } else {
         None
@@ -85,20 +83,4 @@ fn matching_document_symbol_content(
         (None, Some(nested)) => Some(nested),
         (None, None) => None,
     }
-}
-
-fn range_contains_match(range: &lsp_types::Range, target: &SymbolMatch) -> bool {
-    let line = target.line.saturating_sub(1);
-    let col = target.col.saturating_sub(1);
-    let start = (range.start.line, range.start.character);
-    let end = (range.end.line, range.end.character);
-    let point = (line, col);
-
-    start <= point && point <= end
-}
-
-fn range_size(range: &lsp_types::Range) -> u64 {
-    let line_span = u64::from(range.end.line.saturating_sub(range.start.line));
-    let col_span = u64::from(range.end.character.saturating_sub(range.start.character));
-    line_span * 1_000_000 + col_span
 }

@@ -1,6 +1,7 @@
 use super::{render_diagnostic_paths_text, render_diagnostics_json, render_diagnostics_text};
-use crate::lsp::DiagnosticMatch;
+use crate::lsp::{DiagnosticMatch, Utf16Range};
 use crate::suggest::SuggestedLanguage;
+use crate::test_support::utf16_position;
 use serde_json::json;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -15,11 +16,27 @@ fn renders_diagnostics_text_output() {
                 5,
                 "error",
                 Some("parse-error"),
-                "expected ;"
+                "ожидалась ; 😀"
             ),
             diagnostic("src/lib.rs", 9, 1, "warning", None, "unused import"),
         ]),
-        "src/main.rs:3:5: error[parse-error]: expected ;\nsrc/lib.rs:9:1: warning: unused import"
+        "src/main.rs:3:5: error[parse-error]: ожидалась ; 😀\nsrc/lib.rs:9:1: warning: unused import"
+    );
+}
+
+#[test]
+fn sorts_diagnostics_by_position_then_severity_and_message() {
+    let mut diagnostics = [
+        diagnostic("same.rs", 2, 1, "error", None, "later line"),
+        diagnostic("same.rs", 1, 2, "error", None, "later column"),
+        diagnostic("same.rs", 1, 1, "warning", None, "warning"),
+        diagnostic("same.rs", 1, 1, "error", None, "я"),
+        diagnostic("same.rs", 1, 1, "error", None, "a"),
+    ];
+    diagnostics.sort_by(DiagnosticMatch::cmp_for_output);
+    assert_eq!(
+        render_diagnostics_text(&diagnostics),
+        "same.rs:1:1: error: a\nsame.rs:1:1: error: я\nsame.rs:1:1: warning: warning\nsame.rs:1:2: error: later column\nsame.rs:2:1: error: later line",
     );
 }
 
@@ -37,6 +54,15 @@ fn renders_unique_diagnostic_paths() {
 
 #[test]
 fn renders_diagnostics_json_output() {
+    let mut item = diagnostic(
+        "src/main.rs",
+        3,
+        5,
+        "error",
+        Some("parse-error"),
+        "ожидалась ; 😀",
+    );
+    item.range = Utf16Range::new(utf16_position(2, 4), utf16_position(3, 9));
     let rendered = render_diagnostics_json(
         Path::new("workspace"),
         &BTreeSet::from(["rust".to_string()]),
@@ -50,14 +76,7 @@ fn renders_diagnostics_json_output() {
             build_index_completion: crate::config::BuildIndexCompletion::Confirmed,
             mason_extra_packages: Vec::new(),
         },
-        &[diagnostic(
-            "src/main.rs",
-            3,
-            5,
-            "error",
-            Some("parse-error"),
-            "expected ;",
-        )],
+        &[item],
     );
 
     assert_eq!(
@@ -75,12 +94,12 @@ fn renders_diagnostics_json_output() {
                 "path": "src/main.rs",
                 "line": 3,
                 "col": 5,
-                "end_line": 3,
-                "end_col": 6,
+                "end_line": 4,
+                "end_col": 10,
                 "severity": "error",
                 "code": "parse-error",
                 "source": null,
-                "message": "expected ;"
+                "message": "ожидалась ; 😀"
             }]
         })
     );
@@ -96,10 +115,10 @@ fn diagnostic(
 ) -> DiagnosticMatch {
     DiagnosticMatch {
         path: PathBuf::from(path),
-        line,
-        col,
-        end_line: line,
-        end_col: col + 1,
+        range: Utf16Range::new(
+            utf16_position(line - 1, col - 1),
+            utf16_position(line - 1, col),
+        ),
         severity: severity.to_string(),
         code: code.map(str::to_string),
         source: None,

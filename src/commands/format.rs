@@ -1,9 +1,13 @@
+#![deny(clippy::string_slice)]
+
 use crate::cli::FormatArgs;
 use crate::commands::common::{connect_lsp_client, prepare_workspace};
 use crate::config::ConfigStore;
 use crate::error::{Error, Result, error_fn};
-use crate::lsp::{ensure_formatting_support, path_to_file_uri, utf16_column_to_byte};
-use lsp_types::{Position, TextEdit};
+use crate::lsp::{
+    ByteOffset, SourceLine, Utf16Position, Utf16Range, ensure_formatting_support, path_to_file_uri,
+};
+use lsp_types::TextEdit;
 use serde_json::json;
 use std::path::Path;
 
@@ -135,8 +139,9 @@ fn apply_text_edits(source: &str, mut edits: Vec<TextEdit>, path: &Path) -> Resu
     let mut spans = edits
         .drain(..)
         .map(|edit| {
-            let start = position_to_offset(source, &line_starts, edit.range.start, path)?;
-            let end = position_to_offset(source, &line_starts, edit.range.end, path)?;
+            let range = Utf16Range::from_lsp(edit.range);
+            let start = position_to_offset(source, &line_starts, range.start(), path)?;
+            let end = position_to_offset(source, &line_starts, range.end(), path)?;
             if start > end {
                 return Err(Error::lsp(format!(
                     "textDocument/formatting returned an invalid edit range for {}",
@@ -162,49 +167,66 @@ fn apply_text_edits(source: &str, mut edits: Vec<TextEdit>, path: &Path) -> Resu
 
     let mut formatted = source.to_string();
     for (start, end, new_text) in spans {
-        formatted.replace_range(start..end, &new_text);
+        formatted.replace_range(start.as_usize()..end.as_usize(), &new_text);
     }
 
     Ok(formatted)
 }
 
-fn line_start_offsets(source: &str) -> Vec<usize> {
-    let mut offsets = vec![0];
-    for (index, ch) in source.char_indices() {
+fn line_start_offsets(source: &str) -> Vec<ByteOffset> {
+    let mut offsets = vec![ByteOffset::ZERO];
+    offsets.extend(source.char_indices().filter_map(|(index, ch)| {
         if ch == '\n' {
-            offsets.push(index + ch.len_utf8());
+            ByteOffset::from_byte_index(source, index + ch.len_utf8())
+        } else {
+            None
         }
-    }
+    }));
     offsets
 }
 
 fn position_to_offset(
     source: &str,
-    line_starts: &[usize],
-    position: Position,
+    line_starts: &[ByteOffset],
+    position: Utf16Position,
     path: &Path,
-) -> Result<usize> {
-    let line = usize::try_from(position.line)
-        .map_err(|_| Error::lsp(format!("line index overflow for {}", path.display())))?;
+) -> Result<ByteOffset> {
+    let Some(line) = position.line().as_usize() else {
+        return Err(Error::lsp(format!(
+            "line index overflow for {}",
+            path.display()
+        )));
+    };
     let Some(&line_start) = line_starts.get(line) else {
         return Err(Error::lsp(format!(
             "textDocument/formatting returned a line outside {}",
             path.display()
         )));
     };
-    let line_end = if let Some(next_start) = line_starts.get(line + 1) {
-        next_start.saturating_sub(1)
+    let line_end_index = if let Some(next_start) = line_starts.get(line + 1) {
+        next_start.as_usize().saturating_sub(1)
     } else {
         source.len()
     };
-    let line_text = &source[line_start..line_end];
-    let utf16_col = usize::try_from(position.character)
-        .map_err(|_| Error::lsp(format!("column overflow for {}", path.display())))?;
-    let Some(byte_in_line) = utf16_column_to_byte(line_text, utf16_col) else {
+    let line_text = ByteOffset::from_byte_index(source, line_end_index)
+        .and_then(|end| line_start.slice_to(source, end));
+    let Some(line_text) = line_text else {
+        return Err(Error::lsp(format!(
+            "source line unavailable in {}",
+            path.display()
+        )));
+    };
+    let Some(byte_in_line) = SourceLine::new(line_text).byte_offset(position.column()) else {
         return Err(Error::lsp(format!(
             "textDocument/formatting returned a column outside {}",
             path.display()
         )));
     };
-    Ok(line_start + byte_in_line)
+    let Some(offset) = line_start.checked_add(byte_in_line) else {
+        return Err(Error::lsp(format!(
+            "source offset overflow for {}",
+            path.display()
+        )));
+    };
+    Ok(offset)
 }

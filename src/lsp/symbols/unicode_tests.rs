@@ -31,7 +31,10 @@ fn flat_symbol_anchors_use_utf16_columns() {
         )
         .expect("Unicode document symbols should parse");
         assert_eq!(
-            (matches[0].line, matches[0].col),
+            (
+                matches[0].position.line().one_based(),
+                matches[0].position.column().one_based()
+            ),
             (expected_line, expected_col),
             "{source}"
         );
@@ -45,7 +48,7 @@ fn invalid_unicode_ranges_do_not_panic_or_find_outside_the_range() {
         assert_eq!(
             super::super::name_offset_in_range(
                 &lines,
-                &Range::new(Position::new(0, start), Position::new(0, end)),
+                &Utf16Range::from_lsp(Range::new(Position::new(0, start), Position::new(0, end))),
                 "Repository",
             ),
             None,
@@ -73,8 +76,22 @@ fn full_content_ranges_use_utf16_columns() {
         assert_eq!(
             fixture
                 .cache
-                .range_content(&fixture.file, &Range::new(start, end)),
+                .range_content(&fixture.file, &Utf16Range::from_lsp(Range::new(start, end))),
             expected
+        );
+    }
+}
+
+#[test]
+fn full_content_rejects_lines_outside_the_source_before_scanning_comments() {
+    let mut fixture = source_fixture("// comment\nclass Repository {};\n");
+    for line in [2, 99, u32::MAX] {
+        let range = Utf16Range::new(utf16_position(line, 0), utf16_position(line, 1));
+        assert_eq!(
+            fixture
+                .cache
+                .range_content_with_leading_comments(&fixture.file, &range),
+            "<line unavailable>",
         );
     }
 }

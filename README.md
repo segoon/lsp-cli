@@ -94,6 +94,9 @@ At a high level, `lsp-cli` usually does the following:
 
 This means you do not have to assemble server command lines by hand or even install LSP server at all.
 
+Locations in text and JSON output use one-based line numbers and columns counted in UTF-16 units.
+For example, in `a😀b`, `b` is at column 4 because the emoji occupies two UTF-16 units.
+
 ## Typical Workflows
 
 Detect what `lsp-cli` would run:

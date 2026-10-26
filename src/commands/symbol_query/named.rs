@@ -2,7 +2,6 @@
 mod tests;
 
 use super::kinds::{CallHierarchyDirection, LocationQueryKind};
-use super::kinds::{zero_based_col, zero_based_line};
 use super::{
     NamedAnchorRequest, PreparedWorkspace, WorkspaceSymbolQueryResult, dedupe_symbol_matches,
     fill_definition_full_content, open_document_for, select_named_anchors,
@@ -123,7 +122,7 @@ fn collect_call_hierarchy_matches(
     for anchor in anchors {
         let uri = open_document_for(client, &anchor.path, &workspace.server.server)?;
         let prepared = client
-            .prepare_call_hierarchy(&uri, zero_based_line(&anchor), zero_based_col(&anchor))
+            .prepare_call_hierarchy(&uri, anchor.position)
             .map_err(|error| {
                 error.with_prefix(format!(
                     "failed to prepare call hierarchy with {} for {:?}",

@@ -24,7 +24,7 @@ pub use diagnostics::{
 };
 pub use full_content::symbol_full_content_from_document_response;
 pub use jsonrpc::jsonrpc;
-pub(crate) use position::utf16_column_to_byte;
+pub use position::{ByteOffset, LineIndex, SourceLine, Utf16Column, Utf16Position, Utf16Range};
 pub use source_cache::SourceCache;
 pub use symbols::{
     SymbolMatch, call_hierarchy_matches_from_incoming_response,

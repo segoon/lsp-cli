@@ -406,12 +406,7 @@ fn dedupe_symbol_matches(matches: Vec<SymbolMatch>) -> Vec<SymbolMatch> {
     let mut deduped = Vec::new();
 
     for matched in matches {
-        let key = (
-            matched.path.clone(),
-            matched.line,
-            matched.col,
-            matched.name.clone(),
-        );
+        let key = (matched.path.clone(), matched.position, matched.name.clone());
         if seen.insert(key) {
             deduped.push(matched);
         }

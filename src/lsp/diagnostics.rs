@@ -1,21 +1,29 @@
 use serde::Deserialize;
 use serde_json::Value;
+use std::cmp::Ordering;
 use std::path::{Path, PathBuf};
 
 use crate::error::{Error, Result, error_fn};
-use crate::lsp::file_uri_to_path;
+use crate::lsp::{Utf16Range, file_uri_to_path};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DiagnosticMatch {
     pub path: PathBuf,
-    pub line: u32,
-    pub col: u32,
-    pub end_line: u32,
-    pub end_col: u32,
+    pub range: Utf16Range,
     pub severity: String,
     pub code: Option<String>,
     pub source: Option<String>,
     pub message: String,
+}
+
+impl DiagnosticMatch {
+    pub fn cmp_for_output(&self, other: &Self) -> Ordering {
+        self.path
+            .cmp(&other.path)
+            .then(self.range.start().cmp(&other.range.start()))
+            .then(self.severity.cmp(&other.severity))
+            .then(self.message.cmp(&other.message))
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -26,23 +34,11 @@ struct PublishDiagnosticsParams {
 
 #[derive(Debug, Deserialize)]
 struct Diagnostic {
-    range: DiagnosticRange,
+    range: lsp_types::Range,
     severity: Option<u32>,
     code: Option<Value>,
     source: Option<String>,
     message: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct DiagnosticRange {
-    start: DiagnosticPosition,
-    end: DiagnosticPosition,
-}
-
-#[derive(Debug, Deserialize)]
-struct DiagnosticPosition {
-    line: u32,
-    character: u32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -77,10 +73,7 @@ fn diagnostic_matches_from_params(
         .iter()
         .map(|diagnostic| DiagnosticMatch {
             path: path.clone(),
-            line: diagnostic.range.start.line + 1,
-            col: diagnostic.range.start.character + 1,
-            end_line: diagnostic.range.end.line + 1,
-            end_col: diagnostic.range.end.character + 1,
+            range: Utf16Range::from_lsp(diagnostic.range),
             severity: render_severity(diagnostic.severity),
             code: render_code(diagnostic.code.as_ref()),
             source: diagnostic.source.clone(),
@@ -130,10 +123,7 @@ pub fn diagnostic_matches_from_document_response(
         .into_iter()
         .map(|diagnostic| DiagnosticMatch {
             path: path.clone(),
-            line: diagnostic.range.start.line + 1,
-            col: diagnostic.range.start.character + 1,
-            end_line: diagnostic.range.end.line + 1,
-            end_col: diagnostic.range.end.character + 1,
+            range: Utf16Range::from_lsp(diagnostic.range),
             severity: render_severity(diagnostic.severity),
             code: render_code(diagnostic.code.as_ref()),
             source: diagnostic.source,
@@ -165,6 +155,7 @@ fn render_severity(value: Option<u32>) -> String {
 #[cfg(test)]
 mod tests {
     use super::{diagnostic_matches_from_document_response, diagnostic_matches_from_notification};
+    use crate::test_support::utf16_position;
     use serde_json::json;
     use std::path::Path;
 
@@ -193,8 +184,8 @@ mod tests {
 
         assert_eq!(diagnostics.len(), 1);
         assert_eq!(diagnostics[0].path, Path::new("src/main.rs"));
-        assert_eq!(diagnostics[0].line, 2);
-        assert_eq!(diagnostics[0].col, 3);
+        assert_eq!(diagnostics[0].range.start(), utf16_position(1, 2));
+        assert_eq!(diagnostics[0].range.end(), utf16_position(1, 4));
         assert_eq!(diagnostics[0].severity, "warning");
         assert_eq!(diagnostics[0].code.as_deref(), Some("unused-import"));
     }
@@ -246,6 +237,8 @@ mod tests {
 
         assert_eq!(diagnostics.len(), 1);
         assert_eq!(diagnostics[0].path, Path::new("src/main.cpp"));
+        assert_eq!(diagnostics[0].range.start(), utf16_position(2, 4));
+        assert_eq!(diagnostics[0].range.end(), utf16_position(2, 7));
         assert_eq!(diagnostics[0].severity, "error");
         assert_eq!(diagnostics[0].code.as_deref(), Some("parse-error"));
     }

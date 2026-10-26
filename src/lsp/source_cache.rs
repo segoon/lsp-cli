@@ -1,5 +1,6 @@
-use super::utf16_column_to_byte;
-use lsp_types::Range;
+#![deny(clippy::string_slice)]
+
+use super::{ByteOffset, LineIndex, SourceLine, Utf16Column, Utf16Position, Utf16Range};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -10,19 +11,22 @@ pub struct SourceCache {
 }
 
 impl SourceCache {
-    pub fn line_content(&mut self, path: &Path, line_index: usize) -> String {
+    pub fn line_content(&mut self, path: &Path, line_index: LineIndex) -> String {
+        let Some(line_index) = line_index.as_usize() else {
+            return "<line unavailable>".to_string();
+        };
         self.lines(path)
             .get(line_index)
             .cloned()
             .unwrap_or_else(|| "<line unavailable>".to_string())
     }
 
-    pub fn range_content(&mut self, path: &Path, range: &Range) -> String {
+    pub fn range_content(&mut self, path: &Path, range: &Utf16Range) -> String {
         let lines = self.lines(path);
-        let Some(start_line) = usize::try_from(range.start.line).ok() else {
+        let Some(start_line) = range.start().line().as_usize() else {
             return "<line unavailable>".to_string();
         };
-        let Some(end_line) = usize::try_from(range.end.line).ok() else {
+        let Some(end_line) = range.end().line().as_usize() else {
             return "<line unavailable>".to_string();
         };
         if start_line > end_line || end_line >= lines.len() {
@@ -34,45 +38,48 @@ impl SourceCache {
             let Some(line) = lines.get(line_index) else {
                 return "<line unavailable>".to_string();
             };
-            let start_char = if line_index == start_line {
-                usize::try_from(range.start.character).ok()
+            let source_line = SourceLine::new(line);
+            let start_byte = if line_index == start_line {
+                source_line.byte_offset(range.start().column())
             } else {
-                Some(0)
+                Some(ByteOffset::ZERO)
             };
-            let end_char = if line_index == end_line {
-                usize::try_from(range.end.character).ok()
+            let end_byte = if line_index == end_line {
+                source_line.byte_offset(range.end().column())
             } else {
-                Some(line.encode_utf16().count())
+                Some(source_line.end())
             };
-            let Some(start_byte) = start_char.and_then(|value| utf16_column_to_byte(line, value))
+            let Some(chunk) = start_byte
+                .zip(end_byte)
+                .and_then(|(start, end)| source_line.slice(start..end))
             else {
                 return "<line unavailable>".to_string();
             };
-            let Some(end_byte) = end_char.and_then(|value| utf16_column_to_byte(line, value))
-            else {
-                return "<line unavailable>".to_string();
-            };
-            if start_byte > end_byte {
-                return "<line unavailable>".to_string();
-            }
-            chunks.push(line[start_byte..end_byte].to_string());
+            chunks.push(chunk.to_string());
         }
 
         chunks.join("\n")
     }
 
-    pub fn range_content_with_leading_comments(&mut self, path: &Path, range: &Range) -> String {
-        let Some(start_line) = usize::try_from(range.start.line).ok() else {
+    pub fn range_content_with_leading_comments(
+        &mut self,
+        path: &Path,
+        range: &Utf16Range,
+    ) -> String {
+        let Some(start_line) = range.start().line().as_usize() else {
             return "<line unavailable>".to_string();
         };
-        let adjusted_start_line = comment_start_line(self.lines(path), start_line);
+        let lines = self.lines(path);
+        if start_line >= lines.len() {
+            return "<line unavailable>".to_string();
+        }
+        let adjusted_start_line = comment_start_line(lines, start_line);
         let mut range = *range;
         if adjusted_start_line != start_line {
-            let Some(line) = u32::try_from(adjusted_start_line).ok() else {
+            let Some(line) = LineIndex::try_from(adjusted_start_line).ok() else {
                 return "<line unavailable>".to_string();
             };
-            range.start.line = line;
-            range.start.character = 0;
+            range = Utf16Range::new(Utf16Position::new(line, Utf16Column::new(0)), range.end());
         }
 
         self.range_content(path, &range)

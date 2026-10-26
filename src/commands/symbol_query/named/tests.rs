@@ -6,7 +6,9 @@ use super::{
 use crate::config::ConfigStore;
 use crate::config::{CliConfig, FiletypeConfig};
 use crate::lsp::{SymbolMatch, path_to_file_uri};
-use crate::test_support::{TestDir, detection_result, lsp_peer::LspPeer, suggested_language};
+use crate::test_support::{
+    TestDir, detection_result, lsp_peer::LspPeer, suggested_language, utf16_position,
+};
 use lsp_types::SymbolKind;
 use serde_json::{Value, json};
 use std::collections::BTreeSet;
@@ -24,7 +26,7 @@ impl Fixture {
     fn new(limit: usize) -> Self {
         let dir = TestDir::new("named-window");
         for file in ["a.lua", "b.lua", "c.lua"] {
-            dir.write_file(file, "local target = 1\n");
+            dir.write_file(file, "local note = 'привет 😀'; local target = 1\n");
         }
         let workspace = PreparedWorkspace {
             detection: detection_result(&["lua"], &[]),
@@ -72,7 +74,7 @@ impl Fixture {
 }
 
 fn range() -> Value {
-    json!({"start":{"line":0,"character":6},"end":{"line":0,"character":12}})
+    json!({"start":{"line":0,"character":32},"end":{"line":0,"character":38}})
 }
 
 fn serve_symbols(peer: &mut LspPeer, limit: usize, matching: bool) {
@@ -115,7 +117,7 @@ fn named_location_queries_find_local_and_duplicate_names_in_file_order() {
                         assert!(uri.as_str().expect("uri").ends_with(file));
                         assert_eq!(
                             request["params"]["position"],
-                            json!({"line":0,"character":6})
+                            json!({"line":0,"character":32})
                         );
                         peer.reply(&request, json!([{"uri":uri, "range":range()}]));
                     }
@@ -144,7 +146,7 @@ fn named_location_queries_find_local_and_duplicate_names_in_file_order() {
             assert!(
                 matches
                     .iter()
-                    .all(|m| m.name == "target" && m.line == 1 && m.col == 7)
+                    .all(|m| m.name == "target" && m.position == utf16_position(0, 32))
             );
             client.shutdown().expect("shutdown");
             server.join().expect("server finishes");
@@ -167,6 +169,10 @@ fn call_hierarchy_queries_filter_non_functions() {
                 for file in ["a.lua", "b.lua"] {
                     let prepare = peer.read();
                     assert_eq!(prepare["method"], "textDocument/prepareCallHierarchy");
+                    assert_eq!(
+                        prepare["params"]["position"],
+                        json!({"line":0,"character":32})
+                    );
                     let uri = &prepare["params"]["textDocument"]["uri"];
                     assert!(uri.as_str().expect("uri").ends_with(file));
                     let item = json!({"name":"target", "kind":12, "uri":uri, "range":range(), "selectionRange":range()});
@@ -207,9 +213,8 @@ fn falls_back_to_workspace_symbols_when_no_document_name_matches() {
         name: "target".into(),
         kind: SymbolKind::FUNCTION,
         path: fixture.dir.path().join("a.lua"),
-        line: 1,
-        col: 7,
-        line_content: "local target = 1".into(),
+        position: utf16_position(0, 32),
+        line_content: "local note = 'привет 😀'; local target = 1".into(),
         full_content: None,
     };
     let anchor_uri = path_to_file_uri(&fixture.dir.path().join("a.lua")).expect("uri");

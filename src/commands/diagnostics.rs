@@ -98,14 +98,7 @@ fn run_diagnostics_query(
             query.timeout,
         )?
     };
-    diagnostics.sort_by(|left, right| {
-        left.path
-            .cmp(&right.path)
-            .then(left.line.cmp(&right.line))
-            .then(left.col.cmp(&right.col))
-            .then(left.severity.cmp(&right.severity))
-            .then(left.message.cmp(&right.message))
-    });
+    diagnostics.sort_by(DiagnosticMatch::cmp_for_output);
     client.shutdown().map_err(|error| {
         error.with_prefix(format!(
             "failed to stop {} cleanly",
@@ -244,8 +237,8 @@ fn render_diagnostics_text(diagnostics: &[DiagnosticMatch]) -> String {
             format!(
                 "{}:{}:{}: {}{}: {}",
                 diagnostic.path.display(),
-                diagnostic.line,
-                diagnostic.col,
+                diagnostic.range.start().line().one_based(),
+                diagnostic.range.start().column().one_based(),
                 diagnostic.severity,
                 code,
                 diagnostic.message
@@ -272,10 +265,10 @@ fn render_diagnostics_json(
         },
         "diagnostics": diagnostics.iter().map(|diagnostic| json!({
             "path": diagnostic.path,
-            "line": diagnostic.line,
-            "col": diagnostic.col,
-            "end_line": diagnostic.end_line,
-            "end_col": diagnostic.end_col,
+            "line": diagnostic.range.start().line().one_based(),
+            "col": diagnostic.range.start().column().one_based(),
+            "end_line": diagnostic.range.end().line().one_based(),
+            "end_col": diagnostic.range.end().column().one_based(),
             "severity": diagnostic.severity,
             "code": diagnostic.code,
             "source": diagnostic.source,

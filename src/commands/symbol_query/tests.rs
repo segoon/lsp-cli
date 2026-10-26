@@ -7,7 +7,7 @@ use super::{
 };
 use crate::lsp::SymbolMatch;
 use crate::suggest::SuggestedLanguage;
-use crate::test_support::TestDir;
+use crate::test_support::{TestDir, utf16_position};
 use lsp_types::SymbolKind;
 use serde_json::json;
 use std::collections::BTreeSet;
@@ -25,8 +25,7 @@ fn matched(
         name: name.to_string(),
         kind,
         path: PathBuf::from(path),
-        line,
-        col,
+        position: utf16_position(line - 1, col - 1),
         line_content: line_content.to_string(),
         full_content: None,
     }

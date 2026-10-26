@@ -64,9 +64,17 @@ impl Peer {
     }
 
     fn initialize(&mut self) -> Value {
+        self.initialize_with_capabilities(&json!({}))
+    }
+
+    fn initialize_with_capabilities(&mut self, capabilities: &Value) -> Value {
         let request = self.read("initialize");
         expect_method(&request, "initialize");
-        self.respond(&request, &json!({ "capabilities": {} }), "initialize");
+        self.respond(
+            &request,
+            &json!({ "capabilities": capabilities }),
+            "initialize",
+        );
         request
     }
 
@@ -245,4 +253,43 @@ fn initialize_advertises_and_returns_workspace_folders() {
 
     client.shutdown().expect("shutdown should succeed");
     fixture.finish();
+}
+
+#[test]
+fn initialization_accepts_only_utf16_positions() {
+    for encoding in [
+        None,
+        Some("utf-16"),
+        Some("utf-8"),
+        Some("utf-32"),
+        Some("custom"),
+    ] {
+        let accepted = encoding.is_none_or(|value| value == "utf-16");
+        let fixture = SocketFixture::spawn("client-position-encoding", move |mut peer| {
+            let mut capabilities = json!({});
+            if let Some(encoding) = encoding {
+                capabilities["positionEncoding"] = json!(encoding);
+            }
+            let request = peer.initialize_with_capabilities(&capabilities);
+            assert_eq!(
+                request.pointer("/params/capabilities/general/positionEncodings"),
+                Some(&json!(["utf-16"]))
+            );
+            if accepted {
+                peer.expect_initialized();
+            }
+            // A rejected encoding must not be followed by initialized or a position request.
+            peer.finish_shutdown();
+        });
+        let mut client = fixture.connect();
+        let response = client.initialize("file:///workspace", "workspace", false);
+        if accepted {
+            response.expect("UTF-16 should be accepted");
+        } else {
+            let error = response.expect_err("other encodings must be rejected");
+            assert!(error.to_string().contains("supports only UTF-16"));
+        }
+        client.shutdown().expect("shutdown should succeed");
+        fixture.finish();
+    }
 }

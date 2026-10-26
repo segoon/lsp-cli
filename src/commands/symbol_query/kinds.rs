@@ -8,14 +8,6 @@ use serde_json::Value;
 
 use crate::error::Result;
 
-pub(super) fn zero_based_line(symbol: &SymbolMatch) -> u32 {
-    symbol.line.saturating_sub(1)
-}
-
-pub(super) fn zero_based_col(symbol: &SymbolMatch) -> u32 {
-    symbol.col.saturating_sub(1)
-}
-
 #[derive(Clone, Copy)]
 pub(super) enum LocationQueryKind {
     References,
@@ -53,21 +45,11 @@ impl LocationQueryKind {
         anchor: &SymbolMatch,
     ) -> Result<Value> {
         match self {
-            Self::References => {
-                client.references(uri, zero_based_line(anchor), zero_based_col(anchor), false)
-            }
-            Self::Definition => {
-                client.definition(uri, zero_based_line(anchor), zero_based_col(anchor))
-            }
-            Self::Declaration => {
-                client.declaration(uri, zero_based_line(anchor), zero_based_col(anchor))
-            }
-            Self::Implementation => {
-                client.implementation(uri, zero_based_line(anchor), zero_based_col(anchor))
-            }
-            Self::TypeDefinition => {
-                client.type_definition(uri, zero_based_line(anchor), zero_based_col(anchor))
-            }
+            Self::References => client.references(uri, anchor.position, false),
+            Self::Definition => client.definition(uri, anchor.position),
+            Self::Declaration => client.declaration(uri, anchor.position),
+            Self::Implementation => client.implementation(uri, anchor.position),
+            Self::TypeDefinition => client.type_definition(uri, anchor.position),
         }
     }
 }

@@ -1,5 +1,6 @@
 use super::LspClient;
 use crate::error::{Error, Result, error_fn};
+use crate::lsp::Utf16Position;
 use crate::lsp::{InitializeResponse, parse_lsp_uri};
 use lsp_types::notification::{DidOpenTextDocument, Initialized};
 use lsp_types::request::{
@@ -13,7 +14,7 @@ use lsp_types::{
     CallHierarchyPrepareParams, ClientCapabilities, ClientInfo, DidOpenTextDocumentParams,
     DocumentDiagnosticParams, DocumentFormattingParams, DocumentSymbolParams, FormattingOptions,
     GeneralClientCapabilities, GotoDefinitionParams, InitializeParams, InitializedParams,
-    PartialResultParams, Position, PositionEncodingKind, ReferenceContext, ReferenceParams,
+    PartialResultParams, PositionEncodingKind, ReferenceContext, ReferenceParams,
     TextDocumentIdentifier, TextDocumentItem, TextDocumentPositionParams, WindowClientCapabilities,
     WorkDoneProgressParams, WorkspaceClientCapabilities, WorkspaceFolder, WorkspaceSymbolParams,
 };
@@ -99,6 +100,14 @@ impl LspClient {
             Error::lsp,
             "failed to decode initialize response"
         ))?;
+        if let Some(encoding) = &response.result.capabilities.position_encoding
+            && encoding != &PositionEncodingKind::UTF16
+        {
+            return Err(Error::lsp(format!(
+                "the server selected position encoding {}, but lsp-cli supports only UTF-16",
+                encoding.as_str(),
+            )));
+        }
         self.send_notification::<Initialized>(&InitializedParams {})?;
         self.drain_pending_server_requests()?;
         Ok(response)
@@ -148,14 +157,13 @@ impl LspClient {
     pub fn references(
         &mut self,
         uri: &str,
-        line: u32,
-        character: u32,
+        position: Utf16Position,
         include_declaration: bool,
     ) -> Result<Value> {
         let params = ReferenceParams {
             text_document_position: TextDocumentPositionParams::new(
                 TextDocumentIdentifier::new(parse_lsp_uri(uri, "document")?),
-                Position::new(line, character),
+                position.to_lsp(),
             ),
             work_done_progress_params: WorkDoneProgressParams::default(),
             partial_result_params: PartialResultParams::default(),
@@ -166,11 +174,11 @@ impl LspClient {
         self.send_request::<References>(&params)
     }
 
-    pub fn definition(&mut self, uri: &str, line: u32, character: u32) -> Result<Value> {
+    pub fn definition(&mut self, uri: &str, position: Utf16Position) -> Result<Value> {
         let params = GotoDefinitionParams {
             text_document_position_params: TextDocumentPositionParams::new(
                 TextDocumentIdentifier::new(parse_lsp_uri(uri, "document")?),
-                Position::new(line, character),
+                position.to_lsp(),
             ),
             work_done_progress_params: WorkDoneProgressParams::default(),
             partial_result_params: PartialResultParams::default(),
@@ -178,11 +186,11 @@ impl LspClient {
         self.send_request::<GotoDefinition>(&params)
     }
 
-    pub fn declaration(&mut self, uri: &str, line: u32, character: u32) -> Result<Value> {
+    pub fn declaration(&mut self, uri: &str, position: Utf16Position) -> Result<Value> {
         let params = GotoDeclarationParams {
             text_document_position_params: TextDocumentPositionParams::new(
                 TextDocumentIdentifier::new(parse_lsp_uri(uri, "document")?),
-                Position::new(line, character),
+                position.to_lsp(),
             ),
             work_done_progress_params: WorkDoneProgressParams::default(),
             partial_result_params: PartialResultParams::default(),
@@ -190,11 +198,11 @@ impl LspClient {
         self.send_request::<GotoDeclaration>(&params)
     }
 
-    pub fn implementation(&mut self, uri: &str, line: u32, character: u32) -> Result<Value> {
+    pub fn implementation(&mut self, uri: &str, position: Utf16Position) -> Result<Value> {
         let params = GotoDefinitionParams {
             text_document_position_params: TextDocumentPositionParams::new(
                 TextDocumentIdentifier::new(parse_lsp_uri(uri, "document")?),
-                Position::new(line, character),
+                position.to_lsp(),
             ),
             work_done_progress_params: WorkDoneProgressParams::default(),
             partial_result_params: PartialResultParams::default(),
@@ -202,11 +210,11 @@ impl LspClient {
         self.send_request::<GotoImplementation>(&params)
     }
 
-    pub fn type_definition(&mut self, uri: &str, line: u32, character: u32) -> Result<Value> {
+    pub fn type_definition(&mut self, uri: &str, position: Utf16Position) -> Result<Value> {
         let params = GotoDefinitionParams {
             text_document_position_params: TextDocumentPositionParams::new(
                 TextDocumentIdentifier::new(parse_lsp_uri(uri, "document")?),
-                Position::new(line, character),
+                position.to_lsp(),
             ),
             work_done_progress_params: WorkDoneProgressParams::default(),
             partial_result_params: PartialResultParams::default(),
@@ -214,16 +222,11 @@ impl LspClient {
         self.send_request::<GotoTypeDefinition>(&params)
     }
 
-    pub fn prepare_call_hierarchy(
-        &mut self,
-        uri: &str,
-        line: u32,
-        character: u32,
-    ) -> Result<Value> {
+    pub fn prepare_call_hierarchy(&mut self, uri: &str, position: Utf16Position) -> Result<Value> {
         let params = CallHierarchyPrepareParams {
             text_document_position_params: TextDocumentPositionParams::new(
                 TextDocumentIdentifier::new(parse_lsp_uri(uri, "document")?),
-                Position::new(line, character),
+                position.to_lsp(),
             ),
             work_done_progress_params: WorkDoneProgressParams::default(),
         };

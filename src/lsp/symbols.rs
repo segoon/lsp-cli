@@ -1,3 +1,5 @@
+#![deny(clippy::string_slice)]
+
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -8,7 +10,9 @@ use lsp_types::{
 use serde::Deserialize;
 use serde_json::Value;
 
-use super::{SourceCache, file_uri_to_path};
+use super::{
+    ByteOffset, LineIndex, SourceCache, SourceLine, Utf16Position, Utf16Range, file_uri_to_path,
+};
 use crate::error::{Error, Result, error_fn};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -16,8 +20,7 @@ pub struct SymbolMatch {
     pub name: String,
     pub kind: SymbolKind,
     pub path: PathBuf,
-    pub line: u32,
-    pub col: u32,
+    pub position: Utf16Position,
     pub line_content: String,
     pub full_content: Option<String>,
 }
@@ -230,15 +233,14 @@ fn symbol_information_to_match(
     let name = symbol.name;
     let kind = symbol.kind;
     let path = file_uri_to_path(&symbol.location.uri.to_string())?;
-    let (line, col, line_index) = symbol_information_anchor(&symbol.location, &name, &path)?;
-    let line_content = source_cache.line_content(&path, line_index);
+    let position = symbol_information_anchor(&symbol.location, &name, &path);
+    let line_content = source_cache.line_content(&path, position.line());
 
     Ok(SymbolMatch {
         name,
         kind,
         path,
-        line,
-        col,
+        position,
         line_content,
         full_content: None,
     })
@@ -248,7 +250,7 @@ pub(crate) fn symbol_information_anchor(
     location: &Location,
     name: &str,
     path: &Path,
-) -> Result<(u32, u32, usize)> {
+) -> Utf16Position {
     let lines = fs::read_to_string(path)
         .map(|contents| {
             contents
@@ -259,62 +261,51 @@ pub(crate) fn symbol_information_anchor(
         .unwrap_or_default();
 
     // Flat SymbolInformation ranges often start at the whole declaration, not the symbol name.
-    if let Some((line_index, character)) = name_offset_in_range(&lines, &location.range, name) {
-        let line = u32::try_from(line_index)
-            .map_err(|_| Error::lsp(format!("line index overflow for {}", path.display())))?;
-        return line_col_and_index(line, character, path);
-    }
-
-    line_col_and_index(
-        location.range.start.line,
-        location.range.start.character,
-        path,
-    )
+    let range = Utf16Range::from_lsp(location.range);
+    name_offset_in_range(&lines, &range, name).unwrap_or(range.start())
 }
 
-fn name_offset_in_range(
-    lines: &[String],
-    range: &lsp_types::Range,
-    name: &str,
-) -> Option<(usize, u32)> {
-    let start_line_index = usize::try_from(range.start.line).ok()?;
-    let end_line_index = usize::try_from(range.end.line).ok()?;
+fn name_offset_in_range(lines: &[String], range: &Utf16Range, name: &str) -> Option<Utf16Position> {
+    let start_line_index = range.start().line().as_usize()?;
+    let end_line_index = range.end().line().as_usize()?;
 
     for line_index in start_line_index..=end_line_index {
         let line = lines.get(line_index)?;
-        let start_col = if line_index == start_line_index {
-            usize::try_from(range.start.character).ok()?
+        let source_line = SourceLine::new(line);
+        let start = if line_index == start_line_index {
+            source_line.byte_offset(range.start().column())?
         } else {
-            0
+            ByteOffset::ZERO
         };
-        let end_col = if line_index == end_line_index {
-            usize::try_from(range.end.character).ok()?
+        let end = if line_index == end_line_index {
+            source_line.clamped_byte_offset(range.end().column())?
         } else {
-            line.len()
+            source_line.end()
         };
-        let end_col = end_col.min(line.len());
-        if start_col > end_col {
+        if start > end {
             continue;
         }
 
-        let segment = &line[start_col..end_col];
+        let segment = source_line.slice(start..end)?;
         if let Some(offset) = identifier_name_offset(segment, name) {
-            let character = u32::try_from(start_col + offset).ok()?;
-            return Some((line_index, character));
+            let column = source_line.utf16_column(start.checked_add(offset)?)?;
+            return Some(Utf16Position::new(
+                LineIndex::try_from(line_index).ok()?,
+                column,
+            ));
         }
     }
-
     None
 }
 
-fn identifier_name_offset(line: &str, name: &str) -> Option<usize> {
+fn identifier_name_offset(line: &str, name: &str) -> Option<ByteOffset> {
     line.match_indices(name).find_map(|(offset, _)| {
-        let before = line[..offset].chars().next_back();
-        let after = line[offset + name.len()..].chars().next();
+        let before = line.get(..offset)?.chars().next_back();
+        let after = line.get(offset + name.len()..)?.chars().next();
         if before.is_some_and(is_identifier_char) || after.is_some_and(is_identifier_char) {
             None
         } else {
-            Some(offset)
+            ByteOffset::from_byte_index(line, offset)
         }
     })
 }
@@ -334,19 +325,14 @@ where
     F: Copy + Fn(SymbolKind) -> bool,
 {
     if include(symbol.kind) {
-        let (line, col, line_index) = line_col_and_index(
-            symbol.selection_range.start.line,
-            symbol.selection_range.start.character,
-            path,
-        )?;
-        let line_content = source_cache.line_content(path, line_index);
+        let position = Utf16Position::from_lsp(symbol.selection_range.start);
+        let line_content = source_cache.line_content(path, position.line());
 
         matches.push(SymbolMatch {
             name: symbol.name.clone(),
             kind: symbol.kind,
             path: path.to_path_buf(),
-            line,
-            col,
+            position,
             line_content,
             full_content: None,
         });
@@ -369,14 +355,13 @@ fn location_to_symbol_match(
     source_cache: &mut SourceCache,
 ) -> Result<SymbolMatch> {
     let path = file_uri_to_path(&location.uri.to_string())?;
-    let (line, col, line_index) = line_col_and_index(
-        location.range.start.line,
-        location.range.start.character,
-        &path,
-    )?;
-    let line_content = source_cache.line_content(&path, line_index);
+    let position = Utf16Position::from_lsp(location.range.start);
+    let line_content = source_cache.line_content(&path, position.line());
     let full_content = if include_full_content {
-        Some(source_cache.range_content_with_leading_comments(&path, &location.range))
+        Some(
+            source_cache
+                .range_content_with_leading_comments(&path, &Utf16Range::from_lsp(location.range)),
+        )
     } else {
         None
     };
@@ -385,8 +370,7 @@ fn location_to_symbol_match(
         name,
         kind,
         path,
-        line,
-        col,
+        position,
         line_content,
         full_content,
     })
@@ -400,14 +384,13 @@ fn location_link_to_symbol_match(
     source_cache: &mut SourceCache,
 ) -> Result<SymbolMatch> {
     let path = file_uri_to_path(&location.target_uri.to_string())?;
-    let (line, col, line_index) = line_col_and_index(
-        location.target_selection_range.start.line,
-        location.target_selection_range.start.character,
-        &path,
-    )?;
-    let line_content = source_cache.line_content(&path, line_index);
+    let position = Utf16Position::from_lsp(location.target_selection_range.start);
+    let line_content = source_cache.line_content(&path, position.line());
     let full_content = if include_full_content {
-        Some(source_cache.range_content_with_leading_comments(&path, &location.target_range))
+        Some(source_cache.range_content_with_leading_comments(
+            &path,
+            &Utf16Range::from_lsp(location.target_range),
+        ))
     } else {
         None
     };
@@ -416,8 +399,7 @@ fn location_link_to_symbol_match(
         name,
         kind,
         path,
-        line,
-        col,
+        position,
         line_content,
         // Prefer the wider target range when --full is requested because the selection range only
         // points at the symbol name.
@@ -430,28 +412,17 @@ fn call_hierarchy_item_to_match(
     source_cache: &mut SourceCache,
 ) -> Result<SymbolMatch> {
     let path = file_uri_to_path(&item.uri.to_string())?;
-    let (line, col, line_index) = line_col_and_index(
-        item.selection_range.start.line,
-        item.selection_range.start.character,
-        &path,
-    )?;
-    let line_content = source_cache.line_content(&path, line_index);
+    let position = Utf16Position::from_lsp(item.selection_range.start);
+    let line_content = source_cache.line_content(&path, position.line());
 
     Ok(SymbolMatch {
         name: item.name,
         kind: item.kind,
         path,
-        line,
-        col,
+        position,
         line_content,
         full_content: None,
     })
-}
-
-fn line_col_and_index(line: u32, character: u32, path: &Path) -> Result<(u32, u32, usize)> {
-    let line_index = usize::try_from(line)
-        .map_err(|_| Error::lsp(format!("line index overflow for {}", path.display())))?;
-    Ok((line + 1, character + 1, line_index))
 }
 
 #[derive(Debug, Deserialize)]

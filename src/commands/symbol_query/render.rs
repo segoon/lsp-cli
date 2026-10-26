@@ -66,8 +66,8 @@ fn render_symbol_match_text(matched: &SymbolMatch) -> String {
     format!(
         "{}:{}:{}:{}",
         matched.path.display(),
-        matched.line,
-        matched.col,
+        matched.position.line().one_based(),
+        matched.position.column().one_based(),
         matched.line_content
     )
 }
@@ -95,8 +95,8 @@ fn render_symbol_match_text_full(matched: &SymbolMatch) -> String {
     format!(
         "{}:{}:{}:\n{}",
         matched.path.display(),
-        matched.line,
-        matched.col,
+        matched.position.line().one_based(),
+        matched.position.column().one_based(),
         matched
             .full_content
             .clone()
@@ -221,8 +221,8 @@ fn render_symbol_matches_json(matches: &[SymbolMatch], include_full_content: boo
                 "name": matched.name,
                 "kind": matched.kind,
                 "path": matched.path,
-                "line": matched.line,
-                "col": matched.col,
+                "line": matched.position.line().one_based(),
+                "col": matched.position.column().one_based(),
                 "line_content": matched.line_content,
             });
             if include_full_content {

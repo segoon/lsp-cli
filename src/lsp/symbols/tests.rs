@@ -5,9 +5,9 @@ use super::{
     location_matches_from_response, location_matches_from_response_with_full_content,
     prepare_call_hierarchy_response, symbol_matches_from_response,
 };
-use crate::lsp::{SourceCache, symbol_full_content_from_document_response};
-use crate::test_support::TestDir;
-use lsp_types::SymbolKind;
+use crate::lsp::{LineIndex, SourceCache, Utf16Range, symbol_full_content_from_document_response};
+use crate::test_support::{TestDir, utf16_position};
+use lsp_types::{Position, Range, SymbolKind};
 use serde_json::json;
 use url::Url;
 
@@ -16,6 +16,16 @@ struct SourceFixture {
     file: std::path::PathBuf,
     uri: String,
     cache: SourceCache,
+}
+
+impl SourceFixture {
+    fn flat_symbol_response(&self, name: &str, range: Range) -> serde_json::Value {
+        json!([{
+            "name": name,
+            "kind": 12,
+            "location": { "uri": self.uri, "range": range }
+        }])
+    }
 }
 
 fn matched(
@@ -30,8 +40,7 @@ fn matched(
         name: name.to_string(),
         kind,
         path: path.to_path_buf(),
-        line,
-        col,
+        position: utf16_position(line - 1, col - 1),
         line_content: line_content.to_string(),
         full_content: None,
     }
@@ -58,7 +67,10 @@ fn returns_placeholder_for_missing_line() {
     let file = dir.write_file("main.rs", "fn main() {}\n");
     let mut cache = SourceCache::default();
 
-    assert_eq!(cache.line_content(&file, 99), "<line unavailable>");
+    assert_eq!(
+        cache.line_content(&file, LineIndex::new(99)),
+        "<line unavailable>"
+    );
 }
 
 #[test]
@@ -86,8 +98,7 @@ fn parses_workspace_symbol_locations() {
             name: "symbol".to_string(),
             kind: SymbolKind::FUNCTION,
             path: fixture.file,
-            line: 2,
-            col: 3,
+            position: utf16_position(1, 2),
             line_content: "second line".to_string(),
             full_content: None,
         }]
@@ -162,8 +173,7 @@ fn parses_document_symbols_for_functions() {
                 name: "second".to_string(),
                 kind: SymbolKind::METHOD,
                 path: fixture.file.clone(),
-                line: 4,
-                col: 8,
+                position: utf16_position(3, 7),
                 line_content: "    fn second(&self) {}".to_string(),
                 full_content: None,
             },
@@ -171,8 +181,7 @@ fn parses_document_symbols_for_functions() {
                 name: "first".to_string(),
                 kind: SymbolKind::FUNCTION,
                 path: fixture.file,
-                line: 2,
-                col: 4,
+                position: utf16_position(1, 3),
                 line_content: "fn first() {}".to_string(),
                 full_content: None,
             },
@@ -227,26 +236,17 @@ fn parses_flat_document_symbols_at_symbol_name() {
         source_fixture("pub fn format_order(order: &str) -> String { order.to_string() }\n");
 
     let matches = document_symbol_matches_from_response(
-        &json!([
-            {
-                "name": "format_order",
-                "kind": 12,
-                "location": {
-                    "uri": fixture.uri,
-                    "range": {
-                        "start": { "line": 0, "character": 0 },
-                        "end": { "line": 0, "character": 62 }
-                    }
-                }
-            }
-        ]),
+        &fixture.flat_symbol_response(
+            "format_order",
+            Range::new(Position::new(0, 0), Position::new(0, 62)),
+        ),
         &fixture.file,
         &mut fixture.cache,
     )
     .expect("document symbols should parse");
 
-    assert_eq!(matches[0].line, 1);
-    assert_eq!(matches[0].col, 8);
+    assert_eq!(matches[0].position.line().one_based(), 1);
+    assert_eq!(matches[0].position.column().one_based(), 8);
     assert_eq!(
         matches[0].line_content,
         "pub fn format_order(order: &str) -> String { order.to_string() }"
@@ -258,26 +258,17 @@ fn parses_flat_document_symbols_inside_attributed_ranges() {
     let mut fixture = source_fixture("#[test]\nfn parses_callers_arguments() {}\n");
 
     let matches = function_matches_from_document_response(
-        &json!([
-            {
-                "name": "parses_callers_arguments",
-                "kind": 12,
-                "location": {
-                    "uri": fixture.uri,
-                    "range": {
-                        "start": { "line": 0, "character": 0 },
-                        "end": { "line": 1, "character": 32 }
-                    }
-                }
-            }
-        ]),
+        &fixture.flat_symbol_response(
+            "parses_callers_arguments",
+            Range::new(Position::new(0, 0), Position::new(1, 32)),
+        ),
         &fixture.file,
         &mut fixture.cache,
     )
     .expect("document symbols should parse");
 
-    assert_eq!(matches[0].line, 2);
-    assert_eq!(matches[0].col, 4);
+    assert_eq!(matches[0].position.line().one_based(), 2);
+    assert_eq!(matches[0].position.column().one_based(), 4);
     assert_eq!(matches[0].line_content, "fn parses_callers_arguments() {}");
 }
 
@@ -305,8 +296,8 @@ fn parses_location_links() {
     )
     .expect("location links should parse");
 
-    assert_eq!(matches[0].line, 2);
-    assert_eq!(matches[0].col, 3);
+    assert_eq!(matches[0].position.line().one_based(), 2);
+    assert_eq!(matches[0].position.column().one_based(), 3);
 }
 
 #[test]
@@ -513,3 +504,6 @@ fn parses_call_hierarchy_outgoing_calls() {
 
     assert_eq!(matches[0].name, "callee");
 }
+
+#[path = "unicode_tests.rs"]
+mod unicode_tests;

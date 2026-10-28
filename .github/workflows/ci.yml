@@ -89,6 +89,14 @@ jobs:
           E2E_REGISTRY_SNAPSHOT_OUTPUT: ${{ runner.temp }}/mason-registry
         run: cargo run --locked -p lsp-cli-e2e-support --features e2e-workflow-planner --bin e2e-workflow-plan
 
+      - name: Increase E2E runtime filesystem capacity
+        run: |
+          # Server installations, Gradle distributions, and indexes share this tmpfs.
+          # Raise its limit without reserving memory or changing sandbox/socket paths.
+          findmnt --mountpoint "$XDG_RUNTIME_DIR" --types tmpfs
+          sudo mount -o remount,size=50% "$XDG_RUNTIME_DIR"
+          df -h "$XDG_RUNTIME_DIR"
+
       - name: Run real-server E2E tests
         env:
           E2E_MASON_REGISTRY_SNAPSHOT: ${{ runner.temp }}/mason-registry

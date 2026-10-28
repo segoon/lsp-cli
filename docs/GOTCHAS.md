@@ -418,6 +418,11 @@
   adopts and drains descendants before filesystem deletion. `HOME` alone does not isolate JVM
   `user.home`; the E2E environment also sets that property and a case-local `GRADLE_USER_HOME` to
   prevent reuse of a Gradle daemon started outside the case.
+- Kotlin LSP 263.7084.0 exhausted the CI runtime filesystem while extracting Gradle 9.7.0
+  and creating a second workspace index. The E2E sandbox includes installations and caches under
+  `XDG_RUNTIME_DIR`; both E2E workflows raise its tmpfs size limit to 50% of RAM before running
+  cases. This permits more storage use without preallocating memory, but actual usage still
+  competes with server processes for RAM.
 
 ## roslyn-language-server
 

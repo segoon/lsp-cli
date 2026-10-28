@@ -95,6 +95,13 @@ jobs:
           path: .env
           key: e2e-runtimes-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('tests/e2e/dependencies/catalog.rs') }}
           restore-keys: e2e-runtimes-${{ runner.os }}-${{ runner.arch }}-
+      - name: Increase E2E runtime filesystem capacity
+        run: |
+          # Server installations, Gradle distributions, and indexes share this tmpfs.
+          # Raise its limit without reserving memory or changing sandbox/socket paths.
+          findmnt --mountpoint "$XDG_RUNTIME_DIR" --types tmpfs
+          sudo mount -o remount,size=50% "$XDG_RUNTIME_DIR"
+          df -h "$XDG_RUNTIME_DIR"
       - name: Run compatibility cases
         env:
           MATRIX_CASES: ${{ matrix.cases }}

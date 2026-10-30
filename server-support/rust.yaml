@@ -39,7 +39,8 @@ pairs:
         - command: type-definition
           outcome: empty-matches
           reason: rust-analyzer returns no type definition for the explicitly typed top-level SAMPLE_ORDER_VALUE static
-      deadline-seconds: 180
+      # Covers the existing name queries plus fourteen position/assertion queries.
+      deadline-seconds: 420
     lifecycle:
       status: scenarios
       direct-run:

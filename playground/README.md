@@ -147,11 +147,10 @@ trait implementations, and both call-hierarchy directions:
 |---|---|---|
 | `definition`, `declaration` | `playground/rust/src/main.rs` | `sample_order` |
 | `type-definition` | `playground/rust/src/main.rs` | `order` in `let order =` |
-| `references`, `callers` | `playground/rust/src/order.rs` | `sample_order` |
+| `references`, `callers`, `callees` | `playground/rust/src/order.rs` | `sample_order` |
 | `implementation` | `playground/rust/src/order.rs` | `OrderTotaling` at its trait declaration |
-| `callees` | `playground/rust/src/report/mod.rs` | `format_order` at its declaration |
 
-The real-server suite runs each anchor with and without the text assertion. To run these scenarios:
+The real-server suite waits for server indexing and runs each anchor with and without the text assertion. To run these scenarios:
 
 ```sh
 make test-e2e-smoke PHASE=smoke CASE=rust/rust_analyzer

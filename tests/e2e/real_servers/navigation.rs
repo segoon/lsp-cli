@@ -15,7 +15,7 @@ pub(super) fn run(
         ("implementation", "src/order.rs", "OrderTotaling"),
         ("type-definition", "src/main.rs", "order ="),
         ("callers", "src/order.rs", "sample_order"),
-        ("callees", "src/report/mod.rs", "format_order"),
+        ("callees", "src/order.rs", "sample_order"),
     ] {
         let source = std::fs::read_to_string(context.workspace().join(file))
             .map_err(|error| error.to_string())?;
@@ -49,6 +49,7 @@ pub(super) fn run(
                 "--lsp",
                 server,
                 "--json",
+                "--wait-for-index",
                 "--no-download",
                 "--no-detach",
                 "--timeout",

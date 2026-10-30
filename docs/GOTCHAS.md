@@ -534,6 +534,11 @@
 
 ## rust-analyzer
 
+- With package `pkg:github/rust-lang/rust-analyzer@2026-10-26`, a position query at the Rust playground's `format_order` identifier
+  returned no outgoing call-hierarchy edges; its body wraps the operations in `format!`. The same case's named `sample_order` query
+  returned edges. This does not establish whether macro expansion or analysis timing caused the empty result. Use the existing
+  `sample_order` fixture with direct calls and an explicit indexing wait for position-mode outgoing-call assertions.
+
 - `rust-analyzer` may answer `textDocument/documentSymbol` with flat `SymbolInformation` items whose
   `location.range.start` points at the start of the whole declaration (for example `pub fn` or an
   attribute line) instead of the identifier itself. When a later LSP request needs a precise

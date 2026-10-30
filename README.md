@@ -12,6 +12,7 @@ It helps you do editor-style code navigation and inspection from a terminal:
 - download LSP server if it is missing in the system
 - call simple LSP commands like references, callers, list-symbols
 - collect diagnostics
+- print source files with LSP highlighting
 - format files
 - inspect server capabilities
 - keep a server warm in a background daemon
@@ -223,6 +224,22 @@ incomplete connections are closed without interrupting the active client. Up to
 16 connections can wait to start a session; additional connections are closed,
 including `stop` connections while all 16 slots are occupied.
 
+
+## Print a source file
+
+```sh
+lsp-cli cat path/to/file.rs
+```
+
+`cat` prints the file with a built-in palette based on the language server's semantic tokens.
+Coloring coverage depends on the server; unsupported tokens remain plain text. If the server does
+not support semantic highlighting, the whole file is printed as plain text. Server failures are
+reported as errors.
+
+Colors are enabled only when stdout is a terminal. Set `NO_COLOR=1` to disable them; redirected
+output and `TERM=dumb` also use plain text without starting a language server. File contents and
+line endings are preserved, including whether the file ends in a newline. `cat` accepts the usual
+server-selection, download, daemon, debug, and timeout options, but has no `--color` or `--json` flag.
 
 ## Configuration Files
 

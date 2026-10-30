@@ -7,6 +7,16 @@ pub fn filesystem_command_paths_are_covered() {
     let fixture = LocalFixture::new().expect("local fixture should initialize");
 
     for command in fixture.commands_for(CommandStrategy::Filesystem) {
+        if command == "cat" {
+            let output = fixture.context().run(&[command, "main.fake"]);
+            output.assert_success();
+            assert_eq!(
+                output.stdout_text(),
+                include_str!("../fixtures/project/main.fake")
+            );
+            assert!(output.stderr_text().is_empty());
+            continue;
+        }
         let output =
             fixture
                 .context()

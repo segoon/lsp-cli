@@ -36,6 +36,18 @@ impl LspClient {
         }
 
         let text = crate::fs::read_to_string(path)?;
+        self.write_document_text(path, uri, text)
+    }
+
+    pub fn open_document_text(&mut self, path: &Path, uri: &str, text: String) -> Result<()> {
+        if self.opened_documents.contains(uri) {
+            return Ok(());
+        }
+        self.drain_pending_server_requests()?;
+        self.write_document_text(path, uri, text)
+    }
+
+    fn write_document_text(&mut self, path: &Path, uri: &str, text: String) -> Result<()> {
         let params = DidOpenTextDocumentParams {
             text_document: TextDocumentItem::new(
                 parse_lsp_uri(uri, "document")?,
@@ -73,7 +85,10 @@ impl LspClient {
                     workspace_folders: Some(true),
                     ..Default::default()
                 }),
-                text_document: None,
+                text_document: Some(lsp_types::TextDocumentClientCapabilities {
+                    semantic_tokens: Some(crate::lsp::semantic_tokens::client_capabilities()),
+                    ..Default::default()
+                }),
                 notebook_document: None,
                 window: Some(WindowClientCapabilities {
                     work_done_progress: Some(want_server_status),

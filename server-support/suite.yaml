@@ -2148,6 +2148,8 @@ commands:
     strategy: filesystem
   - name: list-files
     strategy: filesystem
+  - name: cat
+    strategy: filesystem
   - name: server-capabilities
     strategy: lsp-fixture
   - name: diagnostics

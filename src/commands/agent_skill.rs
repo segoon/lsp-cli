@@ -139,6 +139,7 @@ fn command_placeholder(command: &str) -> Option<&'static str> {
         "callees" => Some("CMD/CALLEES"),
         "diagnostics" => Some("CMD/DIAGNOSTICS"),
         "format" => Some("CMD/FORMAT"),
+        "cat" => Some("CMD/CAT"),
         "languages" => Some("CMD/LANGUAGES"),
         "servers" => Some("CMD/SERVERS"),
         _ => None,

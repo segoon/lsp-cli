@@ -20,6 +20,7 @@ Commands:
   detect               Detect runnable language servers for a path
   diagnostics          Print workspace diagnostics
   format               Format a file
+  cat                  Print a file with LSP highlighting in terminals; honor NO_COLOR
   grep                 Search workspace symbols (regex syntax is server-dependent)
   list-symbols         List symbols from a file or workspace
   list-functions       List functions, methods, constructors, and operators
@@ -209,6 +210,28 @@ Options:
       --timeout <T>  Per-request LSP timeout. Plain numbers are seconds; values ending in `ms` are milliseconds.
       --check        Exit with an error if formatting would change the file.
       --stdout       Write the formatted file to stdout instead of modifying it.
+  -h, --help         Print help
+```
+
+```text
+$ lsp-cli cat --help
+Print a file with LSP highlighting in terminals; honor NO_COLOR
+
+Usage: lsp-cli cat [OPTIONS] <FILE>
+
+Arguments:
+  <FILE>  Source file to print; preserve its contents and line endings.
+
+Options:
+      --lang <LANG>  Select this language.
+      --lsp <LSP>    Use a specific configured LSP server.
+      --download     Download LSP server if not found in PATH.
+      --no-download  Do not install missing servers automatically.
+      --detach       Use a background daemon socket when available, starting one if needed.
+      --no-detach    Talk to the server in this process instead of using a background daemon.
+      --debug        Print verbose debug logs to stderr.
+      --no-debug     Disable verbose debug logs.
+      --timeout <T>  Per-request LSP timeout. Plain numbers are seconds; values ending in `ms` are milliseconds.
   -h, --help         Print help
 ```
 

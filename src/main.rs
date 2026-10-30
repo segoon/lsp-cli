@@ -59,6 +59,7 @@ mod update;
 mod test_support;
 
 use std::env;
+use std::io::Write;
 use std::process;
 
 use cli::{RawCommand as CliRawCommand, parse_raw_args, resolve_command};
@@ -71,6 +72,7 @@ fn main() {
     warn_if_log_file_is_large();
     let raw_command = parse_command_or_exit();
 
+    let exact_output = matches!(&raw_command, CliRawCommand::Cat(_));
     let output = match raw_command {
         CliRawCommand::Commands(_) => run_commands(),
         CliRawCommand::Completion(completion_args) => run_completion(completion_args),
@@ -81,7 +83,19 @@ fn main() {
     match output {
         Ok(output) => {
             if !output.is_empty() {
-                println!("{output}");
+                let mut stdout = std::io::stdout().lock();
+                let result = if exact_output {
+                    write!(stdout, "{output}")
+                } else {
+                    writeln!(stdout, "{output}")
+                };
+                if let Err(error) = result {
+                    if error.kind() == std::io::ErrorKind::BrokenPipe {
+                        return;
+                    }
+                    eprintln!("failed to write output: {error}");
+                    process::exit(1);
+                }
             }
         }
         Err(error) => {

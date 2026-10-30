@@ -1,5 +1,6 @@
 mod agent_skill;
 mod build_index;
+mod cat;
 mod command_list;
 mod common;
 mod completion;
@@ -31,6 +32,7 @@ pub(crate) fn run(command: CliCommand, config: &ConfigStore) -> Result<String> {
         CliCommand::Commands(args) => command_list::run(&args),
         CliCommand::Diagnostics(args) => diagnostics::run(&args, config),
         CliCommand::Format(args) => format::run(&args, config),
+        CliCommand::Cat(args) => cat::run(&args, config),
         CliCommand::Daemon(args) => daemon::run(&args, config),
         CliCommand::Stop(args) => stop::run(&args, config),
         CliCommand::StopAll(args) => stop::run_all(&args),

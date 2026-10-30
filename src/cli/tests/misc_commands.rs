@@ -222,3 +222,29 @@ fn rejects_format_check_with_stdout() {
 
     assert!(error.contains("`format` does not support using `--check` together with `--stdout`"));
 }
+
+#[test]
+fn parses_cat_and_rejects_unavailable_output_options() {
+    let defaults = CliConfig {
+        json: Some(true),
+        detach: Some(true),
+        timeout: Some(Duration::from_secs(3)),
+        ..Default::default()
+    };
+    assert_eq!(
+        parse_with_config(&["cat", "src/main.rs", "--lsp", "rust-analyzer"], &defaults),
+        Command::Cat(crate::cli::CatArgs {
+            path: PathBuf::from("src/main.rs"),
+            server: install_debug(None, Some("rust-analyzer"), false, false),
+            detach: true,
+            timeout: Duration::from_secs(3),
+        })
+    );
+    for args in [
+        vec!["cat"],
+        vec!["cat", "file", "--color", "always"],
+        vec!["cat", "file", "--json"],
+    ] {
+        parse(&args).expect_err("unsupported cat arguments");
+    }
+}

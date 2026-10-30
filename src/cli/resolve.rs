@@ -1,12 +1,12 @@
 use crate::cli::{
-    BuildIndexArgs, Command, CommandsArgs, DEFAULT_IDLE_TIMEOUT, DEFAULT_LIMIT, DEFAULT_TIMEOUT,
-    DEFAULT_WRITE_STALL_TIMEOUT, DaemonArgs, DetectArgs, DiagnosticsArgs, FormatArgs, GrepArgs,
-    InstallDebugArgs, LanguagesArgs, ListFilesArgs, ListFunctionsArgs, ListSymbolsArgs,
-    LspWorkspaceQueryArgs, NavigationArgs, RunArgs, SelectionArgs, ServerCapabilitiesArgs,
-    ServersArgs, StopAllArgs, StopArgs, UpdateArgs, WorkspaceQueryArgs,
+    BuildIndexArgs, CatArgs, Command, CommandsArgs, DEFAULT_IDLE_TIMEOUT, DEFAULT_LIMIT,
+    DEFAULT_TIMEOUT, DEFAULT_WRITE_STALL_TIMEOUT, DaemonArgs, DetectArgs, DiagnosticsArgs,
+    FormatArgs, GrepArgs, InstallDebugArgs, LanguagesArgs, ListFilesArgs, ListFunctionsArgs,
+    ListSymbolsArgs, LspWorkspaceQueryArgs, NavigationArgs, RunArgs, SelectionArgs,
+    ServerCapabilitiesArgs, ServersArgs, StopAllArgs, StopArgs, UpdateArgs, WorkspaceQueryArgs,
 };
 use crate::cli::{
-    RawBuildIndexArgs, RawCommand, RawCommandsArgs, RawDaemonArgs, RawDetectArgs,
+    RawBuildIndexArgs, RawCatArgs, RawCommand, RawCommandsArgs, RawDaemonArgs, RawDetectArgs,
     RawDiagnosticsArgs, RawFormatArgs, RawFullNavigationArgs, RawGrepArgs, RawLanguagesArgs,
     RawListFilesArgs, RawListFunctionsArgs, RawListSymbolsArgs, RawLspOptions,
     RawLspWorkspaceQueryArgs, RawNavigationArgs, RawRunArgs, RawServerCapabilitiesArgs,
@@ -31,6 +31,7 @@ pub(crate) fn resolve_command(command: RawCommand, defaults: &CliConfig) -> Resu
         RawCommand::Detect(args) => Command::Detect(args.resolve(defaults)),
         RawCommand::Diagnostics(args) => Command::Diagnostics(args.resolve(defaults)),
         RawCommand::Format(args) => Command::Format(args.resolve(defaults)),
+        RawCommand::Cat(args) => Command::Cat(args.resolve(defaults)),
         RawCommand::Grep(args) => Command::Grep(args.resolve(defaults)),
         RawCommand::ListSymbols(args) => Command::ListSymbols(args.resolve(defaults)),
         RawCommand::ListFunctions(args) => Command::ListFunctions(args.resolve(defaults)),
@@ -157,6 +158,24 @@ impl RawDiagnosticsArgs {
     fn resolve(self, defaults: &CliConfig) -> DiagnosticsArgs {
         DiagnosticsArgs {
             query: self.query.resolve(defaults),
+        }
+    }
+}
+
+impl RawCatArgs {
+    fn resolve(self, defaults: &CliConfig) -> CatArgs {
+        CatArgs {
+            path: self.path,
+            server: resolve_install_debug_args(self.selector, self.download, self.debug, defaults),
+            detach: resolve_bool(
+                self.detach.detach,
+                self.detach.no_detach,
+                defaults.detach.unwrap_or(false),
+            ),
+            timeout: self
+                .timeout
+                .timeout
+                .unwrap_or(defaults.timeout.unwrap_or(DEFAULT_TIMEOUT)),
         }
     }
 }

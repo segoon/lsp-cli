@@ -9,12 +9,8 @@ typedef struct {
   double price;
 } OrderItem;
 
-@protocol OrderTotaling
-- (double)orderTotalValue;
-@end
-
 __attribute__((objc_root_class))
-@interface Order<OrderTotaling> {
+@interface Order {
 @private
   const char *_customer;
   const OrderItem *_items;
@@ -27,7 +23,6 @@ __attribute__((objc_root_class))
 - (const char *)customer;
 - (size_t)itemCount;
 - (double)total;
-- (double)orderTotalValue;
 
 @end
 

@@ -133,6 +133,30 @@ Compare runs with `max-requests-in-flight: 1` and `max-requests-in-flight: 20` i
 Both should report the call in `timestamp.lua`; the setting changes how many file-symbol requests
 can be outstanding, not which files are searched.
 
+## Position navigation
+
+All seven navigation commands support `--at FILE:LINE:COLUMN`, optionally followed by literal
+text to assert at that first character. Coordinates and printed locations use one-based Unicode
+scalar columns, including after non-ASCII text. Positions can be reused directly from output.
+
+For the Rust fixture, calculate coordinates from source rather than relying on line numbers that
+may change. These anchors exercise usage-site definitions/declarations, inferred types, references,
+trait implementations, and both call-hierarchy directions:
+
+| Command | File | Text at the target |
+|---|---|---|
+| `definition`, `declaration` | `playground/rust/src/main.rs` | `sample_order` |
+| `type-definition` | `playground/rust/src/main.rs` | `order` in `let order =` |
+| `references`, `callers` | `playground/rust/src/order.rs` | `sample_order` |
+| `implementation` | `playground/rust/src/order.rs` | `OrderTotaling` at its trait declaration |
+| `callees` | `playground/rust/src/report/mod.rs` | `format_order` at its declaration |
+
+The real-server suite runs each anchor with and without the text assertion. To run these scenarios:
+
+```sh
+make test-e2e-smoke PHASE=smoke CASE=rust/rust_analyzer
+```
+
 ## Daemon latency workflow
 
 To measure daemon forwarding overhead with a deterministic immediate-reply server:

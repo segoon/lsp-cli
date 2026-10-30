@@ -22,8 +22,8 @@ fn matched(
     line_content: &str,
 ) -> SymbolMatch {
     SymbolMatch {
-        name: name.to_string(),
-        kind,
+        name: Some(name.to_string()),
+        kind: Some(kind),
         path: PathBuf::from(path),
         position: utf16_position(line - 1, col - 1),
         line_content: line_content.to_string(),
@@ -50,18 +50,22 @@ fn renders_grep_text_output() {
         render_symbol_matches_text(&[matched(
             "src/main.rs",
             3,
-            14,
+            4,
             "main",
             SymbolKind::FUNCTION,
             "fn main() {",
-        )]),
-        "src/main.rs:3:14:fn main() {"
+        )])
+        .expect("valid output coordinates"),
+        "src/main.rs:3:4:fn main() {"
     );
 }
 
 #[test]
 fn renders_empty_grep_text_output() {
-    assert_eq!(render_symbol_matches_text(&[]), "");
+    assert_eq!(
+        render_symbol_matches_text(&[]).expect("valid output coordinates"),
+        ""
+    );
 }
 
 #[test]
@@ -71,7 +75,7 @@ fn renders_symbol_names_text_output() {
             matched(
                 "src/main.rs",
                 3,
-                14,
+                4,
                 "main",
                 SymbolKind::FUNCTION,
                 "fn main() {"
@@ -94,7 +98,7 @@ fn renders_full_definition_text_output() {
     let mut matched = matched(
         "src/main.rs",
         3,
-        14,
+        4,
         "main",
         SymbolKind::FUNCTION,
         "fn main() {",
@@ -102,8 +106,8 @@ fn renders_full_definition_text_output() {
     matched.full_content = Some("fn main() {\n    helper();\n}".to_string());
 
     assert_eq!(
-        render_symbol_matches_text_full(&[matched]),
-        "src/main.rs:3:14:\nfn main() {\n    helper();\n}"
+        render_symbol_matches_text_full(&[matched]).expect("valid output coordinates"),
+        "src/main.rs:3:4:\nfn main() {\n    helper();\n}"
     );
 }
 
@@ -114,7 +118,7 @@ fn renders_files_with_matches_text_output() {
             matched(
                 "src/main.rs",
                 3,
-                14,
+                4,
                 "main",
                 SymbolKind::FUNCTION,
                 "fn main() {"
@@ -159,7 +163,8 @@ fn renders_full_definition_json_output() {
         &BTreeSet::from(["python".to_string()]),
         &render_server(),
         &[matched],
-    );
+    )
+    .expect("valid output coordinates");
 
     assert_eq!(
         serde_json::from_str::<serde_json::Value>(&rendered).expect("json should parse"),
@@ -329,4 +334,59 @@ fn formats_list_symbols_support_error_for_missing_document_symbol() {
         error,
         "harper-ls does not support list-symbols because it does not advertise textDocument/documentSymbol"
     );
+}
+
+#[test]
+fn text_and_json_share_scalar_columns_and_null_metadata() {
+    let mut item = matched(
+        "unicode.rs",
+        1,
+        5,
+        "target",
+        SymbolKind::VARIABLE,
+        "é😀\ttarget",
+    );
+    item.name = None;
+    item.kind = None;
+    for full in [false, true] {
+        let rendered = if full {
+            render_symbol_matches_text_full(std::slice::from_ref(&item))
+        } else {
+            render_symbol_matches_text(std::slice::from_ref(&item))
+        }
+        .expect("scalar column");
+        assert!(rendered.starts_with("unicode.rs:1:4:"));
+    }
+    let rendered = super::render::render_workspace_symbol_json(
+        "unicode.rs:1:4",
+        std::path::Path::new("."),
+        &BTreeSet::new(),
+        &render_server(),
+        &[item],
+    )
+    .expect("JSON coordinates");
+    let value: serde_json::Value = serde_json::from_str(&rendered).expect("JSON");
+    assert_eq!(value["matches"][0]["col"], 4);
+    assert!(value["matches"][0]["name"].is_null());
+    assert!(value["matches"][0]["kind"].is_null());
+}
+
+#[test]
+fn coordinate_output_rejects_invalid_positions_but_path_output_does_not_need_source() {
+    for (text, column) in [("😀x", 2), ("abc", 99), ("<line unavailable>", 1)] {
+        let item = matched(
+            "/missing/source.rs",
+            1,
+            column,
+            "target",
+            SymbolKind::VARIABLE,
+            text,
+        );
+        render_symbol_matches_text(std::slice::from_ref(&item))
+            .expect_err("invalid source coordinates");
+        assert_eq!(
+            render_symbol_match_paths_text(&[item]),
+            "/missing/source.rs"
+        );
+    }
 }

@@ -1,7 +1,7 @@
 use super::{
-    CallHierarchyDirection, CallHierarchyQueryContext, LocationQueryKind, NamedAnchorRequest,
-    NamedLocationQueryContext, PreparedWorkspace, collect_call_hierarchy_matches,
-    collect_named_location_matches, select_named_anchors,
+    CallHierarchyDirection, CallHierarchyQueryContext, LocationQueryContext, LocationQueryKind,
+    NamedAnchorRequest, PreparedWorkspace, collect_call_hierarchy_matches,
+    collect_location_matches, select_named_anchors,
 };
 use crate::config::ConfigStore;
 use crate::config::{CliConfig, FiletypeConfig};
@@ -123,16 +123,17 @@ fn named_location_queries_find_local_and_duplicate_names_in_file_order() {
                     }
                     peer.finish();
                 });
-            let matches = collect_named_location_matches(
+            let matches = collect_location_matches(
                 &fixture.workspace,
                 &fixture.initialize,
                 &mut client,
-                NamedLocationQueryContext {
+                LocationQueryContext {
                     config: &fixture.config,
                     directory: fixture.dir.path(),
                     name: "target",
                     kind,
                     include_full_content: false,
+                    position: None,
                 },
             )
             .expect("named query");
@@ -143,11 +144,9 @@ fn named_location_queries_find_local_and_duplicate_names_in_file_order() {
                     .collect::<Vec<_>>(),
                 ["a.lua", "b.lua", "c.lua"]
             );
-            assert!(
-                matches
-                    .iter()
-                    .all(|m| m.name == "target" && m.position == utf16_position(0, 32))
-            );
+            assert!(matches.iter().all(
+                |m| m.name.as_deref() == Some("target") && m.position == utf16_position(0, 32)
+            ));
             client.shutdown().expect("shutdown");
             server.join().expect("server finishes");
         }
@@ -197,6 +196,7 @@ fn call_hierarchy_queries_filter_non_functions() {
                 directory: fixture.dir.path(),
                 name: "target",
                 direction,
+                position: None,
             },
         )
         .expect("call hierarchy");
@@ -210,8 +210,8 @@ fn call_hierarchy_queries_filter_non_functions() {
 fn falls_back_to_workspace_symbols_when_no_document_name_matches() {
     let fixture = Fixture::new(20);
     let anchor = SymbolMatch {
-        name: "target".into(),
-        kind: SymbolKind::FUNCTION,
+        name: Some("target".into()),
+        kind: Some(SymbolKind::FUNCTION),
         path: fixture.dir.path().join("a.lua"),
         position: utf16_position(0, 32),
         line_content: "local note = 'привет 😀'; local target = 1".into(),
@@ -241,4 +241,140 @@ fn falls_back_to_workspace_symbols_when_no_document_name_matches() {
     assert_eq!(matches, vec![anchor]);
     client.shutdown().expect("shutdown");
     server.join().expect("server finishes");
+}
+
+impl Fixture {
+    fn position(&self, name: Option<&str>) -> super::super::navigation::QueryAnchor {
+        let path = self.dir.path().join("a.lua");
+        let source: crate::navigation::SourceLocation = format!("{}:1:32", path.display())
+            .parse()
+            .expect("source location");
+        super::super::navigation::QueryAnchor {
+            path,
+            position: source.resolve(Some("target")).expect("target position"),
+            name: name.map(str::to_string),
+            kind: None,
+        }
+    }
+
+    fn navigation_capabilities() -> crate::lsp::InitializeResponse {
+        crate::lsp::InitializeResponse::from_raw_value(json!({"capabilities": {
+            "referencesProvider":true, "definitionProvider":true, "declarationProvider":true,
+            "implementationProvider":true, "typeDefinitionProvider":true, "callHierarchyProvider":true
+        }})).expect("navigation without discovery capabilities")
+    }
+}
+
+#[test]
+fn position_location_queries_bypass_discovery_and_preserve_unknown_metadata() {
+    for kind in [
+        LocationQueryKind::References,
+        LocationQueryKind::Definition,
+        LocationQueryKind::Declaration,
+        LocationQueryKind::Implementation,
+        LocationQueryKind::TypeDefinition,
+    ] {
+        for name in [None, Some("target")] {
+            let fixture = Fixture::new(1);
+            let anchor = fixture.position(name);
+            let (mut client, server) =
+                LspPeer::spawn(&fixture.dir, Duration::from_secs(3), move |peer| {
+                    let request = position_request(peer);
+                    assert_eq!(request["method"], format!("textDocument/{}", kind.label()));
+                    assert_eq!(
+                        request["params"]["position"],
+                        json!({"line":0,"character":32})
+                    );
+                    peer.reply(
+                        &request,
+                        json!([{"uri":request["params"]["textDocument"]["uri"], "range":range()}]),
+                    );
+                    peer.finish();
+                });
+            let matches = collect_location_matches(
+                &fixture.workspace,
+                &Fixture::navigation_capabilities(),
+                &mut client,
+                LocationQueryContext {
+                    config: &fixture.config,
+                    directory: fixture.dir.path(),
+                    name: "position",
+                    kind,
+                    include_full_content: false,
+                    position: Some(&anchor),
+                },
+            )
+            .expect("position query");
+            assert_eq!(matches.len(), 1);
+            assert_eq!(matches[0].name.as_deref(), name);
+            assert_eq!(matches[0].kind, None);
+            assert_eq!(matches[0].position, anchor.position);
+            client.shutdown().expect("shutdown");
+            server.join().expect("server finishes");
+        }
+    }
+}
+
+#[test]
+fn position_call_hierarchy_uses_prepared_items_without_discovery() {
+    for direction in [
+        CallHierarchyDirection::Incoming,
+        CallHierarchyDirection::Outgoing,
+    ] {
+        let fixture = Fixture::new(1);
+        let anchor = fixture.position(None);
+        let (mut client, server) = LspPeer::spawn(
+            &fixture.dir,
+            Duration::from_secs(3),
+            move |peer| {
+                let prepare = position_request(peer);
+                assert_eq!(prepare["method"], "textDocument/prepareCallHierarchy");
+                assert_eq!(
+                    prepare["params"]["position"],
+                    json!({"line":0,"character":32})
+                );
+                let item = json!({"name":"server-name", "kind":12, "uri":prepare["params"]["textDocument"]["uri"], "range":range(), "selectionRange":range()});
+                peer.reply(&prepare, json!([item]));
+                let calls = peer.read();
+                let (method, field) = match direction {
+                    CallHierarchyDirection::Incoming => ("callHierarchy/incomingCalls", "from"),
+                    CallHierarchyDirection::Outgoing => ("callHierarchy/outgoingCalls", "to"),
+                };
+                assert_eq!(calls["method"], method);
+                assert_eq!(calls["params"]["item"], item);
+                let mut edge = json!({"fromRanges":[]});
+                edge[field] = item;
+                peer.reply(&calls, json!([edge]));
+                peer.finish();
+            },
+        );
+        let matches = collect_call_hierarchy_matches(
+            &fixture.workspace,
+            &Fixture::navigation_capabilities(),
+            &mut client,
+            CallHierarchyQueryContext {
+                config: &fixture.config,
+                directory: fixture.dir.path(),
+                name: "position",
+                direction,
+                position: Some(&anchor),
+            },
+        )
+        .expect("position hierarchy");
+        assert_eq!(matches[0].name.as_deref(), Some("server-name"));
+        assert_eq!(matches[0].kind, Some(SymbolKind::FUNCTION));
+        client.shutdown().expect("shutdown");
+        server.join().expect("server finishes");
+    }
+}
+
+fn position_request(peer: &mut LspPeer) -> Value {
+    let open = peer.read();
+    assert_eq!(open["method"], "textDocument/didOpen");
+    let request = peer.read();
+    assert_eq!(
+        request["params"]["textDocument"]["uri"],
+        open["params"]["textDocument"]["uri"]
+    );
+    request
 }

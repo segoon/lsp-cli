@@ -14,8 +14,10 @@
   snapshot, so it must not be reused against different text without validation.
 - A missing server `positionEncoding` means UTF-16. Since the client offers only UTF-16, initialization rejects any explicit different
   encoding before interpreting positions. Supporting another encoding requires extending the conversion boundary and negotiation together.
-- Text and JSON output retain one-based UTF-16 columns, which are not terminal display columns or UTF-8 byte columns. Conversion to
-  one-based numbers happens only when rendering.
+- CLI input and text/JSON output use one-based Unicode scalar columns in UTF-8 source text, while protocol positions remain zero-based
+  UTF-16 units. Convert through `SourceLine` at the CLI boundary; byte offsets and terminal display columns are separate units. Missing
+  source text or invalid server positions must produce an error rather than silently emit a UTF-16 column. Diagnostics retain paths
+  relative to the workspace root, so resolve those paths against that root before reading source for conversion.
 
 ## Capabilities
 

@@ -3,11 +3,9 @@ mod tests;
 
 use super::kinds::{CallHierarchyDirection, LocationQueryKind};
 use super::{
-    NamedAnchorRequest, PreparedWorkspace, WorkspaceSymbolQueryResult, dedupe_symbol_matches,
-    fill_definition_full_content, open_document_for, select_named_anchors,
-    with_initialized_client_context,
+    NamedAnchorRequest, PreparedWorkspace, dedupe_symbol_matches, fill_definition_full_content,
+    open_document_for, select_named_anchors,
 };
-use crate::cli::LspWorkspaceQueryArgs;
 use crate::config::ConfigStore;
 use crate::error::Result;
 use crate::lsp::{
@@ -20,24 +18,24 @@ use crate::lsp::{
 use std::path::Path;
 
 #[derive(Clone, Copy)]
-struct NamedLocationQueryContext<'a> {
-    config: &'a ConfigStore,
-    directory: &'a Path,
-    name: &'a str,
-    kind: LocationQueryKind,
-    include_full_content: bool,
+pub(super) struct LocationQueryContext<'a> {
+    pub(super) config: &'a ConfigStore,
+    pub(super) directory: &'a Path,
+    pub(super) name: &'a str,
+    pub(super) kind: LocationQueryKind,
+    pub(super) include_full_content: bool,
+    pub(super) position: Option<&'a super::navigation::QueryAnchor>,
 }
 
-fn collect_named_location_matches(
+pub(super) fn collect_location_matches(
     workspace: &PreparedWorkspace,
     initialize: &crate::lsp::InitializeResponse,
     client: &mut LspClient,
-    context: NamedLocationQueryContext<'_>,
+    context: LocationQueryContext<'_>,
 ) -> Result<Vec<SymbolMatch>> {
-    ensure_workspace_symbol_support(initialize)?;
     context.kind.ensure_support(initialize)?;
 
-    let anchors = select_named_anchors(
+    let anchors = resolve_anchors(
         workspace,
         initialize,
         client,
@@ -47,17 +45,14 @@ fn collect_named_location_matches(
             name: context.name,
             function_only: false,
         },
+        context.position,
     )?;
     let mut source_cache = SourceCache::default();
     let mut matches = Vec::new();
 
     for anchor in anchors {
         let uri = open_document_for(client, &anchor.path, &workspace.server.server)?;
-        // QD: avoid using Option::map_err()
-        // A: The code was using `Result::map_err()`, not `Option::map_err()`.
-        // A: I still applied the style request and rewrote it with explicit
-        // A: control flow so the failure branch is easier to read.
-        let response = match context.kind.query(client, &uri, &anchor) {
+        let response = match context.kind.query(client, &uri, anchor.position) {
             Ok(response) => response,
             Err(error) => {
                 return Err(error.with_prefix(format!(
@@ -71,12 +66,17 @@ fn collect_named_location_matches(
         matches.extend(if context.include_full_content {
             location_matches_from_response_with_full_content(
                 &response,
-                &anchor.name,
+                anchor.name.as_deref(),
                 anchor.kind,
                 &mut source_cache,
             )?
         } else {
-            location_matches_from_response(&response, &anchor.name, anchor.kind, &mut source_cache)?
+            location_matches_from_response(
+                &response,
+                anchor.name.as_deref(),
+                anchor.kind,
+                &mut source_cache,
+            )?
         });
     }
 
@@ -89,23 +89,23 @@ fn collect_named_location_matches(
 }
 
 #[derive(Clone, Copy)]
-struct CallHierarchyQueryContext<'a> {
-    config: &'a ConfigStore,
-    directory: &'a Path,
-    name: &'a str,
-    direction: CallHierarchyDirection,
+pub(super) struct CallHierarchyQueryContext<'a> {
+    pub(super) config: &'a ConfigStore,
+    pub(super) directory: &'a Path,
+    pub(super) name: &'a str,
+    pub(super) direction: CallHierarchyDirection,
+    pub(super) position: Option<&'a super::navigation::QueryAnchor>,
 }
 
-fn collect_call_hierarchy_matches(
+pub(super) fn collect_call_hierarchy_matches(
     workspace: &PreparedWorkspace,
     initialize: &crate::lsp::InitializeResponse,
     client: &mut LspClient,
     context: CallHierarchyQueryContext<'_>,
 ) -> Result<Vec<SymbolMatch>> {
-    ensure_workspace_symbol_support(initialize)?;
     ensure_call_hierarchy_support(initialize)?;
 
-    let anchors = select_named_anchors(
+    let anchors = resolve_anchors(
         workspace,
         initialize,
         client,
@@ -115,6 +115,7 @@ fn collect_call_hierarchy_matches(
             name: context.name,
             function_only: true,
         },
+        context.position,
     )?;
     let mut source_cache = SourceCache::default();
     let mut matches = Vec::new();
@@ -147,69 +148,22 @@ fn collect_call_hierarchy_matches(
     Ok(dedupe_symbol_matches(matches))
 }
 
-pub(super) fn run_named_location_query(
-    args: &LspWorkspaceQueryArgs,
-    name: &str,
-    kind: LocationQueryKind,
-    include_full_content: bool,
+fn resolve_anchors(
+    workspace: &PreparedWorkspace,
+    initialize: &crate::lsp::InitializeResponse,
+    client: &mut LspClient,
     config: &ConfigStore,
-) -> Result<WorkspaceSymbolQueryResult> {
-    let (workspace, matches) = with_initialized_client_context(
-        &args.query.directory,
-        args.query.selector.selected_server(),
-        args.query.selector.selected_language(),
-        args.detach,
-        args.download,
-        args.query.wait_for_index,
-        args.query.debug,
-        args.query.timeout,
-        config,
-        NamedLocationQueryContext {
-            config,
-            directory: &args.query.directory,
-            name,
-            kind,
-            include_full_content,
-        },
-        collect_named_location_matches,
-    )?;
-
-    Ok(WorkspaceSymbolQueryResult {
-        detected_filetypes: workspace.detection.filetypes,
-        server: workspace.server,
-        matches,
-    })
-}
-
-pub(super) fn run_call_hierarchy_query(
-    args: &LspWorkspaceQueryArgs,
-    name: &str,
-    direction: CallHierarchyDirection,
-    config: &ConfigStore,
-) -> Result<WorkspaceSymbolQueryResult> {
-    let query = &args.query;
-    let (workspace, matches) = with_initialized_client_context(
-        &query.directory,
-        query.selector.selected_server(),
-        query.selector.selected_language(),
-        args.detach,
-        args.download,
-        query.wait_for_index,
-        query.debug,
-        query.timeout,
-        config,
-        CallHierarchyQueryContext {
-            config,
-            directory: &query.directory,
-            name,
-            direction,
-        },
-        collect_call_hierarchy_matches,
-    )?;
-
-    Ok(WorkspaceSymbolQueryResult {
-        detected_filetypes: workspace.detection.filetypes,
-        server: workspace.server,
-        matches,
-    })
+    request: NamedAnchorRequest<'_>,
+    position: Option<&super::navigation::QueryAnchor>,
+) -> Result<Vec<super::navigation::QueryAnchor>> {
+    if let Some(position) = position {
+        return Ok(vec![position.clone()]);
+    }
+    ensure_workspace_symbol_support(initialize)?;
+    Ok(
+        select_named_anchors(workspace, initialize, client, config, request)?
+            .into_iter()
+            .map(super::navigation::QueryAnchor::from)
+            .collect(),
+    )
 }

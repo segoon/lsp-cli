@@ -37,8 +37,8 @@ fn matched(
     line_content: &str,
 ) -> SymbolMatch {
     SymbolMatch {
-        name: name.to_string(),
-        kind,
+        name: Some(name.to_string()),
+        kind: Some(kind),
         path: path.to_path_buf(),
         position: utf16_position(line - 1, col - 1),
         line_content: line_content.to_string(),
@@ -95,8 +95,8 @@ fn parses_workspace_symbol_locations() {
     assert_eq!(
         matches,
         vec![SymbolMatch {
-            name: "symbol".to_string(),
-            kind: SymbolKind::FUNCTION,
+            name: Some("symbol".to_string()),
+            kind: Some(SymbolKind::FUNCTION),
             path: fixture.file,
             position: utf16_position(1, 2),
             line_content: "second line".to_string(),
@@ -170,16 +170,16 @@ fn parses_document_symbols_for_functions() {
         matches,
         vec![
             SymbolMatch {
-                name: "second".to_string(),
-                kind: SymbolKind::METHOD,
+                name: Some("second".to_string()),
+                kind: Some(SymbolKind::METHOD),
                 path: fixture.file.clone(),
                 position: utf16_position(3, 7),
                 line_content: "    fn second(&self) {}".to_string(),
                 full_content: None,
             },
             SymbolMatch {
-                name: "first".to_string(),
-                kind: SymbolKind::FUNCTION,
+                name: Some("first".to_string()),
+                kind: Some(SymbolKind::FUNCTION),
                 path: fixture.file,
                 position: utf16_position(1, 3),
                 line_content: "fn first() {}".to_string(),
@@ -226,8 +226,8 @@ fn parses_document_symbols_for_all_kinds() {
     .expect("document symbols should parse");
 
     assert_eq!(matches.len(), 2);
-    assert_eq!(matches[0].name, "S");
-    assert_eq!(matches[1].name, "first");
+    assert_eq!(matches[0].name.as_deref(), Some("S"));
+    assert_eq!(matches[1].name.as_deref(), Some("first"));
 }
 
 #[test]
@@ -290,8 +290,8 @@ fn parses_location_links() {
                 }
             }
         ]),
-        "symbol",
-        SymbolKind::FUNCTION,
+        Some("symbol"),
+        Some(SymbolKind::FUNCTION),
         &mut fixture.cache,
     )
     .expect("location links should parse");
@@ -315,8 +315,8 @@ fn keeps_full_content_from_definition_ranges() {
                 }
             }
         ]),
-        "build_sample_order",
-        SymbolKind::FUNCTION,
+        Some("build_sample_order"),
+        Some(SymbolKind::FUNCTION),
         &mut fixture.cache,
     )
     .expect("location response should parse");
@@ -472,7 +472,7 @@ fn parses_call_hierarchy_incoming_calls() {
     )
     .expect("incoming calls should parse");
 
-    assert_eq!(matches[0].name, "caller");
+    assert_eq!(matches[0].name.as_deref(), Some("caller"));
 }
 
 #[test]
@@ -502,7 +502,7 @@ fn parses_call_hierarchy_outgoing_calls() {
     )
     .expect("outgoing calls should parse");
 
-    assert_eq!(matches[0].name, "callee");
+    assert_eq!(matches[0].name.as_deref(), Some("callee"));
 }
 
 #[path = "unicode_tests.rs"]

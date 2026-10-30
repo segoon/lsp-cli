@@ -17,6 +17,9 @@ use crate::results::{AtStage, CaseKind, E2eResult, FailureStage};
 #[path = "real_servers_tests.rs"]
 mod tests;
 
+#[path = "real_servers/navigation.rs"]
+mod navigation;
+
 const QUERY_COMMANDS: [QueryKind; 14] = [
     QueryKind::ServerCapabilities,
     QueryKind::Diagnostics,
@@ -101,6 +104,9 @@ impl<'a> RealServerTest<'a> {
                         remaining,
                     )
                     .at_stage(FailureStage::Query)?;
+                }
+                if self.case.language() == "rust" {
+                    navigation::run(context, &server, &deadline).at_stage(FailureStage::Query)?;
                 }
                 Ok(())
             },

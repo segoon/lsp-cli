@@ -62,6 +62,14 @@ lsp-cli list-functions --detach --json --limit 50 path/to/project
 lsp-cli list-files --detach --json --limit 100 path/to/project
 ```
 
+All seven navigation commands accept a name with an optional directory (default `.`),
+`--at FILE:LINE:COLUMN`, or both. With both, the name is an exact, case-sensitive
+assertion starting at the cursor's first character. A mismatch is an error.
+Coordinates count Unicode characters (scalar values), starting at one; tabs count
+as one character. Position queries infer their workspace from the file.
+
+- `--at FILE:LINE:COLUMN`: {OPT/AT}
+
 ### `definition`
 ```sh
 # {CMD/DEFINITION}

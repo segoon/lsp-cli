@@ -11,6 +11,7 @@ use std::time::Duration;
 mod detect_and_queries;
 mod listing_and_symbols;
 mod misc_commands;
+mod navigation;
 
 pub(super) fn workspace_query(directory: &str) -> WorkspaceQueryArgs {
     WorkspaceQueryArgs {

@@ -22,7 +22,7 @@ pub(super) fn run(args: &ListFunctionsArgs, config: &ConfigStore) -> Result<Stri
             &result.detected_filetypes,
             &result.server,
             &matches,
-        )
+        )?
     } else {
         render_symbol_names_text(&matches)
     })

@@ -1,34 +1,29 @@
 mod agent_skill;
 mod build_index;
-mod callees;
-mod callers;
 mod command_list;
 mod common;
 mod completion;
 mod daemon;
-mod declaration;
-mod definition;
 mod detect;
 mod diagnostics;
 mod format;
 mod grep;
-mod implementation;
 mod languages;
 mod list_files;
 mod list_functions;
 mod list_symbols;
-mod references;
 mod run;
 mod server_capabilities;
 mod servers;
 mod stop;
 mod symbol_query;
-mod type_definition;
 mod update;
 
 use crate::cli::{Command as CliCommand, CompletionArgs};
 use crate::config::ConfigStore;
 use crate::error::{Error, Result};
+use symbol_query::kinds::{CallHierarchyDirection as Calls, LocationQueryKind as Location};
+use symbol_query::{NavigationKind, run_navigation};
 
 pub(crate) fn run(command: CliCommand, config: &ConfigStore) -> Result<String> {
     match command {
@@ -46,13 +41,37 @@ pub(crate) fn run(command: CliCommand, config: &ConfigStore) -> Result<String> {
         CliCommand::ListSymbols(args) => list_symbols::run(&args, config),
         CliCommand::ListFunctions(args) => list_functions::run(&args, config),
         CliCommand::ListFiles(args) => list_files::run(&args, config),
-        CliCommand::References(args) => references::run(&args, config),
-        CliCommand::Callers(args) => callers::run(&args, config),
-        CliCommand::Callees(args) => callees::run(&args, config),
-        CliCommand::Definition(args) => definition::run(&args, config),
-        CliCommand::Declaration(args) => declaration::run(&args, config),
-        CliCommand::Implementation(args) => implementation::run(&args, config),
-        CliCommand::TypeDefinition(args) => type_definition::run(&args, config),
+        CliCommand::References(args) => run_navigation(
+            &args,
+            NavigationKind::Location(Location::References),
+            config,
+        ),
+        CliCommand::Callers(args) => {
+            run_navigation(&args, NavigationKind::Calls(Calls::Incoming), config)
+        }
+        CliCommand::Callees(args) => {
+            run_navigation(&args, NavigationKind::Calls(Calls::Outgoing), config)
+        }
+        CliCommand::Definition(args) => run_navigation(
+            &args,
+            NavigationKind::Location(Location::Definition),
+            config,
+        ),
+        CliCommand::Declaration(args) => run_navigation(
+            &args,
+            NavigationKind::Location(Location::Declaration),
+            config,
+        ),
+        CliCommand::Implementation(args) => run_navigation(
+            &args,
+            NavigationKind::Location(Location::Implementation),
+            config,
+        ),
+        CliCommand::TypeDefinition(args) => run_navigation(
+            &args,
+            NavigationKind::Location(Location::TypeDefinition),
+            config,
+        ),
         CliCommand::BuildIndex(args) => build_index::run(&args, config),
         CliCommand::Update(args) => update::run(&args, config),
         CliCommand::Completion(_) => Err(Error::unexpected(

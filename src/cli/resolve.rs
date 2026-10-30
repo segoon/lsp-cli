@@ -1,18 +1,17 @@
 use crate::cli::{
     BuildIndexArgs, Command, CommandsArgs, DEFAULT_IDLE_TIMEOUT, DEFAULT_LIMIT, DEFAULT_TIMEOUT,
-    DEFAULT_WRITE_STALL_TIMEOUT, DaemonArgs, DeclarationArgs, DefinitionArgs, DetectArgs,
-    DiagnosticsArgs, FormatArgs, GrepArgs, ImplementationArgs, InstallDebugArgs, LanguagesArgs,
-    ListFilesArgs, ListFunctionsArgs, ListSymbolsArgs, LspWorkspaceQueryArgs, RunArgs,
-    SelectionArgs, ServerCapabilitiesArgs, ServersArgs, StopAllArgs, StopArgs, SymbolQueryArgs,
-    TypeDefinitionArgs, UpdateArgs, WorkspaceQueryArgs,
+    DEFAULT_WRITE_STALL_TIMEOUT, DaemonArgs, DetectArgs, DiagnosticsArgs, FormatArgs, GrepArgs,
+    InstallDebugArgs, LanguagesArgs, ListFilesArgs, ListFunctionsArgs, ListSymbolsArgs,
+    LspWorkspaceQueryArgs, NavigationArgs, RunArgs, SelectionArgs, ServerCapabilitiesArgs,
+    ServersArgs, StopAllArgs, StopArgs, UpdateArgs, WorkspaceQueryArgs,
 };
 use crate::cli::{
-    RawBuildIndexArgs, RawCommand, RawCommandsArgs, RawDaemonArgs, RawDeclarationArgs,
-    RawDefinitionArgs, RawDetectArgs, RawDiagnosticsArgs, RawFormatArgs, RawGrepArgs,
-    RawImplementationArgs, RawLanguagesArgs, RawListFilesArgs, RawListFunctionsArgs,
-    RawListSymbolsArgs, RawLspWorkspaceQueryArgs, RawRunArgs, RawServerCapabilitiesArgs,
-    RawServersArgs, RawStopAllArgs, RawStopArgs, RawSymbolQueryArgs, RawTypeDefinitionArgs,
-    RawUpdateArgs, RawWorkspaceQueryArgs,
+    RawBuildIndexArgs, RawCommand, RawCommandsArgs, RawDaemonArgs, RawDetectArgs,
+    RawDiagnosticsArgs, RawFormatArgs, RawFullNavigationArgs, RawGrepArgs, RawLanguagesArgs,
+    RawListFilesArgs, RawListFunctionsArgs, RawListSymbolsArgs, RawLspOptions,
+    RawLspWorkspaceQueryArgs, RawNavigationArgs, RawRunArgs, RawServerCapabilitiesArgs,
+    RawServersArgs, RawStopAllArgs, RawStopArgs, RawUpdateArgs, RawWorkspaceOptions,
+    RawWorkspaceQueryArgs,
 };
 use crate::config::CliConfig;
 use crate::error::{Error, Result};
@@ -36,13 +35,13 @@ pub(crate) fn resolve_command(command: RawCommand, defaults: &CliConfig) -> Resu
         RawCommand::ListSymbols(args) => Command::ListSymbols(args.resolve(defaults)),
         RawCommand::ListFunctions(args) => Command::ListFunctions(args.resolve(defaults)),
         RawCommand::ListFiles(args) => Command::ListFiles(args.resolve(defaults)),
-        RawCommand::References(args) => Command::References(args.resolve(defaults)),
-        RawCommand::Callers(args) => Command::Callers(args.resolve(defaults)),
-        RawCommand::Callees(args) => Command::Callees(args.resolve(defaults)),
-        RawCommand::Definition(args) => Command::Definition(args.resolve(defaults)),
-        RawCommand::Declaration(args) => Command::Declaration(args.resolve(defaults)),
-        RawCommand::Implementation(args) => Command::Implementation(args.resolve(defaults)),
-        RawCommand::TypeDefinition(args) => Command::TypeDefinition(args.resolve(defaults)),
+        RawCommand::References(args) => Command::References(args.resolve(defaults)?),
+        RawCommand::Callers(args) => Command::Callers(args.resolve(defaults)?),
+        RawCommand::Callees(args) => Command::Callees(args.resolve(defaults)?),
+        RawCommand::Definition(args) => Command::Definition(args.resolve(defaults)?),
+        RawCommand::Declaration(args) => Command::Declaration(args.resolve(defaults)?),
+        RawCommand::Implementation(args) => Command::Implementation(args.resolve(defaults)?),
+        RawCommand::TypeDefinition(args) => Command::TypeDefinition(args.resolve(defaults)?),
         RawCommand::BuildIndex(args) => Command::BuildIndex(args.resolve(defaults)),
         RawCommand::Update(_) => Command::Update(RawUpdateArgs::resolve()),
         RawCommand::Completion(args) => Command::Completion(args),
@@ -88,8 +87,14 @@ impl RawDetectArgs {
 
 impl RawWorkspaceQueryArgs {
     fn resolve(self, defaults: &CliConfig) -> WorkspaceQueryArgs {
+        self.options.resolve(self.directory, defaults)
+    }
+}
+
+impl RawWorkspaceOptions {
+    fn resolve(self, directory: std::path::PathBuf, defaults: &CliConfig) -> WorkspaceQueryArgs {
         WorkspaceQueryArgs {
-            directory: self.directory,
+            directory,
             selector: resolve_selection_args(self.selector),
             wait_for_index: self.wait_for_index,
             json: resolve_bool(
@@ -116,8 +121,14 @@ impl RawWorkspaceQueryArgs {
 
 impl RawLspWorkspaceQueryArgs {
     fn resolve(self, defaults: &CliConfig) -> LspWorkspaceQueryArgs {
+        self.options.resolve(self.query.resolve(defaults), defaults)
+    }
+}
+
+impl RawLspOptions {
+    fn resolve(self, query: WorkspaceQueryArgs, defaults: &CliConfig) -> LspWorkspaceQueryArgs {
         LspWorkspaceQueryArgs {
-            query: self.query.resolve(defaults),
+            query,
             download: resolve_bool(
                 self.download.download,
                 self.download.no_download,
@@ -219,52 +230,30 @@ impl RawListFunctionsArgs {
     }
 }
 
-impl RawSymbolQueryArgs {
-    fn resolve(self, defaults: &CliConfig) -> SymbolQueryArgs {
-        SymbolQueryArgs {
-            name: self.name,
-            query: self.query.resolve(defaults),
-        }
+impl RawNavigationArgs {
+    fn resolve(self, defaults: &CliConfig) -> Result<NavigationArgs> {
+        let target = crate::navigation::NavigationTarget::new(self.name, self.at)?;
+        let directory = match &target {
+            crate::navigation::NavigationTarget::Name(_) => {
+                self.directory.unwrap_or_else(|| ".".into())
+            }
+            crate::navigation::NavigationTarget::Position { location, .. } => location.path.clone(),
+        };
+        Ok(NavigationArgs {
+            target,
+            query: self
+                .lsp
+                .resolve(self.options.resolve(directory, defaults), defaults),
+            full: false,
+        })
     }
 }
 
-impl RawDefinitionArgs {
-    fn resolve(self, defaults: &CliConfig) -> DefinitionArgs {
-        DefinitionArgs {
-            name: self.name,
-            query: self.query.resolve(defaults),
-            full: self.full,
-        }
-    }
-}
-
-impl RawDeclarationArgs {
-    fn resolve(self, defaults: &CliConfig) -> DeclarationArgs {
-        DeclarationArgs {
-            name: self.name,
-            query: self.query.resolve(defaults),
-            full: self.full,
-        }
-    }
-}
-
-impl RawImplementationArgs {
-    fn resolve(self, defaults: &CliConfig) -> ImplementationArgs {
-        ImplementationArgs {
-            name: self.name,
-            query: self.query.resolve(defaults),
-            full: self.full,
-        }
-    }
-}
-
-impl RawTypeDefinitionArgs {
-    fn resolve(self, defaults: &CliConfig) -> TypeDefinitionArgs {
-        TypeDefinitionArgs {
-            name: self.name,
-            query: self.query.resolve(defaults),
-            full: self.full,
-        }
+impl RawFullNavigationArgs {
+    fn resolve(self, defaults: &CliConfig) -> Result<NavigationArgs> {
+        let mut args = self.navigation.resolve(defaults)?;
+        args.full = self.full;
+        Ok(args)
     }
 }
 
@@ -417,26 +406,6 @@ fn validate_command(command: &Command) -> Result<()> {
         Command::ListFunctions(args) if args.query.files_with_matches => Err(Error::invalid_input(
             "`--files-with-matches` is only supported by grep, references, definition, declaration, implementation, type-definition, callers, and callees",
         )),
-        Command::Definition(args) if args.full && args.query.files_with_matches => {
-            Err(Error::invalid_input(
-                "`definition` does not support using `--full` together with `--files-with-matches`",
-            ))
-        }
-        Command::Declaration(args) if args.full && args.query.files_with_matches => {
-            Err(Error::invalid_input(
-                "`declaration` does not support using `--full` together with `--files-with-matches`",
-            ))
-        }
-        Command::Implementation(args) if args.full && args.query.files_with_matches => {
-            Err(Error::invalid_input(
-                "`implementation` does not support using `--full` together with `--files-with-matches`",
-            ))
-        }
-        Command::TypeDefinition(args) if args.full && args.query.files_with_matches => {
-            Err(Error::invalid_input(
-                "`type-definition` does not support using `--full` together with `--files-with-matches`",
-            ))
-        }
         Command::Format(args) if args.check && args.stdout => Err(Error::invalid_input(
             "`format` does not support using `--check` together with `--stdout`",
         )),

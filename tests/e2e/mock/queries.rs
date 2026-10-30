@@ -7,12 +7,48 @@ pub fn lsp_fixture_command_paths_are_covered() {
     let fixture = LocalFixture::new().expect("local fixture should initialize");
 
     for command in fixture.commands_for(CommandStrategy::LspFixture) {
-        run_query(&fixture, command);
+        run_query(&fixture, command, None);
+        if matches!(
+            command,
+            "definition"
+                | "declaration"
+                | "implementation"
+                | "type-definition"
+                | "references"
+                | "callers"
+                | "callees"
+        ) {
+            for assertion in [false, true] {
+                run_query(&fixture, command, Some(assertion));
+            }
+        }
     }
+    let output = fixture.context().run(&[
+        "definition",
+        "--at",
+        "main.fake:1:4",
+        "Wrong",
+        "--lsp",
+        "does-not-exist",
+    ]);
+    assert!(output.ensure_success().is_err());
+    assert!(
+        output
+            .stderr_text()
+            .contains("expected \"Wrong\" starting at")
+    );
 }
 
-fn run_query(fixture: &LocalFixture, command: &str) {
-    let mut args = command_prefix(command);
+fn run_query(fixture: &LocalFixture, command: &str, assertion: Option<bool>) {
+    let mut args = if let Some(assertion) = assertion {
+        let mut args = vec![command.to_string(), "--at".into(), "main.fake:1:4".into()];
+        if assertion {
+            args.push("Target".into());
+        }
+        args
+    } else {
+        command_prefix(command)
+    };
     args.extend([
         "--lsp".to_string(),
         fixture.server_name().to_string(),
@@ -53,11 +89,27 @@ fn run_query(fixture: &LocalFixture, command: &str) {
         }
         other => {
             let value: Value = output.json();
+            let expected_name =
+                if assertion == Some(false) && !matches!(command, "callers" | "callees") {
+                    None
+                } else {
+                    Some("Target")
+                };
             assert_eq!(
                 value.pointer("/matches/0/name").and_then(Value::as_str),
-                Some("Target"),
+                expected_name,
                 "command {other}"
             );
+            if let Some(assertion) = assertion {
+                assert_eq!(value.get("at").expect("position metadata"), "main.fake:1:4");
+                assert_eq!(
+                    value.get("expected_name").and_then(Value::as_str),
+                    assertion.then_some("Target")
+                );
+                if !matches!(command, "callers" | "callees") {
+                    assert!(value.pointer("/matches/0/kind").is_some_and(Value::is_null));
+                }
+            }
         }
     }
 }

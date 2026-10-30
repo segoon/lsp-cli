@@ -10,6 +10,7 @@ impl Utf16Column {
         Self(column)
     }
 
+    #[cfg(test)]
     pub fn one_based(self) -> u64 {
         u64::from(self.0) + 1
     }
@@ -142,6 +143,21 @@ pub struct SourceLine<'a> {
 impl<'a> SourceLine<'a> {
     pub fn new(text: &'a str) -> Self {
         Self { text }
+    }
+
+    pub fn character_offset(self, column: usize) -> Option<ByteOffset> {
+        self.text
+            .char_indices()
+            .map(|(index, _)| ByteOffset(index))
+            .chain([self.end()])
+            .nth(column)
+    }
+
+    pub fn character_column(self, column: Utf16Column) -> Option<u64> {
+        let offset = self.byte_offset(column)?;
+        u64::try_from(self.text.get(..offset.0)?.chars().count())
+            .ok()?
+            .checked_add(1)
     }
 
     pub fn end(self) -> ByteOffset {

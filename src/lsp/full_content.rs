@@ -24,7 +24,12 @@ pub fn symbol_full_content_from_document_response(
     match response {
         DocumentSymbolResponse::Flat(symbols) => Ok(symbols
             .into_iter()
-            .filter(|symbol| symbol.name == target.name)
+            .filter(|symbol| {
+                target
+                    .name
+                    .as_deref()
+                    .is_none_or(|name| symbol.name == name)
+            })
             .filter_map(|symbol| {
                 let position = symbol_information_anchor(&symbol.location, &symbol.name, path);
                 let range = Utf16Range::from_lsp(symbol.location.range);
@@ -56,7 +61,10 @@ fn matching_document_symbol_content(
     source_cache: &mut SourceCache,
 ) -> Option<(u64, String)> {
     let range = Utf16Range::from_lsp(symbol.range);
-    let direct_match = symbol.name == target.name
+    let direct_match = target
+        .name
+        .as_deref()
+        .is_none_or(|name| symbol.name == name)
         && (Utf16Position::from_lsp(symbol.selection_range.start) == target.position
             || range.contains_anchor(target.position));
 

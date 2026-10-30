@@ -17,8 +17,8 @@ use crate::error::{Error, Result, error_fn};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SymbolMatch {
-    pub name: String,
-    pub kind: SymbolKind,
+    pub name: Option<String>,
+    pub kind: Option<SymbolKind>,
     pub path: PathBuf,
     pub position: Utf16Position,
     pub line_content: String,
@@ -75,8 +75,8 @@ pub fn symbol_matches_from_response(response: &Value) -> Result<Vec<SymbolMatch>
 
 pub fn location_matches_from_response(
     response: &Value,
-    fallback_name: &str,
-    fallback_kind: SymbolKind,
+    fallback_name: Option<&str>,
+    fallback_kind: Option<SymbolKind>,
     source_cache: &mut SourceCache,
 ) -> Result<Vec<SymbolMatch>> {
     location_matches_from_response_with(response, fallback_name, fallback_kind, false, source_cache)
@@ -84,8 +84,8 @@ pub fn location_matches_from_response(
 
 pub fn location_matches_from_response_with_full_content(
     response: &Value,
-    fallback_name: &str,
-    fallback_kind: SymbolKind,
+    fallback_name: Option<&str>,
+    fallback_kind: Option<SymbolKind>,
     source_cache: &mut SourceCache,
 ) -> Result<Vec<SymbolMatch>> {
     location_matches_from_response_with(response, fallback_name, fallback_kind, true, source_cache)
@@ -93,8 +93,8 @@ pub fn location_matches_from_response_with_full_content(
 
 fn location_matches_from_response_with(
     response: &Value,
-    fallback_name: &str,
-    fallback_kind: SymbolKind,
+    fallback_name: Option<&str>,
+    fallback_kind: Option<SymbolKind>,
     include_full_content: bool,
     source_cache: &mut SourceCache,
 ) -> Result<Vec<SymbolMatch>> {
@@ -108,7 +108,7 @@ fn location_matches_from_response_with(
     match response {
         LocationResponse::Scalar(location) => Ok(vec![location_to_symbol_match(
             &location,
-            fallback_name.to_string(),
+            fallback_name.map(str::to_string),
             fallback_kind,
             include_full_content,
             source_cache,
@@ -118,7 +118,7 @@ fn location_matches_from_response_with(
             .map(|location| {
                 location_to_symbol_match(
                     &location,
-                    fallback_name.to_string(),
+                    fallback_name.map(str::to_string),
                     fallback_kind,
                     include_full_content,
                     source_cache,
@@ -130,7 +130,7 @@ fn location_matches_from_response_with(
             .map(|link| {
                 location_link_to_symbol_match(
                     &link,
-                    fallback_name.to_string(),
+                    fallback_name.map(str::to_string),
                     fallback_kind,
                     include_full_content,
                     source_cache,
@@ -237,8 +237,8 @@ fn symbol_information_to_match(
     let line_content = source_cache.line_content(&path, position.line());
 
     Ok(SymbolMatch {
-        name,
-        kind,
+        name: Some(name),
+        kind: Some(kind),
         path,
         position,
         line_content,
@@ -329,8 +329,8 @@ where
         let line_content = source_cache.line_content(path, position.line());
 
         matches.push(SymbolMatch {
-            name: symbol.name.clone(),
-            kind: symbol.kind,
+            name: Some(symbol.name.clone()),
+            kind: Some(symbol.kind),
             path: path.to_path_buf(),
             position,
             line_content,
@@ -349,8 +349,8 @@ where
 
 fn location_to_symbol_match(
     location: &Location,
-    name: String,
-    kind: SymbolKind,
+    name: Option<String>,
+    kind: Option<SymbolKind>,
     include_full_content: bool,
     source_cache: &mut SourceCache,
 ) -> Result<SymbolMatch> {
@@ -378,8 +378,8 @@ fn location_to_symbol_match(
 
 fn location_link_to_symbol_match(
     location: &LocationLink,
-    name: String,
-    kind: SymbolKind,
+    name: Option<String>,
+    kind: Option<SymbolKind>,
     include_full_content: bool,
     source_cache: &mut SourceCache,
 ) -> Result<SymbolMatch> {
@@ -416,8 +416,8 @@ fn call_hierarchy_item_to_match(
     let line_content = source_cache.line_content(&path, position.line());
 
     Ok(SymbolMatch {
-        name: item.name,
-        kind: item.kind,
+        name: Some(item.name),
+        kind: Some(item.kind),
         path,
         position,
         line_content,
@@ -437,8 +437,8 @@ impl WorkspaceSymbolItem {
         match self {
             Self::SymbolInformation(symbol) => Some(location_to_symbol_match(
                 &symbol.location,
-                symbol.name,
-                symbol.kind,
+                Some(symbol.name),
+                Some(symbol.kind),
                 false,
                 source_cache,
             )),
@@ -485,8 +485,8 @@ impl WorkspaceSymbolLocation {
         match self {
             Self::Full(location) => Some(location_to_symbol_match(
                 &location,
-                name,
-                kind,
+                Some(name),
+                Some(kind),
                 false,
                 source_cache,
             )),

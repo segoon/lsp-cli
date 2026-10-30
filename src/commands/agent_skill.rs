@@ -239,7 +239,7 @@ mod tests {
         assert!(markdown.contains("## Core commands"));
         assert!(markdown.contains("## Setup and troubleshooting"));
         assert!(markdown.contains("Search workspace symbols (regex syntax is server-dependent)"));
-        assert!(markdown.contains("Find definitions of a symbol name"));
+        assert!(markdown.contains("Find definitions by symbol name or source position"));
         assert!(markdown.contains("List known LSP servers"));
         assert!(markdown.contains("If automatic selection is ambiguous, these options help:"));
         assert!(markdown.contains("Prefer `--json`"));

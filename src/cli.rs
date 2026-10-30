@@ -6,13 +6,12 @@ mod resolve;
 
 pub use raw::{AgentSkillArgs, CompletionArgs, clap_command};
 pub(crate) use raw::{
-    RawBuildIndexArgs, RawCommand, RawCommandsArgs, RawDaemonArgs, RawDebugArgs,
-    RawDeclarationArgs, RawDefinitionArgs, RawDetectArgs, RawDiagnosticsArgs, RawDownloadArgs,
-    RawFormatArgs, RawGrepArgs, RawImplementationArgs, RawLangLspArgs, RawLanguagesArgs,
-    RawListFilesArgs, RawListFunctionsArgs, RawListSymbolsArgs, RawLspWorkspaceQueryArgs,
-    RawRunArgs, RawServerCapabilitiesArgs, RawServersArgs, RawStopAllArgs, RawStopArgs,
-    RawSymbolQueryArgs, RawTypeDefinitionArgs, RawUpdateArgs, RawWorkspaceQueryArgs,
-    parse_raw_args,
+    RawBuildIndexArgs, RawCommand, RawCommandsArgs, RawDaemonArgs, RawDebugArgs, RawDetectArgs,
+    RawDiagnosticsArgs, RawDownloadArgs, RawFormatArgs, RawFullNavigationArgs, RawGrepArgs,
+    RawLangLspArgs, RawLanguagesArgs, RawListFilesArgs, RawListFunctionsArgs, RawListSymbolsArgs,
+    RawLspOptions, RawLspWorkspaceQueryArgs, RawNavigationArgs, RawRunArgs,
+    RawServerCapabilitiesArgs, RawServersArgs, RawStopAllArgs, RawStopArgs, RawUpdateArgs,
+    RawWorkspaceOptions, RawWorkspaceQueryArgs, parse_raw_args,
 };
 pub(crate) use resolve::resolve_command;
 
@@ -40,13 +39,13 @@ pub enum Command {
     ListSymbols(ListSymbolsArgs),
     ListFunctions(ListFunctionsArgs),
     ListFiles(ListFilesArgs),
-    References(SymbolQueryArgs),
-    Callers(SymbolQueryArgs),
-    Callees(SymbolQueryArgs),
-    Definition(DefinitionArgs),
-    Declaration(DeclarationArgs),
-    Implementation(ImplementationArgs),
-    TypeDefinition(TypeDefinitionArgs),
+    References(NavigationArgs),
+    Callers(NavigationArgs),
+    Callees(NavigationArgs),
+    Definition(NavigationArgs),
+    Declaration(NavigationArgs),
+    Implementation(NavigationArgs),
+    TypeDefinition(NavigationArgs),
     BuildIndex(BuildIndexArgs),
     Update(UpdateArgs),
     Completion(CompletionArgs),
@@ -171,35 +170,8 @@ pub struct ListFunctionsArgs {
 }
 
 #[derive(Debug, Eq, PartialEq)]
-pub struct SymbolQueryArgs {
-    pub name: String,
-    pub query: LspWorkspaceQueryArgs,
-}
-
-#[derive(Debug, Eq, PartialEq)]
-pub struct DefinitionArgs {
-    pub name: String,
-    pub query: LspWorkspaceQueryArgs,
-    pub full: bool,
-}
-
-#[derive(Debug, Eq, PartialEq)]
-pub struct DeclarationArgs {
-    pub name: String,
-    pub query: LspWorkspaceQueryArgs,
-    pub full: bool,
-}
-
-#[derive(Debug, Eq, PartialEq)]
-pub struct ImplementationArgs {
-    pub name: String,
-    pub query: LspWorkspaceQueryArgs,
-    pub full: bool,
-}
-
-#[derive(Debug, Eq, PartialEq)]
-pub struct TypeDefinitionArgs {
-    pub name: String,
+pub struct NavigationArgs {
+    pub target: crate::navigation::NavigationTarget,
     pub query: LspWorkspaceQueryArgs,
     pub full: bool,
 }

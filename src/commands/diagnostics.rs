@@ -5,7 +5,7 @@ use crate::config::ConfigStore;
 use crate::detect::matching_files;
 use crate::error::{Error, Result, error_fn};
 use crate::lsp::{
-    DiagnosticMatch, LspClient, diagnostic_matches_from_document_response,
+    DiagnosticMatch, LspClient, SourceCache, diagnostic_matches_from_document_response,
     diagnostic_matches_from_notification, diagnostics_supported, path_to_file_uri,
 };
 use crate::suggest::SuggestedLanguage;
@@ -38,11 +38,11 @@ pub(super) fn run(args: &DiagnosticsArgs, config: &ConfigStore) -> Result<String
             &result.detected_filetypes,
             &result.server,
             &diagnostics,
-        )
+        )?
     } else if args.query.files_with_matches {
         render_diagnostic_paths_text(&diagnostics)
     } else {
-        render_diagnostics_text(&diagnostics)
+        render_diagnostics_text(&diagnostics, &result.server.workspace_root)?
     })
 }
 
@@ -225,8 +225,12 @@ fn render_diagnostic_paths_text(diagnostics: &[DiagnosticMatch]) -> String {
     render_paths_text(&paths)
 }
 
-fn render_diagnostics_text(diagnostics: &[DiagnosticMatch]) -> String {
-    diagnostics
+fn render_diagnostics_text(
+    diagnostics: &[DiagnosticMatch],
+    workspace_root: &Path,
+) -> Result<String> {
+    let mut cache = SourceCache::default();
+    Ok(diagnostics
         .iter()
         .map(|diagnostic| {
             let code = diagnostic
@@ -234,18 +238,21 @@ fn render_diagnostics_text(diagnostics: &[DiagnosticMatch]) -> String {
                 .as_deref()
                 .map(|value| format!("[{value}]"))
                 .unwrap_or_default();
-            format!(
+            Ok(format!(
                 "{}:{}:{}: {}{}: {}",
                 diagnostic.path.display(),
                 diagnostic.range.start().line().one_based(),
-                diagnostic.range.start().column().one_based(),
+                cache.character_column(
+                    &workspace_root.join(&diagnostic.path),
+                    diagnostic.range.start()
+                )?,
                 diagnostic.severity,
                 code,
                 diagnostic.message
-            )
+            ))
         })
-        .collect::<Vec<_>>()
-        .join("\n")
+        .collect::<Result<Vec<_>>>()?
+        .join("\n"))
 }
 
 fn render_diagnostics_json(
@@ -253,8 +260,9 @@ fn render_diagnostics_json(
     detected_filetypes: &BTreeSet<String>,
     server: &SuggestedLanguage,
     diagnostics: &[DiagnosticMatch],
-) -> String {
-    json!({
+) -> Result<String> {
+    let mut cache = SourceCache::default();
+    Ok(json!({
         "directory": directory,
         "detected": detected_filetypes,
         "server": {
@@ -263,17 +271,17 @@ fn render_diagnostics_json(
             "command": server.command,
             "workspace_root": server.workspace_root,
         },
-        "diagnostics": diagnostics.iter().map(|diagnostic| json!({
+        "diagnostics": diagnostics.iter().map(|diagnostic| Ok(json!({
             "path": diagnostic.path,
             "line": diagnostic.range.start().line().one_based(),
-            "col": diagnostic.range.start().column().one_based(),
+            "col": cache.character_column(&server.workspace_root.join(&diagnostic.path), diagnostic.range.start())?,
             "end_line": diagnostic.range.end().line().one_based(),
-            "end_col": diagnostic.range.end().column().one_based(),
+            "end_col": cache.character_column(&server.workspace_root.join(&diagnostic.path), diagnostic.range.end())?,
             "severity": diagnostic.severity,
             "code": diagnostic.code,
             "source": diagnostic.source,
             "message": diagnostic.message,
-        })).collect::<Vec<_>>(),
+        }))).collect::<Result<Vec<_>>>()?,
     })
-    .to_string()
+    .to_string())
 }

@@ -14,17 +14,16 @@ use std::collections::{BTreeSet, HashSet};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-mod kinds;
+pub(super) mod kinds;
 mod named;
-use named::{run_call_hierarchy_query, run_named_location_query};
+mod navigation;
+pub(super) use navigation::{NavigationKind, run_navigation};
 mod render;
 mod workspace;
 pub(super) use workspace::run_workspace_symbol_query;
 
 #[cfg(test)]
 mod tests;
-
-use kinds::{CallHierarchyDirection, LocationQueryKind};
 
 pub(super) use render::{
     render_file_list_json, render_list_symbols_json, render_paths_text,
@@ -257,66 +256,6 @@ pub(super) fn run_list_files_query(
     })
 }
 
-pub(super) fn run_references_query(
-    args: &LspWorkspaceQueryArgs,
-    name: &str,
-    config: &ConfigStore,
-) -> Result<WorkspaceSymbolQueryResult> {
-    run_named_location_query(args, name, LocationQueryKind::References, false, config)
-}
-
-pub(super) fn run_definition_query(
-    args: &LspWorkspaceQueryArgs,
-    name: &str,
-    full: bool,
-    config: &ConfigStore,
-) -> Result<WorkspaceSymbolQueryResult> {
-    run_named_location_query(args, name, LocationQueryKind::Definition, full, config)
-}
-
-pub(super) fn run_declaration_query(
-    args: &LspWorkspaceQueryArgs,
-    name: &str,
-    full: bool,
-    config: &ConfigStore,
-) -> Result<WorkspaceSymbolQueryResult> {
-    run_named_location_query(args, name, LocationQueryKind::Declaration, full, config)
-}
-
-pub(super) fn run_implementation_query(
-    args: &LspWorkspaceQueryArgs,
-    name: &str,
-    full: bool,
-    config: &ConfigStore,
-) -> Result<WorkspaceSymbolQueryResult> {
-    run_named_location_query(args, name, LocationQueryKind::Implementation, full, config)
-}
-
-pub(super) fn run_type_definition_query(
-    args: &LspWorkspaceQueryArgs,
-    name: &str,
-    full: bool,
-    config: &ConfigStore,
-) -> Result<WorkspaceSymbolQueryResult> {
-    run_named_location_query(args, name, LocationQueryKind::TypeDefinition, full, config)
-}
-
-pub(super) fn run_callers_query(
-    args: &LspWorkspaceQueryArgs,
-    name: &str,
-    config: &ConfigStore,
-) -> Result<WorkspaceSymbolQueryResult> {
-    run_call_hierarchy_query(args, name, CallHierarchyDirection::Incoming, config)
-}
-
-pub(super) fn run_callees_query(
-    args: &LspWorkspaceQueryArgs,
-    name: &str,
-    config: &ConfigStore,
-) -> Result<WorkspaceSymbolQueryResult> {
-    run_call_hierarchy_query(args, name, CallHierarchyDirection::Outgoing, config)
-}
-
 #[allow(clippy::fn_params_excessive_bools, clippy::too_many_arguments)]
 fn with_initialized_client<T, F>(
     path: &Path,
@@ -370,37 +309,6 @@ where
     Ok((workspace, response))
 }
 
-#[allow(clippy::fn_params_excessive_bools, clippy::too_many_arguments)]
-fn with_initialized_client_context<T, C, F>(
-    path: &Path,
-    selected_server: Option<&str>,
-    selected_language: Option<&str>,
-    detach: bool,
-    download: bool,
-    wait_for_index_requested: bool,
-    debug: bool,
-    timeout: Duration,
-    config: &ConfigStore,
-    context: C,
-    run: F,
-) -> Result<(PreparedWorkspace, T)>
-where
-    F: FnOnce(&PreparedWorkspace, &crate::lsp::InitializeResponse, &mut LspClient, C) -> Result<T>,
-{
-    with_initialized_client(
-        path,
-        selected_server,
-        selected_language,
-        detach,
-        download,
-        wait_for_index_requested,
-        debug,
-        timeout,
-        config,
-        |workspace, initialize, client| run(workspace, initialize, client, context),
-    )
-}
-
 fn dedupe_symbol_matches(matches: Vec<SymbolMatch>) -> Vec<SymbolMatch> {
     let mut seen = HashSet::new();
     let mut deduped = Vec::new();
@@ -418,7 +326,7 @@ fn dedupe_symbol_matches(matches: Vec<SymbolMatch>) -> Vec<SymbolMatch> {
 fn preferred_name_matches(matches: Vec<SymbolMatch>, name: &str) -> Vec<SymbolMatch> {
     let exact_matches = matches
         .iter()
-        .filter(|matched| matched.name == name)
+        .filter(|matched| matched.name.as_deref() == Some(name))
         .cloned()
         .collect::<Vec<_>>();
 
@@ -433,7 +341,7 @@ fn preferred_function_name_matches(matches: Vec<SymbolMatch>, name: &str) -> Vec
     let matches = preferred_name_matches(matches, name);
     matches
         .into_iter()
-        .filter(|matched| is_function_symbol_kind(matched.kind))
+        .filter(|matched| matched.kind.is_some_and(is_function_symbol_kind))
         .collect()
 }
 
@@ -493,7 +401,7 @@ fn exact_named_document_anchors(
                 };
                 Ok(file_matches
                     .into_iter()
-                    .filter(|matched| matched.name == request.name)
+                    .filter(|matched| matched.name.as_deref() == Some(request.name))
                     .collect::<Vec<_>>())
             },
         )

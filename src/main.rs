@@ -48,6 +48,7 @@ mod hash;
 mod http;
 mod lsp;
 mod mason;
+mod navigation;
 mod runtime_state;
 mod server_stderr;
 mod suggest;

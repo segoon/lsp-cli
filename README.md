@@ -94,8 +94,36 @@ At a high level, `lsp-cli` usually does the following:
 
 This means you do not have to assemble server command lines by hand or even install LSP server at all.
 
-Locations in text and JSON output use one-based line numbers and columns counted in UTF-16 units.
-For example, in `a😀b`, `b` is at column 4 because the emoji occupies two UTF-16 units.
+Locations in text and JSON output use one-based line numbers and Unicode character columns
+(scalar values in UTF-8 text). In `a😀b`, `b` is at column 3. Combining marks count separately;
+tabs count as one character, regardless of display width. This replaces the previous UTF-16
+output columns; scripts consuming non-ASCII locations must use the new convention.
+
+The seven navigation commands (`definition`, `declaration`, `type-definition`, `implementation`,
+`references`, `callers`, and `callees`) accept three target forms:
+
+```sh
+lsp-cli definition format_order path/to/project
+lsp-cli definition --at src/main.rs:42:17
+lsp-cli definition --at src/main.rs:42:17 format_order
+```
+
+Name queries search the current directory when no directory is supplied. Position queries infer
+the language and workspace from the file; `--lang` and `--lsp` still override server selection.
+Relative file paths are relative to the current directory. A directory argument is only accepted
+for name queries.
+
+With both `--at` and a name, the exact, case-sensitive text must start at that position or the
+command fails before starting a server. This is a literal prefix assertion: `foo` also matches
+the start of `foobar`. It guards against stale coordinates but does not prove symbol identity.
+Invalid coordinates are errors; the position immediately after a line's last character is valid.
+For `callers` and `callees`, point at the callable's identifier; a position inside its body does
+not necessarily select the enclosing function.
+
+Position queries skip symbol discovery, but servers may still need time to analyze the project.
+JSON includes `at` and `expected_name` for position queries; unavailable symbol names and kinds
+are `null`. A result whose source text is unavailable or whose coordinates cannot be converted
+produces an error. Path-only text output does not require coordinate conversion.
 
 ## Typical Workflows
 

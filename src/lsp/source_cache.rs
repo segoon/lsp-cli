@@ -7,10 +7,36 @@ use std::path::{Path, PathBuf};
 
 #[derive(Debug, Default)]
 pub struct SourceCache {
-    lines: HashMap<PathBuf, Vec<String>>,
+    lines: HashMap<PathBuf, std::result::Result<Vec<String>, String>>,
 }
 
 impl SourceCache {
+    pub fn character_column(
+        &mut self,
+        path: &Path,
+        position: Utf16Position,
+    ) -> crate::error::Result<u64> {
+        let lines = self.load_lines(path).as_ref().map_err(|error| {
+            crate::error::Error::invalid_input(format!(
+                "cannot read {} to convert source coordinates: {error}",
+                path.display()
+            ))
+        })?;
+        let column = position
+            .line()
+            .as_usize()
+            .and_then(|index| lines.get(index))
+            .and_then(|line| SourceLine::new(line).character_column(position.column()));
+        let Some(column) = column else {
+            return Err(crate::error::Error::invalid_input(format!(
+                "cannot convert source position in {} at line {} to a character column: the server position is invalid",
+                path.display(),
+                position.line().one_based()
+            )));
+        };
+        Ok(column)
+    }
+
     pub fn line_content(&mut self, path: &Path, line_index: LineIndex) -> String {
         let Some(line_index) = line_index.as_usize() else {
             return "<line unavailable>".to_string();
@@ -85,11 +111,20 @@ impl SourceCache {
         self.range_content(path, &range)
     }
 
-    fn lines(&mut self, path: &Path) -> &Vec<String> {
+    fn lines(&mut self, path: &Path) -> &[String] {
+        self.load_lines(path).as_deref().unwrap_or_default()
+    }
+
+    fn load_lines(&mut self, path: &Path) -> &std::result::Result<Vec<String>, String> {
         self.lines.entry(path.to_path_buf()).or_insert_with(|| {
             fs::read_to_string(path)
-                .map(|contents| contents.lines().map(ToString::to_string).collect())
-                .unwrap_or_default()
+                .map(|contents| {
+                    contents
+                        .split('\n')
+                        .map(|line| line.strip_suffix('\r').unwrap_or(line).to_string())
+                        .collect()
+                })
+                .map_err(|error| error.to_string())
         })
     }
 }

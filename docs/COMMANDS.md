@@ -24,13 +24,13 @@ Commands:
   list-symbols         List symbols from a file or workspace
   list-functions       List functions, methods, constructors, and operators
   list-files           List files that match the selected workspace filters
-  references           Find references to a symbol name
-  callers              Find callers of a symbol name
-  callees              Find callees of a symbol name
-  definition           Find definitions of a symbol name
-  declaration          Find declarations of a symbol name
-  implementation       Find implementations of a symbol name
-  type-definition      Find type definitions of a symbol name
+  references           Find references by symbol name or source position
+  callers              Find callers by symbol name or source position
+  callees              Find callees by symbol name or source position
+  definition           Find definitions by symbol name or source position
+  declaration          Find declarations by symbol name or source position
+  implementation       Find implementations by symbol name or source position
+  type-definition      Find type definitions by symbol name or source position
   build-index          Wait for confirmed or configured best-effort workspace indexing
   update               Force update langages/servers database
   completion           Generate a shell completion script, write it to stdout
@@ -317,202 +317,209 @@ Options:
 
 ```text
 $ lsp-cli references --help
-Find references to a symbol name
+Find references by symbol name or source position
 
-Usage: lsp-cli references [OPTIONS] <NAME> <DIRECTORY>
+Usage: lsp-cli references [OPTIONS] [NAME] [DIRECTORY]
 
 Arguments:
-  <NAME>       Symbol name to search for.
-  <DIRECTORY>  Workspace directory to query.
+  [NAME]       Symbol name to discover, or exact text expected at the first character of --at.
+  [DIRECTORY]  Directory to search by name; defaults to the current directory.
 
 Options:
-      --lang <LANG>         Select this language.
-      --lsp <LSP>           Use a specific configured LSP server.
-      --wait-for-index      Wait for background indexing before sending the workspace query.
-      --json                Print results as JSON.
-      --no-json             Print human-readable output instead of JSON.
-      --debug               Print verbose debug logs to stderr.
-      --no-debug            Disable verbose debug logs.
-      --timeout <T>         Per-request LSP timeout. Plain numbers are seconds; values ending in `ms` are milliseconds.
-      --limit <N>           Maximum number of results to print. Mainly usable for code agents.
-      --download            Download LSP server if not found in PATH.
-      --no-download         Do not install missing servers automatically.
-      --detach              Use a background daemon socket when available, starting one if needed.
-      --no-detach           Talk to the server in this process instead of using a background daemon.
-  -l, --files-with-matches  Print only file paths that contain matches.
-  -h, --help                Print help
+      --at <FILE:LINE:COLUMN>  Query this source position using one-based Unicode character coordinates; infer the workspace from FILE.
+      --lang <LANG>            Select this language.
+      --lsp <LSP>              Use a specific configured LSP server.
+      --wait-for-index         Wait for background indexing before sending the workspace query.
+      --json                   Print results as JSON.
+      --no-json                Print human-readable output instead of JSON.
+      --debug                  Print verbose debug logs to stderr.
+      --no-debug               Disable verbose debug logs.
+      --timeout <T>            Per-request LSP timeout. Plain numbers are seconds; values ending in `ms` are milliseconds.
+      --limit <N>              Maximum number of results to print. Mainly usable for code agents.
+      --download               Download LSP server if not found in PATH.
+      --no-download            Do not install missing servers automatically.
+      --detach                 Use a background daemon socket when available, starting one if needed.
+      --no-detach              Talk to the server in this process instead of using a background daemon.
+  -l, --files-with-matches     Print only file paths that contain matches.
+  -h, --help                   Print help
 ```
 
 ```text
 $ lsp-cli callers --help
-Find callers of a symbol name
+Find callers by symbol name or source position
 
-Usage: lsp-cli callers [OPTIONS] <NAME> <DIRECTORY>
+Usage: lsp-cli callers [OPTIONS] [NAME] [DIRECTORY]
 
 Arguments:
-  <NAME>       Symbol name to search for.
-  <DIRECTORY>  Workspace directory to query.
+  [NAME]       Symbol name to discover, or exact text expected at the first character of --at.
+  [DIRECTORY]  Directory to search by name; defaults to the current directory.
 
 Options:
-      --lang <LANG>         Select this language.
-      --lsp <LSP>           Use a specific configured LSP server.
-      --wait-for-index      Wait for background indexing before sending the workspace query.
-      --json                Print results as JSON.
-      --no-json             Print human-readable output instead of JSON.
-      --debug               Print verbose debug logs to stderr.
-      --no-debug            Disable verbose debug logs.
-      --timeout <T>         Per-request LSP timeout. Plain numbers are seconds; values ending in `ms` are milliseconds.
-      --limit <N>           Maximum number of results to print. Mainly usable for code agents.
-      --download            Download LSP server if not found in PATH.
-      --no-download         Do not install missing servers automatically.
-      --detach              Use a background daemon socket when available, starting one if needed.
-      --no-detach           Talk to the server in this process instead of using a background daemon.
-  -l, --files-with-matches  Print only file paths that contain matches.
-  -h, --help                Print help
+      --at <FILE:LINE:COLUMN>  Query this source position using one-based Unicode character coordinates; infer the workspace from FILE.
+      --lang <LANG>            Select this language.
+      --lsp <LSP>              Use a specific configured LSP server.
+      --wait-for-index         Wait for background indexing before sending the workspace query.
+      --json                   Print results as JSON.
+      --no-json                Print human-readable output instead of JSON.
+      --debug                  Print verbose debug logs to stderr.
+      --no-debug               Disable verbose debug logs.
+      --timeout <T>            Per-request LSP timeout. Plain numbers are seconds; values ending in `ms` are milliseconds.
+      --limit <N>              Maximum number of results to print. Mainly usable for code agents.
+      --download               Download LSP server if not found in PATH.
+      --no-download            Do not install missing servers automatically.
+      --detach                 Use a background daemon socket when available, starting one if needed.
+      --no-detach              Talk to the server in this process instead of using a background daemon.
+  -l, --files-with-matches     Print only file paths that contain matches.
+  -h, --help                   Print help
 ```
 
 ```text
 $ lsp-cli callees --help
-Find callees of a symbol name
+Find callees by symbol name or source position
 
-Usage: lsp-cli callees [OPTIONS] <NAME> <DIRECTORY>
+Usage: lsp-cli callees [OPTIONS] [NAME] [DIRECTORY]
 
 Arguments:
-  <NAME>       Symbol name to search for.
-  <DIRECTORY>  Workspace directory to query.
+  [NAME]       Symbol name to discover, or exact text expected at the first character of --at.
+  [DIRECTORY]  Directory to search by name; defaults to the current directory.
 
 Options:
-      --lang <LANG>         Select this language.
-      --lsp <LSP>           Use a specific configured LSP server.
-      --wait-for-index      Wait for background indexing before sending the workspace query.
-      --json                Print results as JSON.
-      --no-json             Print human-readable output instead of JSON.
-      --debug               Print verbose debug logs to stderr.
-      --no-debug            Disable verbose debug logs.
-      --timeout <T>         Per-request LSP timeout. Plain numbers are seconds; values ending in `ms` are milliseconds.
-      --limit <N>           Maximum number of results to print. Mainly usable for code agents.
-      --download            Download LSP server if not found in PATH.
-      --no-download         Do not install missing servers automatically.
-      --detach              Use a background daemon socket when available, starting one if needed.
-      --no-detach           Talk to the server in this process instead of using a background daemon.
-  -l, --files-with-matches  Print only file paths that contain matches.
-  -h, --help                Print help
+      --at <FILE:LINE:COLUMN>  Query this source position using one-based Unicode character coordinates; infer the workspace from FILE.
+      --lang <LANG>            Select this language.
+      --lsp <LSP>              Use a specific configured LSP server.
+      --wait-for-index         Wait for background indexing before sending the workspace query.
+      --json                   Print results as JSON.
+      --no-json                Print human-readable output instead of JSON.
+      --debug                  Print verbose debug logs to stderr.
+      --no-debug               Disable verbose debug logs.
+      --timeout <T>            Per-request LSP timeout. Plain numbers are seconds; values ending in `ms` are milliseconds.
+      --limit <N>              Maximum number of results to print. Mainly usable for code agents.
+      --download               Download LSP server if not found in PATH.
+      --no-download            Do not install missing servers automatically.
+      --detach                 Use a background daemon socket when available, starting one if needed.
+      --no-detach              Talk to the server in this process instead of using a background daemon.
+  -l, --files-with-matches     Print only file paths that contain matches.
+  -h, --help                   Print help
 ```
 
 ```text
 $ lsp-cli definition --help
-Find definitions of a symbol name
+Find definitions by symbol name or source position
 
-Usage: lsp-cli definition [OPTIONS] <NAME> <DIRECTORY>
+Usage: lsp-cli definition [OPTIONS] [NAME] [DIRECTORY]
 
 Arguments:
-  <NAME>       Symbol name to search for.
-  <DIRECTORY>  Workspace directory to query.
+  [NAME]       Symbol name to discover, or exact text expected at the first character of --at.
+  [DIRECTORY]  Directory to search by name; defaults to the current directory.
 
 Options:
-      --lang <LANG>         Select this language.
-      --lsp <LSP>           Use a specific configured LSP server.
-      --wait-for-index      Wait for background indexing before sending the workspace query.
-      --json                Print results as JSON.
-      --no-json             Print human-readable output instead of JSON.
-      --debug               Print verbose debug logs to stderr.
-      --no-debug            Disable verbose debug logs.
-      --timeout <T>         Per-request LSP timeout. Plain numbers are seconds; values ending in `ms` are milliseconds.
-      --limit <N>           Maximum number of results to print. Mainly usable for code agents.
-      --download            Download LSP server if not found in PATH.
-      --no-download         Do not install missing servers automatically.
-      --detach              Use a background daemon socket when available, starting one if needed.
-      --no-detach           Talk to the server in this process instead of using a background daemon.
-  -l, --files-with-matches  Print only file paths that contain matches.
-      --full                Include full source text for each match in output.
-  -h, --help                Print help
+      --at <FILE:LINE:COLUMN>  Query this source position using one-based Unicode character coordinates; infer the workspace from FILE.
+      --lang <LANG>            Select this language.
+      --lsp <LSP>              Use a specific configured LSP server.
+      --wait-for-index         Wait for background indexing before sending the workspace query.
+      --json                   Print results as JSON.
+      --no-json                Print human-readable output instead of JSON.
+      --debug                  Print verbose debug logs to stderr.
+      --no-debug               Disable verbose debug logs.
+      --timeout <T>            Per-request LSP timeout. Plain numbers are seconds; values ending in `ms` are milliseconds.
+      --limit <N>              Maximum number of results to print. Mainly usable for code agents.
+      --download               Download LSP server if not found in PATH.
+      --no-download            Do not install missing servers automatically.
+      --detach                 Use a background daemon socket when available, starting one if needed.
+      --no-detach              Talk to the server in this process instead of using a background daemon.
+  -l, --files-with-matches     Print only file paths that contain matches.
+      --full                   Include full source text for each match in output.
+  -h, --help                   Print help
 ```
 
 ```text
 $ lsp-cli declaration --help
-Find declarations of a symbol name
+Find declarations by symbol name or source position
 
-Usage: lsp-cli declaration [OPTIONS] <NAME> <DIRECTORY>
+Usage: lsp-cli declaration [OPTIONS] [NAME] [DIRECTORY]
 
 Arguments:
-  <NAME>       Symbol name to search for.
-  <DIRECTORY>  Workspace directory to query.
+  [NAME]       Symbol name to discover, or exact text expected at the first character of --at.
+  [DIRECTORY]  Directory to search by name; defaults to the current directory.
 
 Options:
-      --lang <LANG>         Select this language.
-      --lsp <LSP>           Use a specific configured LSP server.
-      --wait-for-index      Wait for background indexing before sending the workspace query.
-      --json                Print results as JSON.
-      --no-json             Print human-readable output instead of JSON.
-      --debug               Print verbose debug logs to stderr.
-      --no-debug            Disable verbose debug logs.
-      --timeout <T>         Per-request LSP timeout. Plain numbers are seconds; values ending in `ms` are milliseconds.
-      --limit <N>           Maximum number of results to print. Mainly usable for code agents.
-      --download            Download LSP server if not found in PATH.
-      --no-download         Do not install missing servers automatically.
-      --detach              Use a background daemon socket when available, starting one if needed.
-      --no-detach           Talk to the server in this process instead of using a background daemon.
-  -l, --files-with-matches  Print only file paths that contain matches.
-      --full                Include full source text for each match in output.
-  -h, --help                Print help
+      --at <FILE:LINE:COLUMN>  Query this source position using one-based Unicode character coordinates; infer the workspace from FILE.
+      --lang <LANG>            Select this language.
+      --lsp <LSP>              Use a specific configured LSP server.
+      --wait-for-index         Wait for background indexing before sending the workspace query.
+      --json                   Print results as JSON.
+      --no-json                Print human-readable output instead of JSON.
+      --debug                  Print verbose debug logs to stderr.
+      --no-debug               Disable verbose debug logs.
+      --timeout <T>            Per-request LSP timeout. Plain numbers are seconds; values ending in `ms` are milliseconds.
+      --limit <N>              Maximum number of results to print. Mainly usable for code agents.
+      --download               Download LSP server if not found in PATH.
+      --no-download            Do not install missing servers automatically.
+      --detach                 Use a background daemon socket when available, starting one if needed.
+      --no-detach              Talk to the server in this process instead of using a background daemon.
+  -l, --files-with-matches     Print only file paths that contain matches.
+      --full                   Include full source text for each match in output.
+  -h, --help                   Print help
 ```
 
 ```text
 $ lsp-cli implementation --help
-Find implementations of a symbol name
+Find implementations by symbol name or source position
 
-Usage: lsp-cli implementation [OPTIONS] <NAME> <DIRECTORY>
+Usage: lsp-cli implementation [OPTIONS] [NAME] [DIRECTORY]
 
 Arguments:
-  <NAME>       Symbol name to search for.
-  <DIRECTORY>  Workspace directory to query.
+  [NAME]       Symbol name to discover, or exact text expected at the first character of --at.
+  [DIRECTORY]  Directory to search by name; defaults to the current directory.
 
 Options:
-      --lang <LANG>         Select this language.
-      --lsp <LSP>           Use a specific configured LSP server.
-      --wait-for-index      Wait for background indexing before sending the workspace query.
-      --json                Print results as JSON.
-      --no-json             Print human-readable output instead of JSON.
-      --debug               Print verbose debug logs to stderr.
-      --no-debug            Disable verbose debug logs.
-      --timeout <T>         Per-request LSP timeout. Plain numbers are seconds; values ending in `ms` are milliseconds.
-      --limit <N>           Maximum number of results to print. Mainly usable for code agents.
-      --download            Download LSP server if not found in PATH.
-      --no-download         Do not install missing servers automatically.
-      --detach              Use a background daemon socket when available, starting one if needed.
-      --no-detach           Talk to the server in this process instead of using a background daemon.
-  -l, --files-with-matches  Print only file paths that contain matches.
-      --full                Include full source text for each match in output.
-  -h, --help                Print help
+      --at <FILE:LINE:COLUMN>  Query this source position using one-based Unicode character coordinates; infer the workspace from FILE.
+      --lang <LANG>            Select this language.
+      --lsp <LSP>              Use a specific configured LSP server.
+      --wait-for-index         Wait for background indexing before sending the workspace query.
+      --json                   Print results as JSON.
+      --no-json                Print human-readable output instead of JSON.
+      --debug                  Print verbose debug logs to stderr.
+      --no-debug               Disable verbose debug logs.
+      --timeout <T>            Per-request LSP timeout. Plain numbers are seconds; values ending in `ms` are milliseconds.
+      --limit <N>              Maximum number of results to print. Mainly usable for code agents.
+      --download               Download LSP server if not found in PATH.
+      --no-download            Do not install missing servers automatically.
+      --detach                 Use a background daemon socket when available, starting one if needed.
+      --no-detach              Talk to the server in this process instead of using a background daemon.
+  -l, --files-with-matches     Print only file paths that contain matches.
+      --full                   Include full source text for each match in output.
+  -h, --help                   Print help
 ```
 
 ```text
 $ lsp-cli type-definition --help
-Find type definitions of a symbol name
+Find type definitions by symbol name or source position
 
-Usage: lsp-cli type-definition [OPTIONS] <NAME> <DIRECTORY>
+Usage: lsp-cli type-definition [OPTIONS] [NAME] [DIRECTORY]
 
 Arguments:
-  <NAME>       Symbol name to search for.
-  <DIRECTORY>  Workspace directory to query.
+  [NAME]       Symbol name to discover, or exact text expected at the first character of --at.
+  [DIRECTORY]  Directory to search by name; defaults to the current directory.
 
 Options:
-      --lang <LANG>         Select this language.
-      --lsp <LSP>           Use a specific configured LSP server.
-      --wait-for-index      Wait for background indexing before sending the workspace query.
-      --json                Print results as JSON.
-      --no-json             Print human-readable output instead of JSON.
-      --debug               Print verbose debug logs to stderr.
-      --no-debug            Disable verbose debug logs.
-      --timeout <T>         Per-request LSP timeout. Plain numbers are seconds; values ending in `ms` are milliseconds.
-      --limit <N>           Maximum number of results to print. Mainly usable for code agents.
-      --download            Download LSP server if not found in PATH.
-      --no-download         Do not install missing servers automatically.
-      --detach              Use a background daemon socket when available, starting one if needed.
-      --no-detach           Talk to the server in this process instead of using a background daemon.
-  -l, --files-with-matches  Print only file paths that contain matches.
-      --full                Include full source text for each match in output.
-  -h, --help                Print help
+      --at <FILE:LINE:COLUMN>  Query this source position using one-based Unicode character coordinates; infer the workspace from FILE.
+      --lang <LANG>            Select this language.
+      --lsp <LSP>              Use a specific configured LSP server.
+      --wait-for-index         Wait for background indexing before sending the workspace query.
+      --json                   Print results as JSON.
+      --no-json                Print human-readable output instead of JSON.
+      --debug                  Print verbose debug logs to stderr.
+      --no-debug               Disable verbose debug logs.
+      --timeout <T>            Per-request LSP timeout. Plain numbers are seconds; values ending in `ms` are milliseconds.
+      --limit <N>              Maximum number of results to print. Mainly usable for code agents.
+      --download               Download LSP server if not found in PATH.
+      --no-download            Do not install missing servers automatically.
+      --detach                 Use a background daemon socket when available, starting one if needed.
+      --no-detach              Talk to the server in this process instead of using a background daemon.
+  -l, --files-with-matches     Print only file paths that contain matches.
+      --full                   Include full source text for each match in output.
+  -h, --help                   Print help
 ```
 
 ```text

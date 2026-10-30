@@ -22,10 +22,10 @@ pub(super) fn run(args: &GrepArgs, config: &ConfigStore) -> Result<String> {
             &result.detected_filetypes,
             &result.server,
             &matches,
-        )
+        )?
     } else if args.query.files_with_matches {
         render_symbol_match_paths_text(&matches)
     } else {
-        render_symbol_matches_text(&matches)
+        render_symbol_matches_text(&matches)?
     })
 }

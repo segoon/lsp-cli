@@ -65,20 +65,23 @@ pub(crate) enum RawCommand {
     ListFunctions(RawListFunctionsArgs),
     #[command(about = "List files that match the selected workspace filters")]
     ListFiles(RawListFilesArgs),
-    #[command(alias = "ref", about = "Find references to a symbol name")]
-    References(RawSymbolQueryArgs),
-    #[command(about = "Find callers of a symbol name")]
-    Callers(RawSymbolQueryArgs),
-    #[command(about = "Find callees of a symbol name")]
-    Callees(RawSymbolQueryArgs),
-    #[command(about = "Find definitions of a symbol name")]
-    Definition(RawDefinitionArgs),
-    #[command(about = "Find declarations of a symbol name")]
-    Declaration(RawDeclarationArgs),
-    #[command(about = "Find implementations of a symbol name")]
-    Implementation(RawImplementationArgs),
-    #[command(about = "Find type definitions of a symbol name")]
-    TypeDefinition(RawTypeDefinitionArgs),
+    #[command(
+        alias = "ref",
+        about = "Find references by symbol name or source position"
+    )]
+    References(RawNavigationArgs),
+    #[command(about = "Find callers by symbol name or source position")]
+    Callers(RawNavigationArgs),
+    #[command(about = "Find callees by symbol name or source position")]
+    Callees(RawNavigationArgs),
+    #[command(about = "Find definitions by symbol name or source position")]
+    Definition(RawFullNavigationArgs),
+    #[command(about = "Find declarations by symbol name or source position")]
+    Declaration(RawFullNavigationArgs),
+    #[command(about = "Find implementations by symbol name or source position")]
+    Implementation(RawFullNavigationArgs),
+    #[command(about = "Find type definitions by symbol name or source position")]
+    TypeDefinition(RawFullNavigationArgs),
     #[command(about = "Wait for confirmed or configured best-effort workspace indexing")]
     BuildIndex(RawBuildIndexArgs),
     #[command(about = "Force update langages/servers database")]
@@ -179,16 +182,16 @@ pub(crate) struct RawDetectArgs {
 
 #[derive(Debug, Args, Eq, PartialEq)]
 pub(crate) struct RawWorkspaceQueryArgs {
-    #[arg(
-        value_name = "DIRECTORY",
-        value_hint = ValueHint::DirPath,
-        help = "Workspace directory to query."
-    )]
+    #[arg(value_name = "DIRECTORY", value_hint = ValueHint::DirPath,
+          help = "Workspace directory to query.")]
     pub(crate) directory: PathBuf,
     #[command(flatten)]
-    // QD: lang, lsp, wait_for_index, debug, no_debug, etc. are duplicated, try to remove duplication
-    // A: Pulled the repeated option groups into small flattened structs.
-    // A: The CLI flags and help stay the same, but the duplication is centralized.
+    pub(crate) options: RawWorkspaceOptions,
+}
+
+#[derive(Debug, Args, Eq, PartialEq)]
+pub(crate) struct RawWorkspaceOptions {
+    #[command(flatten)]
     pub(crate) selector: RawLangLspArgs,
     #[arg(long, help = HELP_WAIT_FOR_INDEX)]
     pub(crate) wait_for_index: bool,
@@ -206,6 +209,12 @@ pub(crate) struct RawWorkspaceQueryArgs {
 pub(crate) struct RawLspWorkspaceQueryArgs {
     #[command(flatten)]
     pub(crate) query: RawWorkspaceQueryArgs,
+    #[command(flatten)]
+    pub(crate) options: RawLspOptions,
+}
+
+#[derive(Debug, Args, Eq, PartialEq)]
+pub(crate) struct RawLspOptions {
     #[command(flatten)]
     pub(crate) download: RawDownloadArgs,
     #[command(flatten)]
@@ -299,50 +308,37 @@ pub(crate) struct RawListFunctionsArgs {
 }
 
 #[derive(Debug, Args, Eq, PartialEq)]
-pub(crate) struct RawSymbolQueryArgs {
-    #[arg(value_name = "NAME", help = "Symbol name to search for.")]
-    pub(crate) name: String,
+pub(crate) struct RawNavigationArgs {
+    #[arg(
+        value_name = "NAME",
+        required_unless_present = "at",
+        help = "Symbol name to discover, or exact text expected at the first character of --at."
+    )]
+    pub(crate) name: Option<String>,
+    #[arg(value_name = "DIRECTORY", value_hint = ValueHint::DirPath, conflicts_with = "at",
+          help = "Directory to search by name; defaults to the current directory.")]
+    pub(crate) directory: Option<PathBuf>,
+    #[arg(
+        long,
+        value_name = "FILE:LINE:COLUMN",
+        help = "Query this source position using one-based Unicode character coordinates; infer the workspace from FILE."
+    )]
+    pub(crate) at: Option<crate::navigation::SourceLocation>,
     #[command(flatten)]
-    pub(crate) query: RawLspWorkspaceQueryArgs,
+    pub(crate) options: RawWorkspaceOptions,
+    #[command(flatten)]
+    pub(crate) lsp: RawLspOptions,
 }
 
 #[derive(Debug, Args, Eq, PartialEq)]
-pub(crate) struct RawDefinitionArgs {
-    #[arg(value_name = "NAME", help = "Symbol name to search for.")]
-    pub(crate) name: String,
+pub(crate) struct RawFullNavigationArgs {
     #[command(flatten)]
-    pub(crate) query: RawLspWorkspaceQueryArgs,
-    #[arg(long, help = "Include full source text for each match in output.")]
-    pub(crate) full: bool,
-}
-
-#[derive(Debug, Args, Eq, PartialEq)]
-pub(crate) struct RawDeclarationArgs {
-    #[arg(value_name = "NAME", help = "Symbol name to search for.")]
-    pub(crate) name: String,
-    #[command(flatten)]
-    pub(crate) query: RawLspWorkspaceQueryArgs,
-    #[arg(long, help = "Include full source text for each match in output.")]
-    pub(crate) full: bool,
-}
-
-#[derive(Debug, Args, Eq, PartialEq)]
-pub(crate) struct RawImplementationArgs {
-    #[arg(value_name = "NAME", help = "Symbol name to search for.")]
-    pub(crate) name: String,
-    #[command(flatten)]
-    pub(crate) query: RawLspWorkspaceQueryArgs,
-    #[arg(long, help = "Include full source text for each match in output.")]
-    pub(crate) full: bool,
-}
-
-#[derive(Debug, Args, Eq, PartialEq)]
-pub(crate) struct RawTypeDefinitionArgs {
-    #[arg(value_name = "NAME", help = "Symbol name to search for.")]
-    pub(crate) name: String,
-    #[command(flatten)]
-    pub(crate) query: RawLspWorkspaceQueryArgs,
-    #[arg(long, help = "Include full source text for each match in output.")]
+    pub(crate) navigation: RawNavigationArgs,
+    #[arg(
+        long,
+        conflicts_with = "files_with_matches",
+        help = "Include full source text for each match in output."
+    )]
     pub(crate) full: bool,
 }
 

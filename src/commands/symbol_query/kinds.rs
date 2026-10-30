@@ -1,15 +1,15 @@
 use crate::lsp::{
-    LspClient, SourceCache, SymbolMatch, call_hierarchy_matches_from_incoming_response,
-    call_hierarchy_matches_from_outgoing_response, ensure_declaration_support,
-    ensure_definition_support, ensure_implementation_support, ensure_references_support,
-    ensure_type_definition_support,
+    LspClient, SourceCache, SymbolMatch, Utf16Position,
+    call_hierarchy_matches_from_incoming_response, call_hierarchy_matches_from_outgoing_response,
+    ensure_declaration_support, ensure_definition_support, ensure_implementation_support,
+    ensure_references_support, ensure_type_definition_support,
 };
 use serde_json::Value;
 
 use crate::error::Result;
 
 #[derive(Clone, Copy)]
-pub(super) enum LocationQueryKind {
+pub(in crate::commands) enum LocationQueryKind {
     References,
     Definition,
     Declaration,
@@ -18,7 +18,7 @@ pub(super) enum LocationQueryKind {
 }
 
 impl LocationQueryKind {
-    pub(super) fn label(self) -> &'static str {
+    pub(in crate::commands) fn label(self) -> &'static str {
         match self {
             Self::References => "references",
             Self::Definition => "definition",
@@ -28,7 +28,10 @@ impl LocationQueryKind {
         }
     }
 
-    pub(super) fn ensure_support(self, initialize: &crate::lsp::InitializeResponse) -> Result<()> {
+    pub(in crate::commands) fn ensure_support(
+        self,
+        initialize: &crate::lsp::InitializeResponse,
+    ) -> Result<()> {
         match self {
             Self::References => ensure_references_support(initialize),
             Self::Definition => ensure_definition_support(initialize),
@@ -38,44 +41,44 @@ impl LocationQueryKind {
         }
     }
 
-    pub(super) fn query(
+    pub(in crate::commands) fn query(
         self,
         client: &mut LspClient,
         uri: &str,
-        anchor: &SymbolMatch,
+        position: Utf16Position,
     ) -> Result<Value> {
         match self {
-            Self::References => client.references(uri, anchor.position, false),
-            Self::Definition => client.definition(uri, anchor.position),
-            Self::Declaration => client.declaration(uri, anchor.position),
-            Self::Implementation => client.implementation(uri, anchor.position),
-            Self::TypeDefinition => client.type_definition(uri, anchor.position),
+            Self::References => client.references(uri, position, false),
+            Self::Definition => client.definition(uri, position),
+            Self::Declaration => client.declaration(uri, position),
+            Self::Implementation => client.implementation(uri, position),
+            Self::TypeDefinition => client.type_definition(uri, position),
         }
     }
 }
 
 #[derive(Clone, Copy)]
-pub(super) enum CallHierarchyDirection {
+pub(in crate::commands) enum CallHierarchyDirection {
     Incoming,
     Outgoing,
 }
 
 impl CallHierarchyDirection {
-    pub(super) fn label(self) -> &'static str {
+    pub(in crate::commands) fn label(self) -> &'static str {
         match self {
             Self::Incoming => "callers",
             Self::Outgoing => "callees",
         }
     }
 
-    pub(super) fn query(self, client: &mut LspClient, item: &Value) -> Result<Value> {
+    pub(in crate::commands) fn query(self, client: &mut LspClient, item: &Value) -> Result<Value> {
         match self {
             Self::Incoming => client.incoming_calls(item),
             Self::Outgoing => client.outgoing_calls(item),
         }
     }
 
-    pub(super) fn decode(
+    pub(in crate::commands) fn decode(
         self,
         response: &Value,
         source_cache: &mut SourceCache,

@@ -10,6 +10,9 @@ use crate::fs as path_fs;
 use regex::Regex;
 use serde::{Deserialize, de};
 
+mod document_languages;
+pub use document_languages::{DocumentLanguages, FiletypePath};
+
 // Checked at compile time: the built-in request window must never be empty.
 #[allow(clippy::expect_used)]
 const DEFAULT_MAX_REQUESTS_IN_FLIGHT: NonZeroUsize =
@@ -53,9 +56,10 @@ pub struct DaemonCliConfig {
     pub write_stall_timeout: Option<Duration>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct FiletypeConfig {
     pub id: String,
+    pub language_id: Option<String>,
     pub extensions: Vec<String>,
     pub patterns: Vec<Regex>,
 }
@@ -82,6 +86,8 @@ pub enum BuildIndexCompletion {
 
 #[derive(Deserialize)]
 struct FiletypeFile {
+    #[serde(default, rename = "language-id")]
+    language_id: Option<String>,
     #[serde(default)]
     extensions: Vec<String>,
     #[serde(default)]
@@ -360,6 +366,16 @@ fn load_filetypes(dir: &Path) -> Result<Vec<FiletypeConfig>> {
                 )));
             };
             let id = stem.to_string();
+            if file
+                .language_id
+                .as_ref()
+                .is_some_and(|id| id.trim().is_empty())
+            {
+                return Err(Error::config_format(format!(
+                    "{}: language-id must not be empty",
+                    path.display()
+                )));
+            }
             let patterns = file
                 .patterns
                 .into_iter()
@@ -375,6 +391,7 @@ fn load_filetypes(dir: &Path) -> Result<Vec<FiletypeConfig>> {
 
             Ok(FiletypeConfig {
                 id,
+                language_id: file.language_id,
                 extensions: file
                     .extensions
                     .into_iter()

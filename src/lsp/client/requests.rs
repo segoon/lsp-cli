@@ -39,7 +39,7 @@ impl LspClient {
         let params = DidOpenTextDocumentParams {
             text_document: TextDocumentItem::new(
                 parse_lsp_uri(uri, "document")?,
-                language_id(path).to_string(),
+                self.document_languages.resolve(path)?.to_string(),
                 1,
                 text,
             ),
@@ -257,22 +257,5 @@ impl LspClient {
             partial_result_params: PartialResultParams::default(),
         };
         self.send_request::<CallHierarchyOutgoingCalls>(&params)
-    }
-}
-
-fn language_id(path: &Path) -> &'static str {
-    match path.extension().and_then(|value| value.to_str()) {
-        Some("c" | "h") => "c",
-        Some("cc" | "cpp" | "cxx" | "hh" | "hpp" | "hxx") => "cpp",
-        Some("cs") => "csharp",
-        Some("go") => "go",
-        Some("java") => "java",
-        Some("js" | "mjs" | "cjs") => "javascript",
-        Some("py") => "python",
-        Some("rs") => "rust",
-        Some("ts" | "mts" | "cts") => "typescript",
-        Some("vim") => "vim",
-        Some("odin") => "odin",
-        _ => "plaintext",
     }
 }

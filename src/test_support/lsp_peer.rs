@@ -43,6 +43,24 @@ impl LspPeer {
         )
     }
 
+    pub(crate) fn spawn_lua(
+        dir: &TestDir,
+        timeout: Duration,
+        serve: impl FnOnce(&mut Self) + Send + 'static,
+    ) -> (LspClient, JoinHandle<()>) {
+        let (client, server) = Self::spawn(dir, timeout, serve);
+        let languages = crate::config::DocumentLanguages::new(
+            &[crate::config::FiletypeConfig {
+                id: "lua".into(),
+                language_id: None,
+                extensions: vec!["lua".into()],
+                patterns: vec![],
+            }],
+            &BTreeSet::from(["lua".into()]),
+        );
+        (client.with_document_languages(languages), server)
+    }
+
     pub(crate) fn read(&mut self) -> Value {
         read_message(&mut self.reader)
             .expect("read message")

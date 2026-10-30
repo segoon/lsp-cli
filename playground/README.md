@@ -192,3 +192,16 @@ The check holds the global log lock while forwarding and while stopping, and ver
 that overflow is reported after the lock is released. These measurements describe
 an immediate-reply fixture, not a latency guarantee for real language servers or
 stalled peers.
+
+## Document language IDs
+
+Use `--debug` to inspect the `languageId` in outgoing `textDocument/didOpen` frames.
+With installed LuaLS, both document scanning and formatting should send `lua`:
+
+```sh
+cargo run -- list-symbols playground/lua --lang lua --lsp lua-language-server --no-download --no-detach --debug
+cargo run -- format playground/lua/timestamp.lua --lang lua --lsp lua-language-server --no-download --no-detach --stdout --debug
+```
+
+The protocol ID defaults to the filetype ID; configured aliases override it (for example,
+C# uses `csharp`, Objective-C uses `objective-c`, and Bash uses `shellscript`).

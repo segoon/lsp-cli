@@ -35,6 +35,8 @@ mod test_support;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
+mod tests_document_languages;
+#[cfg(test)]
 mod tests_initialization;
 #[cfg(test)]
 mod tests_initialize_stderr;
@@ -44,6 +46,7 @@ mod tests_logging;
 use process_io::spawn_reader;
 
 pub struct LspClient {
+    document_languages: crate::config::DocumentLanguages,
     transport: ClientTransport,
     stderr: Option<CapturedStderr>,
     messages: Receiver<IncomingMessage>,
@@ -70,6 +73,11 @@ enum ClientTransport {
 }
 
 impl LspClient {
+    pub fn with_document_languages(mut self, languages: crate::config::DocumentLanguages) -> Self {
+        self.document_languages = languages;
+        self
+    }
+
     pub fn new(
         command: &[String],
         workspace_root: &Path,
@@ -127,6 +135,7 @@ impl LspClient {
         }
 
         Ok(Self {
+            document_languages: crate::config::DocumentLanguages::default(),
             transport: ClientTransport::Process { child, stdin },
             stderr,
             messages,
@@ -162,6 +171,7 @@ impl LspClient {
         }
 
         Ok(Self {
+            document_languages: crate::config::DocumentLanguages::default(),
             transport: ClientTransport::Socket { stream },
             stderr: None,
             messages,

@@ -24,6 +24,16 @@
 - make sure --download cache is used
 - make download-e2e-deps && source activate-local-deps.inc
 - fix github "no space" issue
+- [x] replace hardcoded `didOpen.languageId` mapping with filetype IDs and optional `language-id` overrides
+- support Mason Cargo qualifiers (`repository_url`, `rev`, `features`, `locked`)
+- support per-server initialization options, including TypeScript SDK paths for Astro/MDX
+- fix placeholder launch commands and missing Angular probe locations in the data catalog
+- declare missing isolated server runtimes/tools (e.g. Bash, uname, Fish, .NET 6)
+- revalidate Deno and Kotlin shutdown exclusions against current framing and bounded cleanup;
+  keep missing responses, rejected shutdowns, and early transport closure distinct
+- replace the gopls free-function implementation exception with an interface/method fixture
+- expand semantic coverage beyond initialization/capability checks; rerun real servers before
+  removing exceptions (see `docs/GOTCHAS.md`)
 
 # Features
 

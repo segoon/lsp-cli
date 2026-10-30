@@ -9,6 +9,7 @@ use std::sync::OnceLock;
 const TEMPLATE: &str = include_str!("agent_skill.template.md");
 const IGNORED_COMMANDS: &[&str] = &[
     "commands",
+    "cat",
     "daemon",
     "stop",
     "stop-all",
@@ -139,7 +140,6 @@ fn command_placeholder(command: &str) -> Option<&'static str> {
         "callees" => Some("CMD/CALLEES"),
         "diagnostics" => Some("CMD/DIAGNOSTICS"),
         "format" => Some("CMD/FORMAT"),
-        "cat" => Some("CMD/CAT"),
         "languages" => Some("CMD/LANGUAGES"),
         "servers" => Some("CMD/SERVERS"),
         _ => None,
@@ -247,15 +247,20 @@ mod tests {
     }
 
     #[test]
-    fn excludes_plumbing_commands_from_generated_skill() {
+    fn excludes_commands_outside_the_curated_guide() {
         let markdown = render_skill();
 
-        assert!(!markdown.contains("### `completion`"));
-        assert!(!markdown.contains("### `run`"));
-        assert!(!markdown.contains("### `commands`"));
-        assert!(!markdown.contains("### `stop`"));
-        assert!(!markdown.contains("### `stop-all`"));
-        assert!(!markdown.contains("### `update`"));
+        for command in [
+            "cat",
+            "completion",
+            "run",
+            "commands",
+            "stop",
+            "stop-all",
+            "update",
+        ] {
+            assert!(!markdown.contains(&format!("### `{command}`")));
+        }
     }
 
     #[test]

@@ -143,6 +143,36 @@ Compare runs with `max-requests-in-flight: 1` and `max-requests-in-flight: 20` i
 Both should report the call in `timestamp.lua`; the setting changes how many file-symbol requests
 can be outstanding, not which files are searched.
 
+## LuaRocks server workflow
+
+With LuaRocks and a compatible Lua interpreter already installed, use the Fennel fixture to
+exercise automatic installation and subsequent cache reuse:
+
+```sh
+cargo run -- detect playground/fennel --lang fennel --lsp fennel-ls --download
+cargo run -- server-capabilities playground/fennel --lang fennel --lsp fennel-ls --no-download --no-detach
+```
+
+The first command installs the server with the existing `luarocks` executable. The second
+initializes the cached server without invoking LuaRocks. Installing `fennel-ls` also needs Git
+and Make; other rocks may require newer Lua versions, development headers, and a compiler.
+
+## Cargo recipe workflow
+
+With Cargo and its native build prerequisites installed, these fixtures exercise a registry
+package, a feature-enabled package, a Git tag, and a Git revision respectively:
+
+```sh
+cargo run -- detect playground/asm --lang asm --lsp asm-lsp --download
+cargo run -- detect playground/llw --lang llw --lsp lelwel-ls --download
+cargo run -- detect playground/nix --lang nix --lsp nil --download
+cargo run -- detect playground/fennel --lang fennel --lsp fennel-language-server --download
+```
+
+Repeat with `--no-download` to check cache reuse. Source or installer-setting changes invalidate
+the managed Cargo cache and require another download-enabled build. Builds follow Mason's pinned
+recipe and lockfile policy; upstream source and toolchain compatibility can still prevent a build.
+
 ## Position navigation
 
 All seven navigation commands support `--at FILE:LINE:COLUMN`, optionally followed by literal

@@ -15,3 +15,14 @@ pairs:
       status: capabilities
       supported-operations:
         - server-capabilities
+  - language: context
+    server: digestif
+    smoke:
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - grep
+        - list-symbols
+        - list-functions
+        - references
+        - definition

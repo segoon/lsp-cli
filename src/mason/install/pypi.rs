@@ -258,6 +258,7 @@ mod tests {
             categories: vec!["LSP".to_string()],
             source: MasonSource {
                 id: "pkg:pypi/fixture-package@1.2.3".to_string(),
+                supported_platforms: None,
                 extra_packages: vec!["fixture-dependency<2".to_string()],
                 asset: None,
                 download: None,

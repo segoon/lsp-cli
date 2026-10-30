@@ -43,6 +43,11 @@ impl MasonPlatform {
     }
 
     #[must_use]
+    pub fn name(&self) -> &str {
+        &self.full
+    }
+
+    #[must_use]
     pub fn matches(&self, target: &str) -> bool {
         target == self.full
             || target == self.family

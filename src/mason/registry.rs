@@ -1,4 +1,5 @@
 use crate::error::{Error, Result};
+use crate::mason::platform::MasonPlatform;
 use crate::runtime_state::RuntimeState;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -198,6 +199,33 @@ pub struct MasonPackage {
 }
 
 impl MasonPackage {
+    pub(crate) fn ensure_supported_platform(&self) -> Result<()> {
+        if self.source.supported_platforms.is_none() {
+            return Ok(());
+        }
+        self.ensure_supported_on(&MasonPlatform::detect()?)
+    }
+
+    fn ensure_supported_on(&self, platform: &MasonPlatform) -> Result<()> {
+        let Some(allowed) = &self.source.supported_platforms else {
+            return Ok(());
+        };
+        if allowed.iter().any(|target| platform.matches(target)) {
+            return Ok(());
+        }
+        let supported = if allowed.is_empty() {
+            "no platforms".to_string()
+        } else {
+            allowed.join(", ")
+        };
+        Err(Error::unexpected(format!(
+            "cannot install {} on {}: Mason supports {}",
+            self.name,
+            platform.name(),
+            supported
+        )))
+    }
+
     fn is_lsp(&self) -> bool {
         self.categories.iter().any(|category| category == "LSP")
     }
@@ -210,6 +238,8 @@ impl MasonPackage {
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub struct MasonSource {
     pub id: String,
+    #[serde(default)]
+    pub supported_platforms: Option<Vec<String>>,
     #[serde(default)]
     pub extra_packages: Vec<String>,
     #[serde(default)]
@@ -250,6 +280,9 @@ impl MasonSource {
         };
 
         self.id = override_.id;
+        // A matching override is its own source recipe; an omitted restriction means
+        // unrestricted, rather than inheriting the newer recipe's platforms.
+        self.supported_platforms = override_.supported_platforms;
         assign_if_some(&mut self.extra_packages, override_.extra_packages);
         assign_option_if_some(&mut self.asset, override_.asset);
         assign_option_if_some(&mut self.download, override_.download);
@@ -274,6 +307,8 @@ fn assign_option_if_some<T>(target: &mut Option<T>, replacement: Option<T>) {
 pub struct MasonVersionOverride {
     pub constraint: String,
     pub id: String,
+    #[serde(default)]
+    pub supported_platforms: Option<Vec<String>>,
     #[serde(default)]
     pub extra_packages: Option<Vec<String>>,
     #[serde(default)]
@@ -355,6 +390,8 @@ pub struct MasonNeovim {
 fn source_id_version(source_id: &str) -> Result<&str> {
     source_id
         .strip_prefix("pkg:")
+        // Qualifiers and subpaths describe installation, not the version constraint.
+        .and_then(|value| value.split(['?', '#']).next())
         .and_then(|value| value.rsplit_once('@').map(|(_, version)| version))
         .ok_or_else(|| Error::unexpected(format!("unsupported Mason package source {source_id}")))
 }

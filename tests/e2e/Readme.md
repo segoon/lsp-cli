@@ -42,7 +42,7 @@ entries) is a product-policy call, not an implementation fact.
 ## Local dev environment
 
 The real-server E2E targets (`test-e2e` and `test-e2e-smoke`) automatically install pinned Go,
-Java, Node.js, .NET, Zig, and Ruby
+Java, Node.js, .NET, Zig, Ruby, Nix, Lua, and LuaRocks
 runtimes. Verified archives are cached under `.env/downloads/`, and immutable versioned
 installations are cached under `.env/installations/`. Each test run builds its installer `PATH`
 directly from those installations; it does not create an aggregate bin directory. The complete
@@ -57,7 +57,13 @@ The extra pinned JDK uses the same checksum validation and versioned cache as ot
 When automatic setup is disabled, JDTLS cases require a Java 25 executable named `java25`
 on the supplied `PATH` in addition to the default `java` used by other servers.
 
-Rust/Cargo, Bash, curl, `tar`, `xz`, checksum utilities, Git, Python with pip/venv, Perl, and basic
+Lua 5.4 is compiled once from its checksum-pinned upstream source, including development headers
+and a position-independent static library for native rocks. The LuaRocks launcher runs the pinned
+upstream source with that interpreter and relocates with the runtime cache. Nix uses an official
+static binary; Nil can query its builtins without installing a system-wide store or daemon.
+
+Rust/Cargo, a C toolchain (including `ar`), Make, CMake, pkg-config, Bash, curl, `tar`, `xz`,
+`unzip`, checksum utilities, Git, Python with pip/venv, Perl, and basic
 system utilities remain host prerequisites. Set `E2E_AUTO_DOWNLOAD=0` to disable automatic setup
 for an offline run which already supplies every required runtime on `PATH`. Normal tests never
 remove completed downloads or installations, including versions no longer selected. Run
@@ -73,7 +79,8 @@ this state through installer-specific variables which `lsp-cli` translates only 
 subprocess; Cargo and ambient server executables are not added to the server runtime `PATH`.
 
 The harness always stages the intrinsic npm and NuGet runtimes (`node` and `dotnet`) in each
-isolated server environment. To reproduce one pair locally, use the same public selector as CI:
+isolated server environment. Nil and LuaRocks cases explicitly declare the managed `nix` and
+`lua` executables as runtime programs. To reproduce one pair locally, use the same public selector as CI:
 
 ```sh
 make test-e2e CASE=yaml/yamlls
@@ -488,7 +495,7 @@ package-cache contention.
 
 The manual **End-to-end compatibility** GitHub Actions workflow can select `language`, `server`, or
 `installation-family` (the value is respectively a case language ID, an LSP config ID, or one of
-`cargo generic github golang npm nuget pypi`):
+`cargo generic github golang luarocks npm nuget pypi`):
 
 ```sh
 gh workflow run e2e.yml -f selector=server -f value=pyright

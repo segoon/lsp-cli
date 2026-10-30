@@ -128,6 +128,34 @@
   lsp-cli does not currently expose per-server initialization options, so the pair is explicitly
   excluded from executable capability coverage until that configuration is supported.
 
+## Mason Cargo installation and platform restrictions
+
+- Cargo recipe qualifiers select Git sources, tags or commits, and crate features. Mason defaults
+  to locked dependencies unless `locked=false`; dropping qualifiers can install a different
+  source or omit the language-server binary entirely.
+- Cargo can skip an already installed version or leave binaries from earlier feature sets behind.
+  Rebuilding a stale managed package must invalidate its cache signature, clear its managed bin
+  directory, and force installation before recording a new signature. Failed builds must not
+  leave a reusable marker.
+- `supported_platforms` omitted from a source means unrestricted; an empty list means no platform
+  is allowed. A matching version override is its own recipe, so an omitted platform restriction
+  in that override must not inherit the newer recipe's restriction.
+- Source qualifiers and subpaths are not part of the version. Strip them before matching version
+  override constraints, including when qualifiers are needed to install the selected source.
+
+## Cargo source build prerequisites
+
+- `nil` at tag `2025-06-13` invokes the host `nix` executable from `crates/builtin/build.rs`
+  to generate builtin metadata. Correct Git/tag installation still fails if Nix is absent.
+  The E2E lane supplies a checksum-pinned official static Nix binary on its installer PATH;
+  no package-specific build workaround is needed in the generic Cargo backend.
+- `flux-lsp` 0.8.40's pinned lockfile selects `wasm-bindgen` 0.2.81. Current Rust rejects
+  that dependency and asks for at least 0.2.88. Matching Mason's locked-build default therefore
+  exposes an upstream lockfile/toolchain incompatibility, rather than a missing source qualifier.
+  Updating that recipe or choosing another Rust toolchain is separate from source selection.
+- Cargo appends artifact-reuse instructions after its diagnostics. Reporting only the final
+  stderr line hides the cause; installer summaries prefer the first explicit compiler error.
+
 ## Mason PyPI launchers
 
 - PyPI packages must be installed into a virtual environment, not with `pip --prefix`. Prefix

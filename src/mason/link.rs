@@ -113,6 +113,18 @@ pub(crate) fn resolve_program(
         ));
     }
 
+    if let Some(relative) = rendered.strip_prefix("luarocks:") {
+        let executable = if cfg!(windows) {
+            format!("{relative}.bat")
+        } else {
+            relative.to_string()
+        };
+        return Ok(ResolvedProgram::Direct(join_relative_path(
+            &state.package_dir(&package.name).join("bin"),
+            &executable,
+        )?));
+    }
+
     if let Some(relative) = rendered.strip_prefix("nuget:") {
         let executable = format!("{relative}{}", std::env::consts::EXE_SUFFIX);
         return Ok(ResolvedProgram::Direct(

@@ -7,4 +7,4 @@ pairs:
     server: flux_lsp
     smoke:
       status: excluded
-      reason: pkg:cargo/flux-lsp@0.8.40?repository_url=https://github.com/influxdata/flux-lsp requires its repository_url qualifier; crates.io has no matching flux-lsp release.
+      reason: The pinned flux-lsp 0.8.40 lockfile selects wasm-bindgen 0.2.81, which current Rust rejects.

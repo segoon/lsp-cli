@@ -213,11 +213,13 @@ pub(super) fn ensure_command_success(
 }
 
 pub(super) fn command_failure_detail(stderr: &str) -> &str {
-    // Installers often print banners before the actionable error, so prefer the final detail.
+    // Cargo appends artifact-reuse hints after compiler errors. Prefer the actual
+    // diagnostic; other installers still use their last non-empty detail after banners.
     stderr
         .lines()
         .map(str::trim)
-        .rfind(|line| !line.is_empty())
+        .find(|line| line.starts_with("error:") || line.starts_with("error["))
+        .or_else(|| stderr.lines().map(str::trim).rfind(|line| !line.is_empty()))
         .unwrap_or("command failed")
 }
 

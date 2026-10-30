@@ -469,6 +469,20 @@ the same npm or Python environment as the server. For example, CMake Language Se
 uses `pygls<2` because its released code imports the pygls 1.x API. This is a compatibility escape
 hatch; prefer an upstream package constraint when one is available.
 
+Mason packages from LuaRocks use the existing `luarocks` executable on your `PATH`.
+Install LuaRocks and a compatible Lua interpreter before downloading these servers; lsp-cli
+does not install either tool. Some rocks also need a compiler, Lua development headers, Git,
+or Make. Each server gets its own installation tree in lsp-cli's cache. Mason's custom
+repository and development-package settings are respected.
+
+Cargo packages use the existing `cargo` toolchain. Mason recipes can select a Git tag or
+commit and enable crate features. Builds use the package lockfile unless the recipe opts out.
+Older cached Cargo installations are rebuilt on their next download-enabled use so these settings
+take effect; `--no-download` does not rebuild them.
+
+Mason's supported-platform restrictions apply to automatic installations and managed cache reuse.
+An executable already available on your `PATH` remains usable independently of its Mason recipe.
+
 ## Commands and options
 
 See the [command reference](docs/COMMANDS.md) for all commands and options.

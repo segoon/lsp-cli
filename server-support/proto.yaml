@@ -20,7 +20,7 @@ pairs:
     server: pbls
     smoke:
       status: excluded
-      reason: pkg:cargo/pbls@1.0.1?repository_url=https://git.sr.ht/~rrc/pbls requires its repository_url qualifier; crates.io has no matching pbls release.
+      reason: Cargo recipe provisioning is covered separately; initialization and semantic queries have not yet been validated for this server.
   - language: proto
     server: protols
     smoke:

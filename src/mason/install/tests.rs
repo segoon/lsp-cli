@@ -85,13 +85,24 @@ fn builds_exact_nuget_tool_install_command() {
 }
 
 #[test]
-fn installer_failure_detail_skips_leading_banner() {
-    let stderr = "Welcome to the installer\n\nCould not execute required helper\n";
-
-    assert_eq!(
-        command_failure_detail(stderr),
-        "Could not execute required helper"
-    );
+fn installer_failure_detail_skips_banners_and_trailing_compiler_hints() {
+    for (stderr, expected) in [
+        (
+            "Welcome to the installer\n\nCould not execute required helper\n",
+            "Could not execute required helper",
+        ),
+        (
+            "Compiling server\nerror: incompatible dependency\nTo reuse those artifacts, set CARGO_BUILD_BUILD_DIR\n",
+            "error: incompatible dependency",
+        ),
+        (
+            "error[E0432]: unresolved import\nerror: failed to compile\nartifact reuse hint\n",
+            "error[E0432]: unresolved import",
+        ),
+        ("\n \n", "command failed"),
+    ] {
+        assert_eq!(command_failure_detail(stderr), expected);
+    }
 }
 
 #[test]
@@ -289,5 +300,37 @@ fn zip_extraction_strips_special_permissions_and_preserves_executable_bits() {
             .expect("server should be extracted")
             .permissions();
         assert_eq!(permissions.mode() & 0o7777, expected);
+    }
+}
+
+#[test]
+fn rejects_unsupported_sources_before_installation_or_cache_reuse() {
+    use super::resolve_cached_program;
+    use crate::test_support::pyright_package;
+    let dir = TestDir::new("unsupported-source-platform");
+    let state = RuntimeState::new(dir.path().join("state"));
+    for source in [
+        "pkg:npm/pyright@1.1.409",
+        "pkg:cargo/server@1.0.0",
+        "pkg:github/owner/repo@v1.0.0",
+        "pkg:generic/server@1.0.0",
+        "pkg:luarocks/server@1.0.0",
+    ] {
+        let mut package = pyright_package();
+        package.source.id = source.to_string();
+        package.source.supported_platforms = Some(Vec::new());
+        for result in [
+            resolve_or_install_program(&state, &package, "pyright-langserver").map(Some),
+            resolve_cached_program(&state, &package, "pyright-langserver"),
+        ] {
+            let error = result
+                .expect_err("platform restriction should reject recipe")
+                .to_string();
+            assert!(error.contains("Mason supports no platforms"), "{error}");
+        }
+        assert!(
+            !state.root().exists(),
+            "rejected recipe must not create installation state"
+        );
     }
 }

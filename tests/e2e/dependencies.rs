@@ -13,6 +13,8 @@ use sha2::{Sha256, Sha512};
 mod catalog;
 #[path = "dependencies/paths.rs"]
 mod paths;
+#[path = "dependencies/preparation.rs"]
+mod preparation;
 use catalog::{Dependency, Digest};
 
 use crate::repository_root;
@@ -146,18 +148,21 @@ impl Cache {
                     dependency.name
                 )
             })?;
-        extract(dependency, &archive, staging.path())?;
+        dependency.extract(&archive, staging.path())?;
+        dependency.prepare(staging.path())?;
         if dependency.name == "ruby" {
             rewrite_ruby_shebangs(staging.path(), &installation)?;
         }
-        fs::write(staging.path().join(".lsp-cli-version"), dependency.version).map_err(
-            |error| {
-                format!(
-                    "failed to record E2E {} installation version: {error}",
-                    dependency.name
-                )
-            },
-        )?;
+        fs::write(
+            staging.path().join(".lsp-cli-version"),
+            dependency.cache_version(),
+        )
+        .map_err(|error| {
+            format!(
+                "failed to record E2E {} installation version: {error}",
+                dependency.name
+            )
+        })?;
         validate_installation(dependency, staging.path())?;
         fs::rename(staging.path(), &installation).map_err(|error| {
             format!(
@@ -238,7 +243,7 @@ impl Cache {
         self.root
             .join("installations")
             .join(dependency.name)
-            .join(dependency.version)
+            .join(dependency.cache_version())
             .join(&dependency.platform)
             .join(dependency.digest.expected())
     }
@@ -340,37 +345,8 @@ fn lock_is_stale(path: &Path) -> bool {
         .is_some_and(|pid| !Path::new("/proc").join(pid.to_string()).exists())
 }
 
-fn extract(dependency: &Dependency, archive: &Path, destination: &Path) -> Result<(), String> {
-    let mut command = Command::new("tar");
-    command
-        .args(["-xf"])
-        .arg(archive)
-        .arg("-C")
-        .arg(destination);
-    if dependency.strip_components > 0 {
-        command.arg(format!(
-            "--strip-components={}",
-            dependency.strip_components
-        ));
-    }
-    let output = command.output().map_err(|error| {
-        format!(
-            "failed to start tar while installing E2E {}: {error}",
-            dependency.name
-        )
-    })?;
-    if output.status.success() {
-        Ok(())
-    } else {
-        Err(format!(
-            "failed to extract E2E {}: {}",
-            dependency.name,
-            String::from_utf8_lossy(&output.stderr).trim()
-        ))
-    }
-}
-
 fn validate_installation(dependency: &Dependency, root: &Path) -> Result<(), String> {
+    dependency.validate_support_files(root)?;
     let validation = &dependency.validation;
     let program = root.join(validation.program);
     if !program.is_file() {

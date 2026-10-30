@@ -6,8 +6,14 @@ pairs:
   - language: nix
     server: nil_ls
     smoke:
-      status: excluded
-      reason: pkg:cargo/nil@2025-06-13?repository_url=https://github.com/oxalica/nil requires its repository_url qualifier that the current Cargo installer discards.
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - references
+        - definition
   - language: nix
     server: rnix
     smoke:

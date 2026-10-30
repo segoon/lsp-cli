@@ -6,6 +6,7 @@ use std::thread;
 use super::*;
 use crate::dependencies::catalog::Validation;
 use crate::dependencies::paths::PathEntry;
+use crate::dependencies::preparation::Preparation;
 use backon::ExponentialBuilder;
 
 const PAYLOAD_SHA256: &str = "672eb8316fec83f94119a4193f9fc552513d56a147502f8be4830e017d817831";
@@ -30,6 +31,7 @@ fn dependency(url: String) -> Dependency {
         archive_name: "fixture.tar.gz",
         digest: Digest::Sha256(PAYLOAD_SHA256),
         strip_components: 1,
+        preparation: Preparation::Archive,
         path_entry: PathEntry::Directory("bin"),
         validation: Validation {
             program: "bin/fixture",
@@ -172,12 +174,9 @@ fn extracts_archives_with_the_declared_strip_depth() {
     let destination = directory.path().join("destination");
     fs::create_dir(&destination).expect("extraction destination should be created");
 
-    extract(
-        &dependency("http://unused".to_string()),
-        &archive,
-        &destination,
-    )
-    .expect("fixture should extract");
+    dependency("http://unused".to_string())
+        .extract(&archive, &destination)
+        .expect("fixture should extract");
 
     assert!(destination.join("bin/fixture").is_file());
 }

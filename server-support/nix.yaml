@@ -6,8 +6,14 @@ pairs:
   - language: nix
     server: nil_ls
     smoke:
-      status: excluded
-      reason: The pinned nil 2025-06-13 build script needs the host nix executable, which the E2E lane does not provision.
+      status: capabilities
+      supported-operations:
+        - server-capabilities
+        - format
+        - list-symbols
+        - list-functions
+        - references
+        - definition
   - language: nix
     server: rnix
     smoke:

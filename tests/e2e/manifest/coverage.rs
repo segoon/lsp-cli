@@ -23,6 +23,7 @@ pub enum InstallationFamily {
     Generic,
     Github,
     Golang,
+    Luarocks,
     Npm,
     Nuget,
     Pypi,
@@ -447,6 +448,7 @@ impl InstallationFamily {
             Self::Generic => "generic",
             Self::Github => "github",
             Self::Golang => "golang",
+            Self::Luarocks => "luarocks",
             Self::Npm => "npm",
             Self::Nuget => "nuget",
             Self::Pypi => "pypi",
@@ -459,6 +461,7 @@ impl InstallationFamily {
             "generic" => Ok(Self::Generic),
             "github" => Ok(Self::Github),
             "golang" => Ok(Self::Golang),
+            "luarocks" => Ok(Self::Luarocks),
             "npm" => Ok(Self::Npm),
             "nuget" => Ok(Self::Nuget),
             "pypi" => Ok(Self::Pypi),
@@ -478,6 +481,18 @@ impl InstallationFamily {
 #[cfg(all(test, feature = "e2e-workflow-planner"))]
 mod workflow_tests {
     use super::*;
+
+    #[test]
+    fn recognizes_luarocks_recipe_families() {
+        let family = InstallationFamily::from_source_id("pkg:luarocks/fennel-ls@0.2.1-1")
+            .expect("LuaRocks recipes should be classified for CI");
+        assert_eq!(family, InstallationFamily::Luarocks);
+        assert_eq!(family.label(), "luarocks");
+        assert_eq!(
+            InstallationFamily::parse("luarocks").expect("selector should parse"),
+            family
+        );
+    }
 
     #[test]
     fn builds_serializable_shards_without_manifest_family_metadata() {

@@ -2,6 +2,11 @@ use std::fs;
 use std::path::Path;
 
 use super::paths::PathEntry;
+use super::preparation::Preparation;
+
+pub(super) const LUA_VERSION: &str = "5.4.9";
+pub(super) const LUA_SHA256: &str =
+    "2335b6c582a52654f94612bf10d2f4672805d05329aa6568b1d8cd9e5c6fb8e6";
 
 #[derive(Clone, Copy)]
 pub(super) enum Digest {
@@ -39,6 +44,7 @@ pub(super) struct Dependency {
     pub(super) archive_name: &'static str,
     pub(super) digest: Digest,
     pub(super) strip_components: u8,
+    pub(super) preparation: Preparation,
     pub(super) path_entry: PathEntry,
     pub(super) validation: Validation,
 }
@@ -64,7 +70,44 @@ pub(super) fn dependencies() -> Result<Vec<Dependency>, String> {
         _ => return Err(format!("unsupported validated Ubuntu release {ubuntu:?}")),
     };
     let linux = "linux-x86_64".to_string();
+    let native = format!("ubuntu-{ubuntu}-x86_64");
     Ok(vec![
+        Dependency {
+            name: "nix",
+            version: "2.28.9",
+            platform: linux.clone(),
+            url: "https://hydra.nixos.org/build/349255013/download/1/nix".to_string(),
+            archive_name: "nix-2.28.9-x86_64-linux",
+            digest: Digest::Sha256("7f1eded4292ff1159ef938b134d7016d09b6d678325d638ac82eb4a93466d150"),
+            strip_components: 0,
+            preparation: Preparation::Executable,
+            path_entry: PathEntry::Directory("bin"),
+            validation: Validation { program: "bin/nix", args: &["--version"], expected: "nix (Nix) 2.28.9", include_stderr: false },
+        },
+        Dependency {
+            name: "lua",
+            version: LUA_VERSION,
+            platform: native.clone(),
+            url: format!("https://www.lua.org/ftp/lua-{LUA_VERSION}.tar.gz"),
+            archive_name: "lua-5.4.9.tar.gz",
+            digest: Digest::Sha256(LUA_SHA256),
+            strip_components: 1,
+            preparation: Preparation::Lua,
+            path_entry: PathEntry::Directory("bin"),
+            validation: Validation { program: "bin/lua", args: &["-v"], expected: "Lua 5.4.9", include_stderr: false },
+        },
+        Dependency {
+            name: "luarocks",
+            version: "3.13.0",
+            platform: native,
+            url: "https://luarocks.org/releases/luarocks-3.13.0.tar.gz".to_string(),
+            archive_name: "luarocks-3.13.0.tar.gz",
+            digest: Digest::Sha256("245bf6ec560c042cb8948e3d661189292587c5949104677f1eecddc54dbe7e37"),
+            strip_components: 1,
+            preparation: Preparation::LuaRocks { lua_version: LUA_VERSION, lua_digest: LUA_SHA256 },
+            path_entry: PathEntry::Directory("bin"),
+            validation: Validation { program: "bin/luarocks", args: &["--version"], expected: "3.13.0", include_stderr: false },
+        },
         Dependency {
             name: "go",
             version: "1.27.1",
@@ -75,6 +118,7 @@ pub(super) fn dependencies() -> Result<Vec<Dependency>, String> {
                 "63d339f0da5ab53635a56f2490a7984dfe12dfcff22ad749f63edaf590168445",
             ),
             strip_components: 1,
+            preparation: Preparation::Archive,
             path_entry: PathEntry::Directory("bin"),
             validation: Validation {
                 program: "bin/go",
@@ -93,6 +137,7 @@ pub(super) fn dependencies() -> Result<Vec<Dependency>, String> {
                 "ce79869e1307ed8ee1e2baa86a412b1eb5b75d10a01006d788a6f968bcfaee94",
             ),
             strip_components: 1,
+            preparation: Preparation::Archive,
             path_entry: PathEntry::Directory("bin"),
             validation: Validation {
                 program: "bin/java",
@@ -111,6 +156,7 @@ pub(super) fn dependencies() -> Result<Vec<Dependency>, String> {
                 "dbb698396d478e7fa2b1e50f4103324b2a99b90569ee27c33f2261f9215cf41e",
             ),
             strip_components: 1,
+            preparation: Preparation::Archive,
             // JDTLS needs Java 25; keep it separate from the default Java 21 used by LTeX.
             path_entry: PathEntry::Alias { name: "java25", program: "bin/java" },
             validation: Validation {
@@ -131,6 +177,7 @@ pub(super) fn dependencies() -> Result<Vec<Dependency>, String> {
                 "fd8e59d5a511510f6a298afb548f18c7d2b1be404d8b4a27d94fbe49f56cb2d6",
             ),
             strip_components: 1,
+            preparation: Preparation::Archive,
             path_entry: PathEntry::Directory("bin"),
             validation: Validation {
                 program: "bin/node",
@@ -149,6 +196,7 @@ pub(super) fn dependencies() -> Result<Vec<Dependency>, String> {
                 "51c8b999af9e8dd9998c9edc5944e19a90788862068acd38694e098889054ce8c23d4f0c5cccfa16bf187d044562359e5ee69a9f8ad0bbe913ba90311fbce25b",
             ),
             strip_components: 0,
+            preparation: Preparation::Archive,
             path_entry: PathEntry::Directory(""),
             validation: Validation {
                 program: "dotnet",
@@ -168,6 +216,7 @@ pub(super) fn dependencies() -> Result<Vec<Dependency>, String> {
                 "02aa270f183da276e5b5920b1dac44a63f1a49e55050ebde3aecc9eb82f93239",
             ),
             strip_components: 1,
+            preparation: Preparation::Archive,
             path_entry: PathEntry::Directory(""),
             validation: Validation {
                 program: "zig",
@@ -186,6 +235,7 @@ pub(super) fn dependencies() -> Result<Vec<Dependency>, String> {
             archive_name: ruby_archive,
             digest: Digest::Sha256(ruby_digest),
             strip_components: 1,
+            preparation: Preparation::Archive,
             path_entry: PathEntry::Directory("bin"),
             validation: Validation {
                 program: "bin/ruby",

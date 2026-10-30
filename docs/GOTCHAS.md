@@ -165,8 +165,8 @@
 
 - `nil` at tag `2025-06-13` invokes the host `nix` executable from `crates/builtin/build.rs`
   to generate builtin metadata. Correct Git/tag installation still fails if Nix is absent.
-  Provisioning Nix is a separate toolchain decision; do not substitute a package-specific
-  build workaround in the generic Cargo backend.
+  The E2E lane supplies a checksum-pinned official static Nix binary on its installer PATH;
+  no package-specific build workaround is needed in the generic Cargo backend.
 - `flux-lsp` 0.8.40's pinned lockfile selects `wasm-bindgen` 0.2.81. Current Rust rejects
   that dependency and asks for at least 0.2.88. Matching Mason's locked-build default therefore
   exposes an upstream lockfile/toolchain incompatibility, rather than a missing source qualifier.

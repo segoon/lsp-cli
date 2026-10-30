@@ -17,10 +17,6 @@ expected-failures:
     stage: provisioning
     diagnostic-contains: "older versions of the `wasm-bindgen` crate are incompatible with current versions of Rust"
     reason: The pinned flux-lsp 0.8.40 lockfile selects wasm-bindgen 0.2.81, which current Rust rejects; the Mason recipe requests locked dependencies.
-  - case: provisioning/nil_ls
-    stage: provisioning
-    diagnostic-contains: "cargo failed: error: failed to run custom build command for `builtin v0.0.0"
-    reason: The pinned nil 2025-06-13 build script invokes nix to generate builtin metadata, but Nix is not a host prerequisite of the E2E lane.
   - case: provisioning/bicep
     stage: provisioning
     diagnostic-contains: "downloaded server program dotnet is outside isolated home"
@@ -470,8 +466,12 @@ servers:
   - id: digestif
     owner-language: context
     provisioning:
-      status: excluded
-      reason: The isolated E2E lane does not provision LuaRocks, a compatible Lua interpreter, or native rock build prerequisites.
+      status: download
+      host-programs:
+        - name: lua
+          resolve:
+            - which
+            - lua
   - id: djls
     owner-language: python
     coverage:
@@ -620,8 +620,12 @@ servers:
   - id: fennel_ls
     owner-language: fennel
     provisioning:
-      status: excluded
-      reason: The isolated E2E lane does not provision LuaRocks, a compatible Lua interpreter, or native rock build prerequisites.
+      status: download
+      host-programs:
+        - name: lua
+          resolve:
+            - which
+            - lua
   - id: fish_lsp
     owner-language: fish
     provisioning:
@@ -1189,6 +1193,11 @@ servers:
     owner-language: nix
     provisioning:
       status: download
+      host-programs:
+        - name: nix
+          resolve:
+            - which
+            - nix
   - id: nim_langserver
     owner-language: nim
     provisioning:
@@ -1815,8 +1824,12 @@ servers:
   - id: teal_ls
     owner-language: teal
     provisioning:
-      status: excluded
-      reason: The isolated E2E lane does not provision LuaRocks, a compatible Lua interpreter, or native rock build prerequisites.
+      status: download
+      host-programs:
+        - name: lua
+          resolve:
+            - which
+            - lua
   - id: templ
     owner-language: templ
     provisioning:

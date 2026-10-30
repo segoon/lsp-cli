@@ -93,7 +93,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: .env
-          key: e2e-runtimes-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('tests/e2e/dependencies/catalog.rs') }}
+          key: e2e-runtimes-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('tests/e2e/dependencies/catalog.rs', 'tests/e2e/dependencies/preparation.rs') }}
           restore-keys: e2e-runtimes-${{ runner.os }}-${{ runner.arch }}-
       - name: Increase E2E runtime filesystem capacity
         run: |

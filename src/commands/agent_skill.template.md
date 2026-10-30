@@ -23,7 +23,7 @@ This skill helps a code agent use `lsp-cli` for semantic code navigation, diagno
 
 ## Core commands
 
-Workspace query commands in this section support these flags:
+All commands in this section support these flags:
 - `--json`: {OPT/JSON}
 - `--limit <N>`: {OPT/LIMIT}
 
@@ -151,16 +151,6 @@ lsp-cli diagnostics --detach --json --limit 100 path/to/project
 ```
 Useful flags:
 - `-l, --files-with-matches`: {OPT/FILES_WITH_MATCHES}
-
-### `cat`
-```sh
-# {CMD/CAT}
-lsp-cli cat path/to/file.rs
-```
-
-Uses a built-in palette when stdout is a terminal. Redirected output and non-empty `NO_COLOR`
-produce plain source text without starting a language server. Unsupported semantic tokens also
-produce plain text. This command does not accept `--json` or `--limit`.
 
 ### `format`
 ```sh

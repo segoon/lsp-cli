@@ -57,6 +57,8 @@ pub(crate) enum RawCommand {
     Diagnostics(RawDiagnosticsArgs),
     #[command(alias = "fmt", about = "Format a file")]
     Format(RawFormatArgs),
+    #[command(about = "Print a file with LSP highlighting in terminals; honor NO_COLOR")]
+    Cat(RawCatArgs),
     #[command(about = "Search workspace symbols (regex syntax is server-dependent)")]
     Grep(RawGrepArgs),
     #[command(about = "List symbols from a file or workspace")]
@@ -238,6 +240,22 @@ pub(crate) struct RawGrepArgs {
 pub(crate) struct RawDiagnosticsArgs {
     #[command(flatten)]
     pub(crate) query: RawLspWorkspaceQueryArgs,
+}
+
+#[derive(Debug, Args, Eq, PartialEq)]
+pub(crate) struct RawCatArgs {
+    #[arg(value_name = "FILE", value_hint = ValueHint::FilePath, help = "Source file to print; preserve its contents and line endings.")]
+    pub(crate) path: PathBuf,
+    #[command(flatten)]
+    pub(crate) selector: RawLangLspArgs,
+    #[command(flatten)]
+    pub(crate) download: RawDownloadArgs,
+    #[command(flatten)]
+    pub(crate) detach: RawDetachArgs,
+    #[command(flatten)]
+    pub(crate) debug: RawDebugArgs,
+    #[command(flatten)]
+    pub(crate) timeout: RawTimeoutArgs,
 }
 
 #[derive(Debug, Args, Eq, PartialEq)]

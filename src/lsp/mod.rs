@@ -5,6 +5,7 @@ mod diagnostics;
 mod full_content;
 mod jsonrpc;
 mod position;
+pub(crate) mod semantic_tokens;
 mod source_cache;
 mod symbols;
 pub(crate) mod transport;

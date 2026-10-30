@@ -35,6 +35,7 @@ mod tests {
                 "detect\n",
                 "diagnostics\n",
                 "format\n",
+                "cat\n",
                 "grep\n",
                 "list-symbols\n",
                 "list-functions\n",

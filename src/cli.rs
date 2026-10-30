@@ -6,10 +6,10 @@ mod resolve;
 
 pub use raw::{AgentSkillArgs, CompletionArgs, clap_command};
 pub(crate) use raw::{
-    RawBuildIndexArgs, RawCommand, RawCommandsArgs, RawDaemonArgs, RawDebugArgs, RawDetectArgs,
-    RawDiagnosticsArgs, RawDownloadArgs, RawFormatArgs, RawFullNavigationArgs, RawGrepArgs,
-    RawLangLspArgs, RawLanguagesArgs, RawListFilesArgs, RawListFunctionsArgs, RawListSymbolsArgs,
-    RawLspOptions, RawLspWorkspaceQueryArgs, RawNavigationArgs, RawRunArgs,
+    RawBuildIndexArgs, RawCatArgs, RawCommand, RawCommandsArgs, RawDaemonArgs, RawDebugArgs,
+    RawDetectArgs, RawDiagnosticsArgs, RawDownloadArgs, RawFormatArgs, RawFullNavigationArgs,
+    RawGrepArgs, RawLangLspArgs, RawLanguagesArgs, RawListFilesArgs, RawListFunctionsArgs,
+    RawListSymbolsArgs, RawLspOptions, RawLspWorkspaceQueryArgs, RawNavigationArgs, RawRunArgs,
     RawServerCapabilitiesArgs, RawServersArgs, RawStopAllArgs, RawStopArgs, RawUpdateArgs,
     RawWorkspaceOptions, RawWorkspaceQueryArgs, parse_raw_args,
 };
@@ -35,6 +35,7 @@ pub enum Command {
     Detect(DetectArgs),
     Diagnostics(DiagnosticsArgs),
     Format(FormatArgs),
+    Cat(CatArgs),
     Grep(GrepArgs),
     ListSymbols(ListSymbolsArgs),
     ListFunctions(ListFunctionsArgs),
@@ -135,6 +136,14 @@ pub struct GrepArgs {
 #[derive(Debug, Eq, PartialEq)]
 pub struct DiagnosticsArgs {
     pub query: LspWorkspaceQueryArgs,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct CatArgs {
+    pub path: PathBuf,
+    pub server: InstallDebugArgs,
+    pub detach: bool,
+    pub timeout: Duration,
 }
 
 #[derive(Debug, Eq, PartialEq)]

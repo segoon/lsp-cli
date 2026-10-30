@@ -28,6 +28,7 @@ mod background;
 mod process_io;
 mod requests;
 mod rpc;
+mod semantic_tokens;
 mod window;
 
 #[cfg(test)]

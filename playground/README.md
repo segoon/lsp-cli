@@ -67,7 +67,17 @@ lsp_cli type-definition "$function" "$project"
 lsp_cli references "$function" "$project"
 lsp_cli callers "$function" "$project"
 lsp_cli callees "$function" "$project"
+lsp_cli cat "$file"
 lsp_cli format "$file" --stdout
+```
+
+`cat` uses semantic tokens for coloring when run in a terminal, and prints plain text for servers
+without semantic-token support. Check plain output against the original without changing it:
+
+```sh
+lsp_cli cat "$file" > /tmp/lsp-cli-cat-source
+cmp "$file" /tmp/lsp-cli-cat-source
+NO_COLOR=1 lsp_cli cat "$file"
 ```
 
 `format --stdout` leaves the tracked project unchanged. Formatting, declarations, diagnostics,

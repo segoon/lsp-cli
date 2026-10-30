@@ -41,11 +41,13 @@
 
 double item_total(OrderItem item) { return item.quantity * item.price; }
 
+// File-scope data gives type-definition queries an anchor in scanned source.
+static const OrderItem sample_order_items[] = {
+    {"Display", 1, 600.0},
+    {"Stand", 1, 80.0},
+};
+
 Order *sample_order(void) {
-  static const OrderItem items[] = {
-      {"Display", 1, 600.0},
-      {"Stand", 1, 80.0},
-  };
   Order *order = (Order *)0;
-  return [order initWithCustomer:"Brad" items:items count:2];
+  return [order initWithCustomer:"Brad" items:sample_order_items count:2];
 }

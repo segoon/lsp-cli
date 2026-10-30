@@ -574,6 +574,9 @@
 
 ## clangd
 
+- Objective-C name queries may fall back to `workspace/symbol` and return `.h` anchors that `--lang objc` cannot open: its filetype recognizes only `.m`.
+  Keep the playground implementation protocol and file-scope type-definition data in `.m`; this fixture workaround does not add general header support.
+  clangd 23.1.0 returned no type-definition matches for a file-scope `Order *` value; the fixture queries its `OrderItem` data instead.
 - `clangd` may start successfully without sending background-work progress notifications. Its
   `build-index` data therefore selects best-effort completion. Keep normal symbol-query configs on
   `wait-for-index: false` unless progress reporting is confirmed for the target `clangd` setup;

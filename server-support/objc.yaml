@@ -7,7 +7,7 @@ language:
     callable-query: format_order
     command-queries:
       implementation: orderTotalValue
-      type-definition: order
+      type-definition: sample_order_items
     format-file: src/main.m
     expected-names:
       - Order

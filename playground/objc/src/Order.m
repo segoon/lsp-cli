@@ -1,5 +1,13 @@
 #include "Order.h"
 
+// Keep the implementation-query declaration in a source file scanned by --lang objc.
+@protocol OrderTotaling
+- (double)orderTotalValue;
+@end
+
+@interface Order () <OrderTotaling>
+@end
+
 @implementation Order
 
 - (instancetype)initWithCustomer:(const char *)customer

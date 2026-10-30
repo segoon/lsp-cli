@@ -83,12 +83,6 @@ fn build_suggestion(
             lsp.name
         ))
     })?;
-    let workspace_root = absolute_path(&workspace_root).map_err(|error| {
-        Error::unexpected(format!(
-            "failed to resolve workspace for {}: {error}",
-            lsp.name
-        ))
-    })?;
     let workspace = workspace_root.to_string_lossy();
     let Some(template) = shlex::split(&lsp.cmdline) else {
         return Err(Error::config_format(format!(
@@ -129,16 +123,26 @@ fn matching_languages(lsp: &LspConfig, detection: &DetectionResult) -> Vec<Strin
 }
 
 fn resolve_workspace_root(lsp: &LspConfig, workspace: &Path) -> std::io::Result<PathBuf> {
-    let start = match std::fs::metadata(workspace) {
+    resolve_workspace_root_from(lsp, workspace, &std::env::current_dir()?)
+}
+
+fn resolve_workspace_root_from(
+    lsp: &LspConfig,
+    workspace: &Path,
+    current_dir: &Path,
+) -> std::io::Result<PathBuf> {
+    // Relative ancestors stop before the cwd, so normalize before looking for root markers.
+    let workspace = absolute_path_from(workspace, current_dir)?;
+    let start = match std::fs::metadata(&workspace) {
         Ok(metadata) if metadata.is_file() => {
             if let Some(parent) = workspace.parent() {
                 parent.to_path_buf()
             } else {
-                workspace.to_path_buf()
+                workspace
             }
         }
-        Ok(_) => workspace.to_path_buf(),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => workspace.to_path_buf(),
+        Ok(_) => workspace,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => workspace,
         Err(error) => return Err(error),
     };
 
@@ -149,10 +153,6 @@ fn resolve_workspace_root(lsp: &LspConfig, workspace: &Path) -> std::io::Result<
     }
 
     Ok(start)
-}
-
-fn absolute_path(path: &Path) -> std::io::Result<PathBuf> {
-    absolute_path_from(path, &std::env::current_dir()?)
 }
 
 fn absolute_path_from(path: &Path, current_dir: &Path) -> std::io::Result<PathBuf> {
@@ -185,7 +185,10 @@ fn has_any_root_marker(directory: &Path, root_markers: &[String]) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{SuggestedLanguage, absolute_path_from, sort_suggestions, suggestions_for};
+    use super::{
+        SuggestedLanguage, absolute_path_from, resolve_workspace_root_from, sort_suggestions,
+        suggestions_for,
+    };
     use crate::config::{BuildIndexCompletion, LspConfig};
     use crate::test_support::{TestDir, detection_result};
     use std::collections::BTreeMap;
@@ -339,50 +342,47 @@ mod tests {
     }
 
     #[test]
-    fn resolves_workspace_from_root_marker() {
-        let dir = TestDir::new("suggest");
-        dir.write_file(".workspace-root", "test");
-        let nested = dir.write_file("src/main.foo", "test");
+    fn resolves_workspace_for_relative_and_absolute_inputs() {
+        let dir = TestDir::new("suggest-root");
+        for has_marker in [false, true] {
+            let name = if has_marker { "marked" } else { "unmarked" };
+            let source_file = dir.write_file(&format!("{name}/src/main.foo"), "test");
+            let project = dir.path().join(name);
+            let source_dir = project.join("src");
+            if has_marker {
+                dir.write_file(&format!("{name}/.workspace-root"), "test");
+            }
+            let expected_root = if has_marker { &project } else { &source_dir };
 
-        let suggestions = suggestions_for(
-            &[example_lsp()],
-            &detection_result(&["beta"], &[".workspace-root", "main.foo"]),
-            &nested,
-        )
-        .expect("suggestions should succeed");
+            for input in [&source_dir, &source_file] {
+                for relative in [false, true] {
+                    let input = if relative {
+                        input.strip_prefix(&project).expect("relative input")
+                    } else {
+                        input.as_path()
+                    };
+                    let root = resolve_workspace_root_from(&example_lsp(), input, &project)
+                        .expect("workspace root should resolve");
 
-        assert_eq!(
-            suggestions[0].command,
-            vec![
-                "example-lsp".to_string(),
-                "--stdio".to_string(),
-                dir.path().display().to_string()
-            ]
-        );
-        assert_eq!(suggestions[0].workspace_root, dir.path().to_path_buf());
-    }
-
-    #[test]
-    fn falls_back_to_input_directory_when_no_marker_exists() {
-        let dir = TestDir::new("suggest");
-        let nested = dir.write_file("src/main.foo", "test");
-
-        let suggestions = suggestions_for(
-            &[example_lsp()],
-            &detection_result(&["beta"], &["main.foo"]),
-            &nested,
-        )
-        .expect("suggestions should succeed");
-
-        assert_eq!(
-            suggestions[0].command,
-            vec![
-                "example-lsp".to_string(),
-                "--stdio".to_string(),
-                dir.path().join("src").display().to_string()
-            ]
-        );
-        assert_eq!(suggestions[0].workspace_root, dir.path().join("src"));
+                    assert_eq!(&root, expected_root, "{input:?}");
+                    let suggestions = suggestions_for(
+                        &[example_lsp()],
+                        &detection_result(&["beta"], &["main.foo"]),
+                        &root,
+                    )
+                    .expect("suggestions should succeed");
+                    assert_eq!(
+                        suggestions[0].command,
+                        [
+                            "example-lsp",
+                            "--stdio",
+                            &expected_root.display().to_string()
+                        ],
+                        "{input:?}",
+                    );
+                }
+            }
+        }
     }
 
     #[test]

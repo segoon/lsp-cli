@@ -15,6 +15,7 @@ fn keeps_only_lsp_packages_with_lspconfig_mapping() {
             categories: vec!["LSP".to_string()],
             source: MasonSource {
                 id: "pkg:npm/pyright@1.0.0".to_string(),
+                supported_platforms: None,
                 extra_packages: Vec::new(),
                 asset: None,
                 download: None,
@@ -34,6 +35,7 @@ fn keeps_only_lsp_packages_with_lspconfig_mapping() {
             categories: vec!["Formatter".to_string()],
             source: MasonSource {
                 id: "pkg:github/john/stylua@1.0.0".to_string(),
+                supported_platforms: None,
                 extra_packages: Vec::new(),
                 asset: None,
                 download: None,
@@ -61,6 +63,7 @@ fn package(name: &str, lspconfig: Option<&str>, bin_name: &str) -> MasonPackage 
         categories: vec!["LSP".to_string()],
         source: MasonSource {
             id: format!("pkg:npm/{name}@1.0.0"),
+            supported_platforms: None,
             extra_packages: Vec::new(),
             asset: None,
             download: None,
@@ -108,6 +111,7 @@ fn applies_most_specific_matching_version_override() {
         categories: vec!["LSP".to_string()],
         source: MasonSource {
             id: "pkg:npm/@angular/language-server@17.3.2".to_string(),
+            supported_platforms: None,
             extra_packages: vec!["typescript@latest".to_string()],
             asset: None,
             download: None,
@@ -115,6 +119,7 @@ fn applies_most_specific_matching_version_override() {
                 MasonVersionOverride {
                     constraint: "semver:<=19.2.4".to_string(),
                     id: "pkg:npm/@angular/language-server@19.2.4".to_string(),
+                    supported_platforms: None,
                     extra_packages: Some(vec!["typescript@5.8.3".to_string()]),
                     asset: None,
                     download: None,
@@ -122,6 +127,7 @@ fn applies_most_specific_matching_version_override() {
                 MasonVersionOverride {
                     constraint: "semver:<=17.3.2".to_string(),
                     id: "pkg:npm/@angular/language-server@17.3.2".to_string(),
+                    supported_platforms: None,
                     extra_packages: Some(vec!["typescript@5.3.2".to_string()]),
                     asset: None,
                     download: None,
@@ -150,6 +156,7 @@ fn applies_version_override_asset_payload() {
         categories: vec!["LSP".to_string()],
         source: MasonSource {
             id: "pkg:github/fables-tales/rubyfmt@v0.8.1".to_string(),
+            supported_platforms: None,
             extra_packages: Vec::new(),
             asset: Some(OneOrMany::One(MasonAsset {
                 target: Some(OneOrMany::One("linux_x64_gnu".to_string())),
@@ -161,6 +168,7 @@ fn applies_version_override_asset_payload() {
             version_overrides: vec![MasonVersionOverride {
                 constraint: "semver:<=v0.8.1".to_string(),
                 id: "pkg:github/fables-tales/rubyfmt@v0.8.1".to_string(),
+                supported_platforms: None,
                 extra_packages: None,
                 asset: Some(OneOrMany::One(MasonAsset {
                     target: Some(OneOrMany::One("linux_x64_gnu".to_string())),
@@ -256,4 +264,61 @@ fn registry_metadata_freshness_respects_threshold() {
 
     assert!(metadata.is_fresh_at(10 + 30 * 24 * 60 * 60));
     assert!(!metadata.is_fresh_at(11 + 30 * 24 * 60 * 60));
+}
+
+#[test]
+fn distinguishes_unrestricted_empty_and_matching_platform_lists() {
+    let platform =
+        crate::mason::platform::MasonPlatform::detect().expect("host should be supported");
+    for (restriction, supported) in [
+        (None, true),
+        (Some(Vec::new()), false),
+        (Some(vec!["unknown_platform".to_string()]), false),
+        (
+            Some(vec![
+                "unknown_platform".to_string(),
+                platform.name().to_string(),
+            ]),
+            true,
+        ),
+    ] {
+        let mut package = package("server", None, "server");
+        package.source.supported_platforms = restriction;
+        let result = package.ensure_supported_on(&platform);
+        assert_eq!(result.is_ok(), supported);
+        if let Err(error) = result {
+            let message = error.to_string();
+            assert!(message.contains("server"));
+            assert!(message.contains(platform.name()));
+            assert!(message.contains("Mason supports"));
+        }
+    }
+}
+
+#[test]
+fn version_overrides_replace_platform_restrictions() {
+    for restriction in [
+        serde_json::json!(null),
+        serde_json::json!([]),
+        serde_json::json!(["linux"]),
+    ] {
+        let mut package = package("server", None, "server");
+        package.source = serde_json::from_value(serde_json::json!({
+            "id": "pkg:pypi/server@1.0.0?extra=all",
+            "supported_platforms": ["darwin"],
+            "version_overrides": [{
+                "constraint": "semver:<=1.0.0", "id": "pkg:pypi/server@1.0.0?extra=all",
+                "supported_platforms": restriction,
+            }],
+        }))
+        .expect("source should deserialize");
+        package
+            .apply_source_version_overrides()
+            .expect("override should apply");
+        assert_eq!(
+            serde_json::to_value(package.source.supported_platforms)
+                .expect("restriction should serialize"),
+            restriction
+        );
+    }
 }

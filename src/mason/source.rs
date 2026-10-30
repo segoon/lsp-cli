@@ -1,5 +1,8 @@
 use crate::error::{Error, Result};
 
+mod cargo;
+pub(crate) use cargo::CargoSource;
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum SourceId {
     Npm {
@@ -11,15 +14,13 @@ pub(crate) enum SourceId {
         version: String,
         extras: Vec<String>,
     },
-    Cargo {
-        package_name: String,
-        version: String,
-    },
+    Cargo(CargoSource),
     Golang {
         module_path: String,
         version: String,
         subpath: Option<String>,
     },
+    Luarocks(LuaRocksSource),
     Nuget {
         package_name: String,
         version: String,
@@ -35,6 +36,36 @@ pub(crate) enum SourceId {
     Unsupported {
         kind: String,
     },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct LuaRocksSource {
+    pub package_name: String,
+    pub version: String,
+    pub server: Option<String>,
+    pub dev: bool,
+}
+
+impl LuaRocksSource {
+    fn new(package_name: String, version: String, qualifiers: Option<&str>) -> Self {
+        let mut source = Self {
+            package_name,
+            version,
+            server: None,
+            dev: false,
+        };
+        for (key, value) in qualifiers
+            .into_iter()
+            .flat_map(|raw| url::form_urlencoded::parse(raw.as_bytes()))
+        {
+            match key.as_ref() {
+                "repository_url" => source.server = Some(value.into_owned()),
+                "dev" => source.dev = value == "true",
+                _ => {}
+            }
+        }
+        source
+    }
 }
 
 pub(crate) fn parse_source_id(source_id: &str) -> Result<SourceId> {
@@ -87,15 +118,13 @@ pub(crate) fn parse_source_id(source_id: &str) -> Result<SourceId> {
             version,
             extras: parse_pypi_extras(qualifiers),
         },
-        "cargo" => SourceId::Cargo {
-            package_name: decoded_name,
-            version,
-        },
+        "cargo" => SourceId::Cargo(CargoSource::new(decoded_name, version, qualifiers)),
         "golang" => SourceId::Golang {
             module_path: decoded_name,
             version,
             subpath,
         },
+        "luarocks" => SourceId::Luarocks(LuaRocksSource::new(decoded_name, version, qualifiers)),
         "nuget" => SourceId::Nuget {
             package_name: decoded_name,
             version,
@@ -188,7 +217,7 @@ fn decode_hex_digit(byte: u8) -> Option<u8> {
 
 #[cfg(test)]
 mod tests {
-    use super::{SourceId, parse_source_id};
+    use super::{CargoSource, LuaRocksSource, SourceId, parse_source_id};
 
     #[test]
     fn parses_supported_source_ids() {
@@ -227,10 +256,11 @@ mod tests {
         );
         assert_eq!(
             parse_source_id("pkg:cargo/asm-lsp@0.10.1").expect("cargo source should parse"),
-            SourceId::Cargo {
-                package_name: "asm-lsp".to_string(),
-                version: "0.10.1".to_string(),
-            }
+            SourceId::Cargo(CargoSource::new(
+                "asm-lsp".to_string(),
+                "0.10.1".to_string(),
+                None
+            ))
         );
         assert_eq!(
             parse_source_id("pkg:golang/golang.org/x/tools/gopls@v0.21.1")
@@ -249,6 +279,43 @@ mod tests {
                 version: "5.11.0-1.26380.4".to_string(),
             }
         );
+    }
+
+    #[test]
+    fn parses_luarocks_sources_and_qualifiers() {
+        for (id, name, version, server, dev) in [
+            (
+                "pkg:luarocks/fennel-ls@0.2.1-1",
+                "fennel-ls",
+                "0.2.1-1",
+                None,
+                false,
+            ),
+            (
+                "pkg:luarocks/user/teal-language-server@dev-1?dev=true&repository_url=https%3A%2F%2Fluarocks.org%2Fdev",
+                "user/teal-language-server",
+                "dev-1",
+                Some("https://luarocks.org/dev"),
+                true,
+            ),
+            (
+                "pkg:luarocks/luaformatter@scm-1?dev=false",
+                "luaformatter",
+                "scm-1",
+                None,
+                false,
+            ),
+        ] {
+            assert_eq!(
+                parse_source_id(id).expect("LuaRocks source should parse"),
+                SourceId::Luarocks(LuaRocksSource {
+                    package_name: name.to_string(),
+                    version: version.to_string(),
+                    server: server.map(str::to_string),
+                    dev,
+                })
+            );
+        }
     }
 
     #[test]

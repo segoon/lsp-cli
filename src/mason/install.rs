@@ -18,6 +18,8 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 
 mod artifacts;
+mod cargo;
+mod luarocks;
 mod pypi;
 
 #[cfg(test)]
@@ -35,11 +37,13 @@ pub(crate) fn resolve_cached_program(
     package: &MasonPackage,
     program: &str,
 ) -> Result<Option<std::path::PathBuf>> {
+    package.ensure_supported_platform()?;
     match parse_source_id(&package.source.id)? {
         SourceId::Pypi { .. } => pypi::resolve_cached_program(state, package, program),
+        SourceId::Cargo(source) => source.resolve_cached_program(state, package, program),
         SourceId::Npm { .. }
-        | SourceId::Cargo { .. }
         | SourceId::Golang { .. }
+        | SourceId::Luarocks(_)
         | SourceId::Nuget { .. } => {
             let resolved_program =
                 resolve_program(package, program, state, &TemplateContext::empty())?;
@@ -64,6 +68,7 @@ pub(crate) fn resolve_or_install_program(
     package: &MasonPackage,
     program: &str,
 ) -> Result<std::path::PathBuf> {
+    package.ensure_supported_platform()?;
     match parse_source_id(&package.source.id)? {
         SourceId::Npm {
             package_name,
@@ -74,10 +79,7 @@ pub(crate) fn resolve_or_install_program(
             version,
             extras,
         } => install_pypi_package(state, package, &package_name, &version, &extras, program),
-        SourceId::Cargo {
-            package_name,
-            version,
-        } => install_cargo_package(state, package, &package_name, &version, program),
+        SourceId::Cargo(source) => source.install(state, package, program),
         SourceId::Golang {
             module_path,
             version,
@@ -90,6 +92,7 @@ pub(crate) fn resolve_or_install_program(
             subpath.as_deref(),
             program,
         ),
+        SourceId::Luarocks(source) => source.install(state, package, program),
         SourceId::Nuget {
             package_name,
             version,
@@ -208,43 +211,6 @@ fn fake_npm_install(install_dir: &std::path::Path, program: &str) -> Result<bool
     }
 
     Ok(true)
-}
-
-fn install_cargo_package(
-    state: &RuntimeState,
-    package: &MasonPackage,
-    package_name: &str,
-    version: &str,
-    program: &str,
-) -> Result<PathBuf> {
-    use_cached_program_or(
-        package,
-        program,
-        state,
-        &TemplateContext::empty(),
-        |resolved_program| {
-            require_command("cargo", package, program)?;
-            let install_dir = prepare_install_dir(state, package)?;
-
-            let mut cmd = installer_command("cargo");
-            cmd.arg("install")
-                .arg("--root")
-                .arg(&install_dir)
-                .arg("--version")
-                .arg(version)
-                .arg(package_name);
-            run_install_command(&mut cmd, package, "cargo")?;
-
-            finalize_install(
-                state,
-                package,
-                program,
-                &resolved_program,
-                &TemplateContext::empty(),
-                "cargo did not produce a runnable",
-            )
-        },
-    )
 }
 
 fn install_golang_package(

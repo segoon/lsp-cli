@@ -7,7 +7,7 @@ pairs:
     server: nil_ls
     smoke:
       status: excluded
-      reason: pkg:cargo/nil@2025-06-13?repository_url=https://github.com/oxalica/nil requires its repository_url qualifier that the current Cargo installer discards.
+      reason: The pinned nil 2025-06-13 build script needs the host nix executable, which the E2E lane does not provision.
   - language: nix
     server: rnix
     smoke:

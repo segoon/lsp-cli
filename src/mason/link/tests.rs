@@ -22,6 +22,7 @@ fn rust_analyzer_package() -> MasonPackage {
         categories: vec!["LSP".to_string()],
         source: MasonSource {
             id: "pkg:github/rust-lang/rust-analyzer@2026-04-27".to_string(),
+            supported_platforms: None,
             extra_packages: Vec::new(),
             asset: Some(OneOrMany::Many(vec![MasonAsset {
                 target: Some(OneOrMany::One("linux_x64_gnu".to_string())),
@@ -51,6 +52,7 @@ fn generic_package() -> MasonPackage {
         categories: vec!["LSP".to_string()],
         source: MasonSource {
             id: "pkg:generic/bzl@v1.4.22".to_string(),
+            supported_platforms: None,
             extra_packages: Vec::new(),
             asset: None,
             download: Some(OneOrMany::Many(vec![MasonDownload {
@@ -79,6 +81,7 @@ fn ast_grep_package() -> MasonPackage {
         categories: vec!["LSP".to_string()],
         source: MasonSource {
             id: "pkg:github/ast-grep/ast-grep@0.42.1".to_string(),
+            supported_platforms: None,
             extra_packages: Vec::new(),
             asset: Some(OneOrMany::Many(vec![MasonAsset {
                 target: Some(OneOrMany::One("linux_x64_gnu".to_string())),
@@ -106,6 +109,7 @@ fn quick_lint_js_package() -> MasonPackage {
         categories: vec!["LSP".to_string()],
         source: MasonSource {
             id: "pkg:generic/quick-lint/quick-lint-js@3.2.0".to_string(),
+            supported_platforms: None,
             extra_packages: Vec::new(),
             asset: None,
             download: Some(OneOrMany::Many(vec![MasonDownload {
@@ -137,6 +141,7 @@ fn kcl_package() -> MasonPackage {
         categories: vec!["LSP".to_string()],
         source: MasonSource {
             id: "pkg:github/kcl-lang/kcl@v0.11.2".to_string(),
+            supported_platforms: None,
             extra_packages: Vec::new(),
             asset: Some(OneOrMany::Many(vec![MasonAsset {
                 target: Some(OneOrMany::One("linux_x64_gnu".to_string())),

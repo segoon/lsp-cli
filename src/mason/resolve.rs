@@ -192,19 +192,27 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn prefers_cached_direct_binary_when_path_misses() {
-        let (dir, package_dir, _state) =
-            prepare_registry_test_home("pyright", &[pyright_package()]);
-        let home = dir.path().join("home");
-        let cached = package_dir.join("node_modules/.bin/pyright-langserver");
-        fs::create_dir_all(cached.parent().expect("parent should exist"))
-            .expect("parent dirs should be created");
-        fs::write(&cached, b"stub\n").expect("cached binary should be written");
-        make_executable(&cached);
-
-        let resolved = with_env_vars(
-            &[env_var("HOME", &home), env_var("PATH", "/nonexistent")],
-            || {
+    fn respects_managed_platform_restrictions_without_restricting_path_programs() {
+        for (restriction, use_path, expected) in [
+            (None, false, true),
+            (Some(Vec::new()), false, false),
+            (Some(Vec::new()), true, true),
+        ] {
+            let mut package = pyright_package();
+            package.source.supported_platforms = restriction;
+            let (dir, package_dir, _state) = prepare_registry_test_home("pyright", &[package]);
+            let home = dir.path().join("home");
+            let cached = package_dir.join("node_modules/.bin/pyright-langserver");
+            fs::create_dir_all(cached.parent().expect("parent should exist"))
+                .expect("parent dirs should be created");
+            fs::write(&cached, b"stub\n").expect("cached binary should be written");
+            make_executable(&cached);
+            let path = if use_path {
+                cached.parent().expect("launcher has a parent")
+            } else {
+                std::path::Path::new("/nonexistent")
+            };
+            let resolved = with_env_vars(&[env_var("HOME", &home), env_var("PATH", path)], || {
                 resolve_detect_suggestions(
                     &[suggested_language(
                         "pyright-langserver",
@@ -215,11 +223,17 @@ mod tests {
                     false,
                 )
                 .expect("resolution should succeed")
-            },
-        );
-
-        assert_eq!(resolved.len(), 1);
-        assert_eq!(resolved[0].command[0], cached.display().to_string());
+            });
+            assert_eq!(resolved.len(), usize::from(expected));
+            if expected {
+                let command = if use_path {
+                    "pyright-langserver".to_string()
+                } else {
+                    cached.display().to_string()
+                };
+                assert_eq!(resolved[0].command[0], command);
+            }
+        }
     }
 
     #[cfg(unix)]

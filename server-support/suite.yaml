@@ -13,6 +13,14 @@ defaults:
   provisioning:
     deadline-seconds: 600
 expected-failures:
+  - case: provisioning/flux_lsp
+    stage: provisioning
+    diagnostic-contains: "older versions of the `wasm-bindgen` crate are incompatible with current versions of Rust"
+    reason: The pinned flux-lsp 0.8.40 lockfile selects wasm-bindgen 0.2.81, which current Rust rejects; the Mason recipe requests locked dependencies.
+  - case: provisioning/nil_ls
+    stage: provisioning
+    diagnostic-contains: "cargo failed: error: failed to run custom build command for `builtin v0.0.0"
+    reason: The pinned nil 2025-06-13 build script invokes nix to generate builtin metadata, but Nix is not a host prerequisite of the E2E lane.
   - case: provisioning/bicep
     stage: provisioning
     diagnostic-contains: "downloaded server program dotnet is outside isolated home"
@@ -41,14 +49,6 @@ expected-failures:
     stage: provisioning
     diagnostic-contains: "Mason does not expose executable erg"
     reason: pkg:github/erg-lang/erg-language-server@v0.1.12 requires erg, but the Mason recipe does not expose that executable.
-  - case: provisioning/fennel_language_server
-    stage: provisioning
-    diagnostic-contains: "cannot install fennel-language-server because cargo failed"
-    reason: pkg:cargo/fennel-language-server@59005549ca1191bf2aa364391e6bf2371889b4f8?repository_url=https://github.com/rydesun/fennel-language-server&rev=true requires repository_url and rev qualifiers that the current Cargo installer discards.
-  - case: provisioning/flux_lsp
-    stage: provisioning
-    diagnostic-contains: "could not find `flux-lsp` in registry `crates-io` with version `=0.8.40`"
-    reason: pkg:cargo/flux-lsp@0.8.40?repository_url=https://github.com/influxdata/flux-lsp requires its repository_url qualifier; crates.io has no matching flux-lsp release.
   - case: provisioning/glslls
     stage: provisioning
     diagnostic-contains: "cannot install glslls on this platform"
@@ -69,10 +69,6 @@ expected-failures:
     stage: provisioning
     diagnostic-contains: "Mason does not expose executable julia"
     reason: pkg:github/mason-org/julia-lsp@v1.219.2 requires julia, but the Mason recipe does not expose that executable.
-  - case: provisioning/lelwel_ls
-    stage: provisioning
-    diagnostic-contains: "cargo did not produce a runnable lelwel-ls executable"
-    reason: pkg:cargo/lelwel@0.10.4?features=lsp,cli requires the lsp and cli feature qualifiers that the current Cargo installer discards, so no lelwel-ls executable is built.
   - case: provisioning/matlab_ls
     stage: provisioning
     diagnostic-contains: "cannot install matlab-language-server on this platform"
@@ -81,22 +77,10 @@ expected-failures:
     stage: provisioning
     diagnostic-contains: "cannot install metamath-zero-lsp on this platform"
     reason: pkg:github/digama0/mm0@f30b37eed283502835ff9fd62c827f23b2d3a71e has no Mason asset matching the Linux x86-64 E2E platform.
-  - case: provisioning/move_analyzer
-    stage: provisioning
-    diagnostic-contains: "cannot install move-analyzer because cargo failed"
-    reason: pkg:cargo/move-analyzer@ea70797099baea64f05194a918cebd69ed02b285?repository_url=https://github.com/move-language/move&rev=true&locked=false requires repository_url, rev, and locked qualifiers that the current Cargo installer discards.
-  - case: provisioning/nil_ls
-    stage: provisioning
-    diagnostic-contains: "cannot install nil because cargo failed"
-    reason: pkg:cargo/nil@2025-06-13?repository_url=https://github.com/oxalica/nil requires its repository_url qualifier that the current Cargo installer discards.
   - case: provisioning/nimls
     stage: provisioning
     diagnostic-contains: "cannot install nimlsp on this platform"
     reason: pkg:github/PMunch/nimlsp@v0.4.7 has no Mason asset matching the Linux x86-64 E2E platform.
-  - case: provisioning/pbls
-    stage: provisioning
-    diagnostic-contains: "could not find `pbls` in registry `crates-io` with version `=1.0.1`"
-    reason: pkg:cargo/pbls@1.0.1?repository_url=https://git.sr.ht/~rrc/pbls requires its repository_url qualifier; crates.io has no matching pbls release.
   - case: provisioning/phpactor
     stage: provisioning
     diagnostic-contains: "downloaded asset did not produce a runnable phpactor executable"
@@ -487,7 +471,7 @@ servers:
     owner-language: context
     provisioning:
       status: excluded
-      reason: lsp-cli cannot install this server because its Mason package uses the unsupported LuaRocks backend.
+      reason: The isolated E2E lane does not provision LuaRocks, a compatible Lua interpreter, or native rock build prerequisites.
   - id: djls
     owner-language: python
     coverage:
@@ -637,7 +621,7 @@ servers:
     owner-language: fennel
     provisioning:
       status: excluded
-      reason: lsp-cli cannot install this server because its Mason package uses the unsupported LuaRocks backend.
+      reason: The isolated E2E lane does not provision LuaRocks, a compatible Lua interpreter, or native rock build prerequisites.
   - id: fish_lsp
     owner-language: fish
     provisioning:
@@ -1832,7 +1816,7 @@ servers:
     owner-language: teal
     provisioning:
       status: excluded
-      reason: lsp-cli cannot install this server because its Mason package uses the unsupported LuaRocks backend.
+      reason: The isolated E2E lane does not provision LuaRocks, a compatible Lua interpreter, or native rock build prerequisites.
   - id: templ
     owner-language: templ
     provisioning:

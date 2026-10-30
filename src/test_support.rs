@@ -162,6 +162,7 @@ pub(crate) fn pyright_package() -> MasonPackage {
         categories: vec!["LSP".to_string()],
         source: MasonSource {
             id: "pkg:npm/pyright@1.1.409".to_string(),
+            supported_platforms: None,
             extra_packages: Vec::new(),
             asset: None,
             download: None,
@@ -184,6 +185,7 @@ pub(crate) fn asm_lsp_package() -> MasonPackage {
         categories: vec!["LSP".to_string()],
         source: MasonSource {
             id: "pkg:cargo/asm-lsp@0.10.1".to_string(),
+            supported_platforms: None,
             extra_packages: Vec::new(),
             asset: None,
             download: None,
@@ -203,6 +205,7 @@ pub(crate) fn cue_package(source_id: &str) -> MasonPackage {
         categories: vec!["LSP".to_string()],
         source: MasonSource {
             id: source_id.to_string(),
+            supported_platforms: None,
             extra_packages: Vec::new(),
             asset: None,
             download: None,
@@ -222,6 +225,7 @@ pub(crate) fn roslyn_package() -> MasonPackage {
         categories: vec!["LSP".to_string()],
         source: MasonSource {
             id: "pkg:nuget/roslyn-language-server@5.11.0-1.26380.4".to_string(),
+            supported_platforms: None,
             extra_packages: Vec::new(),
             asset: None,
             download: None,
@@ -244,6 +248,7 @@ pub(crate) fn jdtls_package() -> MasonPackage {
         categories: vec!["LSP".to_string()],
         source: MasonSource {
             id: "pkg:generic/eclipse/eclipse.jdt.ls@v1.0.0".to_string(),
+            supported_platforms: None,
             extra_packages: Vec::new(),
             asset: None,
             download: Some(OneOrMany::Many(vec![MasonDownload {

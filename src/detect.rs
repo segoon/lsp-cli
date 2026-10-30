@@ -3,7 +3,7 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use crate::config::FiletypeConfig;
+use crate::config::{FiletypeConfig, FiletypePath};
 
 #[derive(Debug, Default, Eq, PartialEq)]
 pub struct DetectionResult {
@@ -97,24 +97,9 @@ fn detect_file(path: &Path, filetypes: &[FiletypeConfig], detection: &mut Detect
 
     detection.filenames.insert(file_name.clone());
 
-    let extension = path
-        .extension()
-        .and_then(|value| value.to_str())
-        .map(str::to_ascii_lowercase);
-
-    for filetype in filetypes {
-        let extension_match = extension
-            .as_deref()
-            .is_some_and(|value| filetype.extensions.iter().any(|ext| ext == value));
-        let pattern_match = filetype
-            .patterns
-            .iter()
-            .any(|pattern| pattern.is_match(&file_name));
-
-        if extension_match || pattern_match {
-            detection.filetypes.insert(filetype.id.clone());
-        }
-    }
+    detection
+        .filetypes
+        .extend(matching_filetypes(path, filetypes));
 }
 
 fn file_matches(
@@ -128,29 +113,12 @@ fn file_matches(
 }
 
 fn matching_filetypes(path: &Path, filetypes: &[FiletypeConfig]) -> Vec<String> {
-    let file_name = match path.file_name() {
-        Some(file_name) => file_name.to_string_lossy().into_owned(),
-        None => return Vec::new(),
+    let Some(document) = FiletypePath::new(path) else {
+        return Vec::new();
     };
-
-    let extension = path
-        .extension()
-        .and_then(|value| value.to_str())
-        .map(str::to_ascii_lowercase);
-
     filetypes
         .iter()
-        .filter(|filetype| {
-            let extension_match = extension
-                .as_deref()
-                .is_some_and(|value| filetype.extensions.iter().any(|ext| ext == value));
-            let pattern_match = filetype
-                .patterns
-                .iter()
-                .any(|pattern| pattern.is_match(&file_name));
-
-            extension_match || pattern_match
-        })
+        .filter(|filetype| document.matches(filetype))
         .map(|filetype| filetype.id.clone())
         .collect()
 }
@@ -189,6 +157,7 @@ mod tests {
 
     fn filetype(id: &str, extensions: &[&str], patterns: &[&str]) -> FiletypeConfig {
         FiletypeConfig {
+            language_id: None,
             id: id.to_string(),
             extensions: extensions
                 .iter()

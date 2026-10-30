@@ -24,7 +24,7 @@ fn echo_file(peer: &mut LspPeer, request: &Value) {
 fn fills_window_and_refills_after_out_of_order_reply() {
     let dir = TestDir::new("window-refill");
     let paths = files(&dir, 4);
-    let (mut client, server) = LspPeer::spawn(&dir, Duration::from_secs(3), |peer| {
+    let (mut client, server) = LspPeer::spawn_lua(&dir, Duration::from_secs(3), |peer| {
         let first = peer.document_request();
         let second = peer.document_request();
         echo_file(peer, &second);
@@ -52,7 +52,7 @@ fn respects_window_limit_with_interleaved_server_requests() {
     for size in [1, 3, 20] {
         let dir = TestDir::new("window-bound");
         let paths = files(&dir, 23);
-        let (mut client, server) = LspPeer::spawn(&dir, Duration::from_secs(3), move |peer| {
+        let (mut client, server) = LspPeer::spawn_lua(&dir, Duration::from_secs(3), move |peer| {
             let mut remaining = 23;
             while remaining > 0 {
                 let group = (0..size.min(remaining))
@@ -84,7 +84,7 @@ fn respects_window_limit_with_interleaved_server_requests() {
 fn skips_explicit_errors_and_keeps_notifications() {
     let dir = TestDir::new("window-errors");
     let paths = files(&dir, 3);
-    let (mut client, server) = LspPeer::spawn(&dir, Duration::from_secs(3), |peer| {
+    let (mut client, server) = LspPeer::spawn_lua(&dir, Duration::from_secs(3), |peer| {
         let first = peer.document_request();
         let second = peer.document_request();
         peer.send(&json!({"jsonrpc":"2.0", "method":"textDocument/publishDiagnostics", "params":{"uri":"file:///sample.lua", "diagnostics":[]}}));
@@ -107,7 +107,7 @@ fn skips_explicit_errors_and_keeps_notifications() {
 fn timeout_cancels_outstanding_requests_and_ignores_late_responses() {
     let dir = TestDir::new("window-timeout");
     let paths = files(&dir, 3);
-    let (mut client, server) = LspPeer::spawn(&dir, Duration::from_millis(120), |peer| {
+    let (mut client, server) = LspPeer::spawn_lua(&dir, Duration::from_millis(120), |peer| {
         let first = peer.document_request();
         let second = peer.document_request();
         // Traffic lasts longer than the deadline. A timeout restarted by each
@@ -139,7 +139,7 @@ fn timeout_cancels_outstanding_requests_and_ignores_late_responses() {
 fn decode_failure_cancels_other_requests() {
     let dir = TestDir::new("window-decode");
     let paths = files(&dir, 3);
-    let (mut client, server) = LspPeer::spawn(&dir, Duration::from_secs(3), |peer| {
+    let (mut client, server) = LspPeer::spawn_lua(&dir, Duration::from_secs(3), |peer| {
         let first = peer.document_request();
         let second = peer.document_request();
         peer.reply(&first, Value::Null);
@@ -162,7 +162,7 @@ fn opening_failure_cancels_requests_already_sent() {
     let dir = TestDir::new("window-missing");
     let mut paths = files(&dir, 1);
     paths.push(dir.path().join("missing.lua"));
-    let (mut client, server) = LspPeer::spawn(&dir, Duration::from_secs(3), |peer| {
+    let (mut client, server) = LspPeer::spawn_lua(&dir, Duration::from_secs(3), |peer| {
         let request = peer.document_request();
         let cancel = peer.read();
         assert_eq!(cancel["method"], "$/cancelRequest");
@@ -181,7 +181,7 @@ fn opening_failure_cancels_requests_already_sent() {
 fn disconnect_aborts_discovery() {
     let dir = TestDir::new("window-disconnect");
     let paths = files(&dir, 3);
-    let (mut client, server) = LspPeer::spawn(&dir, Duration::from_secs(3), |peer| {
+    let (mut client, server) = LspPeer::spawn_lua(&dir, Duration::from_secs(3), |peer| {
         peer.document_request();
         peer.document_request();
     });
@@ -194,7 +194,7 @@ fn disconnect_aborts_discovery() {
 #[test]
 fn empty_window_sends_no_requests() {
     let dir = TestDir::new("window-empty");
-    let (mut client, server) = LspPeer::spawn(&dir, Duration::from_secs(3), LspPeer::finish);
+    let (mut client, server) = LspPeer::spawn_lua(&dir, Duration::from_secs(3), LspPeer::finish);
     let results = client
         .document_symbols_window(&[], window(20), |_, _| Ok(()))
         .expect("empty scan");

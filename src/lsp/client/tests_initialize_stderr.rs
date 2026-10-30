@@ -17,6 +17,7 @@ fn reports_server_stderr_for_initialize_transport_errors() {
         false,
     );
     let mut client = LspClient {
+        document_languages: crate::config::DocumentLanguages::default(),
         transport: ClientTransport::Socket { stream },
         stderr: Some(stderr),
         messages: receiver,

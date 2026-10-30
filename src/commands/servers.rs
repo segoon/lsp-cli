@@ -39,11 +39,13 @@ mod tests {
         ConfigStore {
             filetypes: vec![
                 FiletypeConfig {
+                    language_id: None,
                     id: "python".to_string(),
                     extensions: vec!["py".to_string()],
                     patterns: Vec::new(),
                 },
                 FiletypeConfig {
+                    language_id: None,
                     id: "rust".to_string(),
                     extensions: vec!["rs".to_string()],
                     patterns: Vec::new(),

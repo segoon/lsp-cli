@@ -29,6 +29,7 @@ impl Fixture {
             dir.write_file(file, "local note = 'привет 😀'; local target = 1\n");
         }
         let workspace = PreparedWorkspace {
+            document_languages: crate::config::DocumentLanguages::default(),
             detection: detection_result(&["lua"], &[]),
             server: suggested_language("fake", "fake", "fake", "lua"),
             allowed_filetypes: BTreeSet::from(["lua".into()]),
@@ -39,6 +40,7 @@ impl Fixture {
         };
         let config = ConfigStore {
             filetypes: vec![FiletypeConfig {
+                language_id: None,
                 id: "lua".into(),
                 extensions: vec!["lua".into()],
                 patterns: vec![],
@@ -108,7 +110,7 @@ fn named_location_queries_find_local_and_duplicate_names_in_file_order() {
         for limit in [1, 20] {
             let fixture = Fixture::new(limit);
             let (mut client, server) =
-                LspPeer::spawn(&fixture.dir, Duration::from_secs(3), move |peer| {
+                LspPeer::spawn_lua(&fixture.dir, Duration::from_secs(3), move |peer| {
                     serve_symbols(peer, limit, true);
                     for file in ["a.lua", "b.lua", "c.lua"] {
                         let request = peer.read();
@@ -160,7 +162,7 @@ fn call_hierarchy_queries_filter_non_functions() {
         CallHierarchyDirection::Outgoing,
     ] {
         let fixture = Fixture::new(20);
-        let (mut client, server) = LspPeer::spawn(
+        let (mut client, server) = LspPeer::spawn_lua(
             &fixture.dir,
             Duration::from_secs(3),
             move |peer| {
@@ -218,18 +220,19 @@ fn falls_back_to_workspace_symbols_when_no_document_name_matches() {
         full_content: None,
     };
     let anchor_uri = path_to_file_uri(&fixture.dir.path().join("a.lua")).expect("uri");
-    let (mut client, server) = LspPeer::spawn(&fixture.dir, Duration::from_secs(3), move |peer| {
-        serve_symbols(peer, 20, false);
-        let request = peer.read();
-        assert_eq!(request["method"], "workspace/symbol");
-        let symbol = json!({
-            "name": "target",
-            "kind": 12,
-            "location": {"uri": anchor_uri, "range": range()},
+    let (mut client, server) =
+        LspPeer::spawn_lua(&fixture.dir, Duration::from_secs(3), move |peer| {
+            serve_symbols(peer, 20, false);
+            let request = peer.read();
+            assert_eq!(request["method"], "workspace/symbol");
+            let symbol = json!({
+                "name": "target",
+                "kind": 12,
+                "location": {"uri": anchor_uri, "range": range()},
+            });
+            peer.reply(&request, json!([symbol]));
+            peer.finish();
         });
-        peer.reply(&request, json!([symbol]));
-        peer.finish();
-    });
     let matches = select_named_anchors(
         &fixture.workspace,
         &fixture.initialize,
@@ -278,7 +281,7 @@ fn position_location_queries_bypass_discovery_and_preserve_unknown_metadata() {
             let fixture = Fixture::new(1);
             let anchor = fixture.position(name);
             let (mut client, server) =
-                LspPeer::spawn(&fixture.dir, Duration::from_secs(3), move |peer| {
+                LspPeer::spawn_lua(&fixture.dir, Duration::from_secs(3), move |peer| {
                     let request = position_request(peer);
                     assert_eq!(request["method"], format!("textDocument/{}", kind.label()));
                     assert_eq!(
@@ -323,7 +326,7 @@ fn position_call_hierarchy_uses_prepared_items_without_discovery() {
     ] {
         let fixture = Fixture::new(1);
         let anchor = fixture.position(None);
-        let (mut client, server) = LspPeer::spawn(
+        let (mut client, server) = LspPeer::spawn_lua(
             &fixture.dir,
             Duration::from_secs(3),
             move |peer| {

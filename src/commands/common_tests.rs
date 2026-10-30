@@ -68,6 +68,7 @@ fn daemon_workspace(
     socket_path: Option<PathBuf>,
 ) -> PreparedWorkspace {
     PreparedWorkspace {
+        document_languages: crate::config::DocumentLanguages::default(),
         detection: detection_result(&["rust"], &[]),
         server: SuggestedLanguage {
             config_id: "rust-analyzer".to_string(),

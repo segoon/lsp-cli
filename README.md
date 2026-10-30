@@ -340,6 +340,21 @@ The filename becomes the language id:
 - `filetypes/python.yaml` defines the `python` language
 - `filetypes/cpp.yaml` defines the `cpp` language
 
+That filetype ID is also sent to the language server as each document's language ID.
+When the server expects a different ID, set `language-id` in the filetype configuration:
+
+```yaml
+# filetypes/cs.yaml
+language-id: csharp
+extensions:
+  - cs
+```
+
+Document matching uses the same extension and filename rules as detection, including
+case-insensitive extensions. `--lang` restricts matching to that filetype; otherwise,
+the selected server's detected filetypes are considered. If matching filetypes specify
+different language IDs, select one with `--lang`. An unmatched document produces an error.
+
 Example:
 
 ```yaml

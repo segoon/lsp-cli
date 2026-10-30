@@ -25,11 +25,13 @@ mod tests {
         let config = ConfigStore {
             filetypes: vec![
                 FiletypeConfig {
+                    language_id: None,
                     id: "rust".to_string(),
                     extensions: vec!["rs".to_string()],
                     patterns: Vec::new(),
                 },
                 FiletypeConfig {
+                    language_id: None,
                     id: "c".to_string(),
                     extensions: vec!["c".to_string()],
                     patterns: vec![Regex::new("main").expect("regex should compile")],

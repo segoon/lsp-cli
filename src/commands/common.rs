@@ -1,5 +1,5 @@
 use crate::commands::daemon::launch_for_workspace;
-use crate::config::ConfigStore;
+use crate::config::{ConfigStore, DocumentLanguages};
 use crate::detect::{DetectionResult, detect_workspace};
 use crate::error::{Error, Result, error_fn};
 use crate::lsp::path_to_file_uri;
@@ -15,6 +15,7 @@ use std::time::Duration;
 use crate::lsp::LspClient;
 
 pub(super) struct PreparedWorkspace {
+    pub document_languages: DocumentLanguages,
     pub detection: DetectionResult,
     pub server: SuggestedLanguage,
     pub allowed_filetypes: BTreeSet<String>,
@@ -83,6 +84,7 @@ pub(super) fn prepare_workspace(
     };
 
     Ok(PreparedWorkspace {
+        document_languages: DocumentLanguages::new(&config.filetypes, &resolved.allowed_filetypes),
         detection,
         server,
         allowed_filetypes: resolved.allowed_filetypes,
@@ -94,6 +96,16 @@ pub(super) fn prepare_workspace(
 }
 
 pub(super) fn connect_lsp_client(
+    workspace: &PreparedWorkspace,
+    detach: bool,
+    debug: bool,
+    timeout: Duration,
+) -> Result<LspClient> {
+    connect_transport(workspace, detach, debug, timeout)
+        .map(|client| client.with_document_languages(workspace.document_languages.clone()))
+}
+
+fn connect_transport(
     workspace: &PreparedWorkspace,
     detach: bool,
     debug: bool,

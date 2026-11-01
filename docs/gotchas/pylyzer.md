@@ -2,11 +2,12 @@
 
 - pylyzer 0.0.82 can return generated `__pycache__/*.d.er` files from `workspace/symbol`
   when a named Python query falls back from document symbols. Strict document-language
-  resolution rejects these Erg anchors before sending `textDocument/typeDefinition`, since
-  they do not match the selected Python filetype. CI run `41336328999` and a local replay
-  reproduced this with different generated files. This failure is distinct from the known
-  empty type-definition result; widening its expected-failure diagnostic would hide a
-  client/server compatibility regression introduced by strict document-language resolution.
+  resolution previously rejected these Erg locations before sending `textDocument/typeDefinition`,
+  since they do not match the selected Python filetype. CI run `41336328999` and a local replay
+  reproduced this with different generated files. Query locations now carry their origin:
+  unknown-language server locations are queried without `didOpen`, while explicit user
+  locations remain strict. The known empty type-definition result keeps its narrow
+  expected-failure diagnostic; no server-specific language guess or cache-path exclusion is needed.
 - A direct protocol probe returned broad candidates for workspace query `order`, including
   17 generated-file locations without an exact `order` symbol. Sending type-definition
   requests to all 17 locations without `didOpen` succeeded with empty results. This supports

@@ -22,6 +22,16 @@ impl DocumentLanguages {
     }
 
     pub fn resolve(&self, path: &Path) -> Result<&str> {
+        match self.resolve_if_known(path)? {
+            Some(id) => Ok(id),
+            None => Err(Error::detection(format!(
+                "cannot determine the document language for {}: no filetype matches for the selected server and language",
+                path.display()
+            ))),
+        }
+    }
+
+    pub fn resolve_if_known(&self, path: &Path) -> Result<Option<&str>> {
         let document = FiletypePath::new(path);
         let candidates = self
             .filetypes
@@ -40,13 +50,10 @@ impl DocumentLanguages {
             && let Some(id) = ids.first()
         {
             // Several detection aliases may legitimately identify the same protocol language.
-            return Ok(id);
+            return Ok(Some(id));
         }
         if candidates.is_empty() {
-            return Err(Error::detection(format!(
-                "cannot determine the document language for {}: no filetype matches for the selected server and language",
-                path.display()
-            )));
+            return Ok(None);
         }
         Err(Error::detection(format!(
             "cannot determine the document language for {}: matching filetypes {} use different language IDs; select one with --lang",

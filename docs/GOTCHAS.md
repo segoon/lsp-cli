@@ -21,7 +21,9 @@
   `cs` → `csharp`. Document opening shares detection's case-insensitive extension and filename-pattern matching.
 - Match only filetypes allowed by the selected server and `--lang`. Multiple matching filetypes are safe when they
   resolve to the same protocol ID; different IDs (such as Objective-C and MATLAB for `.m`) require explicit selection.
-  Unmatched documents produce an error rather than silently becoming `plaintext`.
+  Unmatched user-selected or scanned documents produce an error rather than silently becoming `plaintext`.
+- Locations returned by the server may refer to generated files with no configured language. Navigation queries these
+  documents without `didOpen`; known-language files still open normally, and ambiguous language matches remain errors.
 - The inspected LuaLS document-open handler ignores `languageId` and compiles by URI. Successful semantic queries do
   not establish that IDs are correct; capability-only checks never open documents. Direct and windowed protocol-frame
   regressions therefore assert language IDs explicitly. Do not remove server exceptions without real-server evidence.

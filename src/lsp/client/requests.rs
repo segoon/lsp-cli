@@ -22,6 +22,18 @@ use serde_json::{Value, json};
 use std::path::Path;
 
 impl LspClient {
+    pub fn open_server_document(&mut self, path: &Path, uri: &str) -> Result<()> {
+        if self.opened_documents.contains(uri) {
+            return Ok(());
+        }
+        // Server-returned locations may refer to generated files with no configured language.
+        // LSP permits queries on closed documents; avoid guessing an ID or taking ownership.
+        if self.document_languages.resolve_if_known(path)?.is_none() {
+            return Ok(());
+        }
+        self.open_document(path, uri)
+    }
+
     pub fn open_document(&mut self, path: &Path, uri: &str) -> Result<()> {
         if self.opened_documents.contains(uri) {
             return Ok(());

@@ -63,55 +63,83 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  test:
-    name: ${{ matrix.name }}
-    needs: plan
-    if: ${{ fromJSON(needs.plan.outputs.plan).has_runnable }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 90
-    strategy:
-      fail-fast: false
-      max-parallel: 4
-      matrix: ${{ fromJSON(needs.plan.outputs.plan).matrix }}
-    steps:
-      - name: Check out repository and data
-        uses: actions/checkout@v7
-        with:
-          submodules: recursive
-      - name: Download Mason registry snapshot
-        uses: actions/download-artifact@v8
-        with:
-          name: mason-registry-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/mason-registry
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rust-src
-      - name: Cache Rust build artifacts
-        uses: Swatinem/rust-cache@v2
-      - name: Cache E2E runtimes
-        uses: actions/cache@v6
-        with:
-          path: .env
-          key: e2e-runtimes-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('tests/e2e/dependencies/catalog.rs', 'tests/e2e/dependencies/preparation.rs') }}
-          restore-keys: e2e-runtimes-${{ runner.os }}-${{ runner.arch }}-
-      - name: Increase E2E runtime filesystem capacity
-        run: |
-          # Server installations, Gradle distributions, and indexes share this tmpfs.
-          # Raise its limit without reserving memory or changing sandbox/socket paths.
-          findmnt --mountpoint "$XDG_RUNTIME_DIR" --types tmpfs
-          sudo mount -o remount,size=50% "$XDG_RUNTIME_DIR"
-          df -h "$XDG_RUNTIME_DIR"
-      - name: Run compatibility cases
-        env:
-          MATRIX_CASES: ${{ matrix.cases }}
-          E2E_MASON_REGISTRY_SNAPSHOT: ${{ runner.temp }}/mason-registry
-        run: |
-          IFS=',' read -ra cases <<< "$MATRIX_CASES"
-          failed=0
-          for case in "${cases[@]}"; do
-            if ! make test-e2e CASE="$case"; then
-              failed=1
-            fi
-          done
-          exit "$failed"
+  # Run families in sequence to retain the global limit of four test jobs.
+  # Explicit status checks let later families run after failures or empty selections.
+  test-cargo:
+    name: cargo
+    needs:
+      - plan
+    if: ${{ !cancelled() && needs.plan.result == 'success' && fromJSON(needs.plan.outputs.plan).families.cargo.has_runnable }}
+    uses: ./.github/workflows/e2e-family.yml
+    with:
+      matrix: ${{ toJSON(fromJSON(needs.plan.outputs.plan).families.cargo.matrix) }}
+
+  test-generic:
+    name: generic
+    needs:
+      - plan
+      - test-cargo
+    if: ${{ !cancelled() && needs.plan.result == 'success' && fromJSON(needs.plan.outputs.plan).families.generic.has_runnable }}
+    uses: ./.github/workflows/e2e-family.yml
+    with:
+      matrix: ${{ toJSON(fromJSON(needs.plan.outputs.plan).families.generic.matrix) }}
+
+  test-github:
+    name: github
+    needs:
+      - plan
+      - test-generic
+    if: ${{ !cancelled() && needs.plan.result == 'success' && fromJSON(needs.plan.outputs.plan).families.github.has_runnable }}
+    uses: ./.github/workflows/e2e-family.yml
+    with:
+      matrix: ${{ toJSON(fromJSON(needs.plan.outputs.plan).families.github.matrix) }}
+
+  test-golang:
+    name: golang
+    needs:
+      - plan
+      - test-github
+    if: ${{ !cancelled() && needs.plan.result == 'success' && fromJSON(needs.plan.outputs.plan).families.golang.has_runnable }}
+    uses: ./.github/workflows/e2e-family.yml
+    with:
+      matrix: ${{ toJSON(fromJSON(needs.plan.outputs.plan).families.golang.matrix) }}
+
+  test-luarocks:
+    name: luarocks
+    needs:
+      - plan
+      - test-golang
+    if: ${{ !cancelled() && needs.plan.result == 'success' && fromJSON(needs.plan.outputs.plan).families.luarocks.has_runnable }}
+    uses: ./.github/workflows/e2e-family.yml
+    with:
+      matrix: ${{ toJSON(fromJSON(needs.plan.outputs.plan).families.luarocks.matrix) }}
+
+  test-npm:
+    name: npm
+    needs:
+      - plan
+      - test-luarocks
+    if: ${{ !cancelled() && needs.plan.result == 'success' && fromJSON(needs.plan.outputs.plan).families.npm.has_runnable }}
+    uses: ./.github/workflows/e2e-family.yml
+    with:
+      matrix: ${{ toJSON(fromJSON(needs.plan.outputs.plan).families.npm.matrix) }}
+
+  test-nuget:
+    name: nuget
+    needs:
+      - plan
+      - test-npm
+    if: ${{ !cancelled() && needs.plan.result == 'success' && fromJSON(needs.plan.outputs.plan).families.nuget.has_runnable }}
+    uses: ./.github/workflows/e2e-family.yml
+    with:
+      matrix: ${{ toJSON(fromJSON(needs.plan.outputs.plan).families.nuget.matrix) }}
+
+  test-pypi:
+    name: pypi
+    needs:
+      - plan
+      - test-nuget
+    if: ${{ !cancelled() && needs.plan.result == 'success' && fromJSON(needs.plan.outputs.plan).families.pypi.has_runnable }}
+    uses: ./.github/workflows/e2e-family.yml
+    with:
+      matrix: ${{ toJSON(fromJSON(needs.plan.outputs.plan).families.pypi.matrix) }}

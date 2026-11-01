@@ -39,9 +39,12 @@ use expected_failure::ExpectedFailure;
 mod records;
 use dispositions::require_text;
 #[path = "manifest/coverage.rs"]
-pub(crate) mod coverage_cases;
+mod coverage_cases;
 #[path = "manifest/suite.rs"]
 mod suite;
+#[cfg(feature = "e2e-workflow-planner")]
+#[path = "manifest/workflow.rs"]
+pub(crate) mod workflow;
 use suite::{Architecture, OperatingSystem, Platform, TestDefaults};
 
 const MANIFEST_SCHEMA_VERSION: u32 = 19;

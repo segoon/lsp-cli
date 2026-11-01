@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use crate::manifest::Manifest;
-pub use crate::manifest::coverage_cases::{
+pub use crate::manifest::workflow::{
     DownloadableServer, InstallationFamily, RegistrySnapshot, WorkflowPackage, WorkflowPlan,
     WorkflowSelector,
 };

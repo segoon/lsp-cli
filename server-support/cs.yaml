@@ -19,8 +19,19 @@ pairs:
       supported-operations:
         - server-capabilities
         - diagnostics
+        - format
         - grep
+        - list-symbols
+        - list-functions
+        - references
+        - definition
+        - implementation
+        - type-definition
         - build-index
+      exceptions:
+        - command: type-definition
+          outcome: empty-matches
+          reason: OmniSharp returns no type-definition matches for the BuildSampleOrder method target
       lsp-timeout-seconds: 60
       deadline-seconds: 400
     lifecycle:

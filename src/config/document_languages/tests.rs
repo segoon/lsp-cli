@@ -49,6 +49,12 @@ fn resolves_default_override_case_and_filename_patterns_per_document() {
             languages.resolve(Path::new(path)).expect("language"),
             expected
         );
+        assert_eq!(
+            languages
+                .resolve_if_known(Path::new(path))
+                .expect("language"),
+            Some(expected)
+        );
     }
 }
 
@@ -66,11 +72,15 @@ fn restricts_ambiguous_extensions_to_selected_filetypes() {
             expected
         );
     }
-    let error = languages(&files, &["objc", "matlab"])
-        .resolve(Path::new("main.m"))
-        .expect_err("ambiguous languages must not be guessed");
-    assert!(error.contains("matlab, objc"));
-    assert!(error.contains("--lang"));
+    let ambiguous = languages(&files, &["objc", "matlab"]);
+    for result in [
+        ambiguous.resolve(Path::new("main.m")).map(Some),
+        ambiguous.resolve_if_known(Path::new("main.m")),
+    ] {
+        let error = result.expect_err("ambiguous languages must not be guessed");
+        assert!(error.contains("matlab, objc"));
+        assert!(error.contains("--lang"));
+    }
 }
 
 #[test]
@@ -94,6 +104,12 @@ fn rejects_unknown_or_disallowed_documents_without_plaintext_fallback() {
     for path in ["main.lua", "unknown", "/"] {
         let error = languages.resolve(Path::new(path)).expect_err("no language");
         assert!(error.contains("no filetype matches"));
+        assert_eq!(
+            languages
+                .resolve_if_known(Path::new(path))
+                .expect("unknown"),
+            None
+        );
     }
     DocumentLanguages::new(&[], &BTreeSet::new())
         .resolve(Path::new("main.py"))

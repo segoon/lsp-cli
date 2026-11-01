@@ -6,8 +6,8 @@ use crate::error::{Error, Result};
 use crate::lsp::{
     LspClient, SourceCache, SymbolMatch, document_symbol_matches_from_response,
     document_symbol_supported, function_matches_from_document_response, is_function_symbol_kind,
-    path_to_file_uri, should_skip_document_symbol_error,
-    symbol_full_content_from_document_response, symbol_matches_from_response,
+    should_skip_document_symbol_error, symbol_full_content_from_document_response,
+    symbol_matches_from_response,
 };
 use crate::suggest::SuggestedLanguage;
 use std::collections::{BTreeSet, HashSet};
@@ -186,14 +186,7 @@ fn scan_workspace_files(
 }
 
 fn open_document_for(client: &mut LspClient, path: &Path, server_name: &str) -> Result<String> {
-    let uri = path_to_file_uri(path)?;
-    client.open_document(path, &uri).map_err(|error| {
-        error.with_prefix(format!(
-            "failed to open {} with {server_name}",
-            path.display()
-        ))
-    })?;
-    Ok(uri)
+    navigation::QueryOrigin::User.open(client, path, server_name)
 }
 
 pub(super) fn list_symbols_target(path: &Path) -> Result<ListSymbolsTarget> {
@@ -427,7 +420,11 @@ fn fill_definition_full_content(
 
     for matched in matches {
         if !responses.contains_key(&matched.path) {
-            let uri = open_document_for(client, &matched.path, &workspace.server.server)?;
+            let uri = navigation::QueryOrigin::Server.open(
+                client,
+                &matched.path,
+                &workspace.server.server,
+            )?;
             let response = match client.document_symbol(&uri) {
                 Ok(response) => Some(response),
                 Err(error) if should_skip_document_symbol_error(&error.to_string()) => None,

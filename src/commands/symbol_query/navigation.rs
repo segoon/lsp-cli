@@ -7,8 +7,29 @@ use super::{WorkspaceSymbolQueryResult, render_workspace_symbol_result, with_ini
 use crate::cli::NavigationArgs;
 use crate::config::ConfigStore;
 use crate::error::Result;
-use crate::lsp::{SymbolMatch, Utf16Position};
+use crate::lsp::{LspClient, SymbolMatch, Utf16Position, path_to_file_uri};
 use crate::navigation::NavigationTarget;
+use std::path::Path;
+
+#[derive(Clone, Copy)]
+pub(super) enum QueryOrigin {
+    User,
+    Server,
+}
+
+impl QueryOrigin {
+    pub(super) fn open(self, client: &mut LspClient, path: &Path, server: &str) -> Result<String> {
+        let uri = path_to_file_uri(path)?;
+        let result = match self {
+            Self::User => client.open_document(path, &uri),
+            Self::Server => client.open_server_document(path, &uri),
+        };
+        result.map_err(|error| {
+            error.with_prefix(format!("failed to open {} with {server}", path.display()))
+        })?;
+        Ok(uri)
+    }
+}
 
 #[derive(Clone, Copy)]
 pub(in crate::commands) enum NavigationKind {
@@ -22,6 +43,13 @@ pub(super) struct QueryAnchor {
     pub position: Utf16Position,
     pub name: Option<String>,
     pub kind: Option<lsp_types::SymbolKind>,
+    pub origin: QueryOrigin,
+}
+
+impl QueryAnchor {
+    pub(super) fn open(&self, client: &mut LspClient, server: &str) -> Result<String> {
+        self.origin.open(client, &self.path, server)
+    }
 }
 
 impl From<SymbolMatch> for QueryAnchor {
@@ -31,6 +59,7 @@ impl From<SymbolMatch> for QueryAnchor {
             position: matched.position,
             name: matched.name,
             kind: matched.kind,
+            origin: QueryOrigin::Server,
         }
     }
 }
@@ -50,6 +79,7 @@ pub(in crate::commands) fn run_navigation(
             position: location.resolve(expected_name.as_deref())?,
             name: expected_name.clone(),
             kind: None,
+            origin: QueryOrigin::User,
         }),
         NavigationTarget::Name(_) => None,
     };

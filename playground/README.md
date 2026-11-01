@@ -245,3 +245,15 @@ cargo run -- format playground/lua/timestamp.lua --lang lua --lsp lua-language-s
 
 The protocol ID defaults to the filetype ID; configured aliases override it (for example,
 C# uses `csharp`, Objective-C uses `objective-c`, and Bash uses `shellscript`).
+
+Servers may return symbol locations in generated files whose language is not configured.
+Navigation queries those locations without opening the files; explicit `--at` locations
+still require a known language. The Python playground exercises this with pylyzer's generated
+Erg files:
+
+```sh
+make test-e2e CASE=python/pylyzer
+```
+
+The case should reach its documented empty type-definition result rather than fail to identify
+the generated file's language. That expected failure does not establish positive type-definition support.

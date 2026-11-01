@@ -4,7 +4,7 @@ mod tests;
 use super::kinds::{CallHierarchyDirection, LocationQueryKind};
 use super::{
     NamedAnchorRequest, PreparedWorkspace, dedupe_symbol_matches, fill_definition_full_content,
-    open_document_for, select_named_anchors,
+    select_named_anchors,
 };
 use crate::config::ConfigStore;
 use crate::error::Result;
@@ -51,7 +51,7 @@ pub(super) fn collect_location_matches(
     let mut matches = Vec::new();
 
     for anchor in anchors {
-        let uri = open_document_for(client, &anchor.path, &workspace.server.server)?;
+        let uri = anchor.open(client, &workspace.server.server)?;
         let response = match context.kind.query(client, &uri, anchor.position) {
             Ok(response) => response,
             Err(error) => {
@@ -121,7 +121,7 @@ pub(super) fn collect_call_hierarchy_matches(
     let mut matches = Vec::new();
 
     for anchor in anchors {
-        let uri = open_document_for(client, &anchor.path, &workspace.server.server)?;
+        let uri = anchor.open(client, &workspace.server.server)?;
         let prepared = client
             .prepare_call_hierarchy(&uri, anchor.position)
             .map_err(|error| {

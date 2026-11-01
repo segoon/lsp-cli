@@ -4,6 +4,11 @@ use super::{
     QueryKind, observed_operations, validate_capability_contract, validate_variable_matches,
 };
 
+fn manifest() -> crate::manifest::Manifest {
+    crate::manifest::Manifest::load_validated(crate::repository_root())
+        .expect("manifest should validate")
+}
+
 #[test]
 fn advertised_capabilities_map_to_operations() {
     let capabilities = json!({
@@ -79,9 +84,45 @@ fn capability_contract_reports_only_added_and_missing_operations() {
 }
 
 #[test]
+fn omnisharp_contracts_match_object_valued_capabilities() {
+    let manifest = manifest();
+    let case = manifest
+        .real_server_smoke_cases()
+        .find(|case| case.label() == "cs/omnisharp")
+        .expect("OmniSharp query case should exist");
+    // OmniSharp 1.39.15 advertises these providers as options objects, not booleans.
+    let capabilities = json!({
+        "documentFormattingProvider": {},
+        "workspaceSymbolProvider": {},
+        "documentSymbolProvider": {},
+        "referencesProvider": {},
+        "definitionProvider": {},
+        "implementationProvider": {},
+        "typeDefinitionProvider": {},
+    });
+    for command in super::QUERY_COMMANDS {
+        if let Some(path) = super::capability_path(command) {
+            assert_eq!(
+                case.supports(command),
+                super::supports(&capabilities, path),
+                "stored OmniSharp support for {command:?} should match its initialize response"
+            );
+        }
+    }
+    let vb = manifest
+        .real_server_capabilities_cases()
+        .find(|case| case.label() == "vb/omnisharp")
+        .expect("OmniSharp Visual Basic capability case should exist");
+    validate_capability_contract(
+        vb.supported_operations(),
+        &observed_operations(&capabilities),
+    )
+    .expect("stored OmniSharp Visual Basic operations should match its initialize response");
+}
+
+#[test]
 fn elp_contract_includes_advertised_implementation_support() {
-    let manifest = crate::manifest::Manifest::load_validated(crate::repository_root())
-        .expect("manifest should validate");
+    let manifest = manifest();
     let case = manifest
         .real_server_capabilities_cases()
         .find(|case| case.label() == "erlang/elp")

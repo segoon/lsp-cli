@@ -7,6 +7,11 @@
   reproduced this with different generated files. This failure is distinct from the known
   empty type-definition result; widening its expected-failure diagnostic would hide a
   client/server compatibility regression introduced by strict document-language resolution.
+- A direct protocol probe returned broad candidates for workspace query `order`, including
+  17 generated-file locations without an exact `order` symbol. Sending type-definition
+  requests to all 17 locations without `didOpen` succeeded with empty results. This supports
+  querying server-returned unknown-language files without taking ownership of their content;
+  the separate policy of accepting broad candidates remains relevant when no exact name matches.
 - In an isolated current-Mason run against the Python playground, pylyzer returned no immediate
   `workspace/symbol` matches and no incoming call-hierarchy edges for `build_sample_order`, while
   its other applicable semantic queries completed. Exhaustive coverage records those two empty

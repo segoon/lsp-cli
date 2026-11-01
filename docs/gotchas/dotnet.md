@@ -17,8 +17,8 @@
 - OmniSharp 1.39.15 advertises formatting, document symbols, references, definition,
   implementation, and type-definition providers as options objects (`{}`). These count as
   supported capabilities. Both C# and Visual Basic contracts must include them; querying
-  type-definition for the `BuildSampleOrder` method still returns no matches, so that non-applicable
-  relationship has a narrow empty-result exception, like the Roslyn method query.
+  type-definition for the `BuildSampleOrder` method still returns no matches. That observed
+  result has a narrow empty-result exception, like the Roslyn method query.
 - OmniSharp 1.39.15 previously closed the transport while lsp-cli waited for a `shutdown` response.
   Against pinned Mason snapshot `2026-09-30-aboard-mob`, however, the complete C# smoke case passed
   twice in fresh isolated homes, including repeated direct shutdown exchanges. Its stale broad

@@ -509,11 +509,17 @@ shows all selected pairs, including reviewed exclusions, before runnable pairs a
 **Pull requests** run all deterministic tests and checks via `make check`, then every executable
 pair marked `tier: smoke` through `make test-e2e-smoke`.
 
-**Nightly** runs all executable manifest pairs, sharded by language and server installation family, with
-fail-fast disabled so one broken server doesn't hide the rest of the compatibility report. The
-planner resolves installation families from the current Mason registry rather than copying that
-registry metadata into `cases/`. Suite-level smoke, lifecycle, and provisioning deadlines provide
-common defaults; cases only declare intentional overrides.
+**Nightly** runs all executable manifest pairs, with one matrix per server installation family and
+one job per language within that family. A shared reusable workflow runs each family's matrix.
+Families run sequentially, with up to four jobs at a time, to retain the overall concurrency limit.
+Fail-fast is disabled, and later families still run after a failed or skipped family, so one broken
+server doesn't hide the rest of the compatibility report. Empty families are skipped. The planner
+rejects any family exceeding GitHub Actions' limit of 256 jobs per matrix and reports each family's
+job count in the workflow summary. Adding an installation family requires a corresponding caller
+job in `.github/workflows/e2e.yml`; the workflow contract test checks that every family is covered.
+The planner resolves installation families from the current Mason registry rather than copying
+that registry metadata into `cases/`. Suite-level smoke, lifecycle, and provisioning deadlines
+provide common defaults; cases only declare intentional overrides.
 
 Jobs never share homes, daemon runtime directories, or mutable workspaces. The planner uploads one
 immutable, verified Mason registry snapshot for all shards; each case copies that snapshot into its

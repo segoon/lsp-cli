@@ -459,11 +459,11 @@ fn server_call_hierarchy_locations_can_remain_closed() {
                 peer.reply(&calls, json!([]));
                 peer.finish();
             });
-        assert!(
+        assert_eq!(
             fixture
                 .calls(&mut client, direction, None)
-                .expect("unopened hierarchy")
-                .is_empty()
+                .expect("unopened hierarchy"),
+            Vec::new()
         );
         client.shutdown().expect("shutdown");
         server.join().expect("no didOpen for generated document");

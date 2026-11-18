@@ -1,0 +1,29 @@
+{
+  "anchors": [
+    {
+      "file": "00_normal.cpp",
+      "line": 2,
+      "column": 8
+    },
+    {
+      "file": "01_user.cpp",
+      "line": 2,
+      "column": 8
+    }
+  ],
+  "references": [
+    {
+      "file": "00_normal.cpp",
+      "line": 3,
+      "column": 14,
+      "length": 10
+    },
+    {
+      "file": "01_user.cpp",
+      "line": 3,
+      "column": 28,
+      "length": 10
+    }
+  ],
+  "coordinates": "one-based lines and columns"
+}

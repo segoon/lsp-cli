@@ -571,6 +571,8 @@ See [OmniSharp notes](gotchas/dotnet.md#omnisharp).
 
 ## clangd
 
+See [Anonymous namespace source-file comparison](gotchas/clangd-source-anonymous.md) for the header exclusion and verified source-file workaround.
+
 - Objective-C name queries may fall back to `workspace/symbol` and return `.h` anchors that `--lang objc` cannot open: its filetype recognizes only `.m`.
   Keep the playground implementation protocol and file-scope type-definition data in `.m`; this fixture workaround does not add general header support.
   clangd 23.1.0 returned no type-definition matches for a file-scope `Order *` value; the fixture queries its `OrderItem` data instead.

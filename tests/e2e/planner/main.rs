@@ -2,7 +2,7 @@
     dead_code,
     reason = "The planner reuses Mason modules with broader production APIs."
 )]
-#![expect(
+#![allow(
     clippy::indexing_slicing,
     clippy::let_underscore_must_use,
     clippy::string_slice,

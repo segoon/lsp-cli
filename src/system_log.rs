@@ -1,11 +1,10 @@
 use crate::runtime_state::{RuntimeState, default_runtime_state_root};
-use humantime::format_rfc3339_millis;
+use jiff::Timestamp;
 use shlex::try_join as shell_try_join;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{self, ExitStatus};
-use std::time::SystemTime;
 
 const MAX_LOG_FILE_SIZE: u64 = 10 * 1024 * 1024;
 
@@ -74,7 +73,7 @@ pub(crate) fn append_system_log_line(message: &str) {
     let Ok(mut file) = LockedLogFile::open(&log_path) else {
         return;
     };
-    let timestamp = current_log_timestamp();
+    let timestamp = format_log_timestamp(Timestamp::now());
     let pid = process::id();
 
     for line in message.lines() {
@@ -84,8 +83,8 @@ pub(crate) fn append_system_log_line(message: &str) {
     }
 }
 
-fn current_log_timestamp() -> String {
-    format_rfc3339_millis(SystemTime::now()).to_string()
+fn format_log_timestamp(timestamp: Timestamp) -> String {
+    format!("{timestamp:.3}")
 }
 
 fn format_command(command: &[String]) -> String {
@@ -172,10 +171,11 @@ fn default_log_path() -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::{
-        append_system_log_line_to_file, current_log_timestamp, format_command, format_exit_status,
+        append_system_log_line_to_file, format_command, format_exit_status, format_log_timestamp,
         log_size_warning_message,
     };
     use crate::test_support::TestDir;
+    use jiff::Timestamp;
     use shlex::split as shell_split;
     use std::fs::{self, File};
     use std::os::unix::process::ExitStatusExt;
@@ -204,17 +204,14 @@ mod tests {
     }
 
     #[test]
-    fn formats_current_log_timestamp_as_utc_rfc3339_milliseconds() {
-        let timestamp = current_log_timestamp();
-
-        assert!(timestamp.ends_with('Z'));
-        assert_eq!(timestamp.len(), "2026-02-22T15:02:01.123Z".len());
-        assert_eq!(&timestamp[4..5], "-");
-        assert_eq!(&timestamp[7..8], "-");
-        assert_eq!(&timestamp[10..11], "T");
-        assert_eq!(&timestamp[13..14], ":");
-        assert_eq!(&timestamp[16..17], ":");
-        assert_eq!(&timestamp[19..20], ".");
+    fn formats_log_timestamp_as_utc_rfc3339_milliseconds() {
+        for (input, expected) in [
+            ("2026-02-22T15:02:01Z", "2026-02-22T15:02:01.000Z"),
+            ("2026-02-22T15:02:01.123999999Z", "2026-02-22T15:02:01.123Z"),
+        ] {
+            let timestamp: Timestamp = input.parse().expect("fixture should parse");
+            assert_eq!(format_log_timestamp(timestamp), expected);
+        }
     }
 
     #[test]

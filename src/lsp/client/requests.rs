@@ -26,12 +26,14 @@ impl LspClient {
         if self.opened_documents.contains(uri) {
             return Ok(());
         }
-        // Server-returned locations may refer to generated files with no configured language.
-        // LSP permits queries on closed documents; avoid guessing an ID or taking ownership.
-        if self.document_languages.resolve_if_known(path)?.is_none() {
+        // Some servers can query generated locations unopened when no language was selected.
+        let Some(language_id) = self.document_languages.resolve_server_location(path)? else {
             return Ok(());
-        }
-        self.open_document(path, uri)
+        };
+        let language_id = language_id.to_owned();
+        self.drain_pending_server_requests()?;
+        let text = crate::fs::read_to_string(path)?;
+        self.write_document_text(uri, text, language_id)
     }
 
     pub fn open_document(&mut self, path: &Path, uri: &str) -> Result<()> {
@@ -48,7 +50,8 @@ impl LspClient {
         }
 
         let text = crate::fs::read_to_string(path)?;
-        self.write_document_text(path, uri, text)
+        let language_id = self.document_languages.resolve(path)?.to_owned();
+        self.write_document_text(uri, text, language_id)
     }
 
     pub fn open_document_text(&mut self, path: &Path, uri: &str, text: String) -> Result<()> {
@@ -56,14 +59,15 @@ impl LspClient {
             return Ok(());
         }
         self.drain_pending_server_requests()?;
-        self.write_document_text(path, uri, text)
+        let language_id = self.document_languages.resolve(path)?.to_owned();
+        self.write_document_text(uri, text, language_id)
     }
 
-    fn write_document_text(&mut self, path: &Path, uri: &str, text: String) -> Result<()> {
+    fn write_document_text(&mut self, uri: &str, text: String, language_id: String) -> Result<()> {
         let params = DidOpenTextDocumentParams {
             text_document: TextDocumentItem::new(
                 parse_lsp_uri(uri, "document")?,
-                self.document_languages.resolve(path)?.to_string(),
+                language_id,
                 1,
                 text,
             ),

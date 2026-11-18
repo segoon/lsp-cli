@@ -393,13 +393,25 @@ fn position_call_hierarchy_uses_prepared_items_without_discovery() {
 }
 
 #[test]
-fn server_locations_leave_unknown_documents_closed_including_full_content() {
-    for (full, rejected) in [(false, false), (true, false), (false, true)] {
+fn server_locations_use_selected_language_for_unmatched_paths() {
+    for (full, rejected, selected) in [
+        (false, false, None),
+        (true, false, None),
+        (false, true, None),
+        (false, false, Some("lua")),
+    ] {
         let fixture = Fixture::new(20);
         let uri = fixture.generated_uri();
         let (mut client, server) =
             LspPeer::spawn_lua(&fixture.dir, Duration::from_secs(3), move |peer| {
                 serve_fallback(peer, &uri);
+                if let Some(language_id) = selected {
+                    let open = peer.read();
+                    assert_eq!(open["method"], "textDocument/didOpen");
+                    let document = &open["params"]["textDocument"];
+                    assert_eq!(document["uri"], uri);
+                    assert_eq!(document["languageId"], language_id);
+                }
                 let request = peer.read();
                 assert_eq!(request["method"], "textDocument/typeDefinition");
                 assert_eq!(request["params"]["textDocument"]["uri"], uri);
@@ -417,6 +429,15 @@ fn server_locations_leave_unknown_documents_closed_including_full_content() {
                 }
                 peer.finish();
             });
+        if selected.is_some() {
+            client = client.with_document_languages(
+                crate::config::DocumentLanguages::new(
+                    &fixture.config.filetypes,
+                    &fixture.workspace.allowed_filetypes,
+                )
+                .with_selected_filetype(selected),
+            );
+        }
         let result = fixture.locations(&mut client, LocationQueryKind::TypeDefinition, None, full);
         if rejected {
             assert!(
@@ -425,14 +446,14 @@ fn server_locations_leave_unknown_documents_closed_including_full_content() {
                     .contains("server rejected generated location")
             );
         } else {
-            let matches = result.expect("query unopened server document");
+            let matches = result.expect("query server document");
             assert_eq!(matches.len(), 1);
             if full {
                 assert!(matches[0].full_content.is_some());
             }
         }
         client.shutdown().expect("shutdown");
-        server.join().expect("no didOpen for generated document");
+        server.join().expect("server finishes");
     }
 }
 

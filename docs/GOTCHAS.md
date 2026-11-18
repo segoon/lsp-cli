@@ -591,6 +591,15 @@ See [OmniSharp notes](gotchas/dotnet.md#omnisharp).
   could pass while the full parallel suite fell back to an empty immediate `workspace/symbol`
   result. The fixture keeps relationship anchors in a scanned source file so the assertion does
   not depend on background-index timing.
+- A named references query can fail with `trying to get AST for non-added document` when
+  clangd returns a workspace-symbol location that the client queries without opening it.
+  lsp-cli can query server-returned locations without `didOpen` when the filetype has no
+  configured language ID for the selected filetype. In Arcadia, `references HttpClient .
+  --lang cpp` queried the C++ field `HttpClient` in `yt/yt/client/api/rpc_proxy/config.h`.
+  The filetype catalog classified `.h` as C, so the client sent the request without
+  `didOpen`; clangd rejected it immediately. Navigation now uses the protocol language
+  ID configured for an explicit `--lang` to open unmatched server-returned targets.
+  Use `references --at FILE:LINE:COLUMN` to disambiguate symbols that share a name.
 - `clangd` may expose diagnostics only through delayed `textDocument/publishDiagnostics` even when
   it does send `$/progress`, and in some setups it does not advertise `diagnosticProvider` for
   pull diagnostics at all. For `lsp-cli diag`, prefer pull diagnostics when the capability is

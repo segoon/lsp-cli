@@ -8,6 +8,7 @@ use crate::error::{Error, Result};
 #[derive(Clone, Debug, Default)]
 pub struct DocumentLanguages {
     filetypes: Vec<FiletypeConfig>,
+    server_location_fallback: Option<String>,
 }
 
 impl DocumentLanguages {
@@ -18,7 +19,29 @@ impl DocumentLanguages {
                 .filter(|filetype| allowed.contains(&filetype.id))
                 .cloned()
                 .collect(),
+            server_location_fallback: None,
         }
+    }
+
+    pub fn with_selected_filetype(mut self, selected: Option<&str>) -> Self {
+        self.server_location_fallback = self
+            .filetypes
+            .iter()
+            .find(|filetype| Some(filetype.id.as_str()) == selected)
+            .map(|filetype| {
+                filetype
+                    .language_id
+                    .as_ref()
+                    .unwrap_or(&filetype.id)
+                    .clone()
+            });
+        self
+    }
+
+    pub fn resolve_server_location(&self, path: &Path) -> Result<Option<&str>> {
+        Ok(self
+            .resolve_if_known(path)?
+            .or(self.server_location_fallback.as_deref()))
     }
 
     pub fn resolve(&self, path: &Path) -> Result<&str> {

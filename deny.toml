@@ -1,7 +1,5 @@
 [advisories]
-ignore = [
-  { id = "RUSTSEC-2026-0542", reason = "Informational maintenance advisory. The locked humantime has no chrono dependency and only formats system log timestamps." },
-]
+ignore = []
 
 [bans]
 multiple-versions = "allow"

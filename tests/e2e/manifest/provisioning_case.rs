@@ -139,6 +139,7 @@ impl ServerCase {
         matches!(self.coverage, ServerCoverage::Pairs)
     }
 
+    #[cfg(any(test, feature = "e2e-workflow-planner"))]
     pub(super) fn is_capabilities_only(&self) -> bool {
         matches!(self.coverage, ServerCoverage::Capabilities { .. })
     }

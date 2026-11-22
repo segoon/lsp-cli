@@ -1,4 +1,4 @@
-#![expect(
+#![allow(
     clippy::expect_used,
     clippy::panic,
     reason = "E2E assertions report fixture failures with captured process diagnostics."

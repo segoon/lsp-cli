@@ -84,7 +84,8 @@ pub(super) fn prepare_workspace(
     };
 
     Ok(PreparedWorkspace {
-        document_languages: DocumentLanguages::new(&config.filetypes, &resolved.allowed_filetypes),
+        document_languages: DocumentLanguages::new(&config.filetypes, &resolved.allowed_filetypes)
+            .with_selected_filetype(selected_language),
         detection,
         server,
         allowed_filetypes: resolved.allowed_filetypes,
